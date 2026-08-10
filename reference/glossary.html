@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Glossary — PHP &amp; Laravel</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson glossary">
+
+  <p class="kicker">REFERENCE · LUG'AT</p>
+  <h1>Atamalar lug'ati</h1>
+  <p class="lead">Kursdagi barcha atamalar shu yerda izohlanadi. Inglizcha atama —
+  chunki hujjatlarni, xato xabarlarini va ish e'lonlarini inglizcha o'qiysiz;
+  izoh esa o'zbekcha.</p>
+
+  <p class="lesson-meta">
+    <span>Atamalar: <b>5 ta</b></span>
+    <span>Har dars bilan to'ldiriladi</span>
+    <span>📱 O'qishga mos</span>
+  </p>
+
+  <div class="callout note">
+    <span class="label">Bu hujjat o'sib boradi</span>
+    <p>Hozir faqat <b>IshTop</b> loyihasining domen atamalari kiritilgan — ular reja
+    bosqichida qat'iy belgilangan va 72 dars bo'ylab o'zgarmaydi. Qolgan atamalar
+    (<code>route</code>, <code>middleware</code>, <code>Eloquent</code>...) o'z darsi
+    yozilganda qo'shiladi — oldindan emas.</p>
+  </div>
+
+  <h2>IshTop — loyiha domeni</h2>
+  <p>Kurs davomida quriladigan ilovaning atamalari. Matnda o'zbekcha, <b>kodda inglizcha</b>
+  nom ishlatiladi — ikkisi shu jadval orqali bog'lanadi.</p>
+
+  <dl>
+    <div class="term" id="company">
+      <dt>Company <span class="uz">— kompaniya</span></dt>
+      <dd>Vakansiya joylaydigan tashkilot. Bitta <a href="#user">User</a> (ish beruvchi) ga
+      tegishli bo'ladi. <span class="eg">«TechUz» kompaniyasi 4 ta vakansiya joylagan</span></dd>
+    </div>
+
+    <div class="term" id="vacancy">
+      <dt>Vacancy <span class="uz">— vakansiya, ochiq ish o'rni</span></dt>
+      <dd>Ish e'loni. <a href="#company">Company</a> ga tegishli, muddati
+      (<code>expires_at</code>) bor va muddati o'tganda avtomatik yopiladi.
+      <span class="eg">«Laravel backend dasturchi» vakansiyasi</span></dd>
+    </div>
+
+    <div class="term" id="user">
+      <dt>User <span class="uz">— foydalanuvchi (ish beruvchi yoki nomzod)</span></dt>
+      <dd>Tizimga kiradigan odam. <b>Ikki xil roli</b> bor: <code>employer</code>
+      (ish beruvchi — kompaniyaga ega, vakansiya joylaydi) va <code>candidate</code>
+      (nomzod — ariza beradi). Alohida jadval emas, roli bilan ajratiladi.
+      <span class="eg">role ustuni: employer | candidate</span></dd>
+    </div>
+
+    <div class="term" id="application">
+      <dt>Application <span class="uz">— ariza</span></dt>
+      <dd>Nomzodning aynan bitta <a href="#vacancy">Vacancy</a> ga topshirgan hujjati.
+      Statusi (<code>status</code>) va rezyume fayli bor. <a href="#user">User</a> va
+      Vacancy orasidagi bog'lanish shu yozuv orqali amalga oshadi.
+      <span class="eg">status: yangi → ko'rildi → suhbat → rad etildi</span></dd>
+    </div>
+
+    <div class="term" id="skill">
+      <dt>Skill <span class="uz">— ko'nikma</span></dt>
+      <dd>Vakansiya talab qiladigan qobiliyat. <a href="#vacancy">Vacancy</a> bilan
+      <code>belongsToMany</code> bog'lanishida — ya'ni bitta vakansiyada bir nechta
+      ko'nikma, bitta ko'nikma bir nechta vakansiyada bo'ladi.
+      <span class="eg">PHP · Laravel · SQL · Redis</span></dd>
+    </div>
+  </dl>
+
+  <p class="lesson-nav">
+    <a href="../index.html">← Bosh sahifa</a>
+    <a href="yol-xaritasi.html">Yo'l xaritasi →</a>
+  </p>
+
+</main>
+</body>
+</html>

@@ -1,0 +1,14 @@
+# Ichki o'qituvchi fayllari — public repo'da bo'lmasin
+NOTES.md
+learning-records/
+docs/
+
+# Muharrir
+.idea/
+.vscode/
+*.swp
+*~
+
+# Tizim
+.DS_Store
+Thumbs.db

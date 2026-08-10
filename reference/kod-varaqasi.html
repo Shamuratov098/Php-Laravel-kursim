@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Kod varaqasi — PHP &amp; Laravel</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">REFERENCE · CHEAT SHEET</p>
+  <h1>Kod varaqasi</h1>
+  <p class="lead">Amaliyot paytida yonida turadigan varaq: buyruqlar, kod naqshlari va
+  muhit ma'lumotlari. Har dars yangi buyruq o'rgatilsa, shu yerga qo'shiladi.</p>
+
+  <p class="lesson-meta">
+    <span>Qamrov: <b>muhit va ishga tushirish</b></span>
+    <span>Har dars bilan to'ldiriladi</span>
+    <span>💻 Amaliyotga mos</span>
+  </p>
+
+  <div class="callout note">
+    <span class="label">Bu hujjat o'sib boradi</span>
+    <p>Hozir faqat <b>tekshirilgan</b> muhit ma'lumotlari va ishga tushirish buyruqlari
+    bor. Artisan buyruqlari, Eloquent va Blade naqshlari o'z darsi yozilganda qo'shiladi —
+    oldindan emas, chunki har bir buyruq avval jonli sinovdan o'tishi kerak.</p>
+  </div>
+
+  <h2>Muhit — nima o'rnatilgan</h2>
+  <table class="sheet">
+    <tr><th>Nima</th><th>Versiya</th><th class="note-cell">Izoh</th></tr>
+    <tr><td><code>php</code></td><td>8.3.32</td><td class="note-cell">Laravel 13 uchun yetarli (<code>^8.3</code>)</td></tr>
+    <tr><td><code>composer</code></td><td>2.9.5</td><td class="note-cell">PHP paket menejeri</td></tr>
+    <tr><td><code>node</code> / <code>npm</code></td><td>24 / 11</td><td class="note-cell">Vite (CSS/JS) uchun</td></tr>
+    <tr><td><code>docker</code></td><td>29.6</td><td class="note-cell">67-darsda (Sail) kerak bo'ladi</td></tr>
+    <tr><td>Laravel</td><td>13</td><td class="note-cell">Standart bazasi — SQLite</td></tr>
+    <tr><td>Pest</td><td>4</td><td class="note-cell">Pest 5 PHP 8.4+ talab qiladi, bizda 8.3</td></tr>
+  </table>
+
+  <div class="callout warning">
+    <span class="label">Muhitdagi ikkita cheklov</span>
+    <p><b>1.</b> <code>pdo_mysql</code> o'rnatilmagan — faqat <code>pdo_sqlite</code>,
+    <code>pdo_pgsql</code> va <code>redis</code> bor. MySQL <b>60-darsda</b>
+    <code>php8.3-mysql</code> o'rnatish bilan qo'shiladi.<br>
+    <b>2.</b> <code>mysql</code>, <code>psql</code>, <code>sqlite3</code> buyruq qatori
+    dasturlari yo'q → <code>php artisan db</code> ishlamaydi. Bazani
+    <code>php artisan tinker</code> orqali ko'ramiz.</p>
+  </div>
+
+  <h2>Papkalar — nima qayerda</h2>
+  <table class="sheet">
+    <tr><th>Papka</th><th class="note-cell">Nima uchun</th></tr>
+    <tr><td><code>Learn/Php-Laravel/</code></td><td class="note-cell">Shu kurs sayti (darslar, reference)</td></tr>
+    <tr><td><code>Learn/php-poydevor/</code></td><td class="note-cell">Modul A mashqlari + qo'lda yozilgan mini-framework</td></tr>
+    <tr><td><code>Learn/ishtop/</code></td><td class="note-cell">Laravel loyihasi — portfolio repo</td></tr>
+  </table>
+
+  <h2>Tekshirish va ishga tushirish</h2>
+  <table class="sheet">
+    <tr><th>Buyruq</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>php -v</code></td><td class="note-cell">PHP versiyasini ko'rsatadi</td></tr>
+    <tr><td><code>php -m</code></td><td class="note-cell">O'rnatilgan kengaytmalar ro'yxati</td></tr>
+    <tr><td><code>php fayl.php</code></td><td class="note-cell">Skriptni terminalda ishga tushiradi</td></tr>
+    <tr><td><code>php -S localhost:8000</code></td><td class="note-cell">PHP'ning o'z veb-serveri (Modul A da ishlatamiz)</td></tr>
+    <tr><td><code>composer -V</code></td><td class="note-cell">Composer versiyasi</td></tr>
+  </table>
+
+  <p class="lesson-nav">
+    <a href="../index.html">← Bosh sahifa</a>
+    <a href="glossary.html">Glossary →</a>
+  </p>
+
+</main>
+</body>
+</html>
