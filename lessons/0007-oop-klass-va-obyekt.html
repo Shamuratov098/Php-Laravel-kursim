@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 07 — OOP 1: klass va obyekt</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 07 · MODUL A — POYDEVOR</p>
+  <h1>OOP 1 — klass va obyekt: ma'lumot va mantiq birga</h1>
+  <p class="lead">Bu darsdan keyin o'z klassingizni yozasiz va undan obyekt yasaysiz.
+  Shu bilan Laravel kodidagi eng ko'p uchraydigan belgi — <code>-&gt;</code> — sizga
+  tushunarli bo'ladi. <code>$user-&gt;name</code>, <code>$request-&gt;input()</code> —
+  bugundan keyin bular sehr emas.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 9 daqiqa</span>
+    <span>💻 Amaliyot ≈ 13 daqiqa</span>
+    <span>Kerak: <a href="0006-funksiya-va-tiplar.html">Dars 06</a></span>
+  </p>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Nega bu muhim</span>
+    <p>6-dars oxirida muammoni aytgandim: vakansiya ma'lumoti bir massivda, uni
+    formatlaydigan funksiya boshqa joyda — <b>ularni birga tutib turadigan narsa yo'q</b>.
+    Loyiha o'sgani sari bu chalkashlikka aylanadi: qaysi funksiya qaysi massiv bilan
+    ishlaydi — faqat siz bilasiz, kod aytmaydi.</p>
+    <p><b>Klass shu muammoni yechadi:</b> ma'lumot va u bilan ishlaydigan funksiyalar bitta
+    quti ichida yashaydi. Laravel butunlay shu tushuncha ustiga qurilgan — har bir Model,
+    Controller, Request, Job — bu klass. Ya'ni bugungi dars Laravel'ga kirish eshigi.</p>
+  </div>
+
+  <!-- ═══════════════ 2) TUSHUNCHA ═══════════════ -->
+  <h2>Klass — chizma, obyekt — undan yasalgan narsa</h2>
+
+  <p>Ikkisini adashtirmaslik kerak:</p>
+
+  <table class="sheet">
+    <tr><th>Tushuncha</th><th class="note-cell">Nima</th></tr>
+    <tr><td><b>class</b> (klass)</td><td class="note-cell"><b>Chizma.</b> «Vakansiya degan narsada nom va maosh bo'ladi, va u o'zini ko'rsata oladi». Bitta marta yoziladi</td></tr>
+    <tr><td><b>object</b> (obyekt)</td><td class="note-cell"><b>Chizmaga ko'ra yasalgan aniq narsa.</b> «Backend dasturchi, 800$». Xohlagancha yasash mumkin</td></tr>
+    <tr><td><b>property</b></td><td class="note-cell">Obyekt ichidagi <b>ma'lumot</b> (o'zgaruvchi)</td></tr>
+    <tr><td><b>method</b></td><td class="note-cell">Obyekt ichidagi <b>funksiya</b>. Qoidalari 6-darsdagidek</td></tr>
+  </table>
+
+  <p>Metafora: <b>klass — uy chizmasi, obyekt — qurilgan uy.</b> Bitta chizmadan yuzta uy
+  qurish mumkin, va har birining o'z manzili, o'z rangi bo'ladi.</p>
+
+  <h3>Kod</h3>
+
+  <div class="codefile">
+    <div class="fname">tushuncha</div>
+    <code class="cmd" data-cmd="class Vakansiya
+{
+    public string $nom;      // property — ma'lumot
+    public int $maosh;
+
+    public function __construct(string $nom, int $maosh)
+    {
+        $this-&gt;nom = $nom;   // kelgan qiymatni obyektga saqlaydi
+        $this-&gt;maosh = $maosh;
+    }
+
+    public function korinish(): string   // method — mantiq
+    {
+        return &quot;{$this-&gt;nom} — {$this-&gt;maosh} $&quot;;
+    }
+}
+
+$backend = new Vakansiya(&quot;Backend dasturchi&quot;, 800);
+echo $backend-&gt;korinish();   // Backend dasturchi — 800 $">class Vakansiya
+{
+    public string $nom;      // property — ma'lumot
+    public int $maosh;
+
+    public function __construct(string $nom, int $maosh)
+    {
+        $this-&gt;nom = $nom;   // kelgan qiymatni obyektga saqlaydi
+        $this-&gt;maosh = $maosh;
+    }
+
+    public function korinish(): string   // method — mantiq
+    {
+        return "{$this-&gt;nom} — {$this-&gt;maosh} $";
+    }
+}
+
+$backend = new Vakansiya("Backend dasturchi", 800);
+echo $backend-&gt;korinish();   // Backend dasturchi — 800 $</code>
+  </div>
+
+  <p>To'rtta yangi narsa bor:</p>
+
+  <ul>
+    <li><code>new Vakansiya(...)</code> — <b>obyekt yasaydi</b>. Har <code>new</code> —
+    yangi, mustaqil obyekt.</li>
+    <li><code>__construct</code> — <b>maxsus metod</b>: obyekt yasalganda
+    <b>avtomatik</b> ishlaydi. Odatda kelgan qiymatlarni obyektga saqlash uchun ishlatiladi.
+    Oldidagi ikki tagchiziq (<code>__</code>) «bu PHP uchun maxsus ma'noga ega» degani.</li>
+    <li><code>$this</code> — <b>«aynan shu obyekt»</b>. Metod ichida obyektning o'z
+    ma'lumotiga murojaat qilish uchun ishlatiladi.</li>
+    <li><code>-&gt;</code> — <b>obyektga murojaat belgisi</b>. <code>$backend-&gt;nom</code>
+    = «shu obyektning nom xossasi», <code>$backend-&gt;korinish()</code> = «shu obyektning
+    korinish metodini ishga tushir».</li>
+  </ul>
+
+  <div class="callout note">
+    <span class="label"><code>$this</code> nima uchun kerak</span>
+    <p>Metod ichida <code>$nom</code> deb yozsangiz — bu <b>metodning o'z</b> lokal
+    o'zgaruvchisi (6-darsdagi scope qoidasi!). Obyektning xossasiga murojaat qilish uchun
+    <code>$this-&gt;nom</code> deb aytish <b>shart</b>. <code>$this</code> — «metod hozir
+    qaysi obyekt ustida ishlayapti» degan javob. Bitta klassdan yuzta obyekt yasalsa ham,
+    metod har chaqiruvda o'zining <code>$this</code> ini biladi.</p>
+  </div>
+
+  <h3>Obyekt — yangi tip</h3>
+
+  <p>5-darsda <code>var_dump</code> massivni <code>array(3)</code> deb ko'rsatgan edi.
+  Obyektni esa shunday ko'rsatadi:</p>
+
+  <div class="natija">object(Vakansiya)#1 (2) {
+  ["nom"]=&gt;
+  string(17) "Backend dasturchi"
+  ["maosh"]=&gt;
+  int(800)
+}</div>
+
+  <p>Diqqat qiling: tip nomi — <code>Vakansiya</code>, ya'ni <b>siz yozgan klass o'zi tipga
+  aylandi</b>. <code>#1</code> — obyektning tartib raqami (ikkinchi obyekt <code>#2</code>
+  bo'ladi). Bu 6-darsdagi type hint bilan bog'lanadi: endi
+  <code>function f(Vakansiya $v)</code> deb yozib, «bu yerga faqat vakansiya obyekti
+  kelsin» deyish mumkin.</p>
+
+  <h3>Bir klass — bir fayl</h3>
+
+  <p>Amalda har klass <b>o'z faylida</b> yashaydi va faylda faqat klass turadi — hech qanday
+  <code>echo</code> yo'q. Boshqa fayldan uni ishlatish uchun:</p>
+
+  <div class="codefile">
+    <div class="fname">tushuncha</div>
+    <code class="cmd" data-cmd="require '17-klass.php';   // shu faylni bu yerga qo'shadi
+$backend = new Vakansiya(&quot;Backend dasturchi&quot;, 800);">require '17-klass.php';   // shu faylni bu yerga qo'shadi
+$backend = new Vakansiya("Backend dasturchi", 800);</code>
+  </div>
+
+  <p><code>require</code> — «shu faylni o'qib, shu yerga qo'sh». Klasslar ko'payganda har
+  birini qo'lda <code>require</code> qilish zerikarli bo'ladi — <b>12-darsda</b> Composer
+  buni <b>avtomatik</b> qilishni ko'rsatamiz (<code>autoload</code>). Hozircha qo'lda.</p>
+
+  <div class="callout warning">
+    <span class="label">Tipli property'ga qiymat berilmasa — <code>Fatal error</code></span>
+    <p><code>public string $nom;</code> deb e'lon qilib, unga qiymat bermasangiz va o'qishga
+    urinsangiz:</p>
+    <div class="natija">PHP Fatal error:  Uncaught Error: Typed property V::$nom must not be accessed before initialization</div>
+    <p>Ya'ni «tipi bor xossaga qiymat berilmagan». Bu <b>foydali</b> qattiqqo'llik —
+    <code>null</code> jimgina tarqalib ketishining oldini oladi. Va aynan shu sababdan
+    <code>__construct</code> muhim: u obyekt yasalgan zahoti hamma xossaga qiymat beradi.</p>
+  </div>
+
+  <!-- ═══════════════ 4) AMALIYOT / MODE-HINT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    <span class="mode-hint-title">💻 Amaliy qism kompyuterda</span>
+    <p>Amaliyotda ikkita fayl yozasiz: <code>17-klass.php</code> — faqat
+    <code>Vakansiya</code> klassi (chiqishsiz), va <code>18-obyektlar.php</code> — undan
+    ikkita obyekt yasab, ro'yxat qilib chiqarasiz. Oxirida eng muhim tajriba:
+    <code>$b = $a</code> yozganda obyekt <b>nusxalanmasligini</b> o'z ko'zingiz bilan
+    ko'rasiz — va massiv bilan solishtirasiz.</p>
+    <button type="button" class="modebtn" data-set-mode="do">💻 Amaliyot rejimini ko'rish</button>
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <p>Papkaga o'ting</p>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/php-poydevor">cd ~/Projects/Learn/php-poydevor</div>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik.</p>
+      </li>
+
+      <li>
+        <p>Klassni alohida faylga yozing</p>
+        <p class="why-step">Faylda <b>faqat klass</b> — chiqish yo'q. Bu professional
+        tuzilma va 10-darsdagi autoload uchun tayyorgarlik.</p>
+        <div class="cmd" data-cmd="cat &gt; 17-klass.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+class Vakansiya
+{
+    public string $nom;
+    public int $maosh;
+
+    public function __construct(string $nom, int $maosh)
+    {
+        $this-&gt;nom = $nom;
+        $this-&gt;maosh = $maosh;
+    }
+
+    public function korinish(): string
+    {
+        return &quot;{$this-&gt;nom} — {$this-&gt;maosh} $&quot;;
+    }
+}
+EOF
+php 17-klass.php">cat &gt; 17-klass.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+class Vakansiya
+{
+    public string $nom;
+    public int $maosh;
+
+    public function __construct(string $nom, int $maosh)
+    {
+        $this-&gt;nom = $nom;
+        $this-&gt;maosh = $maosh;
+    }
+
+    public function korinish(): string
+    {
+        return "{$this-&gt;nom} — {$this-&gt;maosh} $";
+    }
+}
+EOF
+php 17-klass.php</div>
+        <p class="expect"><b>Kutilgan natija:</b> <b>jimlik</b> — va bu to'g'ri! Faylda
+        faqat chizma bor, hech narsa yasalmagan. Klass e'lon qilinishi o'zi hech narsa
+        chiqarmaydi.</p>
+      </li>
+
+      <li>
+        <p>Obyektlar yasang</p>
+        <p class="why-step">Bitta chizmadan ikkita mustaqil narsa — OOP ning asosiy foydasi.</p>
+        <div class="cmd" data-cmd="cat &gt; 18-obyektlar.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+require '17-klass.php';
+
+$backend = new Vakansiya(&quot;Backend dasturchi&quot;, 800);
+$frontend = new Vakansiya(&quot;Frontend dasturchi&quot;, 700);
+
+foreach ([$backend, $frontend] as $v) {
+    echo &quot;- &quot;, $v-&gt;korinish(), PHP_EOL;
+}
+var_dump($backend);
+EOF
+php 18-obyektlar.php">cat &gt; 18-obyektlar.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+require '17-klass.php';
+
+$backend = new Vakansiya("Backend dasturchi", 800);
+$frontend = new Vakansiya("Frontend dasturchi", 700);
+
+foreach ([$backend, $frontend] as $v) {
+    echo "- ", $v-&gt;korinish(), PHP_EOL;
+}
+var_dump($backend);
+EOF
+php 18-obyektlar.php
+<span class="out">- Backend dasturchi — 800 $</span>
+<span class="out">- Frontend dasturchi — 700 $</span>
+<span class="out">object(Vakansiya)#1 (2) {</span>
+<span class="out">  ["nom"]=&gt;</span>
+<span class="out">  string(17) "Backend dasturchi"</span>
+<span class="out">  ["maosh"]=&gt;</span>
+<span class="out">  int(800)</span>
+<span class="out">}</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> ikkita qator va bitta
+        <code>object(Vakansiya)#1</code>. Diqqat: obyektlarni <b>massivga solib</b>
+        <code>foreach</code> qildik — 5-darsdagi ko'nikma shu yerda ishga tushdi.</p>
+      </li>
+
+      <li>
+        <p>Massiv nusxalanadi — tekshirib ko'ring</p>
+        <p class="why-step">Keyingi qadam bilan solishtirish uchun asos.</p>
+        <div class="cmd" data-cmd="php -r '$a = [&quot;nom&quot; =&gt; &quot;Backend&quot;]; $b = $a; $b[&quot;nom&quot;] = &quot;Frontend&quot;; echo &quot;a: {$a[&quot;nom&quot;]} | b: {$b[&quot;nom&quot;]}&quot;, PHP_EOL;'">php -r '$a = ["nom" =&gt; "Backend"]; $b = $a; $b["nom"] = "Frontend"; echo "a: {$a["nom"]} | b: {$b["nom"]}", PHP_EOL;'
+<span class="out">a: Backend | b: Frontend</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> <code>$a</code> <b>o'zgarmadi</b>.
+        Massiv <code>=</code> bilan berilganda <b>nusxalanadi</b> — ikkisi mustaqil.</p>
+      </li>
+
+      <li>
+        <p>Obyekt esa nusxalanmaydi — darsning eng muhim tajribasi</p>
+        <p class="why-step">Bu farqni bilmagan odam kelajakda tushunarsiz bug'ga duch keladi.</p>
+        <div class="cmd" data-cmd="php -r 'require &quot;17-klass.php&quot;; $a = new Vakansiya(&quot;Backend&quot;, 800); $b = $a; $b-&gt;nom = &quot;Frontend&quot;; echo &quot;a: {$a-&gt;nom} | b: {$b-&gt;nom}&quot;, PHP_EOL;'">php -r 'require "17-klass.php"; $a = new Vakansiya("Backend", 800); $b = $a; $b-&gt;nom = "Frontend"; echo "a: {$a-&gt;nom} | b: {$b-&gt;nom}", PHP_EOL;'
+<span class="out">a: Frontend | b: Frontend</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> <b><code>$a</code> ham o'zgardi!</b>
+        Ikkisi <b>bitta obyekt</b> — <code>=</code> obyektni nusxalamaydi, faqat «o'sha
+        obyektga yana bitta yorliq» yasaydi. Buni yaxshi tushunish kerak.</p>
+      </li>
+
+      <li>
+        <p>Haqiqiy nusxa kerak bo'lsa — <code>clone</code></p>
+        <div class="cmd" data-cmd="php -r 'require &quot;17-klass.php&quot;; $a = new Vakansiya(&quot;Backend&quot;, 800); $b = clone $a; $b-&gt;nom = &quot;Frontend&quot;; echo &quot;a: {$a-&gt;nom} | b: {$b-&gt;nom}&quot;, PHP_EOL;'">php -r 'require "17-klass.php"; $a = new Vakansiya("Backend", 800); $b = clone $a; $b-&gt;nom = "Frontend"; echo "a: {$a-&gt;nom} | b: {$b-&gt;nom}", PHP_EOL;'
+<span class="out">a: Backend | b: Frontend</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> endi mustaqil. <code>clone</code> —
+        «shu obyektning haqiqiy nusxasini yasa».</p>
+      </li>
+
+      <li>
+        <p>Ishni saqlang</p>
+        <div class="cmd" data-cmd="git add -A
+git commit -m &quot;07-dars: klass va obyekt&quot;">git add -A
+git commit -m "07-dars: klass va obyekt"</div>
+        <p class="expect"><b>Kutilgan natija:</b> commit haqida xabar.</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><input type="checkbox" id="d7c1"><label for="d7c1">Klass va obyekt farqini aytib beraman</label></li>
+      <li><input type="checkbox" id="d7c2"><label for="d7c2">Klassni alohida faylga yozdim va <code>require</code> bilan ulandim</label></li>
+      <li><input type="checkbox" id="d7c3"><label for="d7c3">Bitta klassdan ikkita mustaqil obyekt yasadim</label></li>
+      <li><input type="checkbox" id="d7c4"><label for="d7c4"><code>$this</code> nima uchun kerakligini bilaman</label></li>
+      <li><input type="checkbox" id="d7c5"><label for="d7c5"><b>Massiv nusxalanadi, obyekt yo'q — o'z ko'zim bilan ko'rdim</b> 🎉</label></li>
+      <li><input type="checkbox" id="d7c6"><label for="d7c6"><code>clone</code> ni sinab ko'rdim</label></li>
+      <li><input type="checkbox" id="d7c7"><label for="d7c7">Ishni commit qildim</label></li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 5) TAXMIN + QUIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Ikkita kod <b>bir xil tuzilishda</b>: qiymat yasaladi → <code>$b = $a</code> →
+    <code>$b</code> o'zgartiriladi → ikkisi chiqariladi. Faqat biri <b>massiv</b>,
+    ikkinchisi <b>obyekt</b>. Natijalar bir xil bo'ladimi?</p>
+    <div class="codefile">
+      <div class="fname">A — massiv bilan</div>
+      <code class="cmd" data-cmd="$a = [&quot;nom&quot; =&gt; &quot;Backend&quot;];
+$b = $a;
+$b[&quot;nom&quot;] = &quot;Frontend&quot;;
+echo $a[&quot;nom&quot;];">$a = ["nom" =&gt; "Backend"];
+$b = $a;
+$b["nom"] = "Frontend";
+echo $a["nom"];</code>
+    </div>
+    <div class="codefile">
+      <div class="fname">B — obyekt bilan</div>
+      <code class="cmd" data-cmd="$a = new Vakansiya(&quot;Backend&quot;, 800);
+$b = $a;
+$b-&gt;nom = &quot;Frontend&quot;;
+echo $a-&gt;nom;">$a = new Vakansiya("Backend", 800);
+$b = $a;
+$b-&gt;nom = "Frontend";
+echo $a-&gt;nom;</code>
+    </div>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <p><b>A (massiv)</b> → <code>Backend</code>. <b>B (obyekt)</b> →
+        <code>Frontend</code>.</p>
+        <p>Ya'ni <b>bir xil ko'rinishdagi kod ikki xil ishlaydi</b>:</p>
+        <ul>
+          <li><b>Massiv</b> <code>=</code> bilan <b>nusxalanadi</b>. <code>$b</code> —
+          alohida massiv, o'zgartirsangiz <code>$a</code> ga ta'sir qilmaydi.</li>
+          <li><b>Obyekt</b> <b>nusxalanmaydi</b>. <code>$b = $a</code> — «o'sha obyektga
+          yana bitta yorliq» degani. Ikki nom, <b>bitta obyekt</b>. Shuning uchun
+          <code>$b</code> ni o'zgartirsangiz, <code>$a</code> orqali ham o'zgargan
+          holatni ko'rasiz.</li>
+        </ul>
+        <p><b>Nega bu muhim:</b> obyektni funksiyaga bersangiz, funksiya uni
+        <b>o'zgartira oladi</b> — asl obyekt o'zgaradi. Massivda esa funksiya nusxa oladi.
+        Bu Laravel'da doim uchraydi: model obyektini metodga berib, u yerda
+        o'zgartirilsa — o'zgarish tashqarida ham ko'rinadi.</p>
+        <p class="expect">Haqiqiy nusxa kerak bo'lsa: <code>$b = clone $a;</code></p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span> <code>class</code> va
+    <code>object</code> farqi nima?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Klass chizma, obyekt yasalgan narsa</button></li>
+      <li><button class="quiz-option">Klass eskirgan, obyekt yangi usul</button></li>
+      <li><button class="quiz-option">Klass kichik, obyekt katta tuzilma</button></li>
+    </ul>
+    <div class="quiz-explain">Klass bir marta yoziladi — u <b>chizma</b>. <code>new</code>
+    esa har chaqirilganda shu chizmaga ko'ra <b>yangi, mustaqil obyekt</b> yasaydi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span> Metod ichida <code>$this</code>
+    nimani bildiradi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Metod ishlayotgan aynan shu obyektni</button></li>
+      <li><button class="quiz-option">Klassning eng oxirgi yasalgan obyektini</button></li>
+      <li><button class="quiz-option">Metodning o'z ichki lokal o'zgaruvchisini</button></li>
+    </ul>
+    <div class="quiz-explain"><code>$this</code> — «metod hozir qaysi obyekt ustida
+    ishlayapti». Usiz <code>$nom</code> deb yozsangiz, u metodning <b>lokal</b>
+    o'zgaruvchisi bo'lib qoladi (6-darsdagi scope qoidasi).</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span> <code>$b = $a;</code> — <code>$a</code>
+    obyekt bo'lsa nima bo'ladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Ikki nom, bitta obyekt bo'ladi</button></li>
+      <li><button class="quiz-option">Ikki nom, ikkita mustaqil obyekt</button></li>
+      <li><button class="quiz-option">Xato chiqadi va obyekt ko'chirilmaydi</button></li>
+    </ul>
+    <div class="quiz-explain">Obyekt <code>=</code> bilan <b>nusxalanmaydi</b> —
+    <code>$b</code> o'sha obyektga yana bitta yorliq bo'ladi. Haqiqiy nusxa uchun
+    <code>clone</code> kerak. Massiv esa nusxalanadi.</div>
+  </div>
+
+  <!-- ═══════════════ 6) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+    <p class="recall-intro">Avval o'zingiz javob bering, keyin ochib tekshiring.
+    Oxirgi ikkitasi — <a href="0006-funksiya-va-tiplar.html">6-darsni</a> takrorlash.</p>
+
+    <details class="recall">
+      <summary><code>__construct</code> qachon ishlaydi va nima uchun kerak?</summary>
+      <div class="answer"><p>Obyekt <code>new</code> bilan yasalgan zahoti
+      <b>avtomatik</b> ishlaydi. Kerakligi: obyekt yasalgan paytda hamma xossaga qiymat
+      berib qo'yadi — aks holda tipli xossani o'qishda <code>Fatal error</code> chiqadi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary><code>property</code> va <code>method</code> nima?</summary>
+      <div class="answer"><p><b>Property</b> — obyekt ichidagi ma'lumot (o'zgaruvchi).
+      <b>Method</b> — obyekt ichidagi funksiya. Ikkisiga ham <code>-&gt;</code> bilan
+      murojaat qilinadi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Obyekt va massivning <code>=</code> dagi farqi?</summary>
+      <div class="answer"><p>Massiv <b>nusxalanadi</b> (mustaqil bo'ladi), obyekt
+      <b>nusxalanmaydi</b> (ikki nom — bitta obyekt). Nusxa uchun <code>clone</code>.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: type hint'ni kafolatga aylantiradigan narsa nima?</summary>
+      <div class="answer"><p><code>declare(strict_types=1);</code> — fayl boshida,
+      birinchi ko'rsatma, <b>har faylda alohida</b>. Usiz PHP tipni jimgina o'zgartiradi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: <code>return</code> va <code>echo</code> farqi?</summary>
+      <div class="answer"><p><code>echo</code> javobga <b>yozadi</b>, <code>return</code>
+      qiymatni <b>qaytaradi</b> va funksiyani tugatadi. Bugungi <code>korinish()</code>
+      metodi ham <code>return</code> qiladi — chiqarishni chaqiruvchi hal qiladi.</p></div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 7) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Cho'ntak xulosasi</span>
+    <ul>
+      <li><b>class</b> = chizma (bir marta) · <b>object</b> = <code>new</code> bilan
+      yasalgan narsa (xohlagancha).</li>
+      <li><b>property</b> = obyekt ichidagi ma'lumot · <b>method</b> = obyekt ichidagi
+      funksiya.</li>
+      <li><code>__construct</code> — obyekt yasalganda <b>avtomatik</b> ishlaydi;
+      xossalarga qiymat beradi.</li>
+      <li><code>$this</code> — «aynan shu obyekt». Xossaga murojaat uchun <b>shart</b>.</li>
+      <li><code>-&gt;</code> — obyektga murojaat: <code>$v-&gt;nom</code>,
+      <code>$v-&gt;korinish()</code>.</li>
+      <li>Klass o'zi <b>tipga aylanadi</b>: <code>object(Vakansiya)#1</code>, va
+      <code>function f(Vakansiya $v)</code> yozish mumkin.</li>
+      <li>🔑 <b>Obyekt <code>=</code> bilan nusxalanmaydi</b> (massiv nusxalanadi).
+      Nusxa — <code>clone</code>.</li>
+      <li>Bir klass — bir fayl, chiqishsiz. Ulash: <code>require</code> (12-darsda avtomatlashtiramiz).</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Kelasi darslar uchun urug'</span>
+    <p>Diqqat qilgan bo'lsangiz, hamma xossani <code>public</code> deb yozdik — ya'ni
+    <b>istalgan joydan</b> o'zgartirish mumkin: <code>$backend-&gt;maosh = -500;</code>
+    ham ishlaydi. Bu xavfli: obyekt o'z ma'lumotini himoya qilmayapti.</p>
+    <p><b>Keyingi dars</b> shuni yechadi: <code>private</code>, <code>protected</code> —
+    «bu ichki ish, tashqaridan tegilmaydi». Shu bilan birga <code>static</code>,
+    <code>const</code> va PHP 8 ning ancha qisqa yozuv usulini ko'ramiz — Laravel kodida
+    aynan o'sha qisqa shakl ishlatiladi.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>PHP Fundamentals</b> — Laravel'ning rasmiy bepul kursi, OOP epizodlari:
+    <a href="https://laravel.com/learn/php-fundamentals">laravel.com/learn/php-fundamentals</a>.<sup><a href="#fn1">1</a></sup><br>
+    Qo'llanma (ko'zgu):
+    <a href="https://devdocs.io/php/language.oop5.basic">devdocs.io — Classes and Objects</a>.<sup><a href="#fn2">2</a></sup><br>
+    Amaliy tavsiyalar: <a href="https://phptherightway.com/#object_oriented_programming">PHP The Right Way — OOP</a>.</p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b> «<code>-&gt;</code> va
+    <code>::</code> farqi nima?», «bir klass ichida bir necha metod bo'lsa-chi?»,
+    «obyekt ichida obyekt bo'ladimi?», «<code>$this</code> ni qachon yozmaslik kerak?» —
+    har qanday savol yaxshi. OOP boshida chalkash tuyuladi, bu normal.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0006-funksiya-va-tiplar.html">Oldingi: Funksiya va tiplar</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel — <a href="https://laravel.com/learn/php-fundamentals">PHP
+      Fundamentals</a> (rasmiy bepul mini-kurs).</li>
+      <li id="fn2">PHP Manual — <i>Classes and Objects</i>, DevDocs ko'zgusi orqali:
+      <a href="https://devdocs.io/php/language.oop5.basic">devdocs.io/php/language.oop5.basic</a>.
+      Rasmiy <code>php.net</code> bu tarmoqdan ochilmaydi.</li>
+      <li id="fn3">Barcha natijalar PHP <b>8.3.32</b> da jonli sinab ko'rilgan — shu
+      jumladan obyekt/massiv nusxalanish farqi va <code>Typed property ... must not be
+      accessed before initialization</code> xatosi.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

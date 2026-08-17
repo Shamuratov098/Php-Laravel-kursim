@@ -1,0 +1,801 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 22 — SQL 2: yozish va jadvallarni birlashtirish</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 22 · MODUL C — MA'LUMOTLAR</p>
+  <h1>SQL 2: yozish, o'zgartirish va ikki jadvalni bog'lash</h1>
+  <p class="lead">21-darsda faqat <b>o'qidik</b>. Bugun <b>yozamiz</b> —
+  <code>INSERT</code>, <code>UPDATE</code>, <code>DELETE</code> — va eng muhimi
+  <b><code>JOIN</code></b>: ikki jadvalni bir-biriga ulash. <code>JOIN</code> Modul C ning
+  qolgan qismi (Eloquent bog'lanishlari) uchun poydevor.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 13 daqiqa</span>
+    <span>💻 Amaliyot ≈ 20 daqiqa</span>
+    <span>Kerak: <a href="0021-sql-oqish.html">Dars 21</a></span>
+  </p>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Nega bir jadval yetmaydi</span>
+    <p>21-darsdagi <code>vakansiyalar</code> jadvalida <code>shahar</code> ustuni bor edi.
+    Endi har vakansiyaga <b>kompaniya</b> qo'shmoqchimiz. Eng oson yo'l — yana bitta
+    ustun qo'shish: <code>kompaniya_nomi</code>, <code>kompaniya_shahri</code>,
+    <code>kompaniya_telefoni</code>…</p>
+    <p>Va shu yerda muammo boshlanadi. «Uzum» kompaniyasida <b>10 ta</b> vakansiya bo'lsa,
+    kompaniya nomi <b>10 marta</b> takrorlanadi. Kompaniya nomini o'zgartirsangiz —
+    10 joyda o'zgartirish kerak. Bittasini unutsangiz, bazada bir vaqtning o'zida
+    <b>ikki xil haqiqat</b> paydo bo'ladi.</p>
+    <p>Yechim: <b>kompaniyani alohida jadvalga</b> chiqarish va vakansiyada faqat uning
+    <b>raqamini</b> saqlash. Keyin ikkalasini <code>JOIN</code> bilan birlashtirib
+    o'qish. Bu — bazaning eng asosiy g'oyasi va intervyuda eng ko'p so'raladigan SQL
+    mavzusi.</p>
+  </div>
+
+  <!-- ═══════════════ 2) TUSHUNCHA ═══════════════ -->
+  <h2>Yozish: <code>INSERT</code>, <code>UPDATE</code>, <code>DELETE</code></h2>
+
+  <p>Uchalasi ham 21-darsdagi <b>parametr</b> qoidasiga bo'ysunadi — qiymat SQL satriga
+  qo'shilmaydi, <code>?</code> orqali <b>alohida</b> beriladi:</p>
+
+  <div class="codefile">
+    <div class="fname">sql/03-yozish.php</div>
+    <code class="cmd" data-cmd="DB::insert(
+    'INSERT INTO vakansiyalar (nom, maosh, shahar, faol) VALUES (?, ?, ?, ?)',
+    ['PHP dasturchi', 950, 'Buxoro', 1]
+);
+
+$soni = DB::update('UPDATE vakansiyalar SET maosh = ? WHERE nom = ?', [1000, 'PHP dasturchi']);
+
+$soni = DB::delete('DELETE FROM vakansiyalar WHERE faol = ?', [0]);">DB::insert(
+    'INSERT INTO vakansiyalar (nom, maosh, shahar, faol) VALUES (?, ?, ?, ?)',
+    ['PHP dasturchi', 950, 'Buxoro', 1]
+);
+
+$soni = DB::update('UPDATE vakansiyalar SET maosh = ? WHERE nom = ?', [1000, 'PHP dasturchi']);
+
+$soni = DB::delete('DELETE FROM vakansiyalar WHERE faol = ?', [0]);</code>
+  </div>
+
+  <table class="sheet">
+    <tr><th>Metod</th><th class="note-cell">Nima qaytaradi</th></tr>
+    <tr><td><code>DB::insert(...)</code></td><td class="note-cell"><code>true</code>/<code>false</code>. Yangi <code>id</code> uchun — <code>DB::getPdo()-&gt;lastInsertId()</code></td></tr>
+    <tr><td><code>DB::update(...)</code></td><td class="note-cell"><b>Nechta qator o'zgardi</b> — sonini qaytaradi</td></tr>
+    <tr><td><code>DB::delete(...)</code></td><td class="note-cell"><b>Nechta qator o'chdi</b></td></tr>
+    <tr><td><code>DB::select(...)</code></td><td class="note-cell">Qatorlar massivi (21-dars)</td></tr>
+    <tr><td><code>DB::statement(...)</code></td><td class="note-cell">Natija qaytarmaydigan SQL: <code>CREATE</code>, <code>ALTER</code>, <code>DROP</code></td></tr>
+  </table>
+
+  <p><code>UPDATE</code> va <code>DELETE</code> qaytargan <b>son</b> juda foydali: agar
+  <code>1</code> kutayotgan bo'lsangiz-u <code>0</code> kelsa — demak
+  <code>WHERE</code> hech kimga to'g'ri kelmadi.</p>
+
+  <div class="callout warning">
+    <span class="label">⚠️ <code>WHERE</code> ni unutish — eng qimmat xato</span>
+    <p><code>UPDATE</code> va <code>DELETE</code> da <code>WHERE</code> <b>ixtiyoriy</b>.
+    Yozmasangiz SQL xato bermaydi — u <b>butun jadvalga</b> qo'llanadi:</p>
+    <div class="natija">// ❌ WHERE yo'q
+UPDATE vakansiyalar SET shahar = 'Toshkent'
+→ 5 qator o'zgardi (hammasi!)
+
+// ❌ Bu esa jadvalni bo'shatadi
+DELETE FROM vakansiyalar</div>
+    <p>Amaliyotda buni <b>ataylab bajarasiz</b> va natijasini ko'rasiz — qo'rqinchli
+    narsani <b>xavfsiz joyda</b> bir marta ko'rish, uni real serverda birinchi marta
+    ko'rishdan yaxshiroq.</p>
+    <p><b>Odat qiling:</b> avval <code>SELECT</code> bilan <code>WHERE</code> ni
+    sinang («aynan shu qatorlarmi?»), keyin uni <code>UPDATE</code> ga ko'chiring.</p>
+  </div>
+
+  <h2>Ikkinchi jadval va <b>tashqi kalit</b></h2>
+
+  <div class="codefile">
+    <div class="fname">sql/04-join.php</div>
+    <code class="cmd" data-cmd="CREATE TABLE kompaniyalar (
+    id     INTEGER PRIMARY KEY AUTOINCREMENT,
+    nom    TEXT NOT NULL,
+    shahar TEXT
+)
+
+ALTER TABLE vakansiyalar ADD COLUMN kompaniya_id INTEGER">CREATE TABLE kompaniyalar (
+    id     INTEGER PRIMARY KEY AUTOINCREMENT,
+    nom    TEXT NOT NULL,
+    shahar TEXT
+)
+
+<span class="add">ALTER TABLE vakansiyalar ADD COLUMN kompaniya_id INTEGER</span></code>
+  </div>
+
+  <ul>
+    <li><code>ALTER TABLE</code> — <b>mavjud</b> jadvalni o'zgartirish. Jadvalni qaytadan
+    yasash shart emas (va ma'lumot yo'qolmaydi).</li>
+    <li><code>kompaniya_id</code> — <b>tashqi kalit</b> (foreign key): boshqa jadvaldagi
+    qatorning <code>id</code> si. Nomi odatda <code>&lt;jadval&gt;_id</code> shaklida
+    bo'ladi.</li>
+    <li>Bu ustun <b>bo'sh (NULL)</b> ham bo'lishi mumkin — «kompaniyasi ko'rsatilmagan».
+    Bu holat pastda muhim bo'ladi.</li>
+  </ul>
+
+  <p>Natijada ma'lumot shunday joylashadi — <b>takrorlanishsiz</b>:</p>
+
+  <div class="natija">kompaniyalar                    vakansiyalar
+┌────┬─────────────┐         ┌────┬────────────────────┬──────────────┐
+│ id │ nom         │         │ id │ nom                │ kompaniya_id │
+├────┼─────────────┤         ├────┼────────────────────┼──────────────┤
+│  1 │ Uzum        │ ←────── │  1 │ Backend dasturchi  │      1       │
+│  2 │ EPAM        │ ←──┐    │  2 │ Frontend dasturchi │      1       │
+│  3 │ Startup XYZ │ ←┐ │    │  3 │ Laravel dasturchi  │      3       │
+└────┴─────────────┘  │ └─── │  4 │ QA muhandis        │      2       │
+                      └───── │  5 │ DevOps injener     │    (bo'sh)   │
+                             └────┴────────────────────┴──────────────┘</div>
+
+  <h2><code>JOIN</code> — ikkalasini birga o'qish</h2>
+
+  <div class="codefile">
+    <div class="fname">JOIN</div>
+    <code class="cmd" data-cmd="SELECT v.nom, k.nom AS kompaniya
+FROM vakansiyalar v
+JOIN kompaniyalar k ON k.id = v.kompaniya_id">SELECT v.nom, k.nom AS kompaniya
+FROM vakansiyalar <span class="add">v</span>
+<span class="add">JOIN</span> kompaniyalar <span class="add">k</span> <span class="add">ON k.id = v.kompaniya_id</span></code>
+  </div>
+
+  <ul>
+    <li><code>vakansiyalar v</code> — jadvalga <b>qisqa nom</b> (alias) berildi. Ikki
+    jadvalda ham <code>nom</code> ustuni bor, shuning uchun <code>v.nom</code> va
+    <code>k.nom</code> deb <b>aniq</b> ko'rsatish kerak.</li>
+    <li><code>ON k.id = v.kompaniya_id</code> — <b>qanday bog'lash</b> sharti. Bu
+    <code>JOIN</code> ning yuragi: «chapdagi qatorning <code>kompaniya_id</code> si
+    o'ngdagi qatorning <code>id</code> siga teng bo'lsa — ularni <b>bitta qator</b>
+    qilib ber».</li>
+    <li><code>AS kompaniya</code> — natijadagi ustunga nom (21-dars).</li>
+  </ul>
+
+  <div class="natija">Backend dasturchi | Uzum
+Frontend dasturchi | Uzum
+Laravel dasturchi | Startup XYZ
+QA muhandis | EPAM
+(4 qator)</div>
+
+  <p><b>5 ta vakansiya bor edi, natijada 4 ta.</b> «DevOps injener» yo'qoldi — chunki
+  uning <code>kompaniya_id</code> si bo'sh, ya'ni <code>ON</code> sharti unga
+  <b>to'g'ri kelmadi</b>. Bu 21-darsdagi <code>NULL</code> qoidasining aynan o'zi.</p>
+
+  <h3><code>LEFT JOIN</code> — juftsizlarni ham qoldirish</h3>
+
+  <div class="codefile">
+    <div class="fname">LEFT JOIN</div>
+    <code class="cmd" data-cmd="SELECT v.nom, k.nom AS kompaniya
+FROM vakansiyalar v
+LEFT JOIN kompaniyalar k ON k.id = v.kompaniya_id">SELECT v.nom, k.nom AS kompaniya
+FROM vakansiyalar v
+<span class="add">LEFT</span> JOIN kompaniyalar k ON k.id = v.kompaniya_id</code>
+  </div>
+
+  <div class="natija">Backend dasturchi | Uzum
+Frontend dasturchi | Uzum
+Laravel dasturchi | Startup XYZ
+QA muhandis | EPAM
+DevOps injener |
+(5 qator)</div>
+
+  <p>Endi 5 ta. «DevOps injener» <b>qoldi</b>, kompaniya ustuni esa <b>bo'sh</b>.</p>
+
+  <table class="sheet">
+    <tr><th>Turi</th><th class="note-cell">Ma'nosi</th></tr>
+    <tr><td><code>JOIN</code> (= <code>INNER JOIN</code>)</td><td class="note-cell">Faqat <b>juftligi topilgan</b> qatorlar. Juftsizlar <b>tushib qoladi</b></td></tr>
+    <tr><td><code>LEFT JOIN</code></td><td class="note-cell"><b>Chapdagi</b> (<code>FROM</code> dan keyingi) jadvalning <b>hamma</b> qatori qoladi; juftlik yo'q bo'lsa o'ng tomon <code>NULL</code></td></tr>
+  </table>
+
+  <p><b>Qaysi birini tanlash?</b> Savolni shunday qo'ying: «juftligi yo'q qatorlar menga
+  kerakmi?» «Kompaniyasi ko'rsatilmagan vakansiyalar ham ro'yxatda tursinmi?» —
+  ha bo'lsa <code>LEFT JOIN</code>. Ish joyidagi eng ko'p uchraydigan bug':
+  <code>JOIN</code> yozib qo'yib, hisobotdan qatorlar <b>jimgina</b> yo'qolgani.</p>
+
+  <h2><code>GROUP BY</code> — guruhlab hisoblash</h2>
+
+  <p>«Har kompaniyada nechta vakansiya bor?» degan savol bitta qatorga sig'maydi —
+  ma'lumotni <b>guruhlarga bo'lib</b>, har guruh uchun hisoblash kerak:</p>
+
+  <div class="codefile">
+    <div class="fname">GROUP BY</div>
+    <code class="cmd" data-cmd="SELECT k.nom, COUNT(*) AS soni, AVG(v.maosh) AS ort_maosh
+FROM vakansiyalar v
+JOIN kompaniyalar k ON k.id = v.kompaniya_id
+GROUP BY k.id">SELECT k.nom, <span class="add">COUNT(*)</span> AS soni, <span class="add">AVG(v.maosh)</span> AS ort_maosh
+FROM vakansiyalar v
+JOIN kompaniyalar k ON k.id = v.kompaniya_id
+<span class="add">GROUP BY k.id</span></code>
+  </div>
+
+  <div class="natija">Uzum | 2 | 750
+EPAM | 1 | 500
+Startup XYZ | 1 | 1200</div>
+
+  <p>Har kompaniya uchun <b>bitta</b> qator qaytdi. <code>COUNT(*)</code>,
+  <code>AVG()</code>, <code>SUM()</code>, <code>MIN()</code>, <code>MAX()</code> —
+  bular <b>guruh funksiyalari</b>: butun guruhni <b>bitta songa</b> aylantiradi.</p>
+
+  <div class="callout note">
+    <span class="label"><code>WHERE</code> va <code>HAVING</code> farqi</span>
+    <p>Ikkalasi ham «filtrlaydi», lekin <b>qachonligi</b> boshqa:</p>
+    <ul>
+      <li><code>WHERE</code> — guruhlashdan <b>oldin</b>, alohida qatorlarni filtrlaydi.</li>
+      <li><code>HAVING</code> — guruhlashdan <b>keyin</b>, <b>guruhlarni</b> filtrlaydi.</li>
+    </ul>
+    <p>Shuning uchun <code>COUNT(*) &gt; 1</code> ni <code>WHERE</code> ga yozib
+    bo'lmaydi — o'sha paytda hali guruh yo'q:</p>
+    <div class="natija">GROUP BY k.id
+HAVING COUNT(*) &gt; 1
+→ Uzum | 2</div>
+  </div>
+
+  <p>To'liq tartib endi shunday:</p>
+  <div class="natija">SELECT → FROM → JOIN → WHERE → GROUP BY → HAVING → ORDER BY → LIMIT</div>
+
+  <!-- ═══════════════ 4) AMALIYOT / MODE-HINT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    <span class="mode-hint-title">💻 Amaliy qism kompyuterda</span>
+    <p>Amaliyotda ikkita yangi skript yozasiz: birinchisi yozadi
+    (<code>INSERT</code>/<code>UPDATE</code>/<code>DELETE</code>) va <code>WHERE</code> ni
+    unutish qanday ko'rinishini <b>ataylab</b> ko'rsatadi; ikkinchisi
+    <code>kompaniyalar</code> jadvalini yasab, ikkalasini <code>JOIN</code> bilan
+    birlashtiradi.</p>
+    <button type="button" class="modebtn" data-set-mode="do">💻 Amaliyot rejimini ko'rish</button>
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <p>Toza holatdan boshlang</p>
+        <p class="why-step">21-darsdagi skript jadvalni qaytadan yasaydi — shuning uchun
+        nima qilsangiz ham ortga qaytish mumkin.</p>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+php sql/01-jadval.php">cd ~/Projects/Learn/ishtop
+php sql/01-jadval.php
+<span class="out">Jadval yaratildi va 5 qator qo'shildi.</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> tasdiq xabari.</p>
+      </li>
+
+      <li>
+        <p>Yozuvchi skriptni yarating</p>
+        <p class="why-step"><code>INSERT</code>, <code>UPDATE</code>, <code>DELETE</code> —
+        uchalasi ham parametr bilan.</p>
+        <div class="cmd" data-cmd="cat &gt; sql/03-yozish.php &lt;&lt;'EOF'
+&lt;?php
+
+use Illuminate\Support\Facades\DB;
+
+require __DIR__ . '/../vendor/autoload.php';
+$app = require_once __DIR__ . '/../bootstrap/app.php';
+$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+
+function chiqar(string $sarlavha, array $qatorlar): void
+{
+    echo PHP_EOL, &quot;── {$sarlavha}&quot;, PHP_EOL;
+    foreach ($qatorlar as $q) {
+        echo '   ', implode(' | ', (array) $q), PHP_EOL;
+    }
+    echo '   (', count($qatorlar), ' qator)', PHP_EOL;
+}
+
+DB::insert(
+    'INSERT INTO vakansiyalar (nom, maosh, shahar, faol) VALUES (?, ?, ?, ?)',
+    ['PHP dasturchi', 950, 'Buxoro', 1]
+);
+echo 'Qo\'shildi. Oxirgi id: ', DB::getPdo()-&gt;lastInsertId(), PHP_EOL;
+
+$soni = DB::update('UPDATE vakansiyalar SET maosh = ? WHERE nom = ?', [1000, 'PHP dasturchi']);
+echo 'UPDATE o\'zgartirdi: ', $soni, ' qator', PHP_EOL;
+
+$soni = DB::delete('DELETE FROM vakansiyalar WHERE faol = ?', [0]);
+echo 'DELETE o\'chirdi: ', $soni, ' qator', PHP_EOL;
+
+chiqar('Hozirgi holat', DB::select('SELECT id, nom, maosh, shahar FROM vakansiyalar'));
+EOF
+php sql/03-yozish.php">cat &gt; sql/03-yozish.php &lt;&lt;'EOF'
+&lt;?php
+
+use Illuminate\Support\Facades\DB;
+
+require __DIR__ . '/../vendor/autoload.php';
+$app = require_once __DIR__ . '/../bootstrap/app.php';
+$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+
+function chiqar(string $sarlavha, array $qatorlar): void
+{
+    echo PHP_EOL, "── {$sarlavha}", PHP_EOL;
+    foreach ($qatorlar as $q) {
+        echo '   ', implode(' | ', (array) $q), PHP_EOL;
+    }
+    echo '   (', count($qatorlar), ' qator)', PHP_EOL;
+}
+
+DB::insert(
+    'INSERT INTO vakansiyalar (nom, maosh, shahar, faol) VALUES (?, ?, ?, ?)',
+    ['PHP dasturchi', 950, 'Buxoro', 1]
+);
+echo 'Qo\'shildi. Oxirgi id: ', DB::getPdo()-&gt;lastInsertId(), PHP_EOL;
+
+$soni = DB::update('UPDATE vakansiyalar SET maosh = ? WHERE nom = ?', [1000, 'PHP dasturchi']);
+echo 'UPDATE o\'zgartirdi: ', $soni, ' qator', PHP_EOL;
+
+$soni = DB::delete('DELETE FROM vakansiyalar WHERE faol = ?', [0]);
+echo 'DELETE o\'chirdi: ', $soni, ' qator', PHP_EOL;
+
+chiqar('Hozirgi holat', DB::select('SELECT id, nom, maosh, shahar FROM vakansiyalar'));
+EOF
+php sql/03-yozish.php
+<span class="out">Qo'shildi. Oxirgi id: 6</span>
+<span class="out">UPDATE o'zgartirdi: 1 qator</span>
+<span class="out">DELETE o'chirdi: 1 qator</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> uchta xabar, keyin 5 qatorli ro'yxat.
+        <br><b>Ikki narsaga diqqat qiling:</b>
+        <br>1) Yangi qatorning <code>id</code> si — <b>6</b>, garchi jadvalda 5 ta qator
+        bo'lsa ham.
+        <br>2) Ro'yxatda <code>id = 4</code> <b>yo'q</b> (u o'chdi). Ya'ni
+        <code>id</code> — <b>tartib raqami emas</b>, o'chirilgan raqam qayta
+        ishlatilmaydi.</p>
+      </li>
+
+      <li>
+        <p>⚠️ <code>WHERE</code> ni ataylab unuting</p>
+        <p class="why-step">Qo'rqinchli narsani bir marta <b>xavfsiz joyda</b> ko'rish
+        kerak. Bu yerda hech narsa yo'qolmaydi — 1-qadam bilan qaytarasiz.</p>
+        <div class="cmd" data-cmd="php -r &quot;
+require 'vendor/autoload.php';
+\$app = require_once 'bootstrap/app.php';
+\$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+\$n = Illuminate\Support\Facades\DB::update('UPDATE vakansiyalar SET shahar = ?', ['Toshkent']);
+echo 'O\'zgargan qatorlar: ', \$n, PHP_EOL;
+&quot;
+php sql/02-select.php | head -12">php -r "
+require 'vendor/autoload.php';
+\$app = require_once 'bootstrap/app.php';
+\$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+\$n = Illuminate\Support\Facades\DB::update('UPDATE vakansiyalar SET shahar = ?', ['Toshkent']);
+echo 'O\'zgargan qatorlar: ', \$n, PHP_EOL;
+"
+php sql/02-select.php | head -12
+<span class="out">O'zgargan qatorlar: 5</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> <code>5</code> — ya'ni <b>hamma</b>
+        qator. Samarqand ham, Buxoro ham yo'qoldi. Bitta unutilgan so'z butun jadvalni
+        buzdi.
+        <br>Endi tiklang: <code>php sql/01-jadval.php</code></p>
+      </li>
+
+      <li>
+        <p>Ikkinchi jadval va <code>JOIN</code></p>
+        <p class="why-step">Darsning asosiy qismi. Skript o'zi jadval yasaydi, bog'laydi
+        va to'rt xil so'rovni ko'rsatadi.</p>
+        <div class="cmd" data-cmd="php sql/01-jadval.php
+
+cat &gt; sql/04-join.php &lt;&lt;'EOF'
+&lt;?php
+
+use Illuminate\Support\Facades\DB;
+
+require __DIR__ . '/../vendor/autoload.php';
+$app = require_once __DIR__ . '/../bootstrap/app.php';
+$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+
+function chiqar(string $sarlavha, array $qatorlar): void
+{
+    echo PHP_EOL, &quot;── {$sarlavha}&quot;, PHP_EOL;
+    foreach ($qatorlar as $q) {
+        echo '   ', implode(' | ', (array) $q), PHP_EOL;
+    }
+    echo '   (', count($qatorlar), ' qator)', PHP_EOL;
+}
+
+DB::statement('DROP TABLE IF EXISTS kompaniyalar');
+DB::statement('
+    CREATE TABLE kompaniyalar (
+        id     INTEGER PRIMARY KEY AUTOINCREMENT,
+        nom    TEXT NOT NULL,
+        shahar TEXT
+    )
+');
+DB::statement(&quot;
+    INSERT INTO kompaniyalar (nom, shahar) VALUES
+        ('Uzum',       'Toshkent'),
+        ('EPAM',       'Toshkent'),
+        ('Startup XYZ','Samarqand')
+&quot;);
+
+DB::statement('ALTER TABLE vakansiyalar ADD COLUMN kompaniya_id INTEGER');
+DB::update('UPDATE vakansiyalar SET kompaniya_id = 1 WHERE id IN (1, 2)');
+DB::update('UPDATE vakansiyalar SET kompaniya_id = 3 WHERE id = 3');
+DB::update('UPDATE vakansiyalar SET kompaniya_id = 2 WHERE id = 4');
+
+chiqar('JOIN — vakansiya + kompaniya nomi', DB::select('
+    SELECT v.nom, k.nom AS kompaniya
+    FROM vakansiyalar v
+    JOIN kompaniyalar k ON k.id = v.kompaniya_id
+'));
+
+chiqar('LEFT JOIN — kompaniyasizlar ham', DB::select('
+    SELECT v.nom, k.nom AS kompaniya
+    FROM vakansiyalar v
+    LEFT JOIN kompaniyalar k ON k.id = v.kompaniya_id
+'));
+
+chiqar('GROUP BY — har kompaniyada nechta', DB::select('
+    SELECT k.nom, COUNT(*) AS soni, AVG(v.maosh) AS ort_maosh
+    FROM vakansiyalar v
+    JOIN kompaniyalar k ON k.id = v.kompaniya_id
+    GROUP BY k.id
+'));
+
+chiqar('HAVING — 1 tadan ko\'p vakansiyasi bor', DB::select('
+    SELECT k.nom, COUNT(*) AS soni
+    FROM vakansiyalar v
+    JOIN kompaniyalar k ON k.id = v.kompaniya_id
+    GROUP BY k.id
+    HAVING COUNT(*) &gt; 1
+'));
+EOF
+php sql/04-join.php">php sql/01-jadval.php
+
+cat &gt; sql/04-join.php &lt;&lt;'EOF'
+&lt;?php
+
+use Illuminate\Support\Facades\DB;
+
+require __DIR__ . '/../vendor/autoload.php';
+$app = require_once __DIR__ . '/../bootstrap/app.php';
+$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+
+function chiqar(string $sarlavha, array $qatorlar): void
+{
+    echo PHP_EOL, "── {$sarlavha}", PHP_EOL;
+    foreach ($qatorlar as $q) {
+        echo '   ', implode(' | ', (array) $q), PHP_EOL;
+    }
+    echo '   (', count($qatorlar), ' qator)', PHP_EOL;
+}
+
+DB::statement('DROP TABLE IF EXISTS kompaniyalar');
+DB::statement('
+    CREATE TABLE kompaniyalar (
+        id     INTEGER PRIMARY KEY AUTOINCREMENT,
+        nom    TEXT NOT NULL,
+        shahar TEXT
+    )
+');
+DB::statement("
+    INSERT INTO kompaniyalar (nom, shahar) VALUES
+        ('Uzum',       'Toshkent'),
+        ('EPAM',       'Toshkent'),
+        ('Startup XYZ','Samarqand')
+");
+
+<span class="add">DB::statement('ALTER TABLE vakansiyalar ADD COLUMN kompaniya_id INTEGER');</span>
+DB::update('UPDATE vakansiyalar SET kompaniya_id = 1 WHERE id IN (1, 2)');
+DB::update('UPDATE vakansiyalar SET kompaniya_id = 3 WHERE id = 3');
+DB::update('UPDATE vakansiyalar SET kompaniya_id = 2 WHERE id = 4');
+
+chiqar('JOIN — vakansiya + kompaniya nomi', DB::select('
+    SELECT v.nom, k.nom AS kompaniya
+    FROM vakansiyalar v
+    JOIN kompaniyalar k ON k.id = v.kompaniya_id
+'));
+
+chiqar('LEFT JOIN — kompaniyasizlar ham', DB::select('
+    SELECT v.nom, k.nom AS kompaniya
+    FROM vakansiyalar v
+    LEFT JOIN kompaniyalar k ON k.id = v.kompaniya_id
+'));
+
+chiqar('GROUP BY — har kompaniyada nechta', DB::select('
+    SELECT k.nom, COUNT(*) AS soni, AVG(v.maosh) AS ort_maosh
+    FROM vakansiyalar v
+    JOIN kompaniyalar k ON k.id = v.kompaniya_id
+    GROUP BY k.id
+'));
+
+chiqar('HAVING — 1 tadan ko\'p vakansiyasi bor', DB::select('
+    SELECT k.nom, COUNT(*) AS soni
+    FROM vakansiyalar v
+    JOIN kompaniyalar k ON k.id = v.kompaniya_id
+    GROUP BY k.id
+    HAVING COUNT(*) &gt; 1
+'));
+EOF
+php sql/04-join.php</div>
+        <p class="expect"><b>Kutilgan natija:</b> to'rt bo'lim.
+        <br><code>JOIN</code> — <b>4 qator</b>, <code>LEFT JOIN</code> — <b>5 qator</b>
+        («DevOps injener» kompaniyasiz).
+        <br><code>GROUP BY</code>: <code>Uzum | 2 | 750</code>,
+        <code>EPAM | 1 | 500</code>, <code>Startup XYZ | 1 | 1200</code>.
+        <br><code>HAVING</code>: faqat <code>Uzum | 2</code>.
+        <br>🎉 Ikki jadvalni birlashtirdingiz.</p>
+        <p class="expect">⚠️ <b>Bu skriptni ikkinchi marta yolg'iz ishga tushirsangiz
+        xato beradi:</b></p>
+        <div class="natija">SQLSTATE[HY000]: General error: 1 duplicate column name: kompaniya_id</div>
+        <p class="expect">Bu <b>sizning xatongiz emas</b>. <code>ALTER TABLE</code> —
+        <b>bir martalik</b> o'zgarish: ustun allaqachon qo'shilgan, uni yana qo'shib
+        bo'lmaydi. Shuning uchun qayta ishga tushirish uchun <b>ikkalasini birga</b>
+        chaqirasiz — <code>01-jadval.php</code> jadvalni ustunsiz holatga qaytaradi:</p>
+        <div class="cmd" data-cmd="php sql/01-jadval.php &amp;&amp; php sql/04-join.php">php sql/01-jadval.php &amp;&amp; php sql/04-join.php</div>
+        <p class="expect">Bu kichik noqulaylikni yodda tuting — <b>23-darsda</b> aynan
+        shu muammoning tayyor yechimi bilan tanishamiz.</p>
+      </li>
+
+      <li>
+        <p>O'zingiz so'rov yozing</p>
+        <p class="why-step">JOIN faqat yozib ko'rish bilan o'rganiladi.</p>
+        <p><code>sql/04-join.php</code> oxiriga qo'shing:</p>
+        <div class="cmd" data-cmd="chiqar('Toshkentdagi kompaniyalarning vakansiyalari', DB::select(&quot;
+    SELECT v.nom, k.nom AS kompaniya
+    FROM vakansiyalar v
+    JOIN kompaniyalar k ON k.id = v.kompaniya_id
+    WHERE k.shahar = 'Toshkent'
+    ORDER BY v.maosh DESC
+&quot;));">chiqar('Toshkentdagi kompaniyalarning vakansiyalari', DB::select("
+    SELECT v.nom, k.nom AS kompaniya
+    FROM vakansiyalar v
+    JOIN kompaniyalar k ON k.id = v.kompaniya_id
+    WHERE k.shahar = 'Toshkent'
+    ORDER BY v.maosh DESC
+"));</div>
+        <p>Keyin <b>ikkalasini birga</b> ishga tushiring (yuqoridagi sabab bo'yicha):</p>
+        <div class="cmd" data-cmd="php sql/01-jadval.php &amp;&amp; php sql/04-join.php | tail -6">php sql/01-jadval.php &amp;&amp; php sql/04-join.php | tail -6
+<span class="out">── Toshkentdagi kompaniyalarning vakansiyalari</span>
+<span class="out">   Backend dasturchi | Uzum</span>
+<span class="out">   Frontend dasturchi | Uzum</span>
+<span class="out">   QA muhandis | EPAM</span>
+<span class="out">   (3 qator)</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> 3 qator (Uzum va EPAM Toshkentda).
+        <br>Diqqat: <code>WHERE</code> <b>o'ng</b> jadvalning ustuniga qo'llandi — bu
+        mumkin, chunki <code>JOIN</code> dan keyin ikkalasi <b>bitta</b> qator bo'lib
+        qoldi.
+        <br><b>Yana sinab ko'ring:</b> har <b>shahar</b> bo'yicha nechta vakansiya bor
+        (<code>GROUP BY v.shahar</code>); eng yuqori maoshli vakansiyaning kompaniyasi.</p>
+      </li>
+
+      <li>
+        <p>Ishni saqlang</p>
+        <div class="cmd" data-cmd="git add -A
+git commit -m &quot;22-dars: SQL yozish, JOIN va GROUP BY&quot;">git add -A
+git commit -m "22-dars: SQL yozish, JOIN va GROUP BY"</div>
+        <p class="expect"><b>Kutilgan natija:</b> commit haqida xabar.</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><input type="checkbox" id="d22c1"><label for="d22c1"><code>INSERT</code>/<code>UPDATE</code>/<code>DELETE</code> ni parametr bilan yozdim</label></li>
+      <li><input type="checkbox" id="d22c2"><label for="d22c2"><code>UPDATE</code> va <code>DELETE</code> qaytargan <b>sonni</b> ko'rdim</label></li>
+      <li><input type="checkbox" id="d22c3"><label for="d22c3"><b><code>WHERE</code> siz <code>UPDATE</code> butun jadvalni buzganini ko'rdim</b> ⚠️</label></li>
+      <li><input type="checkbox" id="d22c4"><label for="d22c4">Ikkinchi jadval yasab, <code>ALTER TABLE</code> bilan bog'ladim</label></li>
+      <li><input type="checkbox" id="d22c5"><label for="d22c5"><b><code>JOIN</code> bilan ikki jadvalni birlashtirdim</b> 🎉</label></li>
+      <li><input type="checkbox" id="d22c6"><label for="d22c6"><code>JOIN</code> 4, <code>LEFT JOIN</code> 5 qator qaytarganini va sababini bilaman</label></li>
+      <li><input type="checkbox" id="d22c7"><label for="d22c7"><code>GROUP BY</code> va <code>HAVING</code> ni ishlatdim</label></li>
+      <li><input type="checkbox" id="d22c8"><label for="d22c8"><b>O'zim JOIN so'rovi yozdim</b></label></li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 5) TAXMIN + QUIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Quyidagi <code>LEFT JOIN</code> <b>5 qator</b> qaytaradi (biz buni ko'rdik).
+    Endi unga «faqat Toshkentdagi kompaniyalar» sharti qo'shildi. <b>Nechta qator</b>
+    qaytadi?</p>
+    <div class="codefile">
+      <div class="fname">so'rov</div>
+      <code class="cmd" data-cmd="SELECT v.nom, k.nom AS kompaniya
+FROM vakansiyalar v
+LEFT JOIN kompaniyalar k ON k.id = v.kompaniya_id
+WHERE k.shahar = 'Toshkent'">SELECT v.nom, k.nom AS kompaniya
+FROM vakansiyalar v
+LEFT JOIN kompaniyalar k ON k.id = v.kompaniya_id
+<span class="add">WHERE k.shahar = 'Toshkent'</span></code>
+    </div>
+    <p><i>Eslatma: Uzum va EPAM — Toshkentda, Startup XYZ — Samarqandda, «DevOps injener»
+    esa kompaniyasiz.</i></p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <div class="natija">3 qator
+
+Backend dasturchi  | Uzum
+Frontend dasturchi | Uzum
+QA muhandis        | EPAM</div>
+        <p>Ko'pchilik <b>4</b> deb o'ylaydi: «Samarqanddagi Startup XYZ tushib qoldi,
+        kompaniyasiz DevOps esa <code>LEFT JOIN</code> tufayli qoladi».</p>
+        <p>Lekin <b>DevOps ham yo'qoldi</b>. Sababi 21-darsdagi qoida:
+        <code>LEFT JOIN</code> unga bo'sh kompaniya berdi, ya'ni
+        <code>k.shahar</code> — <code>NULL</code>. Va <code>NULL = 'Toshkent'</code>
+        <b>hech qachon rost bo'lmaydi</b>. Demak <code>WHERE</code> uni chiqarib tashladi.</p>
+        <p class="expect">🔑 <b>Klassik tuzoq:</b> <code>WHERE</code> da <b>o'ng</b>
+        jadvalning ustunini ishlatsangiz, <code>LEFT JOIN</code> <b>jimgina oddiy
+        <code>JOIN</code> ga aylanadi</b>. Shart <code>ON</code> ga yozilsa esa
+        <code>LEFT</code> xususiyati saqlanadi:</p>
+        <div class="natija">LEFT JOIN kompaniyalar k
+    ON k.id = v.kompaniya_id AND k.shahar = 'Toshkent'
+→ 5 qator</div>
+        <p>Farqi: <code>ON</code> — <b>qanday bog'lash</b>, <code>WHERE</code> —
+        <b>qaysi qatorni qoldirish</b>. <code>LEFT JOIN</code> da bu ikkisi bir xil
+        emas.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span> <code>UPDATE</code> da
+    <code>WHERE</code> unutilsa nima bo'ladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Barcha qatorlar o'zgaradi</button></li>
+      <li><button class="quiz-option">Hech narsa o'zgarmaydi</button></li>
+      <li><button class="quiz-option">Xato xabari chiqadi</button></li>
+    </ul>
+    <div class="quiz-explain">SQL bu holatni xato deb hisoblamaydi — buyruq
+    <b>butun jadvalga</b> qo'llanadi. Shuning uchun avval <code>SELECT</code> bilan
+    <code>WHERE</code> ni sinash odat bo'lishi kerak.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span> <code>JOIN</code> va
+    <code>LEFT JOIN</code> farqi nimada?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">LEFT JOIN juftsizlarni ham qoldiradi</button></li>
+      <li><button class="quiz-option">LEFT JOIN chap jadvalni o'qiydi</button></li>
+      <li><button class="quiz-option">LEFT JOIN natijani tezroq qaytaradi</button></li>
+    </ul>
+    <div class="quiz-explain">Oddiy <code>JOIN</code> juftligi topilmagan qatorni
+    <b>tushirib qoldiradi</b>; <code>LEFT JOIN</code> uni qoldirib, o'ng tomonni
+    <code>NULL</code> qilib qo'yadi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span> <code>COUNT(*)</code> va
+    <code>COUNT(kompaniya_id)</code> farqi nimada?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">COUNT(ustun) NULL larni sanamaydi</button></li>
+      <li><button class="quiz-option">COUNT(ustun) faqat sonlarni sanaydi</button></li>
+      <li><button class="quiz-option">COUNT(ustun) takrorlarni tashlab yuboradi</button></li>
+    </ul>
+    <div class="quiz-explain">Bizning jadvalda <code>COUNT(*)</code> → <b>5</b>, lekin
+    <code>COUNT(kompaniya_id)</code> → <b>4</b>, chunki «DevOps injener» ning
+    <code>kompaniya_id</code> si bo'sh.</div>
+  </div>
+
+  <!-- ═══════════════ 6) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+    <p class="recall-intro">Avval o'zingiz javob bering, keyin ochib tekshiring.
+    Oxirgi ikkitasi — <a href="0021-sql-oqish.html">21-darsni</a> takrorlash.</p>
+
+    <details class="recall">
+      <summary>Nega kompaniya alohida jadvalda saqlanadi?</summary>
+      <div class="answer"><p>Takrorlanmasligi uchun. Bir jadvalda saqlansa, kompaniya nomi
+      har vakansiyada qaytariladi va uni o'zgartirish kerak bo'lganda <b>hamma joyda</b>
+      o'zgartirish kerak — bittasi unutilsa bazada <b>ikki xil haqiqat</b> paydo
+      bo'ladi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary><code>ON</code> nima uchun kerak?</summary>
+      <div class="answer"><p>U <b>qanday bog'lash</b> shartini aytadi:
+      <code>ON k.id = v.kompaniya_id</code> — «chapdagi qatorning tashqi kaliti o'ngdagi
+      qatorning <code>id</code> siga teng bo'lsa, ularni bitta qator qil».</p></div>
+    </details>
+
+    <details class="recall">
+      <summary><code>WHERE</code> va <code>HAVING</code> qachon ishlaydi?</summary>
+      <div class="answer"><p><code>WHERE</code> — guruhlashdan <b>oldin</b> (alohida
+      qatorlarni), <code>HAVING</code> — guruhlashdan <b>keyin</b> (guruhlarni).
+      Shuning uchun <code>COUNT(*) &gt; 1</code> faqat <code>HAVING</code> da
+      yoziladi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: foydalanuvchi qiymati SQL'ga qanday qo'shiladi?</summary>
+      <div class="answer"><p>Faqat <b>parametr</b> bilan:
+      <code>DB::select('... WHERE nom = ?', [$nom])</code>. Satrga qo'shib yozish —
+      <b>SQL injection</b>.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: <code>NULL</code> ni qanday tekshiriladi?</summary>
+      <div class="answer"><p><code>IS NULL</code> / <code>IS NOT NULL</code> bilan.
+      <code>= NULL</code> hech qachon rost bo'lmaydi.</p></div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 7) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Cho'ntak xulosasi</span>
+    <ul>
+      <li><code>DB::insert</code> · <code>DB::update</code> · <code>DB::delete</code> —
+      oxirgi ikkitasi <b>nechta qator o'zgarganini</b> qaytaradi.</li>
+      <li>⚠️ <code>UPDATE</code>/<code>DELETE</code> da <code>WHERE</code> <b>ixtiyoriy</b> —
+      unutilsa <b>butun jadval</b>. Avval <code>SELECT</code> bilan sinang.</li>
+      <li><code>ALTER TABLE ... ADD COLUMN</code> — mavjud jadvalga ustun qo'shish.</li>
+      <li><b>Tashqi kalit</b> (<code>kompaniya_id</code>) — boshqa jadvaldagi qatorning
+      <code>id</code> si. Ma'lumot takrorlanmaydi.</li>
+      <li><code>JOIN ... ON k.id = v.kompaniya_id</code> — ikki jadvalni <b>bitta
+      qator</b> qilib beradi. Alias (<code>v</code>, <code>k</code>) bir xil nomli
+      ustunlarni ajratadi.</li>
+      <li>🔑 <code>JOIN</code> juftsizni <b>tushiradi</b>, <code>LEFT JOIN</code>
+      <b>qoldiradi</b> (o'ng tomon <code>NULL</code>).</li>
+      <li>🔑 <code>LEFT JOIN</code> dan keyin <code>WHERE</code> da o'ng jadval ustunini
+      ishlatsangiz — u <b>jimgina oddiy <code>JOIN</code> ga aylanadi</b>. Shartni
+      <code>ON</code> ga yozing.</li>
+      <li><code>GROUP BY</code> + <code>COUNT/AVG/SUM/MIN/MAX</code> — guruhlab hisoblash.
+      Guruhlarni filtrlash — <code>HAVING</code>.</li>
+      <li><code>COUNT(*)</code> qatorlarni, <code>COUNT(ustun)</code> esa
+      <b><code>NULL</code> bo'lmaganlarni</b> sanaydi.</li>
+      <li>Tartib: <code>SELECT → FROM → JOIN → WHERE → GROUP BY → HAVING → ORDER BY → LIMIT</code>.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p>Ikki darsda jadvallarni <b>qo'lda</b> yasadik. Endi savol: hamkasbingiz loyihani
+    yuklab olsa, unda bu jadvallar <b>qayerdan</b> paydo bo'ladi? Siz unga
+    <code>sql/01-jadval.php</code> ni yuborib «buni ishga tushir» deysizmi? Serverda-chi?
+    Uchinchi odam qo'shilganda-chi?</p>
+    <p>23-darsda <b>migration</b> bilan tanishamiz: jadval tuzilishi <b>kodda</b>
+    yoziladi, git'da yashaydi va bitta buyruq bilan <b>istalgan kompyuterda</b> aynan
+    shunday qayta tiklanadi. Va u ham sehr emas — <code>--pretend</code> flagi bilan
+    Laravel sizga <b>aynan shu</b> <code>CREATE TABLE</code> ni ko'rsatadi.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>SQLite — JOIN</b>:
+    <a href="https://www.sqlite.org/lang_select.html#the_from_clause">sqlite.org — FROM va JOIN</a>;
+    <b>GROUP BY / HAVING</b>:
+    <a href="https://www.sqlite.org/lang_select.html#generation_of_the_set_of_result_rows">o'sha sahifada</a>.<sup><a href="#fn1">1</a></sup><br>
+    <b>Laravel — DB metodlari</b>:
+    <a href="https://laravel.com/docs/13.x/database#running-queries">laravel.com/docs/13.x/database</a>
+    (<code>insert</code>, <code>update</code>, <code>delete</code>, <code>statement</code>).<sup><a href="#fn2">2</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b> «uchta jadvalni birlashtirsa
+    bo'ladimi?», «<code>RIGHT JOIN</code> ham bormi?», «bitta vakansiyaga bir nechta
+    ko'nikma qanday bog'lanadi?», «<code>DISTINCT</code> nima?» — har qanday savol yaxshi.
+    Uchinchi savol IshTop uchun aynan kerak bo'ladi va uning javobi — <b>uchinchi
+    jadval</b> (Modul C ning bog'lanishlar darslarida ko'ramiz).
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0021-sql-oqish.html">Oldingi: SQL 1 — o'qish</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">SQLite — <a href="https://www.sqlite.org/lang_select.html">SELECT (JOIN, GROUP BY, HAVING)</a>.</li>
+      <li id="fn2">Laravel 13 — <a href="https://laravel.com/docs/13.x/database#running-queries">Running SQL Queries</a>.</li>
+      <li id="fn3">Barcha natijalar jonli o'lchangan (Laravel 13.25.0, SQLite 3.45.1):
+      <code>INSERT</code> → id <b>6</b> · <code>UPDATE</code> → <b>1</b> ·
+      <code>DELETE</code> → <b>1</b> · <code>WHERE</code> siz <code>UPDATE</code> →
+      <b>5</b> qator · <code>JOIN</code> → <b>4</b> qator · <code>LEFT JOIN</code> →
+      <b>5</b> · <code>GROUP BY</code> → Uzum 2/750, EPAM 1/500, Startup XYZ 1/1200 ·
+      <code>HAVING</code> → 1 qator · taxmin mashqi: <code>LEFT JOIN</code> +
+      <code>WHERE</code> → <b>3</b>, shart <code>ON</code> ga ko'chirilsa → <b>5</b> ·
+      <code>COUNT(*)</code> <b>5</b> va <code>COUNT(kompaniya_id)</code> <b>4</b>.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

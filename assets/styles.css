@@ -1083,6 +1083,137 @@ body.mode-do { font-size: 18.5px; line-height: 1.58; }
 }
 
 /* ==========================================================================
+   14.5) KOD KOMPONENTLARI — PHP/Laravel kursi uchun
+   --------------------------------------------------------------------------
+   .codefile  fayl yo'li sarlavhali kod bloki («qaysi faylga?» muammosini yopadi)
+   .natija    kutilgan natija (alohida blok) — nusxalanmaydi
+              ⚠️ `.out` NOMINI ISHLATMANG: u `.cmd .out` sifatida band (terminal
+              bloki ichidagi chiqish qatori) — bare `.out` uni buzadi.
+   .predict   «natijani taxmin qiling» mashqi (<details> bilan)
+   .atama     matn ichidagi atama chipi → glossary havolasi
+   ========================================================================== */
+
+/* ----- .codefile: fayl yo'li + kod ---------------------------------------- */
+.codefile { margin: 1.1rem 0; }
+.codefile .fname {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  color: var(--ink-soft);
+  background: var(--code-bg);
+  border: 1px solid var(--rule-firm);
+  border-bottom: 0;
+  border-radius: 8px 8px 0 0;
+  padding: 0.4rem 0.7rem;
+  word-break: break-all;
+}
+.codefile .fname::before { content: "📄"; font-size: 0.8rem; }
+.codefile .fname .yangi,
+.codefile .fname .tahrir {
+  margin-left: auto;
+  flex: none;
+  font-family: var(--sans);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: 4px;
+  padding: 0.1rem 0.35rem;
+}
+.codefile .fname .yangi  { background: var(--good-bg); color: var(--good); }
+.codefile .fname .tahrir { background: var(--accent-bg); color: var(--accent-ink); }
+/* Kod bloki .cmd klassini oladi → nusxalash tugmasi avtomatik ishlaydi */
+.codefile .cmd { margin: 0; border-radius: 0 0 8px 8px; }
+
+/* O'zgargan qatorlar — kod ichida */
+.codefile .add,
+.codefile .del { display: block; margin: 0 -2.1rem; padding: 0 2.1rem; }
+.codefile .add { background: rgba(74, 158, 106, 0.18); }
+.codefile .del { background: rgba(190, 80, 80, 0.16); opacity: 0.75; }
+
+/* ----- .natija: kutilgan natija (alohida blok) --------------------------- */
+.natija {
+  display: block;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  line-height: 1.65;
+  color: var(--term-out);
+  background: var(--note-bg);
+  border-left: 3px solid var(--rule-firm);
+  border-radius: 0 6px 6px 0;
+  padding: 0.6rem 0.85rem;
+  margin: 0.5rem 0 1.1rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.natija::before {
+  content: "natija";
+  display: block;
+  font-family: var(--sans);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin-bottom: 0.3rem;
+}
+
+/* ----- .predict: natijani taxmin qiling ---------------------------------- */
+.predict {
+  border: 1px solid var(--accent);
+  border-left-width: 4px;
+  border-radius: 8px;
+  background: var(--accent-bg);
+  padding: 0.8rem 1rem;
+  margin: 1.3rem 0;
+}
+.predict > .label {
+  display: block;
+  font-family: var(--sans);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent-ink);
+  margin-bottom: 0.4rem;
+}
+.predict > .label::before { content: "🤔 "; }
+.predict p { margin: 0 0 0.5rem; }
+.predict .cmd, .predict .codefile { margin-top: 0.6rem; }
+.predict details {
+  border-top: 1px dashed var(--rule-firm);
+  margin-top: 0.7rem;
+  padding-top: 0.55rem;
+}
+.predict summary {
+  cursor: pointer;
+  font-family: var(--sans);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--accent-ink);
+}
+.predict summary::marker { color: var(--accent); }
+.predict .answer { margin-top: 0.5rem; }
+.predict .answer p:last-child { margin-bottom: 0; }
+
+/* ----- .atama: matn ichidagi atama chipi --------------------------------- */
+.atama {
+  font-family: var(--mono);
+  font-size: 0.88em;
+  background: var(--code-bg);
+  color: var(--ink);
+  border-bottom: 1px dotted var(--accent);
+  border-radius: 3px;
+  padding: 0.05em 0.28em;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.atama:hover { background: var(--accent-bg); border-bottom-style: solid; }
+
+/* ==========================================================================
    15) CHOP ETISH (print) — konspekt sifatida bosib olish uchun
    ========================================================================== */
 @media print {
@@ -1099,9 +1230,14 @@ body.mode-do { font-size: 18.5px; line-height: 1.58; }
   body.mode-read [data-mode="do"],
   body.mode-do   [data-mode="read"] { display: revert !important; }
   .cmd { border: 1px solid #ccc; }
-  .callout, .quiz, .primary-source, .snap .card, .recap, .recall { break-inside: avoid; }
+  .callout, .quiz, .primary-source, .snap .card, .recap, .recall,
+  .codefile, .predict { break-inside: avoid; }
   .quiz-explain { display: block !important; }   /* javoblar bosmada ko'rinsin */
   .recall .answer { display: block !important; } /* javoblar ochiq bo'lsin */
+  .predict .answer { display: block !important; }
+  .natija { border: 1px solid #ccc; border-left-width: 3px; }
+  .codefile .add { background: #eef6f0; }
+  .codefile .del { background: #f9eeee; }
   a { color: #000; }
   a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 0.7em; color: #555; }
 }

@@ -1,0 +1,582 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 11 — Exception: xatoni tutib olish</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 11 · MODUL A — POYDEVOR</p>
+  <h1><code>Exception</code>: xatoni tutib olish</h1>
+  <p class="lead">4-darsda xatoni <b>o'qishni</b> o'rgandik. Bugun uni <b>tutib olamiz</b>:
+  xato bo'lganda dastur to'xtamaydi, siz o'zingiz hal qilasiz. 4-darsdan qolgan qarz shu
+  yerda to'lanadi — va endi buni tushunish uchun hamma narsa bor, chunki
+  <b>xato ham obyekt</b>.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 9 daqiqa</span>
+    <span>💻 Amaliyot ≈ 12 daqiqa</span>
+    <span>Kerak: <a href="0010-interface-va-trait.html">Dars 10</a></span>
+  </p>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Nega bu muhim</span>
+    <p>Ba'zi xatolar — <b>kutilgan</b> xatolar. Foydalanuvchi manfiy maosh kiritdi,
+    fayl topilmadi, tashqi API javob bermadi. Bularda dastur <b>to'xtamasligi</b> kerak —
+    aksincha, xushmuomala javob berishi kerak: «Maosh manfiy bo'lolmaydi, iltimos
+    tuzatib qayta yuboring».</p>
+    <p>Laravel'da bu mexanizm hamma joyda: har validatsiya xatosi, har «sahifa topilmadi»
+    (404), har muvaffaqiyatsiz queue job — hammasi <b>exception</b>. Boshqaning kodini
+    o'qiyotganda ham <code>try/catch</code> ni doim ko'rasiz. Ya'ni bu — o'qish uchun ham,
+    yozish uchun ham majburiy ko'nikma.</p>
+  </div>
+
+  <!-- ═══════════════ 2) TUSHUNCHA ═══════════════ -->
+  <h2>Nega bu dars 4-darsda emas, hozir?</h2>
+
+  <p>Sababi bitta va endi u ravshan: <b>xato — obyekt</b>. 4-darsda ko'rgan
+  <code>DivisionByZeroError</code> — bu shunchaki xabar emas, <b>klass nomi</b>. Uni tutib
+  olish uchun klass, meros va ierarxiya kerak bo'ladi — ya'ni 7–10-darslardagi bilim.</p>
+
+  <p>Endi hammasi joyida, davom etamiz.</p>
+
+  <h2><code>throw</code> — «bu yerda muammo bor»</h2>
+
+  <div class="codefile">
+    <div class="fname">tushuncha</div>
+    <code class="cmd" data-cmd="function maoshniTekshir(int $maosh): int
+{
+    if ($maosh &lt; 0) {
+        throw new InvalidArgumentException(&quot;Maosh manfiy bo'lolmaydi: {$maosh}&quot;);
+    }
+    return $maosh;
+}">function maoshniTekshir(int $maosh): int
+{
+    if ($maosh &lt; 0) {
+        <span class="add">throw new InvalidArgumentException("Maosh manfiy bo'lolmaydi: {$maosh}");</span>
+    }
+    return $maosh;
+}</code>
+  </div>
+
+  <p><code>throw new ...</code> — ikki ish qiladi:</p>
+  <ul>
+    <li><code>new</code> bilan <b>xato obyektini yasaydi</b> (7-darsdagi <code>new</code>
+    — aynan o'sha).</li>
+    <li><code>throw</code> bilan uni <b>otadi</b>: funksiya darhol to'xtaydi,
+    <code>return</code> ga yetmaydi.</li>
+  </ul>
+
+  <p>Diqqat qiling — 8-darsda validatsiyani <b>«jimgina rad etish»</b> bilan qilgandik
+  (<code>return;</code>). U yechim ishlaydi, lekin bitta kamchiligi bor: chaqiruvchi
+  <b>rad etilganini bilmaydi</b>. <code>throw</code> esa buni yashirmaydi.</p>
+
+  <h2><code>try / catch</code> — tutib olish</h2>
+
+  <div class="codefile">
+    <div class="fname">tushuncha</div>
+    <code class="cmd" data-cmd="echo &quot;Boshlandi&quot;;
+try {
+    $maosh = maoshniTekshir(-500);
+    echo &quot;Bu qator chiqmaydi&quot;;
+} catch (InvalidArgumentException $e) {
+    echo &quot;Tutildi: &quot;, $e-&gt;getMessage();
+}
+echo &quot;Dastur davom etdi&quot;;">echo "Boshlandi";
+try {
+    $maosh = maoshniTekshir(-500);
+    echo "Bu qator chiqmaydi";
+} catch (InvalidArgumentException $e) {
+    echo "Tutildi: ", $e-&gt;getMessage();
+}
+echo "Dastur davom etdi";</code>
+  </div>
+
+  <div class="natija">Boshlandi
+Tutildi: Maosh manfiy bo'lolmaydi: -500
+Dastur davom etdi</div>
+
+  <p>Ishlash tartibi:</p>
+  <ol>
+    <li><code>try { }</code> — «shu blokni bajarishga <b>urinib ko'r</b>».</li>
+    <li>Xato otilsa — <code>try</code> blokining <b>qolgani tashlab ketiladi</b>
+    («Bu qator chiqmaydi» chindan chiqmadi).</li>
+    <li><code>catch (Tur $e)</code> — «shu turdagi xato bo'lsa, mana bu bilan hal qilaman».
+    <code>$e</code> — o'sha <b>xato obyekti</b>.</li>
+    <li>Undan keyin dastur <b>normal davom etadi</b>. Mana asosiy foyda.</li>
+  </ol>
+
+  <p><code>$e-&gt;getMessage()</code> — endi bu yozuv tanish: <code>-&gt;</code> obyektga
+  murojaat (7-dars), <code>getMessage()</code> — xato obyektining metodi. Boshqa foydali
+  metodlari: <code>getFile()</code>, <code>getLine()</code>, <code>getCode()</code> —
+  ya'ni 4-darsda o'qigan «to'rt bo'lak»ni <b>kod orqali</b> ham olish mumkin.</p>
+
+  <h2>🔑 Ierarxiya: <code>catch</code> tur bo'yicha tutadi</h2>
+
+  <p>Bu darsning eng muhim qismi va 9-darsdagi meros bilimining to'g'ridan-to'g'ri
+  qo'llanishi. PHP'dagi xatolar <b>daraxt</b> shaklida tuzilgan:</p>
+
+  <div class="areas wide">
+    <div class="area">
+      <h4>Throwable</h4>
+      <span class="en">interface</span>
+      <div class="desc"><b>Eng tepasi.</b> Otiladigan hamma narsa shunga mos keladi</div>
+    </div>
+    <div class="area">
+      <h4>Exception</h4>
+      <span class="en">class</span>
+      <div class="desc"><b>Kutilgan</b> muammolar: validatsiya, fayl, tarmoq. Odatda siz shularni otasiz</div>
+    </div>
+    <div class="area">
+      <h4>Error</h4>
+      <span class="en">class</span>
+      <div class="desc"><b>Dasturchi xatosi</b>: <code>TypeError</code>, <code>DivisionByZeroError</code></div>
+    </div>
+    <div class="area">
+      <h4>O'z klassim</h4>
+      <span class="en">extends Exception</span>
+      <div class="desc"><code>MaoshXatosi</code> — domenga xos, ma'noli nom</div>
+    </div>
+  </div>
+
+  <p><code>catch</code> <b>avlodlarni ham tutadi</b> (9-darsdagi <code>instanceof</code>
+  qoidasi): <code>catch (Exception $e)</code> deb yozsangiz,
+  <code>InvalidArgumentException</code> ham, o'zingizning <code>MaoshXatosi</code> ham
+  tutiladi — chunki ular <code>Exception</code> avlodlari.</p>
+
+  <div class="callout warning">
+    <span class="label">⚠️ Eng ko'p adashtiradigan joy</span>
+    <p><code>Error</code> — <b><code>Exception</code> emas!</b> Ular <b>aka-uka</b>, biri
+    ikkinchisining avlodi emas. Ya'ni:</p>
+    <div class="natija">catch (Exception $e)   →  DivisionByZeroError ni TUTMAYDI
+catch (Throwable $e)   →  tutadi (chunki Throwable eng tepada)</div>
+    <p>Bugungi taxmin mashqi aynan shu haqda. Yodda tuting: <b>hammasini tutish</b> kerak
+    bo'lsa — <code>Throwable</code>.</p>
+  </div>
+
+  <h3>Bir nechta <code>catch</code> — aniqdan umumiyga</h3>
+
+  <div class="codefile">
+    <div class="fname">tushuncha</div>
+    <code class="cmd" data-cmd="try {
+    $maosh = maoshniTekshir($kiritilgan);
+} catch (MaoshXatosi $e) {          // 1) eng ANIQ tur
+    echo &quot;Maosh xatosi: &quot;, $e-&gt;getMessage();
+} catch (Exception $e) {            // 2) umumiyroq — qolganlari
+    echo &quot;Boshqa xato: &quot;, $e-&gt;getMessage();
+} finally {
+    echo &quot;tekshiruv tugadi&quot;;        // 3) HAR HOLDA ishlaydi
+}">try {
+    $maosh = maoshniTekshir($kiritilgan);
+} catch (MaoshXatosi $e) {          // 1) eng ANIQ tur
+    echo "Maosh xatosi: ", $e-&gt;getMessage();
+} catch (Exception $e) {            // 2) umumiyroq — qolganlari
+    echo "Boshqa xato: ", $e-&gt;getMessage();
+} finally {
+    echo "tekshiruv tugadi";        // 3) HAR HOLDA ishlaydi
+}</code>
+  </div>
+
+  <p>PHP <code>catch</code> bloklarini <b>yuqoridan pastga</b> tekshiradi va
+  <b>birinchi mos kelganini</b> ishlatadi (3-darsdagi <code>if/elseif</code> kabi).
+  Shuning uchun tartib muhim: <b>aniq turlar yuqorida, umumiylari pastda</b>. Aks holda
+  <code>catch (Exception)</code> hammasini o'zi yutib yuboradi va pastdagi bloklar
+  hech qachon ishlamaydi.</p>
+
+  <p><code>finally</code> — xato bo'ldi yoki bo'lmadi, <b>har holda</b> ishlaydi. Odatda
+  tozalash uchun: faylni yopish, ulanishni uzish.</p>
+
+  <h3>O'z exception klassingiz</h3>
+
+  <div class="codefile">
+    <div class="fname">tushuncha</div>
+    <code class="cmd" data-cmd="class MaoshXatosi extends Exception {}">class MaoshXatosi extends Exception {}</code>
+  </div>
+
+  <p>Tanasi <b>bo'sh</b> — va bu yetarli. Nima uchun kerak: <b>nom</b>. Endi
+  <code>catch (MaoshXatosi $e)</code> deb yozib, aynan shu muammoni boshqalaridan
+  ajratib hal qila olasiz. Va kodni o'qigan odam nima bo'layotganini <b>nomdan</b>
+  tushunadi. Laravel'da o'nlab shunday klasslar bor — masalan
+  <code>ValidationException</code>, <code>ModelNotFoundException</code>.</p>
+
+  <div class="callout note">
+    <span class="label">Xatoni jimgina yutib yubormang</span>
+    <p>Eng yomon naqsh shu:</p>
+    <div class="natija">try {
+    xavfliIsh();
+} catch (Throwable $e) {
+    // hech narsa
+}</div>
+    <p>Bunda muammo <b>yo'qoladi</b>: dastur ishlayotgandek ko'rinadi, lekin ish
+    bajarilmagan. Keyinchalik sababini topish deyarli imkonsiz. Qoida: <b>tutgan
+    xatoni yoki hal qiling, yoki logga yozing, yoki qayta oting</b> — lekin jim
+    qolmang. Bu 4-darsdagi «<code>Warning</code> ni e'tiborsiz qoldirmang» qoidasining
+    davomi.</p>
+  </div>
+
+  <!-- ═══════════════ 4) AMALIYOT / MODE-HINT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    <span class="mode-hint-title">💻 Amaliy qism kompyuterda</span>
+    <p>Amaliyotda <code>25-exception.php</code> da o'z <code>MaoshXatosi</code> klassingizni
+    yozasiz, uchta qiymatni siklda tekshirasiz va uch xil natijani ko'rasiz — qabul
+    qilindi / maosh xatosi / boshqa xato. Oxirida eng muhim tajriba:
+    <code>catch (Exception)</code> <code>DivisionByZeroError</code> ni <b>tutmasligini</b>
+    isbotlaysiz va <code>Throwable</code> bilan tuzatasiz.</p>
+    <button type="button" class="modebtn" data-set-mode="do">💻 Amaliyot rejimini ko'rish</button>
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <p>Papkaga o'ting</p>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/php-poydevor">cd ~/Projects/Learn/php-poydevor</div>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik.</p>
+      </li>
+
+      <li>
+        <p>Exception bilan validatsiya yozing</p>
+        <p class="why-step">Uchta qiymat — uchta yo'l. Sikl ichida <code>try/catch</code>
+        bo'lsa, bitta xato butun siklni to'xtatmaydi.</p>
+        <div class="cmd" data-cmd="cat &gt; 25-exception.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+class MaoshXatosi extends Exception {}
+
+function maoshniTekshir(int $maosh): int
+{
+    if ($maosh &lt; 0) {
+        throw new MaoshXatosi(&quot;Maosh manfiy bo'lolmaydi: {$maosh}&quot;);
+    }
+    if ($maosh &gt; 100000) {
+        throw new InvalidArgumentException(&quot;Maosh juda katta: {$maosh}&quot;);
+    }
+    return $maosh;
+}
+
+foreach ([800, -500, 999999] as $kiritilgan) {
+    try {
+        $maosh = maoshniTekshir($kiritilgan);
+        echo &quot;✅ Qabul qilindi: {$maosh}&quot;, PHP_EOL;
+    } catch (MaoshXatosi $e) {
+        echo &quot;❌ Maosh xatosi: &quot;, $e-&gt;getMessage(), PHP_EOL;
+    } catch (Exception $e) {
+        echo &quot;❌ Boshqa xato (&quot;, get_class($e), &quot;): &quot;, $e-&gt;getMessage(), PHP_EOL;
+    } finally {
+        echo &quot;   — tekshiruv tugadi&quot;, PHP_EOL;
+    }
+}
+echo &quot;Dastur oxirigacha ishladi&quot;, PHP_EOL;
+EOF
+php 25-exception.php">cat &gt; 25-exception.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+class MaoshXatosi extends Exception {}
+
+function maoshniTekshir(int $maosh): int
+{
+    if ($maosh &lt; 0) {
+        throw new MaoshXatosi("Maosh manfiy bo'lolmaydi: {$maosh}");
+    }
+    if ($maosh &gt; 100000) {
+        throw new InvalidArgumentException("Maosh juda katta: {$maosh}");
+    }
+    return $maosh;
+}
+
+foreach ([800, -500, 999999] as $kiritilgan) {
+    try {
+        $maosh = maoshniTekshir($kiritilgan);
+        echo "✅ Qabul qilindi: {$maosh}", PHP_EOL;
+    } catch (MaoshXatosi $e) {
+        echo "❌ Maosh xatosi: ", $e-&gt;getMessage(), PHP_EOL;
+    } catch (Exception $e) {
+        echo "❌ Boshqa xato (", get_class($e), "): ", $e-&gt;getMessage(), PHP_EOL;
+    } finally {
+        echo "   — tekshiruv tugadi", PHP_EOL;
+    }
+}
+echo "Dastur oxirigacha ishladi", PHP_EOL;
+EOF
+php 25-exception.php
+<span class="out">✅ Qabul qilindi: 800</span>
+<span class="out">   — tekshiruv tugadi</span>
+<span class="out">❌ Maosh xatosi: Maosh manfiy bo'lolmaydi: -500</span>
+<span class="out">   — tekshiruv tugadi</span>
+<span class="out">❌ Boshqa xato (InvalidArgumentException): Maosh juda katta: 999999</span>
+<span class="out">   — tekshiruv tugadi</span>
+<span class="out">Dastur oxirigacha ishladi</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> uch xil natija va oxirida
+        «Dastur oxirigacha ishladi». Diqqat: <code>finally</code> <b>uch marta</b>
+        ishladi — xato bor-yo'qligidan qat'i nazar. Va ikkita xato <b>siklni
+        to'xtatmadi</b>.</p>
+      </li>
+
+      <li>
+        <p><code>catch (Exception)</code> ning chegarasini ko'ring</p>
+        <p class="why-step">Bu darsning eng muhim tajribasi. 4-darsdagi
+        <code>DivisionByZeroError</code> ni tutishga urinamiz.</p>
+        <div class="cmd" data-cmd="php -r 'try { echo 10 / 0; } catch (Exception $e) { echo &quot;tutildi&quot;; }' 2&gt;&amp;1 | head -1">php -r 'try { echo 10 / 0; } catch (Exception $e) { echo "tutildi"; }' 2&gt;&amp;1 | head -1
+<span class="out">PHP Fatal error:  Uncaught DivisionByZeroError: Division by zero in Command line code:1</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> <code>try/catch</code> yozgan bo'lsak ham
+        dastur <b>to'xtadi</b>! «tutildi» chiqmadi. Sababi:
+        <code>DivisionByZeroError</code> — <code>Exception</code> <b>emas</b>.</p>
+      </li>
+
+      <li>
+        <p><code>Throwable</code> bilan tuzating</p>
+        <div class="cmd" data-cmd="php -r 'try { echo 10 / 0; } catch (Throwable $e) { echo &quot;Tutildi: &quot;, get_class($e), PHP_EOL; }'">php -r 'try { echo 10 / 0; } catch (Throwable $e) { echo "Tutildi: ", get_class($e), PHP_EOL; }'
+<span class="out">Tutildi: DivisionByZeroError</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> endi tutildi. Bitta so'z o'zgardi —
+        <code>Exception</code> → <code>Throwable</code> — va xatti-harakat butunlay
+        boshqacha bo'ldi.</p>
+      </li>
+
+      <li>
+        <p>Ierarxiyani o'z ko'zingiz bilan tekshiring</p>
+        <p class="why-step">Yodlashdan ko'ra bir marta ko'rish ishonchli.</p>
+        <div class="cmd" data-cmd="php -r 'foreach ([new Exception(&quot;x&quot;), new DivisionByZeroError(&quot;x&quot;), new TypeError(&quot;x&quot;)] as $e) { printf(&quot;%-22s Exception:%-6s Error:%s\n&quot;, get_class($e), var_export($e instanceof Exception, true), var_export($e instanceof Error, true)); }'">php -r 'foreach ([new Exception("x"), new DivisionByZeroError("x"), new TypeError("x")] as $e) { printf("%-22s Exception:%-6s Error:%s\n", get_class($e), var_export($e instanceof Exception, true), var_export($e instanceof Error, true)); }'
+<span class="out">Exception              Exception:true   Error:false</span>
+<span class="out">DivisionByZeroError    Exception:false  Error:true</span>
+<span class="out">TypeError              Exception:false  Error:true</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> <code>DivisionByZeroError</code> va
+        6-darsdagi <code>TypeError</code> — ikkalasi ham <code>Error</code>,
+        <code>Exception</code> emas. Ular <b>dasturchi xatosi</b> — ya'ni odatda tutilmaydi,
+        <b>tuzatiladi</b>.</p>
+      </li>
+
+      <li>
+        <p>Ishni saqlang</p>
+        <div class="cmd" data-cmd="git add -A
+git commit -m &quot;11-dars: exception&quot;">git add -A
+git commit -m "11-dars: exception"</div>
+        <p class="expect"><b>Kutilgan natija:</b> commit haqida xabar.</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><input type="checkbox" id="d11c1"><label for="d11c1">O'z <code>MaoshXatosi</code> klassimni yozdim</label></li>
+      <li><input type="checkbox" id="d11c2"><label for="d11c2"><b>Xato siklni to'xtatmasligini ko'rdim</b> 🎉</label></li>
+      <li><input type="checkbox" id="d11c3"><label for="d11c3"><code>finally</code> har holda ishlashini tasdiqladim</label></li>
+      <li><input type="checkbox" id="d11c4"><label for="d11c4"><b><code>catch (Exception)</code> <code>Error</code> ni tutmasligini isbotladim</b></label></li>
+      <li><input type="checkbox" id="d11c5"><label for="d11c5"><code>Throwable</code> bilan tuzatdim</label></li>
+      <li><input type="checkbox" id="d11c6"><label for="d11c6"><code>catch</code> tartibi (aniqdan umumiyga) nega muhimligini bilaman</label></li>
+      <li><input type="checkbox" id="d11c7"><label for="d11c7">Ishni commit qildim</label></li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 5) TAXMIN + QUIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p><code>try/catch</code> yozilgan. Savol: ekranda nima chiqadi — va
+    <b>«Dastur davom etdi»</b> chiqadimi?</p>
+    <div class="codefile">
+      <div class="fname">taxmin.php</div>
+      <code class="cmd" data-cmd="&lt;?php
+echo &quot;Boshlandi&quot;, PHP_EOL;
+try {
+    echo 10 / 0;
+} catch (Exception $e) {
+    echo &quot;Tutildi: &quot;, $e-&gt;getMessage(), PHP_EOL;
+}
+echo &quot;Dastur davom etdi&quot;, PHP_EOL;">&lt;?php
+echo "Boshlandi", PHP_EOL;
+try {
+    echo 10 / 0;
+} catch (Exception $e) {
+    echo "Tutildi: ", $e-&gt;getMessage(), PHP_EOL;
+}
+echo "Dastur davom etdi", PHP_EOL;</code>
+    </div>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <div class="natija">Boshlandi
+PHP Fatal error:  Uncaught DivisionByZeroError: Division by zero in taxmin.php:4</div>
+        <p><b>«Dastur davom etdi» chiqmaydi.</b> <code>try/catch</code> yozilgan bo'lsa ham
+        dastur to'xtadi — go'yo <code>catch</code> yo'q kabi.</p>
+        <p><b>Sabab:</b> <code>10 / 0</code> <code>DivisionByZeroError</code> otadi, u esa
+        <code>Error</code> avlodi. <code>catch (Exception $e)</code> faqat
+        <code>Exception</code> va uning avlodlarini tutadi. <code>Error</code> va
+        <code>Exception</code> — <b>aka-uka</b>, biri ikkinchisining avlodi emas.
+        Shuning uchun mos kelmadi va xato tutilmasdan o'tib ketdi.</p>
+        <p><b>Uch yechim, uch xil ma'no:</b></p>
+        <div class="natija">catch (Throwable $e)            → hammasini tutadi
+catch (DivisionByZeroError $e)  → aynan shuni tutadi
+if ($bolinuvchi !== 0) { ... }  → xatoni umuman chiqarmaydi ← ENG YAXSHISI</div>
+        <p class="expect">Eng muhim xulosa: <code>Error</code> odatda <b>dasturchi
+        xatosi</b> — uni tutish emas, <b>tuzatish</b> kerak. Nolga bo'lishni oldini olish
+        <code>catch</code> qilishdan yaxshiroq. <code>try/catch</code> esa
+        <b>kutilgan</b> muammolar uchun: foydalanuvchi kirtigi, fayl, tarmoq.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span> <code>try</code> ichida xato otilsa,
+    blokning qolgan qatorlari nima bo'ladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Tashlab ketiladi, bajarilmaydi</button></li>
+      <li><button class="quiz-option">Baribir oxirigacha bajariladi</button></li>
+      <li><button class="quiz-option">Faqat keyingisi bajariladi</button></li>
+    </ul>
+    <div class="quiz-explain">Xato otilgan zahoti <code>try</code> bloki
+    <b>to'xtaydi</b> va boshqaruv mos <code>catch</code> ga o'tadi. Undan keyin dastur
+    normal davom etadi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span> <code>catch (Exception $e)</code>
+    <code>TypeError</code> ni tutadimi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Yo'q — u Error avlodi</button></li>
+      <li><button class="quiz-option">Ha — hamma xatoni tutadi</button></li>
+      <li><button class="quiz-option">Ha — lekin xabarsiz tutadi</button></li>
+    </ul>
+    <div class="quiz-explain"><code>Error</code> va <code>Exception</code> — aka-uka
+    klasslar. Ikkisining ham otasi <code>Throwable</code>. Hammasini tutish uchun
+    <code>catch (Throwable $e)</code> yoziladi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span> Bir nechta <code>catch</code> bo'lsa,
+    tartib qanday bo'lishi kerak?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Aniq turlar yuqorida turadi</button></li>
+      <li><button class="quiz-option">Umumiy turlar yuqorida turadi</button></li>
+      <li><button class="quiz-option">Tartib hech qanday ahamiyatsiz</button></li>
+    </ul>
+    <div class="quiz-explain">PHP birinchi mos kelgan <code>catch</code> ni ishlatadi.
+    <code>catch (Exception)</code> yuqorida tursa, o'zidan pastdagi aniq bloklar hech
+    qachon ishlamaydi.</div>
+  </div>
+
+  <!-- ═══════════════ 6) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+    <p class="recall-intro">Avval o'zingiz javob bering, keyin ochib tekshiring.
+    Oxirgi ikkitasi — <a href="0010-interface-va-trait.html">10-darsni</a> takrorlash.</p>
+
+    <details class="recall">
+      <summary>Nega exception darsi 4-darsda emas, shu yerda?</summary>
+      <div class="answer"><p>Chunki <b>xato — obyekt</b>. <code>DivisionByZeroError</code> —
+      klass nomi. Uni tur bo'yicha tutish uchun klass, meros va ierarxiya kerak — ya'ni
+      7–10-darslardagi bilim.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary><code>Error</code> va <code>Exception</code> munosabati qanday?</summary>
+      <div class="answer"><p><b>Aka-uka</b> — biri ikkinchisining avlodi emas. Ikkisining
+      otasi <code>Throwable</code>. <code>Exception</code> = kutilgan muammo,
+      <code>Error</code> = dasturchi xatosi. Hammasini tutish → <code>Throwable</code>.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Nega o'z exception klassini yozish kerak?</summary>
+      <div class="answer"><p><b>Nom uchun.</b> <code>catch (MaoshXatosi $e)</code> deb aynan
+      shu muammoni ajratib hal qilasiz, va kodni o'qigan odam nomdan tushunadi. Tanasi
+      bo'sh bo'lsa ham yetadi: <code>class MaoshXatosi extends Exception {}</code>.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: metod ustunligi tartibi qanday?</summary>
+      <div class="answer"><p><b>O'z klassi &gt; trait &gt; ota klass.</b> Trait otani
+      yengadi, chunki uning kodi klass ichiga ko'chiriladi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: <code>interface</code> va <code>trait</code> farqi?</summary>
+      <div class="answer"><p><code>interface</code> — «nima qila oladi» (shartnoma, kod yo'q,
+      <b>tip beradi</b>). <code>trait</code> — «qanday qiladi» (kod bor, tip bermaydi).
+      Bugungi <code>Throwable</code> — aslida <b>interface</b>.</p></div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 7) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Cho'ntak xulosasi</span>
+    <ul>
+      <li><code>throw new Xato("xabar")</code> — obyekt yasab, otadi; funksiya darhol
+      to'xtaydi.</li>
+      <li><code>try { } catch (Tur $e) { }</code> — tutib oladi, dastur <b>davom etadi</b>.</li>
+      <li><code>$e-&gt;getMessage()</code> · <code>getFile()</code> · <code>getLine()</code>
+      — 4-darsdagi «to'rt bo'lak» kod orqali.</li>
+      <li><b>catch avlodlarni ham tutadi</b> — <code>catch (Exception)</code> barcha
+      Exception avlodlarini oladi.</li>
+      <li>🔑 <b><code>Error</code> ≠ <code>Exception</code></b> — aka-uka. Hammasi uchun
+      <code>Throwable</code>.</li>
+      <li>Bir necha <code>catch</code>: <b>aniqdan umumiyga</b>. Birinchi mos kelgani
+      ishlaydi.</li>
+      <li><code>finally</code> — har holda ishlaydi (tozalash uchun).</li>
+      <li><code>class MaoshXatosi extends Exception {}</code> — bo'sh tanasi bilan ham
+      foydali: <b>nom beradi</b>.</li>
+      <li><b>Xatoni jimgina yutmang.</b> Hal qiling, logga yozing yoki qayta oting.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Kelasi darslar uchun urug'</span>
+    <p>Modul A ning oxiriga yaqinlashdik va fayllaringiz ko'paydi:
+    <code>21-xabar.php</code>, <code>23-interface.php</code>, <code>25-exception.php</code>...
+    Har birini <code>require</code> qilish kerak, va klasslar 50 taga chiqsa bu chidab
+    bo'lmas bo'ladi. Bundan tashqari ikki xil kutubxonada bir xil nomli klass bo'lsa —
+    to'qnashuv.</p>
+    <p><b>Keyingi dars</b> ikkisini ham yechadi: <code>namespace</code> (nomlarni ajratish)
+    va <b>Composer</b> bilan <code>autoload</code> — «kerak bo'lgan klassni PHP o'zi topib
+    oladi». <code>require</code> yozish tugaydi. Va shu bilan <b>Composer</b> — Laravel
+    o'rnatiladigan asbob — qo'lingizga o'tadi.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>PHP Fundamentals</b> — Laravel'ning rasmiy bepul kursi:
+    <a href="https://laravel.com/learn/php-fundamentals">laravel.com/learn/php-fundamentals</a>.<sup><a href="#fn1">1</a></sup><br>
+    Qo'llanma (ko'zgu):
+    <a href="https://devdocs.io/php/language.exceptions">devdocs.io — Exceptions</a> ·
+    <a href="https://devdocs.io/php/class.throwable">Throwable</a>.<sup><a href="#fn2">2</a></sup><br>
+    Amaliy tavsiyalar:
+    <a href="https://phptherightway.com/#errors_and_exceptions">PHP The Right Way — Errors and Exceptions</a>.</p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b> «qachon <code>throw</code> qilaman,
+    qachon <code>false</code> qaytaraman?», «<code>rethrow</code> nima?»,
+    «<code>$e-&gt;getPrevious()</code> nima uchun?», «Laravel xatoni qayerda tutadi?» —
+    har qanday savol yaxshi. Birinchi savol ayniqsa muhim: tajribali dasturchilar ham
+    shuni muhokama qiladi.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0010-interface-va-trait.html">Oldingi: interface va trait</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel — <a href="https://laravel.com/learn/php-fundamentals">PHP
+      Fundamentals</a> (rasmiy bepul mini-kurs).</li>
+      <li id="fn2">PHP Manual — <i>Exceptions</i> va <i>Throwable</i>, DevDocs ko'zgusi
+      orqali: <a href="https://devdocs.io/php/language.exceptions">devdocs.io/php/language.exceptions</a>.
+      Rasmiy <code>php.net</code> bu tarmoqdan ochilmaydi.</li>
+      <li id="fn3">Barcha natijalar PHP <b>8.3.32</b> da jonli sinab ko'rilgan — shu
+      jumladan <code>catch (Exception)</code> ning <code>DivisionByZeroError</code> ni
+      tutmasligi va ierarxiya jadvali.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

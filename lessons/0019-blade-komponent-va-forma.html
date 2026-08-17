@@ -1,0 +1,671 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 19 — Blade komponent va forma</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 19 · MODUL B — LARAVEL</p>
+  <h1>Komponent va forma: <code>@csrf</code> nima uchun kerak</h1>
+  <p class="lead">Bu darsdan keyin takrorlanadigan HTML bo'laklarini <b>komponent</b>ga
+  aylantirasiz va IshTop'ga <b>birinchi formani</b> qo'shasiz. Va 13-darsda qolgan savolga
+  javob olasiz: <b>CSRF nima?</b> — nazariya emas, hujumning o'zi tushuntiriladi va
+  himoyani olib tashlab sinab ko'rasiz.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 11 daqiqa</span>
+    <span>💻 Amaliyot ≈ 16 daqiqa</span>
+    <span>Kerak: <a href="0018-blade-asoslari.html">Dars 18</a></span>
+  </p>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Nega bu muhim</span>
+    <p>18-darsdagi layout <b>katta</b> takrorlanishni yechdi — <code>&lt;head&gt;</code>,
+    menyu, footer. Lekin kichik bo'laklar qoladi: vakansiya kartasi, tugma, ogohlantirish
+    qutisi. Ular sahifalar bo'ylab takrorlanadi.</p>
+    <p>Va ikkinchi mavzu — <b>forma</b>. Bu ilovaning eng muhim qismi: foydalanuvchi
+    ma'lumot <b>kiritadi</b>. Lekin Laravel'da forma yozganda darhol
+    <code>@csrf</code> ga duch kelasiz — va uni «shunchaki yozib qo'yish kerak» deb
+    o'tkazib yuborish <b>xato</b> bo'ladi. Bu himoya chorasi, va nimadan himoya qilishini
+    bilish kerak.</p>
+  </div>
+
+  <!-- ═══════════════ 2) TUSHUNCHA ═══════════════ -->
+  <h2><code>@include</code> — eng oddiy qayta ishlatish</h2>
+
+  <div class="codefile">
+    <div class="fname">tushuncha</div>
+    <code class="cmd" data-cmd="@include('sinov.qism', ['nom' =&gt; 'IshTop'])">@include('sinov.qism', ['nom' =&gt; 'IshTop'])</code>
+  </div>
+
+  <p>«Shu view faylini shu yerga qo'sh». 7-darsdagi <code>require</code> ning Blade
+  varianti. Ma'lumot ikkinchi argumentda uzatiladi.</p>
+
+  <p>Oddiy, lekin bitta kamchiligi bor: <b>qanday ma'lumot kutilayotgani ko'rinmaydi</b>.
+  Fayl ichini ochib qarash kerak, va nimani uzatish kerakligini eslab qolish kerak.</p>
+
+  <h2>Komponent — «HTML tegi» kabi</h2>
+
+  <div class="codefile">
+    <div class="fname">resources/views/components/vakansiya-karta.blade.php</div>
+    <code class="cmd" data-cmd="@props(['nom', 'maosh'])
+
+&lt;div class=&quot;karta&quot;&gt;
+    &lt;b&gt;{{ $nom }}&lt;/b&gt; — {{ $maosh }} $
+&lt;/div&gt;">@props(['nom', 'maosh'])
+
+&lt;div class="karta"&gt;
+    &lt;b&gt;{{ $nom }}&lt;/b&gt; — {{ $maosh }} $
+&lt;/div&gt;</code>
+  </div>
+
+  <div class="codefile">
+    <div class="fname">ishlatilishi</div>
+    <code class="cmd" data-cmd="@foreach ($vakansiyalar as $v)
+    &lt;x-vakansiya-karta :nom=&quot;$v['nom']&quot; :maosh=&quot;$v['maosh']&quot; /&gt;
+@endforeach">@foreach ($vakansiyalar as $v)
+    <span class="add">&lt;x-vakansiya-karta :nom="$v['nom']" :maosh="$v['maosh']" /&gt;</span>
+@endforeach</code>
+  </div>
+
+  <p>Uchta qoida:</p>
+  <ul>
+    <li>Fayl <code>resources/views/components/</code> da yashaydi, va nomi
+    <code>&lt;x-fayl-nomi /&gt;</code> ga aylanadi. <code>x-</code> — Laravel'ning
+    komponent belgisi.</li>
+    <li><code>@props(['nom', 'maosh'])</code> — <b>qanday ma'lumot kutilayotganini
+    e'lon qiladi</b>. Bu 6-darsdagi funksiya parametrlariga o'xshaydi: shartnoma
+    ko'rinadi.</li>
+    <li><code>:nom="$v['nom']"</code> — <b>ikki nuqta muhim</b>. Ikki nuqta bilan —
+    qiymat PHP ifodasi; ikki nuqtasiz (<code>nom="Backend"</code>) — oddiy matn.</li>
+  </ul>
+
+  <table class="sheet">
+    <tr><th></th><th><code>@include</code></th><th><code>&lt;x-komponent /&gt;</code></th></tr>
+    <tr><td>Nima kutilayotgani</td><td>Ko'rinmaydi</td><td><b><code>@props</code> bilan e'lon qilinadi</b></td></tr>
+    <tr><td>Yozilishi</td><td>Blade direktivasi</td><td>HTML tegiga o'xshaydi</td></tr>
+    <tr><td>Qachon</td><td>Oddiy bo'lak (masalan menyu)</td><td><b>Qayta ishlatiladigan, parametrli</b> bo'lak</td></tr>
+  </table>
+
+  <p><b>Amaliy qoida:</b> parametr bo'lsa — <b>komponent</b>. Parametrsiz oddiy bo'lak
+  bo'lsa — <code>@include</code> ham yetadi.</p>
+
+  <h2>Forma va <code>@csrf</code></h2>
+
+  <div class="codefile">
+    <div class="fname">resources/views/vakansiyalar/index.blade.php</div>
+    <code class="cmd" data-cmd="&lt;form method=&quot;POST&quot; action=&quot;/vakansiyalar&quot;&gt;
+    @csrf
+    &lt;input type=&quot;text&quot; name=&quot;nom&quot; placeholder=&quot;Vakansiya nomi&quot;&gt;
+    &lt;button type=&quot;submit&quot;&gt;Saqlash&lt;/button&gt;
+&lt;/form&gt;">&lt;form method="POST" action="/vakansiyalar"&gt;
+    <span class="add">@csrf</span>
+    &lt;input type="text" name="nom" placeholder="Vakansiya nomi"&gt;
+    &lt;button type="submit"&gt;Saqlash&lt;/button&gt;
+&lt;/form&gt;</code>
+  </div>
+
+  <p>13-darsdan bilasiz: <code>POST</code> — o'zgartirish uchun, va ma'lumot
+  <code>$_POST</code> ga tushadi. Laravel'da uni <code>$request-&gt;input('nom')</code>
+  bilan olasiz (17-dars).</p>
+
+  <p>Yangi narsa — <code>@csrf</code>. U nimaga aylanadi? <b>Yashirin inputga</b>:</p>
+
+  <div class="natija">&lt;input type="hidden" name="_token" value="ABptdBrT1KOnxl7mya8Qf5arbLr3hWXZ95ZhQu8w" autocomplete="off"&gt;</div>
+
+  <p>Ya'ni sehr yo'q: <b>tasodifiy token</b> formaga yashirin qo'shiladi. Xuddi shu token
+  sizning <b>sessiyangizda</b> ham saqlanadi (13-dars!). Forma yuborilganda Laravel
+  ikkisini solishtiradi — mos kelmasa <b>rad etadi</b>.</p>
+
+  <h2>🔒 CSRF hujumi — nimadan himoyalanamiz</h2>
+
+  <p>Buni tushunish uchun 13-darsdagi bitta faktni eslash kerak: <b>brauzer cookie'ni
+  avtomatik yuboradi</b>. Har so'rovda, kim so'raganidan qat'i nazar.</p>
+
+  <div class="areas wide">
+    <div class="area">
+      <h4>1 · Siz kirgansiz</h4>
+      <span class="en">ishtop.uz</span>
+      <div class="desc">Brauzerda sessiya cookie'si turadi</div>
+    </div>
+    <div class="area">
+      <h4>2 · Boshqa saytga kirasiz</h4>
+      <span class="en">yomon-sayt.uz</span>
+      <div class="desc">Unda yashirin forma bor — <code>action="ishtop.uz/..."</code></div>
+    </div>
+    <div class="area">
+      <h4>3 · Forma o'zi yuboriladi</h4>
+      <span class="en">JS bilan</span>
+      <div class="desc">Brauzer <b>cookie'ni ham qo'shadi</b> — avtomatik</div>
+    </div>
+    <div class="area">
+      <h4>4 · Server ishonadi</h4>
+      <span class="en">«bu o'sha odam»</span>
+      <div class="desc">Va amalni bajaradi — <b>sizning nomingizdan</b></div>
+    </div>
+  </div>
+
+  <p>Bu <b>CSRF</b> (cross-site request forgery) — «boshqa saytdan so'rovni qalbakilashtirish».
+  Hujumchi sizning parolingizni bilmaydi, cookie'ni ham <b>o'qiy olmaydi</b> — lekin
+  brauzerni <b>sizning nomingizdan so'rov yuborishga majburlashi</b> mumkin.</p>
+
+  <div class="callout tip">
+    <span class="label">Token nega yechim bo'ladi</span>
+    <p>Hujumchi boshqa saytda turadi, va <b>brauzerning xavfsizlik qoidasi</b> unga
+    <code>ishtop.uz</code> sahifasining mazmunini <b>o'qishga ruxsat bermaydi</b>.
+    Ya'ni u cookie'ni «qo'shtirishga» majburlay oladi, lekin <b>tokenni bilib
+    olmaydi</b>.</p>
+    <p>Token esa formada bo'lishi <b>shart</b>. Yo'q bo'lsa — Laravel rad etadi. Shunday
+    qilib: cookie yetarli emas, <b>sahifani ko'rgan bo'lish</b> ham talab qilinadi.</p>
+  </div>
+
+  <p><code>@csrf</code> ni olib tashlasangiz nima bo'ladi? Amaliyotda sinaysiz:</p>
+
+  <div class="natija">419 | Page Expired</div>
+
+  <p><b>419</b> — Laravel'ning «CSRF tokeni yo'q yoki mos kelmadi» degan javobi. Bu xatoni
+  bilib qo'yish foydali: ish joyida forma ishlamasa, birinchi tekshiriladigan narsa —
+  <code>@csrf</code> bor-yo'qligi.</p>
+
+  <div class="callout note">
+    <span class="label">Nega bu faqat POST'da kerak</span>
+    <p>13-darsdagi qoida: <b>GET — o'qish, POST — o'zgartirish</b>. CSRF himoyasi
+    <b>o'zgartiradigan</b> so'rovlarga qo'llanadi: <code>POST</code>, <code>PUT</code>,
+    <code>PATCH</code>, <code>DELETE</code>. <code>GET</code> ga kerak emas, chunki u
+    (to'g'ri yozilgan bo'lsa) hech narsani o'zgartirmaydi.</p>
+    <p>Mana nega o'sha qoida shunchalik muhim edi: agar o'chirish amalini
+    <code>GET</code> qilib qo'ysangiz, CSRF himoyasi <b>umuman ishlamaydi</b>.</p>
+  </div>
+
+  <h2><code>@method</code> — HTML formaning cheklovi</h2>
+
+  <p>REST bo'yicha tahrirlash <code>PUT</code>, o'chirish <code>DELETE</code> bo'lishi
+  kerak. Lekin HTML forma faqat <b>ikkitasini</b> biladi: <code>GET</code> va
+  <code>POST</code>. Yechim:</p>
+
+  <div class="codefile">
+    <div class="fname">tushuncha</div>
+    <code class="cmd" data-cmd="&lt;form method=&quot;POST&quot; action=&quot;/vakansiyalar/12&quot;&gt;
+    @csrf
+    @method('PUT')
+    ...
+&lt;/form&gt;">&lt;form method="POST" action="/vakansiyalar/12"&gt;
+    @csrf
+    <span class="add">@method('PUT')</span>
+    ...
+&lt;/form&gt;</code>
+  </div>
+
+  <p>Va bu ham yashirin inputga aylanadi — sehr yo'q:</p>
+
+  <div class="natija">&lt;input type="hidden" name="_method" value="PUT"&gt;</div>
+
+  <p>Laravel <code>_method</code> maydonini ko'rsa, so'rovni <code>PUT</code> deb
+  hisoblaydi va <code>Route::put(...)</code> ga yuboradi. Bu <b>method spoofing</b> deb
+  ataladi. Brauzer POST yuboradi, Laravel esa PUT deb tushunadi.</p>
+
+  <!-- ═══════════════ 4) AMALIYOT / MODE-HINT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    <span class="mode-hint-title">💻 Amaliy qism kompyuterda</span>
+    <p>Amaliyotda vakansiya kartasini <b>komponentga</b> aylantirasiz, keyin IshTop'ga
+    forma qo'shasiz va uni <code>POST</code> route'ga ulaysiz. Eng muhim tajriba oxirida:
+    <code>@csrf</code> ni olib tashlab, Laravel formani <b>419</b> bilan rad etishini
+    ko'rasiz — keyin qaytarib qo'yasiz.</p>
+    <button type="button" class="modebtn" data-set-mode="do">💻 Amaliyot rejimini ko'rish</button>
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <p>IshTop'ga o'ting va serverni ko'taring</p>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+php artisan serve">cd ~/Projects/Learn/ishtop
+php artisan serve</div>
+        <p class="expect"><b>Kutilgan natija:</b> server ishlaydi. Yangi oyna oching.</p>
+      </li>
+
+      <li>
+        <p>Komponent yarating</p>
+        <p class="why-step"><code>@props</code> bilan «qanday ma'lumot kutilayotgani»
+        ko'rinadigan bo'ladi.</p>
+        <div class="cmd" data-cmd="mkdir -p resources/views/components
+cat &gt; resources/views/components/vakansiya-karta.blade.php &lt;&lt;'EOF'
+@props(['nom', 'maosh'])
+
+&lt;div style=&quot;border:1px solid #ccc; padding:8px; margin:6px 0&quot;&gt;
+    &lt;b&gt;{{ $nom }}&lt;/b&gt; — {{ $maosh }} $
+&lt;/div&gt;
+EOF">mkdir -p resources/views/components
+cat &gt; resources/views/components/vakansiya-karta.blade.php &lt;&lt;'EOF'
+@props(['nom', 'maosh'])
+
+&lt;div style="border:1px solid #ccc; padding:8px; margin:6px 0"&gt;
+    &lt;b&gt;{{ $nom }}&lt;/b&gt; — {{ $maosh }} $
+&lt;/div&gt;
+EOF</div>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik. Fayl nomi
+        <code>vakansiya-karta</code> → teg <code>&lt;x-vakansiya-karta /&gt;</code>.</p>
+      </li>
+
+      <li>
+        <p>View'ni komponent va forma bilan yangilang</p>
+        <div class="cmd" data-cmd="cat &gt; resources/views/vakansiyalar/index.blade.php &lt;&lt;'EOF'
+@extends('layouts.asosiy')
+
+@section('sarlavha', 'Vakansiyalar — IshTop')
+
+@section('mazmun')
+    &lt;h1&gt;Vakansiyalar&lt;/h1&gt;
+
+    @foreach ($vakansiyalar as $v)
+        &lt;x-vakansiya-karta :nom=&quot;$v['nom']&quot; :maosh=&quot;$v['maosh']&quot; /&gt;
+    @endforeach
+
+    &lt;h2&gt;Yangi vakansiya&lt;/h2&gt;
+    &lt;form method=&quot;POST&quot; action=&quot;/vakansiyalar&quot;&gt;
+        @csrf
+        &lt;input type=&quot;text&quot; name=&quot;nom&quot; placeholder=&quot;Vakansiya nomi&quot;&gt;
+        &lt;button type=&quot;submit&quot;&gt;Saqlash&lt;/button&gt;
+    &lt;/form&gt;
+@endsection
+EOF">cat &gt; resources/views/vakansiyalar/index.blade.php &lt;&lt;'EOF'
+@extends('layouts.asosiy')
+
+@section('sarlavha', 'Vakansiyalar — IshTop')
+
+@section('mazmun')
+    &lt;h1&gt;Vakansiyalar&lt;/h1&gt;
+
+    @foreach ($vakansiyalar as $v)
+        &lt;x-vakansiya-karta :nom="$v['nom']" :maosh="$v['maosh']" /&gt;
+    @endforeach
+
+    &lt;h2&gt;Yangi vakansiya&lt;/h2&gt;
+    &lt;form method="POST" action="/vakansiyalar"&gt;
+        @csrf
+        &lt;input type="text" name="nom" placeholder="Vakansiya nomi"&gt;
+        &lt;button type="submit"&gt;Saqlash&lt;/button&gt;
+    &lt;/form&gt;
+@endsection
+EOF</div>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik.</p>
+      </li>
+
+      <li>
+        <p>Controller'ga <code>store</code> metodi qo'shing</p>
+        <p class="why-step">Forma qabul qiluvchi. Hozircha faqat qaytarib beradi —
+        bazaga yozish C modulida.</p>
+        <div class="cmd" data-cmd="cat &gt; app/Http/Controllers/VakansiyaController.php &lt;&lt;'EOF'
+&lt;?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Illuminate\View\View;
+
+class VakansiyaController extends Controller
+{
+    public function index(): View
+    {
+        return view('vakansiyalar.index', [
+            'vakansiyalar' =&gt; [
+                ['nom' =&gt; 'Backend dasturchi', 'maosh' =&gt; 800],
+                ['nom' =&gt; 'Frontend dasturchi', 'maosh' =&gt; 700],
+            ],
+        ]);
+    }
+
+    public function store(Request $request): string
+    {
+        return 'Qabul qilindi: ' . e($request-&gt;input('nom'));
+    }
+}
+EOF">cat &gt; app/Http/Controllers/VakansiyaController.php &lt;&lt;'EOF'
+&lt;?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Illuminate\View\View;
+
+class VakansiyaController extends Controller
+{
+    public function index(): View
+    {
+        return view('vakansiyalar.index', [
+            'vakansiyalar' =&gt; [
+                ['nom' =&gt; 'Backend dasturchi', 'maosh' =&gt; 800],
+                ['nom' =&gt; 'Frontend dasturchi', 'maosh' =&gt; 700],
+            ],
+        ]);
+    }
+
+    public function store(Request $request): string
+    {
+        return 'Qabul qilindi: ' . e($request-&gt;input('nom'));
+    }
+}
+EOF</div>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik. Diqqat: <code>e(...)</code> —
+        18-darsda o'rgangan himoya. Controller matn qaytarganda <code>{{ }}</code> yo'q,
+        shuning uchun <b>qo'lda</b> himoyalash kerak.</p>
+      </li>
+
+      <li>
+        <p>POST route'ni qo'shing</p>
+        <div class="cmd" data-cmd="cat &gt; routes/web.php &lt;&lt;'EOF'
+&lt;?php
+
+use App\Http\Controllers\VakansiyaController;
+use Illuminate\Support\Facades\Route;
+
+Route::get('/vakansiyalar', [VakansiyaController::class, 'index']);
+Route::post('/vakansiyalar', [VakansiyaController::class, 'store']);
+EOF
+php artisan route:list --path=vakansiyalar">cat &gt; routes/web.php &lt;&lt;'EOF'
+&lt;?php
+
+use App\Http\Controllers\VakansiyaController;
+use Illuminate\Support\Facades\Route;
+
+Route::get('/vakansiyalar', [VakansiyaController::class, 'index']);
+Route::post('/vakansiyalar', [VakansiyaController::class, 'store']);
+EOF
+php artisan route:list --path=vakansiyalar
+<span class="out"> GET|HEAD  vakansiyalar .. VakansiyaController@index</span>
+<span class="out"> POST      vakansiyalar .. VakansiyaController@store</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> ikkita route — <b>bir xil manzil, ikki xil
+        metod</b>. 14-darsdagi qoida amalda: route jadvali <b>metod + yo'l</b> bo'yicha
+        kalitlangan.</p>
+      </li>
+
+      <li>
+        <p>Komponent va <code>@csrf</code> chiqishini ko'ring</p>
+        <div class="cmd" data-cmd="curl -s http://localhost:8000/vakansiyalar | grep -E 'border|_token' | head -4">curl -s http://localhost:8000/vakansiyalar | grep -E 'border|_token' | head -4
+<span class="out">&lt;div style="border:1px solid #ccc; padding:8px; margin:6px 0"&gt;</span>
+<span class="out">&lt;div style="border:1px solid #ccc; padding:8px; margin:6px 0"&gt;</span>
+<span class="out">&lt;input type="hidden" name="_token" value="ABptdBrT..." autocomplete="off"&gt;</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> ikkita karta (komponent ikki marta
+        ishladi) va <code>@csrf</code> dan kelgan <b>yashirin input</b>. Token sizda
+        boshqacha bo'ladi — u har sessiyada yangi.</p>
+      </li>
+
+      <li>
+        <p>Formani brauzerda yuborib ko'ring</p>
+        <div class="cmd" data-cmd="xdg-open http://localhost:8000/vakansiyalar">xdg-open http://localhost:8000/vakansiyalar</div>
+        <p class="expect"><b>Kutilgan natija:</b> vakansiya nomini yozib «Saqlash»
+        bosganingizda: <code>Qabul qilindi: ...</code> chiqadi. 🎉 Forma ishlaydi.</p>
+      </li>
+
+      <li>
+        <p>🔒 <code>@csrf</code> ni olib tashlab sinang</p>
+        <p class="why-step">Bu darsning eng muhim tajribasi. Himoya <b>chindan
+        ishlayotganini</b> ko'rasiz.</p>
+        <p>View'dagi <code>@csrf</code> qatorini o'chirib (yoki
+        <code>{{-- @csrf --}}</code> qilib izohga aylantirib) saqlang, keyin brauzerda
+        sahifani <b>yangilab</b> formani qayta yuboring.</p>
+        <div class="cmd" data-cmd="grep -c '@csrf' resources/views/vakansiyalar/index.blade.php">grep -c '@csrf' resources/views/vakansiyalar/index.blade.php
+<span class="out">0</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> brauzerda katta xato sahifasi:</p>
+        <div class="natija">419 | Page Expired</div>
+        <p class="expect">Laravel formani <b>rad etdi</b> — controller <b>umuman
+        ishlamadi</b>. Bu 17-darsdagi middleware mexanizmi: CSRF tekshiruvi middleware
+        sifatida ishlaydi va <code>$next()</code> ni <b>chaqirmaydi</b>.</p>
+      </li>
+
+      <li>
+        <p><code>@csrf</code> ni qaytarib qo'ying</p>
+        <div class="cmd" data-cmd="grep -n 'form method' resources/views/vakansiyalar/index.blade.php">grep -n 'form method' resources/views/vakansiyalar/index.blade.php</div>
+        <p class="expect"><b>Kutilgan natija:</b> qator raqami ko'rinadi. Muharrirda
+        <code>&lt;form ...&gt;</code> dan keyingi qatorga <code>@csrf</code> ni qaytarib
+        yozing va formani qayta yuborib ishlashini tasdiqlang.</p>
+      </li>
+
+      <li>
+        <p><code>@method</code> nimaga aylanishini ko'ring</p>
+        <p class="why-step">Sehr yo'q — yana yashirin input.</p>
+        <div class="cmd" data-cmd="mkdir -p resources/views/sinov
+printf '&lt;form method=&quot;POST&quot;&gt;\n    @csrf\n    @method(&quot;PUT&quot;)\n&lt;/form&gt;\n' &gt; resources/views/sinov/m.blade.php
+php artisan tinker --execute=&quot;echo view('sinov.m')-&gt;render();&quot; 2&gt;/dev/null | grep -oE '&lt;input[^&gt;]*&gt;'">mkdir -p resources/views/sinov
+printf '&lt;form method="POST"&gt;\n    @csrf\n    @method("PUT")\n&lt;/form&gt;\n' &gt; resources/views/sinov/m.blade.php
+php artisan tinker --execute="echo view('sinov.m')-&gt;render();" 2&gt;/dev/null | grep -oE '&lt;input[^&gt;]*&gt;'
+<span class="out">&lt;input type="hidden" name="_token" value="" autocomplete="off"&gt;</span>
+<span class="out">&lt;input type="hidden" name="_method" value="PUT"&gt;</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> ikkita yashirin input.
+        <code>@method('PUT')</code> → <code>_method</code> maydoni. Laravel shuni ko'rib
+        so'rovni <code>PUT</code> deb hisoblaydi — chunki HTML forma faqat GET va POST'ni
+        biladi.
+        <br>💡 Diqqat: <code>_token</code> qiymati bu yerda <b>bo'sh</b> —
+        chunki <code>tinker</code> terminalda ishlaydi va <b>sessiya yo'q</b> (13-dars:
+        sessiya cookie orqali yashaydi). Brauzerda esa u to'ldirilgan bo'ladi — yuqoridagi
+        qadamda ko'rdingiz.
+        <br>Sinovdan keyin tozalash: <code>rm -rf resources/views/sinov</code></p>
+      </li>
+
+      <li>
+        <p>Ishni saqlang</p>
+        <div class="cmd" data-cmd="rm -rf resources/views/sinov
+git add -A
+git commit -m &quot;19-dars: Blade komponent, forma va CSRF&quot;">rm -rf resources/views/sinov
+git add -A
+git commit -m "19-dars: Blade komponent, forma va CSRF"</div>
+        <p class="expect"><b>Kutilgan natija:</b> commit haqida xabar.</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><input type="checkbox" id="d19c1"><label for="d19c1">Komponent yasadim va <code>@props</code> bilan parametr e'lon qildim</label></li>
+      <li><input type="checkbox" id="d19c2"><label for="d19c2"><code>:nom="..."</code> dagi ikki nuqta nima uchun kerakligini bilaman</label></li>
+      <li><input type="checkbox" id="d19c3"><label for="d19c3">Bir manzilga GET va POST route qo'ydim</label></li>
+      <li><input type="checkbox" id="d19c4"><label for="d19c4"><b>Forma ishlaydi va ma'lumot controllerga yetib boradi</b> 🎉</label></li>
+      <li><input type="checkbox" id="d19c5"><label for="d19c5"><code>@csrf</code> yashirin input ekanini ko'rdim</label></li>
+      <li><input type="checkbox" id="d19c6"><label for="d19c6"><b><code>@csrf</code> siz 419 xatosini oldim</b> 🔒</label></li>
+      <li><input type="checkbox" id="d19c7"><label for="d19c7">CSRF hujumini o'z so'zim bilan tushuntira olaman</label></li>
+      <li><input type="checkbox" id="d19c8"><label for="d19c8">Ishni commit qildim</label></li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 5) TAXMIN + QUIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Hujumchi <code>yomon-sayt.uz</code> da shunday forma yashirgan, va siz
+    <code>ishtop.uz</code> ga <b>kirgan holdasiz</b>:</p>
+    <div class="codefile">
+      <div class="fname">yomon-sayt.uz sahifasida</div>
+      <code class="cmd" data-cmd="&lt;form method=&quot;POST&quot; action=&quot;https://ishtop.uz/vakansiyalar/12/ochirish&quot; id=&quot;f&quot;&gt;
+&lt;/form&gt;
+&lt;script&gt;document.getElementById('f').submit();&lt;/script&gt;">&lt;form method="POST" action="https://ishtop.uz/vakansiyalar/12/ochirish" id="f"&gt;
+&lt;/form&gt;
+&lt;script&gt;document.getElementById('f').submit();&lt;/script&gt;</code>
+    </div>
+    <p>Ikki savol: <b>(a)</b> brauzer sessiya cookie'ngizni yuboradimi?
+    <b>(b)</b> vakansiya o'chiriladimi?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <p><b>(a) HA — cookie yuboriladi.</b> Bu 13-darsdagi fakt: brauzer cookie'ni
+        <b>avtomatik</b> qo'shadi, so'rovni kim boshlaganidan qat'i nazar. Server
+        nuqtai nazaridan bu «kirgan foydalanuvchi»ning so'rovi.</p>
+        <p><b>(b) YO'Q — o'chirilmaydi</b>, chunki formada <b>CSRF tokeni yo'q</b>.
+        Laravel <code>419</code> qaytaradi va controller ishlamaydi.</p>
+        <p><b>Nega hujumchi tokenni qo'sha olmaydi:</b> token <code>ishtop.uz</code>
+        sahifasida turadi. Hujumchining sahifasi boshqa domenda, va brauzer unga
+        <b>boshqa domendagi sahifaning mazmunini o'qishga ruxsat bermaydi</b>. Ya'ni u
+        cookie'ni «qo'shtirishga» majburlay oladi, lekin tokenni <b>ko'ra olmaydi</b>.</p>
+        <p class="expect"><b>Asosiy xulosa:</b> cookie «kim ekanligingizni» isbotlaydi,
+        token esa «<b>haqiqatan siz xohlaganingizni</b>» isbotlaydi. Ikkisi boshqa-boshqa
+        savol — shuning uchun ikkisi ham kerak.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span> <code>@csrf</code> nimaga
+    aylanadi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Tokenli yashirin input maydoniga</button></li>
+      <li><button class="quiz-option">Maxsus HTTP sarlavhasi qatoriga</button></li>
+      <li><button class="quiz-option">Yangi cookie qiymati qatoriga</button></li>
+    </ul>
+    <div class="quiz-explain"><code>&lt;input type="hidden" name="_token" value="..."&gt;</code> —
+    oddiy yashirin maydon. Xuddi shu token sessiyada ham saqlanadi va ikkisi
+    solishtiriladi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span> Nega hujumchi CSRF tokenini
+    qo'sha olmaydi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Boshqa domen mazmunini o'qiy olmaydi</button></li>
+      <li><button class="quiz-option">Token juda uzun va murakkab</button></li>
+      <li><button class="quiz-option">Token har soniyada butunlay o'zgaradi</button></li>
+    </ul>
+    <div class="quiz-explain">Brauzerning xavfsizlik qoidasi boshqa domendagi sahifa
+    mazmunini o'qishni <b>taqiqlaydi</b>. Cookie avtomatik ketadi, lekin token
+    <b>ko'rinmaydi</b>.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span> Nega <code>@method('PUT')</code>
+    kerak?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">HTML formada faqat GET va POST</button></li>
+      <li><button class="quiz-option">PUT so'rovi ancha tezroq ishlab beradi</button></li>
+      <li><button class="quiz-option">Laravel PUT metodini qo'llamaydi shuning uchun</button></li>
+    </ul>
+    <div class="quiz-explain">HTML forma <code>PUT</code>/<code>DELETE</code> ni
+    yubora olmaydi. Yechim: POST yuborib, <code>_method</code> yashirin maydonida haqiqiy
+    metodni aytish — <b>method spoofing</b>.</div>
+  </div>
+
+  <!-- ═══════════════ 6) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+    <p class="recall-intro">Avval o'zingiz javob bering, keyin ochib tekshiring.
+    Oxirgi ikkitasi — <a href="0018-blade-asoslari.html">18-darsni</a> takrorlash.</p>
+
+    <details class="recall">
+      <summary>Komponent va <code>@include</code> — qachon qaysi biri?</summary>
+      <div class="answer"><p><b>Parametr bo'lsa — komponent</b> (<code>@props</code> bilan
+      kutilayotgan ma'lumot ko'rinadi). Parametrsiz oddiy bo'lak bo'lsa
+      <code>@include</code> ham yetadi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>CSRF hujumi qanday ishlaydi — bir gapda?</summary>
+      <div class="answer"><p>Brauzer cookie'ni <b>avtomatik</b> yuborgani uchun, boshqa
+      saytdagi yashirin forma <b>sizning nomingizdan</b> so'rov yubora oladi. Token buni
+      to'xtatadi, chunki hujumchi uni <b>o'qiy olmaydi</b>.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>CSRF himoyasi qaysi metodlarga qo'llanadi?</summary>
+      <div class="answer"><p><b>O'zgartiradiganlarga</b>: <code>POST</code>,
+      <code>PUT</code>, <code>PATCH</code>, <code>DELETE</code>. <code>GET</code> ga
+      kerak emas — shuning uchun o'zgartirishni <b>hech qachon GET qilmaslik</b> muhim
+      (13-dars).</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: <code>{{ }}</code> nimaga kompilyatsiya qilinadi?</summary>
+      <div class="answer"><p><code>&lt;?php echo e($x); ?&gt;</code> — va <code>e()</code>
+      bu <code>htmlspecialchars</code>. Shuning uchun <code>{{ }}</code> XSS'dan
+      himoyalaydi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: <code>@yield</code> va <code>@section</code> munosabati?</summary>
+      <div class="answer"><p>Layout'da <code>@yield('nom')</code> bo'sh joy qoldiradi;
+      sahifa <code>@section('nom')</code> bilan uni to'ldiradi.</p></div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 7) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Cho'ntak xulosasi</span>
+    <ul>
+      <li><code>@include('papka.fayl', [...])</code> — oddiy qayta ishlatish
+      (<code>require</code> ning Blade varianti).</li>
+      <li><b>Komponent:</b> <code>resources/views/components/nom.blade.php</code> →
+      <code>&lt;x-nom /&gt;</code>. <code>@props([...])</code> bilan parametrlar
+      <b>e'lon qilinadi</b>.</li>
+      <li><code>:nom="$ifoda"</code> — ikki nuqta = <b>PHP ifodasi</b>; ikki nuqtasiz =
+      oddiy matn.</li>
+      <li>Forma: <code>method="POST"</code> + <b><code>@csrf</code></b>. Ma'lumot
+      <code>$request-&gt;input('nom')</code> bilan olinadi.</li>
+      <li>🔒 <code>@csrf</code> → <code>&lt;input type="hidden" name="_token" ...&gt;</code>.
+      Xuddi shu token <b>sessiyada</b> ham bor, ikkisi solishtiriladi.</li>
+      <li><b>CSRF hujumi:</b> brauzer cookie'ni avtomatik yuboradi → boshqa sayt sizning
+      nomingizdan so'rov yubora oladi. Token buni to'xtatadi, chunki hujumchi uni
+      <b>o'qiy olmaydi</b>.</li>
+      <li><code>@csrf</code> yo'q → <b>419 Page Expired</b>. Forma ishlamasa — birinchi
+      shuni tekshiring.</li>
+      <li><code>@method('PUT')</code> → <code>_method</code> yashirin maydoni
+      (HTML forma faqat GET/POST biladi).</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars — Modul B ning oxirgisi</span>
+    <p>Forma ishlaydi, lekin bitta jiddiy kamchiligi bor: <b>hech narsa tekshirilmaydi</b>.
+    Foydalanuvchi bo'sh nom yuborsa ham, 500 belgili matn yuborsa ham — hammasi qabul
+    qilinadi.</p>
+    <p><b>20-darsda</b> <code>validation</code> keladi: qoidalarni e'lon qilasiz, Laravel
+    tekshiradi, xato bo'lsa foydalanuvchini <b>formaga qaytaradi</b> — xato xabarlari va
+    <b>oldin kiritilgan qiymatlar</b> bilan (<code>old()</code>). Bu 13-darsdagi
+    «POST → redirect → GET» naqshining Laravel'dagi to'liq shakli. Shundan keyin Modul B
+    tugaydi va <b>bazaga</b> o'tamiz.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel — Blade Components</b>:
+    <a href="https://laravel.com/docs/13.x/blade#components">laravel.com/docs/13.x/blade#components</a>.<sup><a href="#fn1">1</a></sup><br>
+    <b>CSRF Protection</b>:
+    <a href="https://laravel.com/docs/13.x/csrf">laravel.com/docs/13.x/csrf</a> —
+    <b>bugun o'qing</b>, qisqa va aynan shu darsning mavzusi.<sup><a href="#fn2">2</a></sup><br>
+    Chuqurroq: <a href="https://owasp.org/www-community/attacks/csrf">OWASP — CSRF</a>.</p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b> «komponentning klass shakli qanday
+    (<code>make:component</code>)?», «<code>$slot</code> nima?», «API'da CSRF kerakmi?»,
+    «<code>SameSite</code> cookie nima?» — har qanday savol yaxshi. Uchinchi savolga
+    qisqa javob: <b>API'da kerak emas</b> — u token bilan ishlaydi, cookie bilan emas.
+    Buni Modul F da (Sanctum darsi) batafsil ko'ramiz.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0018-blade-asoslari.html">Oldingi: Blade asoslari</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel 13 — <a href="https://laravel.com/docs/13.x/blade#components">Blade
+      Components</a>.</li>
+      <li id="fn2">Laravel 13 — <a href="https://laravel.com/docs/13.x/csrf">CSRF
+      Protection</a>.</li>
+      <li id="fn3">Jonli sinab ko'rilgan (Laravel 13.25.0): <code>@csrf</code> →
+      <code>_token</code> yashirin input · token bilan POST → <b>200</b> · tokensiz POST →
+      <b>419 Page Expired</b> · <code>@method('PUT')</code> → <code>_method</code> maydoni ·
+      anonim komponent <code>@props</code> bilan.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

@@ -1,0 +1,833 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 23 — Migration: jadval tuzilishi kodda</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 23 · MODUL C — MA'LUMOTLAR</p>
+  <h1>Migration: jadvalni qo'lda emas, kod bilan yaratish</h1>
+  <p class="lead">21 va 22-darslarda jadvallarni <b>qo'lda</b> yasadik. Bugun ularni
+  <b>kodga</b> ko'chiramiz — shunda jadval tuzilishi git'da yashaydi va istalgan
+  kompyuterda bitta buyruq bilan qayta tiklanadi. Va bu ham sehr emas: Laravel sizga
+  <b>aynan o'sha <code>CREATE TABLE</code> ni</b> ko'rsatib beradi.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 12 daqiqa</span>
+    <span>💻 Amaliyot ≈ 20 daqiqa</span>
+    <span>Kerak: <a href="0022-sql-yozish-va-join.html">Dars 22</a></span>
+  </p>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Nega qo'lda yozilgan SQL yetmaydi</span>
+    <p>Hozir sizning jadvallaringiz <code>sql/01-jadval.php</code> va
+    <code>sql/04-join.php</code> ichida. Uchta savol:</p>
+    <ol>
+      <li><b>Hamkasbingiz</b> loyihani yuklab oldi. Unda jadvallar qayerdan paydo bo'ladi?
+      Unga «bu ikki faylni shu tartibda ishga tushir» deb yozasizmi?</li>
+      <li><b>Server</b>ga chiqarganda-chi? U yerda ham qo'lda ishga tushirasizmi?</li>
+      <li>Bir oydan keyin jadvalga ustun qo'shdingiz. Hamkasbingiz <b>qaysi
+      o'zgarishlarni</b> allaqachon qo'llagan-u qaysinisini qo'llamaganini
+      qanday biladi?</li>
+    </ol>
+    <p>Uchala savolning javobi bitta: <b>migration</b>. Bu — jadval tuzilishini
+    <b>kod</b> qilib yozish. Kod git'da yashaydi (demak hamma bir xil nusxaga ega),
+    va Laravel har bir kompyuterda <b>qaysi o'zgarish qo'llanganini yozib boradi</b> —
+    shuning uchun <code>php artisan migrate</code> hamma joyda <b>faqat yetishmaganini</b>
+    bajaradi.</p>
+    <p>Bu Git kursidagi g'oyaning davomi: <b>tarix va takrorlanuvchanlik</b>. Farqi —
+    u yerda kod tarixi edi, bu yerda <b>baza tuzilishi tarixi</b>.</p>
+  </div>
+
+  <!-- ═══════════════ 2) TUSHUNCHA ═══════════════ -->
+  <h2>Birinchi migration</h2>
+
+  <div class="codefile">
+    <div class="fname">terminal</div>
+    <code class="cmd" data-cmd="php artisan make:migration create_kompaniyalar_table">php artisan make:migration create_kompaniyalar_table</code>
+  </div>
+
+  <p>Fayl <code>database/migrations/</code> ichida, oldida <b>sana va vaqt</b> bilan
+  paydo bo'ladi: <code>2026_08_17_045931_create_kompaniyalar_table.php</code>. Vaqt
+  tasodifiy emas — <b>tartibni</b> belgilaydi: migration'lar shu nom bo'yicha
+  <b>ketma-ket</b> bajariladi.</p>
+
+  <div class="codefile">
+    <div class="fname">database/migrations/…_create_kompaniyalar_table.php</div>
+    <code class="cmd" data-cmd="&lt;?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('kompaniyalar', function (Blueprint $table) {
+            $table-&gt;id();
+            $table-&gt;timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('kompaniyalar');
+    }
+};">&lt;?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('kompaniyalar', function (Blueprint $table) {
+            $table-&gt;id();
+            $table-&gt;timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('kompaniyalar');
+    }
+};</code>
+  </div>
+
+  <p>Diqqat qiling — Laravel jadval nomini <b>o'zi topdi</b>:
+  <code>create_<b>kompaniyalar</b>_table</code> → <code>Schema::create('kompaniyalar', …)</code>.
+  Shuning uchun nomni shu qolipda yozish kerak.</p>
+
+  <div class="callout note">
+    <span class="label">Ikkita yangi shakl</span>
+    <p><b>1) <code>return new class extends Migration</code></b> — <b>nomsiz klass</b>
+    (anonim klass). 7-darsdagi oddiy klass, faqat nomi yo'q. Nega? Bu klass <b>faqat
+    shu faylda</b>, <b>bir marta</b> ishlatiladi — nom berilsa, ikkita migration bir xil
+    nom olib to'qnashishi mumkin edi. G'oyasi 16-darsdagi <b>nomsiz funksiya</b>
+    (closure) bilan bir xil: bir martalik narsaga nom shart emas.</p>
+    <p><b>2) <code>function (Blueprint $table) { … }</code></b> — closure (16-dars).
+    Laravel bo'sh «chizma»ni (<code>Blueprint</code>) yasab, uni sizning funksiyangizga
+    <b>beradi</b>; siz unga ustunlarni qo'shasiz; keyin Laravel undan SQL tuzadi.</p>
+  </div>
+
+  <h2><code>up()</code> va <code>down()</code></h2>
+
+  <table class="sheet">
+    <tr><th>Metod</th><th class="note-cell">Vazifasi</th></tr>
+    <tr><td><code>up()</code></td><td class="note-cell"><b>Oldinga</b>: o'zgarishni qo'llash (jadval yasash, ustun qo'shish)</td></tr>
+    <tr><td><code>down()</code></td><td class="note-cell"><b>Ortga</b>: aynan shu o'zgarishni bekor qilish</td></tr>
+  </table>
+
+  <p><code>down()</code> — bu «undo» tugmasi. Yangi jadval yaratganda Laravel uni
+  <b>o'zi to'ldiradi</b> (<code>dropIfExists</code>). Lekin mavjud jadvalni
+  <b>o'zgartirganda</b> u bo'sh qoladi — chunki Laravel sizning niyatingizni bilmaydi.
+  <b>O'zingiz yozishingiz kerak</b>: ustun qo'shdingizmi — <code>down()</code> da uni
+  o'chiring.</p>
+
+  <h3>Ustun turlari</h3>
+
+  <table class="sheet">
+    <tr><th>Kod</th><th class="note-cell">Nima yasaydi</th></tr>
+    <tr><td><code>$table-&gt;id()</code></td><td class="note-cell"><b>Birlamchi kalit</b> — o'sib boruvchi <code>id</code> (21-dars)</td></tr>
+    <tr><td><code>$table-&gt;string('nom')</code></td><td class="note-cell">Matn (qisqa). Uzun matn uchun — <code>text()</code></td></tr>
+    <tr><td><code>$table-&gt;integer('maosh')</code></td><td class="note-cell">Butun son</td></tr>
+    <tr><td><code>$table-&gt;boolean('faol')</code></td><td class="note-cell">Ha/yo'q (SQLite'da <code>0</code>/<code>1</code>)</td></tr>
+    <tr><td><code>$table-&gt;timestamps()</code></td><td class="note-cell"><b>Ikkita</b> ustun: <code>created_at</code> va <code>updated_at</code></td></tr>
+    <tr><td><code>-&gt;nullable()</code></td><td class="note-cell">Bo'sh (<code>NULL</code>) bo'lishi mumkin</td></tr>
+    <tr><td><code>-&gt;default(true)</code></td><td class="note-cell">Standart qiymat</td></tr>
+    <tr><td><code>-&gt;unique()</code></td><td class="note-cell">Takrorlanmasin</td></tr>
+    <tr><td><code>$table-&gt;foreignId('kompaniya_id')-&gt;constrained('kompaniyalar')</code></td><td class="note-cell"><b>Tashqi kalit</b> (22-dars) + baza darajasidagi tekshiruv</td></tr>
+  </table>
+
+  <p>Bu metodlar <b>zanjir</b> bo'lib ulanadi:
+  <code>$table-&gt;string('shahar')-&gt;nullable()</code>. Har biri o'zini qaytaradi —
+  shuning uchun ketma-ket yozish mumkin.</p>
+
+  <h2>🔍 Sehr yo'q: <code>--pretend</code></h2>
+
+  <p>«Laravel bu kod ortida <b>nima</b> qiladi?» degan savolga javobni o'zi beradi.
+  <code>--pretend</code> flagi migration'ni <b>bajarmaydi</b>, faqat qanday SQL
+  yuborishini <b>ko'rsatadi</b>:</p>
+
+  <div class="codefile">
+    <div class="fname">terminal</div>
+    <code class="cmd" data-cmd="php artisan migrate --pretend">php artisan migrate --pretend</code>
+  </div>
+
+  <div class="natija">2026_08_17_045931_create_kompaniyalar_table
+ ⇂ create table "kompaniyalar" ("id" integer primary key autoincrement not null, "nom" varchar not null, "shahar" varchar, "created_at" datetime, "updated_at" datetime)</div>
+
+  <p>Bu <b>aynan</b> 21-darsda qo'lingiz bilan yozgan <code>CREATE TABLE</code>.
+  <code>$table-&gt;id()</code> → <code>integer primary key autoincrement</code>,
+  <code>$table-&gt;string('nom')</code> → <code>varchar not null</code>,
+  <code>-&gt;nullable()</code> → <code>not null</code> <b>yo'q</b>.</p>
+
+  <p>Migration — yangi til emas, <b>SQL yozadigan qulay usul</b>. Xuddi Blade oddiy
+  PHP'ga aylangani (18-dars) va Eloquent keyinroq SQL yozishi kabi.</p>
+
+  <h2>Bajarish, tarix va ortga qaytish</h2>
+
+  <table class="sheet">
+    <tr><th>Buyruq</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>php artisan migrate</code></td><td class="note-cell">Hali bajarilmagan migration'larni ishga tushiradi</td></tr>
+    <tr><td><code>php artisan migrate:status</code></td><td class="note-cell">Qaysi biri bajarilgan (<code>Ran</code>), qaysi biri kutyapti (<code>Pending</code>)</td></tr>
+    <tr><td><code>php artisan migrate:rollback</code></td><td class="note-cell"><b>Oxirgi to'plamni</b> ortga qaytaradi (<code>down()</code> ni chaqiradi)</td></tr>
+    <tr><td><code>php artisan migrate:fresh</code></td><td class="note-cell"><b>Hamma jadvalni tashlab</b>, hammasini qaytadan yasaydi. ⚠️ Ma'lumot yo'qoladi</td></tr>
+    <tr><td><code>php artisan migrate --pretend</code></td><td class="note-cell">Bajarmaydi — faqat SQL'ni ko'rsatadi</td></tr>
+  </table>
+
+  <p>Laravel «qaysi biri bajarilgan»ni qayerda saqlaydi? <b>Bazaning o'zida</b> —
+  <code>migrations</code> nomli jadvalda:</p>
+
+  <div class="natija">id | migration                                   | batch
+ 1 | 0001_01_01_000000_create_users_table        | 1
+ 2 | 0001_01_01_000001_create_cache_table        | 1
+ 3 | 0001_01_01_000002_create_jobs_table         | 1
+ 4 | 2026_08_17_045931_create_kompaniyalar_table | 1
+ 5 | 2026_08_17_050016_create_vakansiyalar_table | 1</div>
+
+  <p>Bu oddiy jadval — 21-darsda o'rgangan <code>SELECT</code> bilan o'qiy olasiz.
+  <b>Sehr yo'q, ro'yxat bor.</b></p>
+
+  <div class="callout note">
+    <span class="label"><code>batch</code> — to'plam raqami</span>
+    <p>Bir <code>migrate</code> chaqiruvida bajarilgan hammasi <b>bitta</b>
+    <code>batch</code> raqamini oladi. Keyinroq yangi migration qo'shib
+    <code>migrate</code> qilsangiz — u <code>batch 2</code> bo'ladi.</p>
+    <p><code>migrate:rollback</code> aynan <b>oxirgi to'plamni</b> qaytaradi. Ya'ni
+    «kecha qo'shgan 3 ta o'zgarishimni bekor qil» degani — hammasi birga qaytadi,
+    bittalab emas.</p>
+  </div>
+
+  <div class="callout warning">
+    <span class="label">⚠️ <code>migrate:fresh</code> — kuchli, lekin xavfli</span>
+    <p>U bazadagi <b>barcha jadvalni tashlaydi</b> va migration'larni noldan bajaradi.
+    Ishlab chiqishda juda qulay («toza holatdan boshlay»), lekin real serverda
+    <b>hamma ma'lumot yo'qoladi</b>. Qoida: <code>fresh</code> — faqat o'z
+    kompyuteringizda.</p>
+  </div>
+
+  <h2>Tashqi kalitni baza <b>tekshiradi</b></h2>
+
+  <div class="codefile">
+    <div class="fname">migration ichida</div>
+    <code class="cmd" data-cmd="$table-&gt;foreignId('kompaniya_id')-&gt;nullable()-&gt;constrained('kompaniyalar');">$table-&gt;foreignId('kompaniya_id')-&gt;nullable()-&gt;constrained('kompaniyalar');</code>
+  </div>
+
+  <p>22-darsda <code>kompaniya_id</code> oddiy son edi — u yerga <b>istalgan</b> raqam
+  yozish mumkin edi, hatto mavjud bo'lmagan kompaniyaniki ham.
+  <code>constrained()</code> esa bazaga <b>qoida</b> qo'yadi:</p>
+
+  <div class="natija">INSERT INTO vakansiyalar (nom, kompaniya_id) VALUES ('Test', 999)
+
+SQLSTATE[23000]: Integrity constraint violation: 19 FOREIGN KEY constraint failed</div>
+
+  <p>Baza <b>o'zi</b> rad etdi. Bu 20-darsdagi validatsiyaning eng chuqur qatlami:
+  formada tekshiramiz, lekin oxirgi himoya — <b>bazada</b>.</p>
+
+  <!-- ═══════════════ 4) AMALIYOT / MODE-HINT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    <span class="mode-hint-title">💻 Amaliy qism kompyuterda</span>
+    <p>Amaliyotda ikkita migration yozasiz va qo'lda yasagan jadvallaringizni
+    <b>ular bilan almashtirasiz</b>. Yo'lda <code>--pretend</code> bilan Laravel
+    yozadigan SQL'ni ko'rasiz, <code>migrations</code> jadvalini o'qiysiz,
+    <code>rollback</code> qilib ortga qaytasiz va tashqi kalitni bazaning o'zi
+    tekshirishini sinab ko'rasiz.</p>
+    <button type="button" class="modebtn" data-set-mode="do">💻 Amaliyot rejimini ko'rish</button>
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <p>Ikkita migration yarating</p>
+        <p class="why-step">Tartib muhim: <code>vakansiyalar</code>
+        <code>kompaniyalar</code> ga tayanadi, shuning uchun kompaniyalar
+        <b>oldin</b> yaratilishi kerak.</p>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+php artisan make:migration create_kompaniyalar_table
+php artisan make:migration create_vakansiyalar_table
+ls database/migrations/">cd ~/Projects/Learn/ishtop
+php artisan make:migration create_kompaniyalar_table
+php artisan make:migration create_vakansiyalar_table
+ls database/migrations/
+<span class="out">INFO  Migration [database/migrations/…_create_kompaniyalar_table.php] created successfully.</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> ikkita yangi fayl. Ro'yxatda Laravel'ning
+        o'z migration'lari ham bor (<code>users</code>, <code>cache</code>,
+        <code>jobs</code>) — ular loyiha yaratilganda kelgan (16-dars).</p>
+      </li>
+
+      <li>
+        <p><code>kompaniyalar</code> migration'ini to'ldiring</p>
+        <p><b>Muharrirda</b> <code>…_create_kompaniyalar_table.php</code> ni oching va
+        <code>up()</code> ichidagi <code>Schema::create</code> ni shunday qiling:</p>
+        <div class="cmd" data-cmd="        Schema::create('kompaniyalar', function (Blueprint $table) {
+            $table-&gt;id();
+            $table-&gt;string('nom');
+            $table-&gt;string('shahar')-&gt;nullable();
+            $table-&gt;timestamps();
+        });">        Schema::create('kompaniyalar', function (Blueprint $table) {
+            $table-&gt;id();
+            $table-&gt;string('nom');
+            $table-&gt;string('shahar')-&gt;nullable();
+            $table-&gt;timestamps();
+        });</div>
+        <p class="expect"><b>Ya'ni:</b> <code>$table-&gt;id();</code> va
+        <code>$table-&gt;timestamps();</code> orasiga ikki qator qo'shasiz.
+        <code>down()</code> ga tegmang — u allaqachon to'g'ri.</p>
+      </li>
+
+      <li>
+        <p><code>vakansiyalar</code> migration'ini to'ldiring</p>
+        <p class="why-step">Bu yerda 22-darsdagi tashqi kalit <b>qoida</b> bo'lib
+        yoziladi.</p>
+        <div class="cmd" data-cmd="        Schema::create('vakansiyalar', function (Blueprint $table) {
+            $table-&gt;id();
+            $table-&gt;string('nom');
+            $table-&gt;integer('maosh')-&gt;nullable();
+            $table-&gt;string('shahar')-&gt;nullable();
+            $table-&gt;boolean('faol')-&gt;default(true);
+            $table-&gt;foreignId('kompaniya_id')-&gt;nullable()-&gt;constrained('kompaniyalar');
+            $table-&gt;timestamps();
+        });">        Schema::create('vakansiyalar', function (Blueprint $table) {
+            $table-&gt;id();
+            $table-&gt;string('nom');
+            $table-&gt;integer('maosh')-&gt;nullable();
+            $table-&gt;string('shahar')-&gt;nullable();
+            $table-&gt;boolean('faol')-&gt;default(true);
+            $table-&gt;foreignId('kompaniya_id')-&gt;nullable()-&gt;constrained('kompaniyalar');
+            $table-&gt;timestamps();
+        });</div>
+        <p class="expect"><b>Kutilgan natija:</b> fayl saqlandi.</p>
+      </li>
+
+      <li>
+        <p>🔍 Bajarishdan <b>oldin</b> SQL'ni ko'ring</p>
+        <p class="why-step">Darsning eng muhim qadami: migration nima qilishini
+        <b>o'z ko'zingiz bilan</b> ko'rasiz.</p>
+        <div class="cmd" data-cmd="php artisan migrate --pretend | tail -20">php artisan migrate --pretend | tail -20
+<span class="out">⇂ create table "kompaniyalar" ("id" integer primary key autoincrement not null, "nom" varchar not null, "shahar" varchar, "created_at" datetime, "updated_at" datetime)</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> har migration ostida u yuboradigan
+        <b>SQL</b>. Uni 21-darsda o'zingiz yozgan <code>CREATE TABLE</code> bilan
+        solishtiring — bir xil narsa.
+        <br>🎉 «Sehr» ochildi: migration — SQL yozadigan usul, xolos.</p>
+      </li>
+
+      <li>
+        <p>Endi haqiqatda bajaring</p>
+        <p class="why-step"><code>migrate:fresh</code> qo'lda yasagan jadvallarni ham
+        tashlaydi — endi tuzilmaning <b>egasi</b> migration'lar bo'ladi.</p>
+        <div class="cmd" data-cmd="php artisan migrate:fresh">php artisan migrate:fresh
+<span class="out">INFO  Preparing database.</span>
+<span class="out">INFO  Running migrations.</span>
+<span class="out">2026_…_create_kompaniyalar_table .. DONE</span>
+<span class="out">2026_…_create_vakansiyalar_table .. DONE</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> beshta migration bajariladi
+        (uchtasi Laravel'niki + sizniki ikkita). Ma'lumot yo'qoldi — bu kutilgan,
+        keyingi qadamda qaytaramiz.</p>
+      </li>
+
+      <li>
+        <p>Tarixni o'qing</p>
+        <div class="cmd" data-cmd="php artisan migrate:status">php artisan migrate:status
+<span class="out">2026_…_create_kompaniyalar_table .. [1] Ran</span>
+<span class="out">2026_…_create_vakansiyalar_table .. [1] Ran</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> hammasi <code>[1] Ran</code> —
+        ya'ni bitta to'plamda (<code>batch 1</code>) bajarilgan.</p>
+      </li>
+
+      <li>
+        <p><code>migrations</code> jadvalini <b>SQL bilan</b> o'qing</p>
+        <p class="why-step">Laravel tarixni sehrli joyda emas, <b>oddiy jadvalda</b>
+        saqlaydi — buni 21-darsdagi bilim bilan tasdiqlaysiz.</p>
+        <div class="cmd" data-cmd="php -r &quot;
+require 'vendor/autoload.php';
+\$app = require_once 'bootstrap/app.php';
+\$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+foreach (Illuminate\Support\Facades\DB::select('SELECT id, migration, batch FROM migrations') as \$m) {
+    echo \$m-&gt;id, ' | ', \$m-&gt;migration, ' | batch ', \$m-&gt;batch, PHP_EOL;
+}
+&quot;">php -r "
+require 'vendor/autoload.php';
+\$app = require_once 'bootstrap/app.php';
+\$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+foreach (Illuminate\Support\Facades\DB::select('SELECT id, migration, batch FROM migrations') as \$m) {
+    echo \$m-&gt;id, ' | ', \$m-&gt;migration, ' | batch ', \$m-&gt;batch, PHP_EOL;
+}
+"
+<span class="out">4 | 2026_…_create_kompaniyalar_table | batch 1</span>
+<span class="out">5 | 2026_…_create_vakansiyalar_table | batch 1</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> 5 qator. Bu oddiy jadval — hech qanday
+        sehr yo'q.</p>
+      </li>
+
+      <li>
+        <p>Ma'lumotni qaytaring</p>
+        <p class="why-step">Eski <code>sql/01-jadval.php</code> ni <b>endi
+        ishlatmaymiz</b>: u <code>DROP TABLE</code> qiladi, ya'ni migration yasagan
+        jadvalni buzadi. O'rniga faqat <code>INSERT</code> qiladigan skript.</p>
+        <div class="cmd" data-cmd="cat &gt; sql/05-malumot.php &lt;&lt;'EOF'
+&lt;?php
+
+use Illuminate\Support\Facades\DB;
+
+require __DIR__ . '/../vendor/autoload.php';
+$app = require_once __DIR__ . '/../bootstrap/app.php';
+$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+
+DB::delete('DELETE FROM vakansiyalar');
+DB::delete('DELETE FROM kompaniyalar');
+
+DB::statement(&quot;
+    INSERT INTO kompaniyalar (nom, shahar) VALUES
+        ('Uzum',        'Toshkent'),
+        ('EPAM',        'Toshkent'),
+        ('Startup XYZ', 'Samarqand')
+&quot;);
+
+// id larni qo'lda yozmaymiz — bazadan o'qib olamiz
+$k = [];
+foreach (DB::select('SELECT id, nom FROM kompaniyalar') as $q) {
+    $k[$q-&gt;nom] = $q-&gt;id;
+}
+
+$vakansiyalar = [
+    ['Backend dasturchi',  800,  'Toshkent',  1, $k['Uzum']],
+    ['Frontend dasturchi', 700,  'Toshkent',  1, $k['Uzum']],
+    ['Laravel dasturchi',  1200, 'Samarqand', 1, $k['Startup XYZ']],
+    ['QA muhandis',        500,  'Toshkent',  0, $k['EPAM']],
+    ['DevOps injener',     1500, 'Toshkent',  1, null],
+];
+
+foreach ($vakansiyalar as $v) {
+    DB::insert(
+        'INSERT INTO vakansiyalar (nom, maosh, shahar, faol, kompaniya_id) VALUES (?, ?, ?, ?, ?)',
+        $v
+    );
+}
+
+echo 'Ma\'lumot solindi: ',
+    DB::select('SELECT COUNT(*) c FROM kompaniyalar')[0]-&gt;c, ' kompaniya, ',
+    DB::select('SELECT COUNT(*) c FROM vakansiyalar')[0]-&gt;c, ' vakansiya.', PHP_EOL;
+EOF
+php sql/05-malumot.php
+
+php -r &quot;
+require 'vendor/autoload.php';
+\$app = require_once 'bootstrap/app.php';
+\$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+foreach (Illuminate\Support\Facades\DB::select('
+    SELECT v.nom, k.nom AS kompaniya
+    FROM vakansiyalar v
+    LEFT JOIN kompaniyalar k ON k.id = v.kompaniya_id
+') as \$r) {
+    echo '   ', \$r-&gt;nom, ' | ', \$r-&gt;kompaniya, PHP_EOL;
+}
+&quot;">cat &gt; sql/05-malumot.php &lt;&lt;'EOF'
+&lt;?php
+
+use Illuminate\Support\Facades\DB;
+
+require __DIR__ . '/../vendor/autoload.php';
+$app = require_once __DIR__ . '/../bootstrap/app.php';
+$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+
+DB::delete('DELETE FROM vakansiyalar');
+DB::delete('DELETE FROM kompaniyalar');
+
+DB::statement("
+    INSERT INTO kompaniyalar (nom, shahar) VALUES
+        ('Uzum',        'Toshkent'),
+        ('EPAM',        'Toshkent'),
+        ('Startup XYZ', 'Samarqand')
+");
+
+// id larni qo'lda yozmaymiz — bazadan o'qib olamiz
+$k = [];
+foreach (DB::select('SELECT id, nom FROM kompaniyalar') as $q) {
+    $k[$q-&gt;nom] = $q-&gt;id;
+}
+
+$vakansiyalar = [
+    ['Backend dasturchi',  800,  'Toshkent',  1, $k['Uzum']],
+    ['Frontend dasturchi', 700,  'Toshkent',  1, $k['Uzum']],
+    ['Laravel dasturchi',  1200, 'Samarqand', 1, $k['Startup XYZ']],
+    ['QA muhandis',        500,  'Toshkent',  0, $k['EPAM']],
+    ['DevOps injener',     1500, 'Toshkent',  1, null],
+];
+
+foreach ($vakansiyalar as $v) {
+    DB::insert(
+        'INSERT INTO vakansiyalar (nom, maosh, shahar, faol, kompaniya_id) VALUES (?, ?, ?, ?, ?)',
+        $v
+    );
+}
+
+echo 'Ma\'lumot solindi: ',
+    DB::select('SELECT COUNT(*) c FROM kompaniyalar')[0]-&gt;c, ' kompaniya, ',
+    DB::select('SELECT COUNT(*) c FROM vakansiyalar')[0]-&gt;c, ' vakansiya.', PHP_EOL;
+EOF
+php sql/05-malumot.php
+
+php -r "
+require 'vendor/autoload.php';
+\$app = require_once 'bootstrap/app.php';
+\$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+foreach (Illuminate\Support\Facades\DB::select('
+    SELECT v.nom, k.nom AS kompaniya
+    FROM vakansiyalar v
+    LEFT JOIN kompaniyalar k ON k.id = v.kompaniya_id
+') as \$r) {
+    echo '   ', \$r-&gt;nom, ' | ', \$r-&gt;kompaniya, PHP_EOL;
+}
+"
+<span class="out">Ma'lumot solindi: 3 kompaniya, 5 vakansiya.</span>
+<span class="out">   Backend dasturchi | Uzum</span>
+<span class="out">   ...</span>
+<span class="out">   DevOps injener | </span></div>
+        <p class="expect"><b>Kutilgan natija:</b> tasdiq xabari, keyin <b>5 qator</b> —
+        oxirgisi kompaniyasiz. Ya'ni 22-darsdagi <code>LEFT JOIN</code> bilimi
+        <b>migration yasagan jadvallarda ham</b> aynan shunday ishlaydi: baza o'zgarmadi,
+        faqat uni <b>kim yaratgani</b> o'zgardi.</p>
+        <p class="expect">🔑 <b>Nega <code>kompaniya_id</code> ga <code>1</code>,
+        <code>2</code>, <code>3</code> deb yozmadik?</b> Chunki skriptni ikkinchi marta
+        ishga tushirsangiz, <code>DELETE</code> qatorlarni o'chiradi-yu, lekin
+        <code>AUTOINCREMENT</code> hisoblagichi <b>davom etadi</b> — yangi kompaniyalar
+        <code>4</code>, <code>5</code>, <code>6</code> raqamlarini oladi va qo'lda
+        yozilgan <code>1</code> ga <code>FOREIGN KEY constraint failed</code> chiqadi.
+        Shuning uchun id larni <b>bazadan o'qib olamiz</b> (21-darsdagi
+        <code>SELECT</code> va 5-darsdagi massiv). <b>Qoida:</b> <code>id</code> ni hech
+        qachon qo'lda yozmang.</p>
+        <p class="expect">⚠️ <b>Eski <code>sql/01-jadval.php</code> va
+        <code>sql/04-join.php</code> ni endi ishga tushirmang</b> — ular
+        <code>DROP TABLE</code> qiladi, ya'ni migration yasagan jadvalni buzadi. Ularni
+        <b>tarix sifatida</b> qoldiring: ular SQL'ni o'rgangan ikki darsning yodgorligi.
+        Bundan keyin tuzilma — migration'da, ma'lumot — <code>05-malumot.php</code> da.</p>
+      </li>
+
+      <li>
+        <p>Tashqi kalitni sinang</p>
+        <p class="why-step">Migration qo'ygan qoida <b>haqiqatan</b> ishlaydimi?</p>
+        <div class="cmd" data-cmd="php -r &quot;
+require 'vendor/autoload.php';
+\$app = require_once 'bootstrap/app.php';
+\$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+try {
+    Illuminate\Support\Facades\DB::insert('INSERT INTO vakansiyalar (nom, kompaniya_id) VALUES (?, ?)', ['Test', 999]);
+    echo 'o\'tib ketdi', PHP_EOL;
+} catch (Throwable \$e) {
+    echo explode(PHP_EOL, \$e-&gt;getMessage())[0], PHP_EOL;
+}
+&quot;">php -r "
+require 'vendor/autoload.php';
+\$app = require_once 'bootstrap/app.php';
+\$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+try {
+    Illuminate\Support\Facades\DB::insert('INSERT INTO vakansiyalar (nom, kompaniya_id) VALUES (?, ?)', ['Test', 999]);
+    echo 'o\'tib ketdi', PHP_EOL;
+} catch (Throwable \$e) {
+    echo explode(PHP_EOL, \$e-&gt;getMessage())[0], PHP_EOL;
+}
+"
+<span class="out">SQLSTATE[23000]: Integrity constraint violation: 19 FOREIGN KEY constraint failed …</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> baza <b>rad etdi</b> — 999 raqamli
+        kompaniya yo'q. 11-darsdagi <code>try/catch</code> shu yerda ish berdi.</p>
+      </li>
+
+      <li>
+        <p>Ustun qo'shing va <code>rollback</code> ni sinang</p>
+        <p class="why-step">Mavjud jadvalni o'zgartirish — eng ko'p uchraydigan holat.
+        Bu yerda <code>down()</code> ni <b>o'zingiz</b> yozasiz.</p>
+        <div class="cmd" data-cmd="php artisan make:migration add_masofadan_to_vakansiyalar_table">php artisan make:migration add_masofadan_to_vakansiyalar_table</div>
+        <p class="expect"><b>Kutilgan natija:</b> yangi fayl. Uni oching —
+        <code>Schema::create</code> emas, <b><code>Schema::table</code></b> yozilgan
+        («yasash» emas, «o'zgartirish»), va <code>down()</code> <b>bo'sh</b>.
+        Ikkalasini to'ldiring:</p>
+        <div class="cmd" data-cmd="    public function up(): void
+    {
+        Schema::table('vakansiyalar', function (Blueprint $table) {
+            $table-&gt;boolean('masofadan')-&gt;default(false);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('vakansiyalar', function (Blueprint $table) {
+            $table-&gt;dropColumn('masofadan');
+        });
+    }">    public function up(): void
+    {
+        Schema::table('vakansiyalar', function (Blueprint $table) {
+            $table-&gt;boolean('masofadan')-&gt;default(false);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('vakansiyalar', function (Blueprint $table) {
+            $table-&gt;dropColumn('masofadan');
+        });
+    }</div>
+        <div class="cmd" data-cmd="php artisan migrate
+php artisan migrate:status | tail -3
+php artisan migrate:rollback
+php artisan migrate:status | tail -3">php artisan migrate
+php artisan migrate:status | tail -3
+php artisan migrate:rollback
+php artisan migrate:status | tail -3
+<span class="out">…add_masofadan_to_vakansiyalar_table .. [2] Ran</span>
+<span class="out">…add_masofadan_to_vakansiyalar_table .. Pending</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> yangi migration <code>batch <b>2</b></code>
+        oladi (avvalgilari 1 da qoladi). <code>rollback</code> dan keyin u
+        <code>Pending</code> bo'ladi — <b>faqat oxirgi to'plam</b> qaytdi, boshqalar
+        joyida.
+        <br>Ustunni qaytarish uchun yana <code>php artisan migrate</code>.</p>
+      </li>
+
+      <li>
+        <p>Ishni saqlang</p>
+        <div class="cmd" data-cmd="git add -A
+git commit -m &quot;23-dars: migration — jadval tuzilishi kodda&quot;">git add -A
+git commit -m "23-dars: migration — jadval tuzilishi kodda"</div>
+        <p class="expect"><b>Kutilgan natija:</b> commit haqida xabar. Endi jadval
+        tuzilishi <b>git'da</b> — hamkasbingiz uchun <code>php artisan migrate</code>
+        yetarli.</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><input type="checkbox" id="d23c1"><label for="d23c1">Ikkita migration yaratdim va to'ldirdim</label></li>
+      <li><input type="checkbox" id="d23c2"><label for="d23c2"><b><code>--pretend</code> bilan yozilgan SQL'ni ko'rdim</b> 🎉</label></li>
+      <li><input type="checkbox" id="d23c3"><label for="d23c3"><code>migrate:fresh</code> bilan tuzilmani migration'ga topshirdim</label></li>
+      <li><input type="checkbox" id="d23c4"><label for="d23c4"><code>migrations</code> jadvalini SQL bilan o'qidim</label></li>
+      <li><input type="checkbox" id="d23c5"><label for="d23c5">Ma'lumotni <code>05-malumot.php</code> bilan qaytardim</label></li>
+      <li><input type="checkbox" id="d23c6"><label for="d23c6"><b>Tashqi kalit xatosini ko'rdim</b> (<code>FOREIGN KEY constraint failed</code>)</label></li>
+      <li><input type="checkbox" id="d23c7"><label for="d23c7"><code>down()</code> ni o'zim yozdim va <code>rollback</code> ni sinadim</label></li>
+      <li><input type="checkbox" id="d23c8"><label for="d23c8"><code>batch</code> raqami nima uchun kerakligini bilaman</label></li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 5) TAXMIN + QUIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p><code>kompaniyalar</code> migration'i <b>allaqachon bajarilgan</b>
+    (<code>Ran</code>). Endi unutilgan ustunni qo'shmoqchisiz — faylni <b>ochib
+    tahrirlaysiz</b> va <code>migrate</code> qilasiz:</p>
+    <div class="codefile">
+      <div class="fname">…_create_kompaniyalar_table.php</div>
+      <code class="cmd" data-cmd="        Schema::create('kompaniyalar', function (Blueprint $table) {
+            $table-&gt;id();
+            $table-&gt;string('nom');
+            $table-&gt;string('veb_sayt')-&gt;nullable();   // ← yangi qator
+            $table-&gt;string('shahar')-&gt;nullable();
+            $table-&gt;timestamps();
+        });">        Schema::create('kompaniyalar', function (Blueprint $table) {
+            $table-&gt;id();
+            $table-&gt;string('nom');
+            <span class="add">$table-&gt;string('veb_sayt')-&gt;nullable();   // ← yangi qator</span>
+            $table-&gt;string('shahar')-&gt;nullable();
+            $table-&gt;timestamps();
+        });</code>
+    </div>
+    <p><code>php artisan migrate</code> dan keyin <code>veb_sayt</code> ustuni bazada
+    <b>paydo bo'ladimi</b>?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <div class="natija">veb_sayt ustuni: YO'Q
+
+kompaniyalar ustunlari: id, nom, shahar, created_at, updated_at</div>
+        <p><b>Yo'q.</b> Va bu — yangi boshlaganlarning eng ko'p aldanadigan joyi:
+        «kodni o'zgartirdim, migrate qildim, lekin hech narsa o'zgarmadi».</p>
+        <p>Sabab yuqorida ko'rgan <code>migrations</code> jadvalida: Laravel u yerda
+        <b>fayl nomini</b> saqlaydi. Fayl nomi o'zgarmagani uchun u hali ham «bajarilgan»
+        holatda. Laravel fayl <b>ichini</b> tekshirmaydi — demak tahrir <b>e'tiborsiz</b>
+        qoladi. <code>migrate</code> esa faqat <code>Pending</code> larni bajaradi.</p>
+        <p class="expect"><b>Ikki to'g'ri yechim:</b>
+        <br><b>1)</b> <code>make:migration add_veb_sayt_to_kompaniyalar_table</code> —
+        <b>yangi</b> migration. Serverda ishlayotgan loyiha uchun <b>yagona</b> to'g'ri
+        yo'l: eski migration allaqachon bajarilgan va uni o'zgartirish tarixni buzadi.
+        <br><b>2)</b> <code>php artisan migrate:fresh</code> — hammasini noldan.
+        <b>Faqat o'z kompyuteringizda</b>, chunki ma'lumot yo'qoladi.</p>
+        <p><b>Amaliy qoida:</b> migration <b>commit qilinmagan</b> bo'lsa (hali faqat
+        sizda) — tahrirlab <code>fresh</code> qilish mumkin. <b>Commit qilingan va
+        boshqalarga ketgan</b> bo'lsa — faqat yangi migration.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span> Migration nima uchun kerak?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Jadval tuzilishini kodda saqlaydi</button></li>
+      <li><button class="quiz-option">Ma'lumotni tezroq o'qishga yordamlashadi</button></li>
+      <li><button class="quiz-option">SQL yozishni butunlay yo'qotadi</button></li>
+    </ul>
+    <div class="quiz-explain">Tuzilma kod bo'lgani uchun git'da yashaydi va istalgan
+    kompyuterda bir xil tiklanadi. SQL yo'qolmaydi — <code>--pretend</code> aynan
+    o'sha SQL'ni ko'rsatadi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span> Bajarilgan migration fayli
+    tahrirlanib <code>migrate</code> qilinsa nima bo'ladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Hech narsa — qayta ishlamaydi</button></li>
+      <li><button class="quiz-option">Jadval o'zgarishlar bilan avtomatik yangilanadi</button></li>
+      <li><button class="quiz-option">Laravel xato xabarini ekranga chiqaradi</button></li>
+    </ul>
+    <div class="quiz-explain">Laravel <code>migrations</code> jadvalidagi <b>fayl
+    nomiga</b> qaraydi, fayl ichiga emas. To'g'ri yo'l — <b>yangi</b> migration
+    (yoki o'z kompyuteringizda <code>migrate:fresh</code>).</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span> <code>migrate:fresh</code> nima
+    qiladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Hamma jadvalni tashlab qaytadan yaratadi</button></li>
+      <li><button class="quiz-option">Faqat yangi migration larni bajaradi</button></li>
+      <li><button class="quiz-option">Oxirgi batch ni ortga qaytaradi</button></li>
+    </ul>
+    <div class="quiz-explain">Shuning uchun <b>ma'lumot yo'qoladi</b> — real serverda
+    ishlatilmaydi. «Faqat yangilarini» — oddiy <code>migrate</code>; «oxirgi to'plamni
+    ortga» — <code>migrate:rollback</code>.</div>
+  </div>
+
+  <!-- ═══════════════ 6) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+    <p class="recall-intro">Avval o'zingiz javob bering, keyin ochib tekshiring.
+    Oxirgi ikkitasi — <a href="0022-sql-yozish-va-join.html">22-darsni</a> takrorlash.</p>
+
+    <details class="recall">
+      <summary><code>up()</code> va <code>down()</code> nima qiladi?</summary>
+      <div class="answer"><p><code>up()</code> — o'zgarishni <b>qo'llaydi</b>,
+      <code>down()</code> — aynan shu o'zgarishni <b>bekor qiladi</b>. Yangi jadval uchun
+      Laravel <code>down()</code> ni o'zi yozadi; mavjud jadvalni o'zgartirganda esa
+      <b>siz</b> yozasiz.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Laravel qaysi migration bajarilganini qayerdan biladi?</summary>
+      <div class="answer"><p>Bazadagi <code>migrations</code> jadvalidan — u yerda
+      <b>fayl nomi</b> va <code>batch</code> raqami turadi. Oddiy jadval,
+      <code>SELECT</code> bilan o'qish mumkin.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Migration'ning SQL'ini bajarmasdan qanday ko'rish mumkin?</summary>
+      <div class="answer"><p><code>php artisan migrate --pretend</code> — u
+      <b>bajarmaydi</b>, faqat yuboradigan SQL'ni chiqaradi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: <code>JOIN</code> va <code>LEFT JOIN</code> farqi?</summary>
+      <div class="answer"><p><code>JOIN</code> juftligi topilmagan qatorni
+      <b>tushiradi</b>, <code>LEFT JOIN</code> esa uni qoldiradi va o'ng tomonni
+      <code>NULL</code> qiladi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: <code>UPDATE</code> da <code>WHERE</code> unutilsa?</summary>
+      <div class="answer"><p><b>Butun jadval</b> o'zgaradi va SQL bunga xato
+      bermaydi.</p></div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 7) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Cho'ntak xulosasi</span>
+    <ul>
+      <li><code>php artisan make:migration create_<b>nom</b>_table</code> — jadval nomi
+      fayl nomidan topiladi.</li>
+      <li><code>up()</code> qo'llaydi, <code>down()</code> bekor qiladi. Jadvalni
+      <b>o'zgartirganda</b> <code>down()</code> ni o'zingiz yozasiz.</li>
+      <li>Ustunlar: <code>id()</code> · <code>string()</code> · <code>integer()</code> ·
+      <code>boolean()</code> · <code>timestamps()</code>, ustiga
+      <code>-&gt;nullable()</code> · <code>-&gt;default()</code> · <code>-&gt;unique()</code>.</li>
+      <li>🔑 <code>migrate --pretend</code> — <b>SQL'ni ko'rsatadi</b>, bajarmaydi.
+      Migration yangi til emas, SQL yozadigan usul.</li>
+      <li><code>migrate</code> faqat <code>Pending</code> larni bajaradi ·
+      <code>migrate:status</code> ro'yxat · <code>migrate:rollback</code> <b>oxirgi
+      to'plam</b> · <code>migrate:fresh</code> hammasini noldan (⚠️ ma'lumot yo'qoladi).</li>
+      <li>Tarix — bazadagi oddiy <code>migrations</code> jadvalida (fayl nomi +
+      <code>batch</code>).</li>
+      <li>🔑 <b>Bajarilgan migration'ni tahrirlash ish bermaydi</b> — Laravel fayl
+      <b>nomiga</b> qaraydi. Yechim: yangi migration (yoki o'z kompyuteringizda
+      <code>fresh</code>).</li>
+      <li><code>foreignId(...)-&gt;constrained(...)</code> — tashqi kalitni <b>baza
+      o'zi tekshiradi</b>: mavjud bo'lmagan <code>id</code> ga
+      <code>FOREIGN KEY constraint failed</code>.</li>
+      <li>Tuzilmaning egasi endi migration — jadvalni <code>DROP</code> qiladigan eski
+      qo'lda yozilgan skriptlar ishlatilmaydi.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p>Baza tayyor: ikki jadval, tashqi kalit, tuzilma kodda. Lekin brauzerda hali ham
+    <b>19-darsdagi qo'lda yozilgan massiv</b> ko'rinadi — sahifa bazani bilmaydi.</p>
+    <p>Uni ulashdan oldin bitta narsa yetishmaydi: <b>bitta</b> vakansiyani ko'rsatish
+    uchun manzilda uning raqami bo'lishi kerak — <code>/vakansiyalar/3</code>. 24-darsda
+    <b>route parametri</b>, <b>nomlangan route</b> va <code>Route::resource</code> ni
+    o'rganamiz. Va o'sha yerda chiroyli bog'lanish chiqadi: manzildagi <code>{id}</code>
+    to'g'ri <code>WHERE id = ?</code> ga aylanadi — ya'ni 21-darsdagi <b>parametr</b>
+    qoidasi yana ish beradi.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel — Migrations</b>:
+    <a href="https://laravel.com/docs/13.x/migrations">laravel.com/docs/13.x/migrations</a>.<sup><a href="#fn1">1</a></sup>
+    «Available Column Types» — kerak bo'lganda qaraydigan ro'yxat (yodlash shart emas);
+    «Foreign Key Constraints» — <code>constrained()</code> haqida.<br>
+    Rasmiy bepul video: <a href="https://laravel.com/learn/getting-started-with-laravel">Getting Started with Laravel</a>
+    — migration va Eloquent qismlari.<sup><a href="#fn2">2</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b> «ustun nomini o'zgartirsam
+    bo'ladimi?», «indeks nima va migration'da qanday qo'yiladi?», «<code>seeder</code>
+    nima?», «MySQL'ga o'tganda bu migration'lar ishlaydimi?» — har qanday savol yaxshi.
+    Oxirgi savolning javobi qisqa: <b>ha</b>, va aynan shuning uchun migration yozamiz —
+    bir xil kod turli bazalarda ishlaydi (buni Modul H dagi MySQL darsida ko'ramiz).
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0022-sql-yozish-va-join.html">Oldingi: SQL 2 — yozish va JOIN</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel 13 — <a href="https://laravel.com/docs/13.x/migrations">Database: Migrations</a>.</li>
+      <li id="fn2">Laravel — <a href="https://laravel.com/learn/getting-started-with-laravel">Getting Started with Laravel</a> (bepul rasmiy video kurs).</li>
+      <li id="fn3">Barchasi jonli sinab ko'rilgan (Laravel 13.25.0, SQLite 3.45.1):
+      <code>make:migration</code> yasagan fayl · <code>--pretend</code> chiqargan
+      <code>create table "kompaniyalar" (…)</code> · <code>migrate:fresh</code> →
+      5 migration · <code>migrations</code> jadvali <code>batch</code> bilan ·
+      <code>batch 2</code> va <code>rollback</code> dan keyin <code>Pending</code> ·
+      <code>FOREIGN KEY constraint failed</code> · va taxmin mashqi: tahrirlangan
+      migration'dan keyin <code>veb_sayt</code> ustuni <b>paydo bo'lmadi</b>.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

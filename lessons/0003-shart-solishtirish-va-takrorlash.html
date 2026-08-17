@@ -1,0 +1,521 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 03 — Shart, solishtirish va takrorlash</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 03 · MODUL A — POYDEVOR</p>
+  <h1>Shart va solishtirish: <code>==</code> bilan <code>===</code></h1>
+  <p class="lead">Bu darsdan keyin qaror qabul qiladigan kod yozasiz — va PHP'ning eng
+  ko'p adashtiradigan joyini bilib olasiz: <b>ikkita solishtirish belgisi</b> bor va
+  ular boshqa-boshqa javob beradi. Bu intervyuda kafolatlangan savol.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 8 daqiqa</span>
+    <span>💻 Amaliyot ≈ 12 daqiqa</span>
+    <span>Kerak: <a href="0002-ozgaruvchi-tip-va-string.html">Dars 02</a></span>
+  </p>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Nega bu muhim</span>
+    <p>2-darsda ko'rgan qoida esingizdami — <b>operator tipni o'zgartiradi</b>? Solishtirish
+    ham operator. Ya'ni <code>"25" == 25</code> degan savolga PHP <b>rost</b> deb javob
+    beradi, hatto biri matn, biri son bo'lsa ham.</p>
+    <p>Bu Laravel'da har kuni uchraydi: formadan kelgan qiymat <b>har doim matn</b>
+    (<code>"25"</code>), bazadan kelgani esa son (<code>25</code>). Ularni noto'g'ri
+    solishtirsangiz — kod xato bermaydi, shunchaki <b>jimgina noto'g'ri ishlaydi</b>.
+    Bunday xatolarni topish eng qiyin. Bugun uni oldini olishni o'rganamiz.</p>
+  </div>
+
+  <!-- ═══════════════ 2) TUSHUNCHA ═══════════════ -->
+  <h2>Ikkita solishtirish belgisi</h2>
+
+  <table class="sheet">
+    <tr><th>Belgi</th><th>Nomi</th><th class="note-cell">Nima tekshiradi</th></tr>
+    <tr><td><code>==</code></td><td>loose (bo'sh)</td><td class="note-cell">Faqat <b>qiymatni</b>. Tiplar boshqa bo'lsa, avval birini o'zgartiradi</td></tr>
+    <tr><td><code>===</code></td><td>strict (qat'iy)</td><td class="note-cell"><b>Qiymatni ham, tipni ham</b>. Hech narsa o'zgartirilmaydi</td></tr>
+  </table>
+
+  <div class="codefile">
+    <div class="fname">tushuncha</div>
+    <code class="cmd" data-cmd="var_dump(&quot;25&quot; == 25);    // true  — qiymat bir xil
+var_dump(&quot;25&quot; === 25);   // false — tip boshqa (string va int)">var_dump("25" == 25);    // true  — qiymat bir xil
+var_dump("25" === 25);   // false — tip boshqa (string va int)</code>
+  </div>
+
+  <div class="callout tip">
+    <span class="label">Amaliy qoida — yodda tuting</span>
+    <p><b>Doim <code>===</code> ishlating.</b> <code>==</code> ni faqat aniq sabab bo'lganda
+    (va nima qilayotganingizni bilganda) ishlatasiz. Bu qoida sizni butun bir toifadagi
+    xatolardan qutqaradi, va professional Laravel kodida ham shunday yozilgan.</p>
+  </div>
+
+  <h3>PHP 8 eng yomon tuzoqni tuzatdi</h3>
+
+  <p>Eski PHP'da <code>0 == "salom"</code> <b>rost</b> edi — chunki PHP matnni songa
+  aylantirishga urinib, uni <code>0</code> deb hisoblardi. Bu juda ko'p xavfsizlik
+  xatosiga sabab bo'lgan. PHP 8 dan boshlab bunday emas:</p>
+
+  <div class="natija">var_dump(0 == "salom");   →  bool(false)   // PHP 8+. Eski PHP'da true edi!
+var_dump(0 == "");        →  bool(false)
+var_dump("1" == "01");    →  bool(true)    // ikkalasi ham son sifatida o'qiladi
+var_dump(null == false);  →  bool(true)    // ikkalasi ham «bo'sh»</var_dump></div>
+
+  <p>Ko'rib turganingizdek, <code>==</code> ning qoidalari <b>esda tutish qiyin</b>.
+  Aynan shuning uchun <code>===</code> tavsiya qilinadi: uning qoidasi bitta va sodda —
+  «tip ham, qiymat ham bir xil bo'lsa rost».</p>
+
+  <h3>Truthy va falsy: <code>if</code> ichida nima «rost» hisoblanadi</h3>
+
+  <p><code>if</code> qavsiga <code>bool</code> bo'lmagan narsa qo'ysangiz, PHP uni rost yoki
+  yolg'onga aylantiradi. Qaysi qiymatlar <b>yolg'on</b> (falsy) — ro'yxati qisqa, shuning
+  uchun shuni yodlash osonroq:</p>
+
+  <table class="sheet">
+    <tr><th>Yolg'on (falsy)</th><th class="note-cell">Izoh</th></tr>
+    <tr><td><code>false</code></td><td class="note-cell">Tabiiy</td></tr>
+    <tr><td><code>0</code> · <code>0.0</code></td><td class="note-cell">Nol — son sifatida</td></tr>
+    <tr><td><code>""</code></td><td class="note-cell">Bo'sh matn</td></tr>
+    <tr><td><code>"0"</code></td><td class="note-cell">⚠️ Nol <b>matn sifatida</b> ham yolg'on</td></tr>
+    <tr><td><code>null</code></td><td class="note-cell">«Qiymat yo'q»</td></tr>
+    <tr><td><code>[]</code></td><td class="note-cell">Bo'sh massiv (5-darsda ko'ramiz)</td></tr>
+  </table>
+
+  <p>Qolgan <b>hamma narsa</b> rost. Ya'ni <code>"false"</code> — rost (chunki u bo'sh
+  bo'lmagan matn), <code>" "</code> (bitta bo'sh joy) — ham rost, <code>-1</code> — ham rost.</p>
+
+  <h3>Qaror qabul qilish: <code>if</code> / <code>elseif</code> / <code>else</code></h3>
+
+  <div class="codefile">
+    <div class="fname">tushuncha</div>
+    <code class="cmd" data-cmd="if ($holat === &quot;yangi&quot;) {
+    // shart rost bo'lsa shu blok ishlaydi
+} elseif ($holat === &quot;korildi&quot;) {
+    // birinchisi yolg'on, bu rost bo'lsa
+} else {
+    // hech biri rost bo'lmasa
+}">if ($holat === "yangi") {
+    // shart rost bo'lsa shu blok ishlaydi
+} elseif ($holat === "korildi") {
+    // birinchisi yolg'on, bu rost bo'lsa
+} else {
+    // hech biri rost bo'lmasa
+}</code>
+  </div>
+
+  <p>PHP shartlarni <b>yuqoridan pastga</b> tekshiradi va <b>birinchi rost</b> topilganda
+  to'xtaydi — qolganlariga qaramaydi. Shuning uchun tartib muhim.</p>
+
+  <h3><code>match</code> — qiymat qaytaradigan tanlov</h3>
+
+  <p>Bir xil o'zgaruvchini bir necha qiymat bilan solishtirayotgan bo'lsangiz,
+  <code>match</code> ancha toza chiqadi:</p>
+
+  <div class="codefile">
+    <div class="fname">tushuncha</div>
+    <code class="cmd" data-cmd="$matn = match ($holat) {
+    &quot;yangi&quot;   =&gt; &quot;Ariza qabul qilindi&quot;,
+    &quot;korildi&quot; =&gt; &quot;Ariza ko'rildi&quot;,
+    default   =&gt; &quot;Holat noma'lum&quot;,
+};">$matn = match ($holat) {
+    "yangi"   =&gt; "Ariza qabul qilindi",
+    "korildi" =&gt; "Ariza ko'rildi",
+    default   =&gt; "Holat noma'lum",
+};</code>
+  </div>
+
+  <p>Ikkita muhim xususiyati bor:</p>
+  <ul>
+    <li><b>Qiymat qaytaradi</b> — natijani to'g'ridan-to'g'ri o'zgaruvchiga solasiz.
+    <code>if</code> esa qaytarmaydi.</li>
+    <li><b>Har doim <code>===</code> bilan solishtiradi</b> — ya'ni xavfsiz. Tip
+    o'zgartirilmaydi.</li>
+  </ul>
+
+  <div class="callout warning">
+    <span class="label"><code>default</code> ni tashlab ketmang</span>
+    <p>Agar hech bir variant mos kelmasa va <code>default</code> yozilmagan bo'lsa, PHP
+    to'xtaydi: <code>Uncaught UnhandledMatchError</code>. Ba'zida bu foydali (kutilmagan
+    qiymatni darrov bilib olasiz), lekin bilib turib tanlash kerak.</p>
+  </div>
+
+  <h3>Takrorlash: <code>for</code> va <code>while</code></h3>
+
+  <div class="codefile">
+    <div class="fname">tushuncha</div>
+    <code class="cmd" data-cmd="for ($i = 1; $i &lt;= 3; $i++) {   // 1) boshlash · 2) shart · 3) har aylanadan keyin
+    echo $i;
+}
+
+while ($qolgan &gt; 0) {           // shart rost ekan — davom etadi
+    $qolgan--;                  // buni yozishni unutsangiz — abadiy aylanadi!
+}">for ($i = 1; $i &lt;= 3; $i++) {   // 1) boshlash · 2) shart · 3) har aylanadan keyin
+    echo $i;
+}
+
+while ($qolgan &gt; 0) {           // shart rost ekan — davom etadi
+    $qolgan--;                  // buni yozishni unutsangiz — abadiy aylanadi!
+}</code>
+  </div>
+
+  <ul>
+    <li><code>for</code> — <b>necha marta</b> aylanishini oldindan bilganda.</li>
+    <li><code>while</code> — <b>shart buzilguncha</b> aylanadi, soni oldindan noma'lum.</li>
+    <li><code>$i++</code> = «$i ni bittaga oshir», <code>$qolgan--</code> = «bittaga kamaytir».</li>
+  </ul>
+
+  <div class="callout note">
+    <span class="label">Ro'yxatni aylanish uchun <code>foreach</code> bor</span>
+    <p>Amalda eng ko'p ishlatiladigan sikl — <code>foreach</code>: u ro'yxatning har bir
+    elementini aylanib chiqadi. Lekin u <b>massiv</b> talab qiladi, massivni esa hali
+    o'rganmadik — shuning uchun <code>foreach</code> <a href="../reference/yol-xaritasi.html">5-darsda</a>,
+    massiv bilan birga keladi. Bu ataylab: kursda hech qachon o'rgatilmagan narsa
+    ishlatilmaydi.</p>
+  </div>
+
+  <!-- ═══════════════ 4) AMALIYOT / MODE-HINT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    <span class="mode-hint-title">💻 Amaliy qism kompyuterda</span>
+    <p>Amaliyotda uchta fayl yozasiz: <code>05-solishtirish.php</code> (<code>==</code> va
+    <code>===</code> ni bir xil qiymatlarda yonma-yon ko'rasiz), <code>06-shart.php</code>
+    (ariza holatiga qarab xabar chiqaradi) va <code>07-takrorlash.php</code>
+    (<code>for</code> va <code>while</code>). Oxirida falsy qiymatlarni bir buyruq bilan
+    tekshirasiz.</p>
+    <button type="button" class="modebtn" data-set-mode="do">💻 Amaliyot rejimini ko'rish</button>
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <p>Papkaga o'ting</p>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/php-poydevor">cd ~/Projects/Learn/php-poydevor</div>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik.</p>
+      </li>
+
+      <li>
+        <p>Solishtirishni o'z ko'zingiz bilan ko'ring</p>
+        <p class="why-step">Bu darsning yuragi. Bir xil ikki qiymat, ikki xil javob.</p>
+        <div class="cmd" data-cmd="cat &gt; 05-solishtirish.php &lt;&lt;'EOF'
+&lt;?php
+$kiritilgan = &quot;25&quot;;
+$kerakli = 25;
+var_dump($kiritilgan == $kerakli);
+var_dump($kiritilgan === $kerakli);
+EOF
+php 05-solishtirish.php">cat &gt; 05-solishtirish.php &lt;&lt;'EOF'
+&lt;?php
+$kiritilgan = "25";
+$kerakli = 25;
+var_dump($kiritilgan == $kerakli);
+var_dump($kiritilgan === $kerakli);
+EOF
+php 05-solishtirish.php
+<span class="out">bool(true)</span>
+<span class="out">bool(false)</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> <code>true</code>, keyin
+        <code>false</code>. <code>$kiritilgan</code> — «formadan kelgan» matn,
+        <code>$kerakli</code> — «bazadan kelgan» son. Real hayotda aynan shunday bo'ladi.</p>
+      </li>
+
+      <li>
+        <p>Shartli kod yozing</p>
+        <p class="why-step">IshTop loyihasidagi ariza holati — kursda keyin ham shu
+        atamalar ishlatiladi.</p>
+        <div class="cmd" data-cmd="cat &gt; 06-shart.php &lt;&lt;'EOF'
+&lt;?php
+$holat = &quot;korildi&quot;;
+if ($holat === &quot;yangi&quot;) {
+    echo &quot;Ariza navbatda turibdi&quot;;
+} elseif ($holat === &quot;korildi&quot;) {
+    echo &quot;Ish beruvchi arizani ko'rdi&quot;;
+} else {
+    echo &quot;Holat noma'lum: {$holat}&quot;;
+}
+echo PHP_EOL;
+EOF
+php 06-shart.php">cat &gt; 06-shart.php &lt;&lt;'EOF'
+&lt;?php
+$holat = "korildi";
+if ($holat === "yangi") {
+    echo "Ariza navbatda turibdi";
+} elseif ($holat === "korildi") {
+    echo "Ish beruvchi arizani ko'rdi";
+} else {
+    echo "Holat noma'lum: {$holat}";
+}
+echo PHP_EOL;
+EOF
+php 06-shart.php
+<span class="out">Ish beruvchi arizani ko'rdi</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> ikkinchi shart ishlaydi.
+        <b>Endi o'zingiz sinab ko'ring:</b> faylda <code>$holat</code> ni
+        <code>"rad"</code> ga o'zgartirib qayta bajaring — <code>else</code> bloki
+        ishlashi kerak.</p>
+      </li>
+
+      <li>
+        <p>Takrorlashni yozing</p>
+        <div class="cmd" data-cmd="cat &gt; 07-takrorlash.php &lt;&lt;'EOF'
+&lt;?php
+for ($i = 1; $i &lt;= 3; $i++) {
+    echo &quot;{$i}-vakansiya&quot;, PHP_EOL;
+}
+$qolgan = 3;
+while ($qolgan &gt; 0) {
+    echo &quot;Qoldi: {$qolgan}&quot;, PHP_EOL;
+    $qolgan--;
+}
+EOF
+php 07-takrorlash.php">cat &gt; 07-takrorlash.php &lt;&lt;'EOF'
+&lt;?php
+for ($i = 1; $i &lt;= 3; $i++) {
+    echo "{$i}-vakansiya", PHP_EOL;
+}
+$qolgan = 3;
+while ($qolgan &gt; 0) {
+    echo "Qoldi: {$qolgan}", PHP_EOL;
+    $qolgan--;
+}
+EOF
+php 07-takrorlash.php
+<span class="out">1-vakansiya</span>
+<span class="out">2-vakansiya</span>
+<span class="out">3-vakansiya</span>
+<span class="out">Qoldi: 3</span>
+<span class="out">Qoldi: 2</span>
+<span class="out">Qoldi: 1</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> oltita qator. <code>for</code> yuqoriga
+        sanadi, <code>while</code> pastga.</p>
+      </li>
+
+      <li>
+        <p>Falsy qiymatlarni tekshiring</p>
+        <p class="why-step">Ro'yxatni yodlashdan ko'ra bir marta o'z ko'zingiz bilan ko'rish
+        yaxshi.</p>
+        <div class="cmd" data-cmd="php -r 'var_dump((bool)&quot;0&quot;, (bool)&quot;false&quot;, (bool)0, (bool)&quot;&quot;);'">php -r 'var_dump((bool)"0", (bool)"false", (bool)0, (bool)"");'
+<span class="out">bool(false)</span>
+<span class="out">bool(true)</span>
+<span class="out">bool(false)</span>
+<span class="out">bool(false)</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> diqqat qiling — <code>"0"</code>
+        <b>yolg'on</b>, lekin <code>"false"</code> <b>rost</b>. Chunki
+        <code>"false"</code> shunchaki bo'sh bo'lmagan matn.
+        <br><code>(bool)</code> = «buni bool tipiga aylantir» — bu «cast» deb ataladi.</p>
+      </li>
+
+      <li>
+        <p>Ishni saqlang</p>
+        <div class="cmd" data-cmd="git add -A
+git commit -m &quot;03-dars: shart va solishtirish&quot;">git add -A
+git commit -m "03-dars: shart va solishtirish"</div>
+        <p class="expect"><b>Kutilgan natija:</b> commit haqida xabar.</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><input type="checkbox" id="d3c1"><label for="d3c1"><code>==</code> va <code>===</code> farqini o'z natijamda ko'rdim</label></li>
+      <li><input type="checkbox" id="d3c2"><label for="d3c2">Nega <b>doim <code>===</code></b> ishlatish kerakligini aytib beraman</label></li>
+      <li><input type="checkbox" id="d3c3"><label for="d3c3"><code>$holat</code> ni o'zgartirib <code>else</code> blokini ishlatib ko'rdim</label></li>
+      <li><input type="checkbox" id="d3c4"><label for="d3c4"><code>for</code> va <code>while</code> ni yozdim</label></li>
+      <li><input type="checkbox" id="d3c5"><label for="d3c5"><b><code>"0"</code> yolg'on, <code>"false"</code> rost ekanini tasdiqladim</b> 🎉</label></li>
+      <li><input type="checkbox" id="d3c6"><label for="d3c6">Ishni commit qildim</label></li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 5) TAXMIN + QUIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Uchta <code>if</code>. Qaysilari ishlaydi — ya'ni ekranda qaysi so'zlar chiqadi?</p>
+    <div class="codefile">
+      <div class="fname">taxmin.php</div>
+      <code class="cmd" data-cmd="&lt;?php
+if (&quot;0&quot;)     { echo &quot;birinchi&quot;, PHP_EOL; }
+if (&quot;false&quot;) { echo &quot;ikkinchi&quot;, PHP_EOL; }
+if (&quot; &quot;)     { echo &quot;uchinchi&quot;, PHP_EOL; }">&lt;?php
+if ("0")     { echo "birinchi", PHP_EOL; }
+if ("false") { echo "ikkinchi", PHP_EOL; }
+if (" ")     { echo "uchinchi", PHP_EOL; }</code>
+    </div>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <div class="natija">ikkinchi
+uchinchi</div>
+        <p>Ya'ni <b>birinchisi ishlamaydi</b>, qolgan ikkitasi ishlaydi:</p>
+        <ul>
+          <li><code>"0"</code> — falsy ro'yxatida. PHP nol <b>matnini</b> ham nol deb
+          hisoblaydi. Bu ro'yxatdagi eng kutilmagan a'zo.</li>
+          <li><code>"false"</code> — <b>rost</b>. Bu shunchaki 5 harfli matn; PHP uni
+          o'qib «yolg'on» deb tushunmaydi.</li>
+          <li><code>" "</code> — <b>rost</b>. Bo'sh joy ham belgi, demak matn bo'sh emas.</li>
+        </ul>
+        <p><b>Amaliy xulosa:</b> formadan kelgan qiymatni <code>if ($qiymat)</code> bilan
+        tekshirish xavfli — foydalanuvchi <code>0</code> yozsa, kod uni «bo'sh» deb
+        o'ylaydi. Buning to'g'ri yo'li bor: <code>if ($qiymat !== "")</code> yoki
+        <code>if ($qiymat !== null)</code> — ya'ni <b>aynan nimani</b> tekshirayotganingizni
+        aniq ayting.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span> <code>var_dump("25" === 25);</code>
+    nima qaytaradi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">false, chunki tiplar boshqa</button></li>
+      <li><button class="quiz-option">true, chunki qiymatlar teng</button></li>
+      <li><button class="quiz-option">null, chunki solishtirish yo'q</button></li>
+    </ul>
+    <div class="quiz-explain"><code>===</code> tipni <b>ham</b> tekshiradi.
+    <code>"25"</code> — <code>string</code>, <code>25</code> — <code>int</code>, demak
+    yolg'on. <code>==</code> bo'lganda esa rost bo'lardi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span> Quyidagilardan qaysi biri
+    <code>if</code> ichida <b>rost</b> hisoblanadi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">"false" degan matn</button></li>
+      <li><button class="quiz-option">"0" degan matn</button></li>
+      <li><button class="quiz-option">bo'sh matn ""</button></li>
+    </ul>
+    <div class="quiz-explain">Falsy ro'yxati qisqa: <code>false</code>, <code>0</code>,
+    <code>0.0</code>, <code>""</code>, <code>"0"</code>, <code>null</code>,
+    <code>[]</code>. <code>"false"</code> unda yo'q — u oddiy matn, demak rost.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span> <code>match</code> ning
+    <code>if</code> dan asosiy farqi nima?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Qiymat qaytaradi va qat'iy solishtiradi</button></li>
+      <li><button class="quiz-option">Kodni ancha tezroq ishga tushiradi</button></li>
+      <li><button class="quiz-option">Faqat sonlar bilan birga ishlaydi</button></li>
+    </ul>
+    <div class="quiz-explain"><code>match</code> natijani <b>qaytaradi</b> (o'zgaruvchiga
+    solish mumkin) va har doim <code>===</code> bilan solishtiradi — shuning uchun tip
+    tuzoqlari bo'lmaydi.</div>
+  </div>
+
+  <!-- ═══════════════ 6) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+    <p class="recall-intro">Avval o'zingiz javob bering, keyin ochib tekshiring.
+    Oxirgi ikkitasi — <a href="0002-ozgaruvchi-tip-va-string.html">2-darsni</a> takrorlash.</p>
+
+    <details class="recall">
+      <summary><code>==</code> va <code>===</code> farqi nima?</summary>
+      <div class="answer"><p><code>==</code> faqat <b>qiymatni</b> tekshiradi va kerak
+      bo'lsa tipni o'zgartiradi. <code>===</code> <b>qiymat va tipni</b> tekshiradi,
+      hech narsa o'zgartirmaydi. Qoida: <b>doim <code>===</code></b>.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Falsy qiymatlarni sanab bering</summary>
+      <div class="answer"><p><code>false</code>, <code>0</code>, <code>0.0</code>,
+      <code>""</code>, <code>"0"</code>, <code>null</code>, <code>[]</code>.
+      Qolgan hammasi rost — <code>"false"</code> va <code>" "</code> ham.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary><code>match</code> ning ikkita xususiyati qanday?</summary>
+      <div class="answer"><p>1) <b>Qiymat qaytaradi</b> — to'g'ridan-to'g'ri o'zgaruvchiga
+      solinadi. 2) Har doim <b><code>===</code></b> bilan solishtiradi. Mos variant
+      topilmasa va <code>default</code> yo'q bo'lsa — <code>UnhandledMatchError</code>.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: tip qayerda yashaydi — o'zgaruvchida yoki qiymatda?</summary>
+      <div class="answer"><p><b>Qiymatda.</b> Shuning uchun bitta o'zgaruvchi tipini
+      o'zgartira oladi, va kodga qarab tipni bilib bo'lmaydi — <code>var_dump</code>
+      shuning uchun kerak.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: <code>"5" + 5</code> va <code>"5" . 5</code> nima beradi?</summary>
+      <div class="answer"><p><code>int(10)</code> va <code>string "55"</code>. Operator
+      tipni o'zgartiradi — bugungi <code>==</code> ham xuddi shu qoidaning davomi.</p></div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 7) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Cho'ntak xulosasi</span>
+    <ul>
+      <li><code>==</code> qiymatni, <code>===</code> <b>qiymat va tipni</b> tekshiradi →
+      <b>doim <code>===</code></b>.</li>
+      <li>PHP 8 dan <code>0 == "salom"</code> endi <b>yolg'on</b> (eski PHP'da rost edi).</li>
+      <li>Falsy: <code>false</code> · <code>0</code> · <code>0.0</code> · <code>""</code> ·
+      <code>"0"</code> · <code>null</code> · <code>[]</code>. Qolgani rost.</li>
+      <li><code>if</code>/<code>elseif</code>/<code>else</code> — yuqoridan pastga,
+      <b>birinchi rost</b>da to'xtaydi.</li>
+      <li><code>match</code> — qiymat qaytaradi, <code>===</code> bilan solishtiradi,
+      <code>default</code> yozilsin.</li>
+      <li><code>for</code> — soni ma'lum · <code>while</code> — shart buzilguncha
+      (kamaytirishni unutmang!).</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Kelasi darslar uchun urug'</span>
+    <p>Bugun <code>while</code> da «kamaytirishni unutsangiz abadiy aylanadi» dedim — unda
+    nima bo'ladi? Yoki <code>match</code> da <code>default</code> yo'q bo'lsa PHP nima
+    deydi? <b>Keyingi dars</b> aynan shu haqda: PHP xato xabarlarini <b>o'qish</b> va
+    ulardan qo'rqmaslik. Bu kursda ataylab erta turadi — xatoni tuzatishni bilgan odam
+    tajriba qilishdan qo'rqmaydi, va tez o'rganadi.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>PHP Fundamentals</b> — Laravel'ning rasmiy bepul kursi, shart va sikl epizodlari:
+    <a href="https://laravel.com/learn/php-fundamentals">laravel.com/learn/php-fundamentals</a>.<sup><a href="#fn1">1</a></sup><br>
+    Solishtirish jadvali (ko'zgu):
+    <a href="https://devdocs.io/php/language.operators.comparison">devdocs.io — Comparison operators</a>.<sup><a href="#fn2">2</a></sup><br>
+    O'zbekcha: <a href="https://uzbekdevs.uz/darsliklar/php">uzbekdevs.uz</a> — «Operatorlar»,
+    «IF..else», «switch», «while», «for» darslari.</p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b> «<code>!=</code> va <code>!==</code>
+    ham bormi?», «<code>switch</code> nima, <code>match</code> dan farqi bormi?»,
+    «abadiy aylanib qolsam nima qilaman?», «<code>&amp;&amp;</code> va <code>||</code>
+    qanday ishlaydi?» — har qanday savol yaxshi.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0002-ozgaruvchi-tip-va-string.html">Oldingi: O'zgaruvchi va tip</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel — <a href="https://laravel.com/learn/php-fundamentals">PHP
+      Fundamentals</a> (rasmiy bepul mini-kurs).</li>
+      <li id="fn2">PHP Manual — <i>Comparison Operators</i> va <i>Type Juggling</i>,
+      DevDocs ko'zgusi orqali:
+      <a href="https://devdocs.io/php/language.operators.comparison">devdocs.io/php/language.operators.comparison</a>.
+      Rasmiy <code>php.net</code> bu tarmoqdan ochilmaydi.</li>
+      <li id="fn3">Barcha natijalar PHP <b>8.3.32</b> da jonli sinab ko'rilgan.
+      <code>0 == "salom"</code> ning natijasi PHP 8.0 da o'zgargan — eski qo'llanmalarda
+      boshqacha yozilgan bo'lishi mumkin, ishonmang, o'zingiz <code>var_dump</code> qilib
+      ko'ring.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

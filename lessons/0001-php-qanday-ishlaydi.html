@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 01 — PHP qanday ishlaydi</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 01 · MODUL A — POYDEVOR</p>
+  <h1>PHP qanday ishlaydi: brauzerdan serverga</h1>
+  <p class="lead">Bu darsdan keyin birinchi PHP sahifangiz brauzerda ishlaydi — va eng
+  muhimi, <b>brauzer aslida nimani olganini</b> ayta olasiz. Shu bitta tushuncha
+  keyinchalik Laravel'ni «sehr» emas, mexanizm sifatida ko'rishning kaliti bo'ladi.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 6 daqiqa</span>
+    <span>💻 Amaliyot ≈ 12 daqiqa</span>
+    <span>Kerak: hech narsa — birinchi dars</span>
+  </p>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Nega bu muhim</span>
+    <p>Sizning maqsadingiz — <b>backend dasturchi bo'lib ishga kirish</b>. Backend degani
+    aslida bitta ish: <b>so'rov keladi, javob qaytadi</b>. Laravel'ning butun mavjudligi shu
+    aylanani qulay qilish uchun. Agar shu aylana ko'rinmasa, <code>return view(...)</code>
+    ham, API'dan qaytgan JSON ham «qandaydir tarzda o'zi ishlaydi» bo'lib qoladi.</p>
+    <p>Bundan tashqari bu <b>intervyuning eng birinchi savoli</b>: «PHP qanday ishlaydi?».
+    Bugun shu savolga to'liq javob berishni o'rganamiz.</p>
+  </div>
+
+  <!-- ═══════════════ 2) TUSHUNCHA ═══════════════ -->
+  <h2>PHP — matn ishlab chiqaradigan mashina</h2>
+
+  <p>PHP <b>serverda</b> ishlaydi. U brauzerga yuborilmaydi, brauzerda bajarilmaydi.
+  Uning yagona vazifasi — kodni bajarib, natijada <b>matn</b> hosil qilish. O'sha matn
+  odatda HTML bo'ladi, lekin JSON, CSV yoki oddiy so'z ham bo'lishi mumkin — PHP uchun
+  farqi yo'q.</p>
+
+  <div class="areas wide">
+    <div class="area">
+      <h4>1 · Brauzer so'raydi</h4>
+      <span class="en">HTTP request</span>
+      <div class="desc">Siz manzilni yozasiz. Brauzer serverga xat yuboradi:
+      «menga <code>/sahifa.php</code> ni ber».</div>
+    </div>
+    <div class="area">
+      <h4>2 · Server qaraydi</h4>
+      <span class="en">web server</span>
+      <div class="desc">Faylni topadi. Kengaytmasi <code>.php</code> ekan — o'zi
+      o'qimaydi, <b>PHP'ga uzatadi</b>.</div>
+    </div>
+    <div class="area">
+      <h4>3 · PHP bajaradi</h4>
+      <span class="en">interpreter</span>
+      <div class="desc">Kodni yuqoridan pastga bajaradi va natijada <b>matn</b> to'playdi.
+      Kod shu yerda qoladi.</div>
+    </div>
+    <div class="area">
+      <h4>4 · Brauzer oladi</h4>
+      <span class="en">HTTP response</span>
+      <div class="desc">Faqat <b>tayyor matn</b> yetib boradi. PHP kodidan bir belgi ham
+      chiqmaydi.</div>
+    </div>
+  </div>
+
+  <div class="callout note">
+    <span class="label">Uchinchi qadam eng muhimi</span>
+    <p>PHP kodi <b>hech qachon</b> brauzerga bormaydi. Shuning uchun sahifada «ko'rish
+    manbasi» (view source) ni ochsangiz, <code>&lt;?php</code> ni topa olmaysiz — u yerda
+    faqat natija turadi. Amaliyotda buni o'z ko'zingiz bilan ko'rasiz, va bu darsning
+    asosiy g'alabasi shu.</p>
+  </div>
+
+  <h3>PHP fayl ichida ikki hudud bor</h3>
+
+  <p>PHP fayli — bu «hammasi kod» degani emas. Fayl ikki hududdan iborat:</p>
+
+  <ul>
+    <li><b><code>&lt;?php</code> va <code>?&gt;</code> orasi</b> — PHP hududi. Bu yerdagi
+    narsa <b>bajariladi</b>.</li>
+    <li><b>Tashqarisi</b> — matn hududi. PHP unga tegmaydi, <b>o'zgarmasdan</b> javobga
+    qo'shib yuboradi.<sup><a href="#fn2">2</a></sup></li>
+  </ul>
+
+  <p>Ya'ni <code>&lt;?php</code> — bu «PHP rejimiga kirish» eshigi, <code>?&gt;</code> esa
+  «chiqish» eshigi. Fayl matn rejimida boshlanadi.</p>
+
+  <!-- ═══════════════ 3) KOD IZOHI — FAYL-FAYL ═══════════════ -->
+  <h2>Kod: ikkita fayl</h2>
+
+  <p>Amaliyotda ikkita fayl yozasiz. Ularni avval o'qib chiqamiz — har bo'lagining ma'nosi
+  bilan.</p>
+
+  <h3>Birinchisi: eng kichik PHP fayli</h3>
+
+  <div class="codefile">
+    <div class="fname">php-poydevor/01-salom.php <span class="yangi">yangi</span></div>
+    <code class="cmd" data-cmd='&lt;?php
+echo "Salom, dunyo!";'>&lt;?php
+echo "Salom, dunyo!";</code>
+  </div>
+
+  <p>Uchta narsani ajratib olamiz:</p>
+
+  <ul>
+    <li><code>&lt;?php</code> — PHP hududi shu yerdan boshlanadi. Undan keyin
+    <b>albatta bo'sh joy yoki yangi qator</b> kerak, aks holda xato chiqadi.<sup><a href="#fn2">2</a></sup></li>
+    <li><code>echo</code> — «javobga shu matnni qo'sh» degan buyruq. U ekranga chizmaydi,
+    <b>javobga yozadi</b> — bu farq keyinroq muhim bo'ladi.</li>
+    <li><code>;</code> — nuqtali vergul. Har bir ko'rsatmaning oxiri. Tushib qolsa PHP
+    keyingi qatorni shu ko'rsatmaning davomi deb o'qiydi va <code>syntax error</code>
+    beradi.</li>
+  </ul>
+
+  <div class="callout tip">
+    <span class="label">Nega oxirida <code>?&gt;</code> yo'q?</span>
+    <p>Ataylab. Agar fayl <b>faqat PHP</b> kodidan iborat bo'lsa, yopuvchi
+    <code>?&gt;</code> ni yozmaslik tavsiya etiladi.<sup><a href="#fn2">2</a></sup> Sababi
+    amaliy: <code>?&gt;</code> dan keyin adashib qo'yilgan bitta bo'sh qator ham javobga
+    tushib ketadi va keyinchalik tushunarsiz xatolarga olib keladi. Laravel'ning barcha
+    PHP fayllari ham shu qoida bilan yozilgan — o'zingiz ko'rasiz.</p>
+  </div>
+
+  <h3>Ikkinchisi: HTML va PHP aralash</h3>
+
+  <div class="codefile">
+    <div class="fname">php-poydevor/02-sahifa.php <span class="yangi">yangi</span></div>
+    <code class="cmd" data-cmd='&lt;h1&gt;Mening sahifam&lt;/h1&gt;
+&lt;p&gt;Bugun: &lt;?php echo date("Y-m-d"); ?&gt;&lt;/p&gt;
+&lt;p&gt;Bu qator PHP&#39;ga tegmagan.&lt;/p&gt;'>&lt;h1&gt;Mening sahifam&lt;/h1&gt;
+&lt;p&gt;Bugun: <span class="add">&lt;?php echo date("Y-m-d"); ?&gt;</span>&lt;/p&gt;
+&lt;p&gt;Bu qator PHP'ga tegmagan.&lt;/p&gt;</code>
+  </div>
+
+  <p>Bu faylda uch qator HTML bor, lekin ulardan bittasining o'rtasida PHP hududi
+  ochilgan (ajratib ko'rsatilgan). PHP faqat <b>o'sha bo'lakni</b> bajaradi:
+  <code>date("Y-m-d")</code> bugungi sanani beradi, <code>echo</code> uni javobga qo'yadi.
+  Qolgan hamma narsa o'zgarmasdan o'tadi.</p>
+
+  <p>Natija — <b>toza HTML</b>:</p>
+
+  <div class="natija">&lt;h1&gt;Mening sahifam&lt;/h1&gt;
+&lt;p&gt;Bugun: 2026-08-10&lt;/p&gt;
+&lt;p&gt;Bu qator PHP'ga tegmagan.&lt;/p&gt;</div>
+
+  <p>Diqqat qiling: <code>&lt;?php ... ?&gt;</code> o'rnida endi faqat <code>2026-08-10</code>
+  turadi. Kod g'oyib bo'ldi — chunki u <b>bajarildi</b>, va o'zidan keyin faqat natijasini
+  qoldirdi.</p>
+
+  <!-- ═══════════════ 4) AMALIYOT / MODE-HINT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    <span class="mode-hint-title">💻 Amaliy qism kompyuterda</span>
+    <p>Amaliyotda <code>php-poydevor/</code> papkasida ikkita fayl yozasiz, ularni avval
+    terminalda (<code>php fayl.php</code>), keyin brauzerda (<code>php -S</code>) ishga
+    tushirasiz. Yakuniy qadam eng qiziqlisi: brauzerda <b>«ko'rish manbasi»</b> ni ochib,
+    PHP kodining yo'qligini o'z ko'zingiz bilan tasdiqlaysiz. Kompyuterda ochganingizda
+    7 qadamlik yo'riqnoma, Copy tugmasi va kutilgan natijalar chiqadi.</p>
+    <button type="button" class="modebtn" data-set-mode="do">💻 Amaliyot rejimini ko'rish</button>
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+    <p>Papka allaqachon tayyorlab qo'yilgan: <code>~/Projects/Learn/php-poydevor/</code>.
+    Barcha Modul A mashqlari shu yerda yashaydi.</p>
+
+    <ol class="steps">
+      <li>
+        <p>Papkaga o'ting va PHP borligini tekshiring</p>
+        <p class="why-step">Har ishni «bor-yo'qligini tekshirish»dan boshlash — professional
+        odat. Buyruq ishlamasa, muammo kodda emas, muhitda ekanini darrov bilasiz.</p>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/php-poydevor
+php -v">cd ~/Projects/Learn/php-poydevor
+php -v
+<span class="out">PHP 8.3.32 (cli) (built: Jul  2 2026 18:10:58) (NTS)</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> versiya raqami chiqadi.
+        <code>(cli)</code> so'zi muhim — bu «command line interface», ya'ni PHP hozir
+        terminal orqali ishlayapti.</p>
+      </li>
+
+      <li>
+        <p>Birinchi faylni yarating</p>
+        <p class="why-step">Ikki qator — PHP faylining eng kichik ko'rinishi.</p>
+        <div class="cmd" data-cmd='printf &#39;&lt;?php\necho "Salom, dunyo!";\n&#39; &gt; 01-salom.php'>printf '&lt;?php\necho "Salom, dunyo!";\n' &gt; 01-salom.php</div>
+        <p class="expect"><b>Kutilgan natija:</b> terminal jim turadi. Fayl yaratildi —
+        matn muharririda ochib ham ko'rishingiz mumkin.</p>
+      </li>
+
+      <li>
+        <p>Terminalda bajaring</p>
+        <p class="why-step">Hozircha server ham, brauzer ham kerak emas. PHP mustaqil
+        dastur — faylni to'g'ridan-to'g'ri bajara oladi.</p>
+        <div class="cmd" data-cmd="php 01-salom.php">php 01-salom.php
+<span class="out">Salom, dunyo!</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> <code>Salom, dunyo!</code> chiqadi
+        (oxirida yangi qator bo'lmaydi — <code>echo</code> o'zi qator tashlamaydi).</p>
+      </li>
+
+      <li>
+        <p>Ikkinchi faylni yarating — HTML bilan aralash</p>
+        <p class="why-step">Endi ikki hudud bir faylda: HTML va PHP.</p>
+        <div class="cmd" data-cmd='cat &gt; 02-sahifa.php &lt;&lt;&#39;EOF&#39;
+&lt;h1&gt;Mening sahifam&lt;/h1&gt;
+&lt;p&gt;Bugun: &lt;?php echo date("Y-m-d"); ?&gt;&lt;/p&gt;
+&lt;p&gt;Bu qator PHP&#39;ga tegmagan.&lt;/p&gt;
+EOF'>cat &gt; 02-sahifa.php &lt;&lt;'EOF'
+&lt;h1&gt;Mening sahifam&lt;/h1&gt;
+&lt;p&gt;Bugun: &lt;?php echo date("Y-m-d"); ?&gt;&lt;/p&gt;
+&lt;p&gt;Bu qator PHP'ga tegmagan.&lt;/p&gt;
+EOF</div>
+        <p class="expect"><b>Kutilgan natija:</b> yana jimlik. <code>ls</code> qilsangiz
+        ikkita <code>.php</code> fayl turadi.</p>
+      </li>
+
+      <li>
+        <p>Uni ham terminalda bajaring</p>
+        <p class="why-step">Natijani ko'rib, PHP nimani o'zgartirib, nimaga tegmaganini
+        solishtirasiz.</p>
+        <div class="cmd" data-cmd="php 02-sahifa.php">php 02-sahifa.php
+<span class="out">&lt;h1&gt;Mening sahifam&lt;/h1&gt;</span>
+<span class="out">&lt;p&gt;Bugun: 2026-08-10&lt;/p&gt;</span>
+<span class="out">&lt;p&gt;Bu qator PHP'ga tegmagan.&lt;/p&gt;</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> HTML teglar o'zgarmagan, faqat
+        <code>&lt;?php ... ?&gt;</code> o'rnida bugungi sana turadi. Sana albatta bugungi
+        kun bo'ladi.</p>
+      </li>
+
+      <li>
+        <p>Endi veb-server ishga tushiring</p>
+        <p class="why-step">Terminal — bu siz. Brauzer — bu foydalanuvchi. Ikkinchisini
+        sinash uchun server kerak. PHP'ning o'zida kichik server bor.<sup><a href="#fn3">3</a></sup></p>
+        <div class="cmd" data-cmd="php -S localhost:8000">php -S localhost:8000
+<span class="out">[Mon Aug 10 16:25:59 2026] PHP 8.3.32 Development Server (http://localhost:8000) started</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> «Development Server ... started» va
+        terminal <b>band bo'lib qoladi</b> — bu normal, server ishlab turibdi.
+        To'xtatish uchun <code>Ctrl+C</code>. Keyingi qadamlar uchun <b>yangi terminal
+        oynasi</b> oching yoki shunchaki brauzerga o'ting.</p>
+      </li>
+
+      <li>
+        <p>Brauzerda ochib, manbani ko'ring — darsning asosiy g'alabasi</p>
+        <p class="why-step">Bu qadam butun darsning isboti. Brauzerga PHP kodi bormaganini
+        o'z ko'zingiz bilan ko'rasiz.</p>
+        <div class="cmd" data-cmd="xdg-open http://localhost:8000/02-sahifa.php">xdg-open http://localhost:8000/02-sahifa.php</div>
+        <p class="expect"><b>Kutilgan natija:</b> sahifada katta sarlavha va bugungi sana
+        ko'rinadi. Endi <b>o'ng tugma → «Sahifa manbasini ko'rish»</b>
+        (yoki <code>Ctrl+U</code>). U yerda:</p>
+        <div class="natija">&lt;h1&gt;Mening sahifam&lt;/h1&gt;
+&lt;p&gt;Bugun: 2026-08-10&lt;/p&gt;
+&lt;p&gt;Bu qator PHP'ga tegmagan.&lt;/p&gt;</div>
+        <p class="expect"><code>&lt;?php</code> so'zi <b>yo'q</b>. <code>echo</code> ham
+        yo'q. <code>date</code> ham yo'q. Faqat natija. 🎉</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><input type="checkbox" id="d1c1"><label for="d1c1"><code>php -v</code> ishlaydi va versiyani ko'rdim</label></li>
+      <li><input type="checkbox" id="d1c2"><label for="d1c2">Ikkita fayl yaratdim va ikkalasini <code>php fayl.php</code> bilan bajardim</label></li>
+      <li><input type="checkbox" id="d1c3"><label for="d1c3"><code>php -S localhost:8000</code> bilan server ko'tardim</label></li>
+      <li><input type="checkbox" id="d1c4"><label for="d1c4">Brauzerda sahifani ochdim</label></li>
+      <li><input type="checkbox" id="d1c5"><label for="d1c5"><b>Manbani ko'rdim va PHP kodi yo'qligini tasdiqladim</b> 🎉</label></li>
+      <li><input type="checkbox" id="d1c6"><label for="d1c6">«PHP qanday ishlaydi?» savoliga to'rt qadam bilan javob bera olaman</label></li>
+    </ul>
+
+    <div class="callout tip">
+      <span class="label">Ishni saqlab qo'ying</span>
+      <p><code>php-poydevor/</code> — git repo. Modul oxirida bu yerda mini-framework
+      turadi, shuning uchun ishni yo'qotmaslik yaxshi:</p>
+      <div class="cmd" data-cmd="git add -A
+git commit -m &quot;01-dars: birinchi PHP sahifasi&quot;">git add -A
+git commit -m "01-dars: birinchi PHP sahifasi"</div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ 5) TAXMIN + QUIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Quyidagi fayl brauzerga <b>aynan nimani</b> yuboradi? Avval o'zingiz aytib ko'ring —
+    keyin ochib tekshiring. (Bu yerda kichik tuzoq bor.)</p>
+    <div class="codefile">
+      <div class="fname">taxmin.php</div>
+      <code class="cmd" data-cmd='&lt;p&gt;Bir&lt;/p&gt;
+&lt;?php echo "&lt;p&gt;Ikki&lt;/p&gt;"; ?&gt;
+&lt;p&gt;Uch&lt;/p&gt;'>&lt;p&gt;Bir&lt;/p&gt;
+&lt;?php echo "&lt;p&gt;Ikki&lt;/p&gt;"; ?&gt;
+&lt;p&gt;Uch&lt;/p&gt;</code>
+    </div>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <p>Uchta paragraf ham chiqadi — lekin <b>ikkinchi va uchinchisi bitta qatorda</b>:</p>
+        <div class="natija">&lt;p&gt;Bir&lt;/p&gt;
+&lt;p&gt;Ikki&lt;/p&gt;&lt;p&gt;Uch&lt;/p&gt;</div>
+        <p>Nega? Chunki <code>?&gt;</code> o'zidan <b>keyin darhol kelgan yangi qatorni
+        yeb yuboradi</b> — bu PHP'ning hujjatlashtirilgan xatti-harakati.<sup><a href="#fn2">2</a></sup>
+        Shu sababli <code>&lt;p&gt;Uch&lt;/p&gt;</code> oldingi qatorga yopishib qoldi.</p>
+        <p>HTML uchun bu muammo emas (brauzer baribir bir xil ko'rsatadi), lekin bu detal
+        nega muhim: agar siz <b>fayl</b> yoki <b>JSON</b> chiqarayotgan bo'lsangiz, bitta
+        adashgan qator butun natijani buzadi. Aynan shu sababdan faqat PHP'dan iborat
+        fayllarda <code>?&gt;</code> yozilmaydi.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span> Brauzer <code>.php</code> sahifani
+    so'raganda unga aslida nima yetib boradi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Faqat PHP chiqargan tayyor matn</button></li>
+      <li><button class="quiz-option">Fayldagi kodning butun asl matni</button></li>
+      <li><button class="quiz-option">PHP kodi hamda uning natijasi</button></li>
+    </ul>
+    <div class="quiz-explain">PHP serverda bajariladi va faqat <b>natijani</b> javobga
+    qo'yadi. Shuning uchun «manbani ko'rish»da <code>&lt;?php</code> topilmaydi — kod
+    serverda qoldi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span> <code>&lt;?php ... ?&gt;</code>
+    hududidan <b>tashqarida</b> turgan HTML bilan nima bo'ladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">O'zgarmasdan javobga qo'shib yuboriladi</button></li>
+      <li><button class="quiz-option">PHP tomonidan o'zgartirilib yuboriladi</button></li>
+      <li><button class="quiz-option">Tashlanadi va javobga tushmaydi</button></li>
+    </ul>
+    <div class="quiz-explain">PHP teglar tashqarisidagi hamma narsani <b>e'tiborsiz</b>
+    qoldiradi va o'zgarishsiz o'tkazadi. Shuning uchun <code>.php</code> faylni deyarli
+    butunlay HTML qilib yozish ham mumkin.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span> <code>php -S localhost:8000</code>
+    nima qiladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Mahalliy veb-serverni ishga tushiradi</button></li>
+      <li><button class="quiz-option">Faylni bir marta bajaradi</button></li>
+      <li><button class="quiz-option">PHP versiyasini ekranga chiqaradi</button></li>
+    </ul>
+    <div class="quiz-explain">Bu PHP'ning ichida kelgan kichik veb-server — o'rganish va
+    sinash uchun.<sup><a href="#fn3">3</a></sup> Terminal band bo'lib qoladi, chunki server
+    so'rovlarni kutib turadi. Haqiqiy saytlar uchun mo'ljallanmagan — J modulida asl
+    server bilan tanishamiz.</div>
+  </div>
+
+  <!-- ═══════════════ 6) ESLAB AYTING (o'qish rejimi) ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+    <p class="recall-intro">Avval o'zingiz javob bering, keyin ochib tekshiring. Yodlab
+    olishning eng tez yo'li — qarab emas, <b>eslab</b> aytish.</p>
+
+    <details class="recall">
+      <summary>So'rovdan javobgacha to'rtta qadam qanday?</summary>
+      <div class="answer"><p>1) Brauzer so'raydi → 2) server faylni topib PHP'ga uzatadi →
+      3) PHP kodni bajaradi va matn hosil qiladi → 4) brauzer faqat o'sha matnni oladi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary><code>echo</code> aslida qayerga yozadi?</summary>
+      <div class="answer"><p>Ekranga emas — <b>javobga</b>. Terminalda bajarsangiz javob
+      terminalga tushadi, brauzer orqali so'rasangiz brauzerga. Manzil o'zgaradi, ish bir xil.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>PHP fayli ichidagi ikki hudud qaysi?</summary>
+      <div class="answer"><p><code>&lt;?php ... ?&gt;</code> <b>ichi</b> — bajariladigan kod.
+      <b>Tashqarisi</b> — o'zgarmasdan o'tadigan matn. Fayl matn rejimida boshlanadi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Nega faqat PHP'dan iborat faylda <code>?&gt;</code> yozilmaydi?</summary>
+      <div class="answer"><p>Chunki undan keyingi adashgan bo'sh qator javobga tushib
+      ketadi va tushunarsiz xatolar keltiradi. Laravel fayllari ham shu qoida bilan yozilgan.</p></div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 7) XULOSA + MANBA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Cho'ntak xulosasi</span>
+    <ul>
+      <li><b>PHP serverda ishlaydi.</b> Brauzerga kod emas, faqat <b>natija</b> boradi.</li>
+      <li>Aylanasi: <b>so'rov → server → PHP → javob</b>. Backend'ning butun ishi shu.</li>
+      <li><code>&lt;?php</code> ichi bajariladi, tashqarisi o'zgarmasdan o'tadi.</li>
+      <li><code>echo</code> = «javobga matn qo'sh» · <code>;</code> = ko'rsatma oxiri.</li>
+      <li><code>php fayl.php</code> = terminalda · <code>php -S localhost:8000</code> = brauzerda.</li>
+      <li>Faqat PHP'dan iborat faylda <code>?&gt;</code> <b>yozilmaydi</b>.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Kelasi darslar uchun urug'</span>
+    <p>Hozir <b>URL = fayl yo'li</b>: <code>/02-sahifa.php</code> so'rasangiz, server aynan
+    shu nomli faylni izlaydi. Laravel bu qoidani <b>butunlay buzadi</b> — u yerda
+    <code>/vakansiyalar/12</code> degan URL bo'ladi, lekin bunday nomli fayl mavjud
+    bo'lmaydi. O'sha mexanizm <code>routing</code> deb ataladi va biz unga
+    <a href="../reference/yol-xaritasi.html">18-darsda</a> yetib boramiz. Bugungi «URL = fayl»
+    modelini yodda tuting — routing'ni tushunish uchun aynan shu solishtirish kerak bo'ladi.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>PHP Fundamentals</b> — Laravel'ning rasmiy <b>bepul</b> video kursi, 1-epizod:
+    <a href="https://laravel.com/learn/php-fundamentals">laravel.com/learn/php-fundamentals</a>
+    (10 dars, 71 daqiqa).<sup><a href="#fn1">1</a></sup> Aynan Laravel uchun kerak bo'ladigan
+    PHP'ga qaratilgan — bizning Modul A bilan yonma-yon boradi.<br>
+    O'zbekcha: <a href="https://uzbekdevs.uz/darsliklar/php">uzbekdevs.uz PHP darsliklari</a>
+    (bepul, 20 dars).</p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b> «<code>echo</code> va
+    <code>print</code> farqi nima?», «server nima degani?», «terminal band bo'lib qoldi,
+    nima qilaman?», «<code>date()</code> qanday ishlaydi?» — har qanday savol yaxshi.
+    Amaliyotni ham birga qilamiz.
+  </div>
+
+  <nav class="lesson-nav">
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/yol-xaritasi.html">Yo'l xaritasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel — <a href="https://laravel.com/learn/php-fundamentals">PHP
+      Fundamentals</a> (rasmiy bepul mini-kurs, 10 dars / 71 daqiqa). Laravel'ning o'zi
+      tomonidan tayyorlangan, shuning uchun urg'u aynan biz keyin ishlatadigan PHP'da.</li>
+      <li id="fn2">PHP Manual — <i>PHP tags</i> va <i>Escaping from HTML</i>: teglar
+      tashqarisidagi hamma narsa parser tomonidan e'tiborsiz qoldiriladi;
+      <code>&lt;?php</code> dan keyin bo'sh joy shart; yopuvchi teg o'zidan keyingi yangi
+      qatorni o'z ichiga oladi; faqat PHP'dan iborat faylda yopuvchi tegni tashlab ketish
+      tavsiya etiladi. Rasmiy sayt <code>php.net</code> bu tarmoqdan ochilmadi (DNS
+      darajasida to'silgan), shuning uchun hujjatning ishlaydigan ko'zgusi:
+      <a href="https://devdocs.io/php/">devdocs.io/php</a>. Qo'shimcha:
+      <a href="https://phptherightway.com/">PHP The Right Way</a>.</li>
+      <li id="fn3">PHP'ning ichki veb-serveri (<code>php -S</code>) — ishlab chiqish va
+      sinash uchun mo'ljallangan, ommaviy tarmoqda ishlatilmasligi kerak. Biz undan
+      Modul A davomida foydalanamiz; Laravel'da uning o'rniga
+      <code>php artisan serve</code> keladi (16-dars), haqiqiy server esa
+      <a href="../reference/yol-xaritasi.html">Modul J da</a>.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

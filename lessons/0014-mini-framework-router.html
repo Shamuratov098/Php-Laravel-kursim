@@ -1,0 +1,874 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 14 — Mini-framework 1: front controller va router</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 14 · MODUL A — POYDEVOR</p>
+  <h1>Mini-framework 1: front controller va <code>router</code></h1>
+  <p class="lead">Bu kursning eng muhim ikki darsidan birinchisi. Bugun 1-darsda ko'rgan
+  <b>«URL = fayl yo'li»</b> qoidasini <b>o'z qo'lingiz bilan buzasiz</b>: bitta kirish
+  nuqtasi va router yozasiz. Shundan keyin Laravel'ning <code>routes/web.php</code> fayli
+  sizga sehr emas, <b>tanish mexanizm</b> bo'lib ko'rinadi.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 11 daqiqa</span>
+    <span>💻 Amaliyot ≈ 18 daqiqa</span>
+    <span>Kerak: <a href="0013-http-qolda.html">Dars 13</a></span>
+  </p>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Nega bu muhim</span>
+    <p>Hozirgacha har sahifa alohida fayl edi: <code>28-forma.php</code>,
+    <code>29-session.php</code>. Bu kichik mashqlar uchun yetadi, lekin real loyihada
+    to'rtta muammo chiqadi:</p>
+    <ol>
+      <li><b>Takrorlanish.</b> Har fayl o'zini o'zi sozlashi kerak: autoload,
+      <code>session_start()</code>, sozlamalar. Aynan bir xil qatorlar 50 faylda.</li>
+      <li><b>Markaziy nazorat yo'q.</b> «Har so'rovni logga yoz» yoki «kirmagan odamni
+      to'sib qo'y» degan qoidani <b>bitta joyda</b> yozib bo'lmaydi.</li>
+      <li><b>Chiroyli manzil yo'q.</b> <code>/vakansiyalar/12</code> degan URL uchun
+      shunday nomli fayl <b>yo'q</b> — demak bunday manzil ham bo'lmaydi.</li>
+      <li><b>Xavfsizlik.</b> Barcha PHP fayllari brauzerga <b>ochiq</b>. Kimdir
+      <code>/src/Router.php</code> ni so'rasa nima bo'ladi?</li>
+    </ol>
+    <p>Yechim bitta va u <b>front controller</b> deb ataladi: <b>hamma so'rov bitta faylga
+    keladi</b>, va o'sha fayl nima qilish kerakligini hal qiladi. Laravel ham,
+    Symfony ham, deyarli barcha zamonaviy framework ham shunday ishlaydi.</p>
+  </div>
+
+  <!-- ═══════════════ 2) TUSHUNCHA ═══════════════ -->
+  <h2>Front controller: bitta kirish nuqtasi</h2>
+
+  <div class="areas wide">
+    <div class="area">
+      <h4>1 · Har so'rov</h4>
+      <span class="en">/ · /vakansiyalar · /yoq</span>
+      <div class="desc">Manzil qanday bo'lishidan qat'i nazar</div>
+    </div>
+    <div class="area">
+      <h4>2 · Bitta fayl</h4>
+      <span class="en">public/index.php</span>
+      <div class="desc">Hammasi shu yerga keladi. Sozlash <b>bir marta</b></div>
+    </div>
+    <div class="area">
+      <h4>3 · Router qaraydi</h4>
+      <span class="en">jadval</span>
+      <div class="desc">Metod + yo'l → qaysi controller</div>
+    </div>
+    <div class="area">
+      <h4>4 · Controller javob beradi</h4>
+      <span class="en">handle()</span>
+      <div class="desc">Yoki topilmasa — <b>404</b></div>
+    </div>
+  </div>
+
+  <h3>Papka tuzilishi va nega <code>public/</code></h3>
+
+  <div class="codefile">
+    <div class="fname">php-poydevor/ tuzilishi</div>
+    <code class="cmd" data-cmd="public/
+  index.php          ← brauzerga OCHIQ bo'lgan yagona fayl
+src/
+  Controller.php     ← shartnoma (interface)
+  Router.php         ← yo'l jadvali
+  RouteTopilmadi.php ← 404 uchun exception
+  Controllers/
+    BoshSahifa.php
+    Vakansiyalar.php
+vendor/              ← yashirin
+composer.json        ← yashirin">public/
+  index.php          ← brauzerga OCHIQ bo'lgan yagona fayl
+src/
+  Controller.php     ← shartnoma (interface)
+  Router.php         ← yo'l jadvali
+  RouteTopilmadi.php ← 404 uchun exception
+  Controllers/
+    BoshSahifa.php
+    Vakansiyalar.php
+vendor/              ← yashirin
+composer.json        ← yashirin</code>
+  </div>
+
+  <p>Server <b>faqat <code>public/</code></b> papkasini ko'rsatadi. Qolgan hamma narsa —
+  kodingiz, kutubxonalar, sozlamalar — brauzer uchun <b>mavjud emas</b>. Bu jiddiy
+  xavfsizlik chorasi: hujumchi <code>.env</code> yoki kod faylini so'rab ololmaydi.</p>
+
+  <div class="callout tip">
+    <span class="label">Laravel'da xuddi shunday</span>
+    <p>Laravel loyihasida ham <code>public/index.php</code> bor va u ham
+    <b>yagona ochiq fayl</b>. Uning ichidagi birinchi ishlardan biri —
+    <code>require __DIR__.'/../vendor/autoload.php';</code> — ya'ni 12-darsda yozgan
+    qatoringiz. 16-darsda IshTop loyihasini yaratganda buni o'z ko'zingiz bilan
+    ko'rasiz.</p>
+  </div>
+
+  <h2>Router: yo'l jadvali</h2>
+
+  <p>Router — bu shunchaki <b>jadval</b> (5-darsdagi massiv!) va uni o'qiydigan ikki metod:</p>
+
+  <div class="codefile">
+    <div class="fname">src/Router.php</div>
+    <code class="cmd" data-cmd="class Router
+{
+    private array $routes = [];
+
+    public function add(string $metod, string $yol, string $controller): void
+    {
+        $this-&gt;routes[$metod][$yol] = $controller;
+    }
+
+    public function dispatch(string $metod, string $yol): string
+    {
+        $klass = $this-&gt;routes[$metod][$yol] ?? null;
+
+        if ($klass === null) {
+            throw new RouteTopilmadi(&quot;Route topilmadi: {$metod} {$yol}&quot;);
+        }
+
+        $controller = new $klass();
+        return $controller-&gt;handle();
+    }
+}">class Router
+{
+    private array $routes = [];
+
+    public function add(string $metod, string $yol, string $controller): void
+    {
+        $this-&gt;routes[$metod][$yol] = $controller;
+    }
+
+    public function dispatch(string $metod, string $yol): string
+    {
+        $klass = $this-&gt;routes[$metod][$yol] ?? null;
+
+        if ($klass === null) {
+            <span class="add">throw new RouteTopilmadi("Route topilmadi: {$metod} {$yol}");</span>
+        }
+
+        <span class="add">$controller = new $klass();</span>
+        return $controller-&gt;handle();
+    }
+}</code>
+  </div>
+
+  <p>Butun router — <b>20 qator</b>. Ichida sehr yo'q, faqat oldingi darslardagi narsalar:</p>
+
+  <ul>
+    <li><code>$routes[$metod][$yol]</code> — <b>ichma-ich assotsiativ massiv</b> (5-dars).
+    Metod ham kalit, chunki <code>GET /</code> va <code>POST /</code> — <b>ikki boshqa
+    route</b>.</li>
+    <li><code>?? null</code> — topilmasa <code>null</code> (13-dars).</li>
+    <li><code>throw new RouteTopilmadi(...)</code> — 11-darsdagi <b>o'z exception
+    klassim</b>. 404 ni shu bilan hal qilamiz.</li>
+    <li><code>new $klass()</code> — <b>yangi narsa</b>: klass nomi <b>o'zgaruvchida</b>
+    turishi mumkin. <code>$klass</code> ichida <code>"App\Controllers\BoshSahifa"</code>
+    matni bor, va PHP shu nomli klassdan obyekt yasaydi. Autoload (12-dars) faylni
+    o'zi topadi.</li>
+    <li><code>$controller-&gt;handle()</code> — har controller shu metodga ega, chunki...</li>
+  </ul>
+
+  <h3>...chunki shartnoma bor</h3>
+
+  <div class="codefile">
+    <div class="fname">src/Controller.php</div>
+    <code class="cmd" data-cmd="interface Controller
+{
+    public function handle(): string;
+}">interface Controller
+{
+    public function handle(): string;
+}</code>
+  </div>
+
+  <p>Mana 10-darsning foydasi <b>amalda</b>. Router controller'lar haqida <b>hech narsa
+  bilmaydi</b> — u faqat «<code>handle()</code> ni biladigan narsa» kutadi. Yangi sahifa
+  qo'shish uchun:</p>
+
+  <div class="codefile">
+    <div class="fname">src/Controllers/BoshSahifa.php</div>
+    <code class="cmd" data-cmd="namespace App\Controllers;
+
+use App\Controller;
+
+class BoshSahifa implements Controller
+{
+    public function handle(): string
+    {
+        return &quot;&lt;h1&gt;IshTop&lt;/h1&gt;&lt;p&gt;Bosh sahifa&lt;/p&gt;&quot;;
+    }
+}">namespace App\Controllers;
+
+use App\Controller;
+
+class BoshSahifa <span class="add">implements Controller</span>
+{
+    public function handle(): string
+    {
+        return "&lt;h1&gt;IshTop&lt;/h1&gt;&lt;p&gt;Bosh sahifa&lt;/p&gt;";
+    }
+}</code>
+  </div>
+
+  <p>Va <code>index.php</code> da bitta qator qo'shasiz. Router'ga <b>tegilmaydi</b>.</p>
+
+  <h3>Kirish nuqtasi</h3>
+
+  <div class="codefile">
+    <div class="fname">public/index.php</div>
+    <code class="cmd" data-cmd="require __DIR__ . '/../vendor/autoload.php';
+
+$router = new Router();
+$router-&gt;add('GET', '/', BoshSahifa::class);
+$router-&gt;add('GET', '/vakansiyalar', Vakansiyalar::class);
+
+$metod = $_SERVER['REQUEST_METHOD'];
+$yol = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+
+try {
+    echo $router-&gt;dispatch($metod, $yol);
+} catch (RouteTopilmadi $e) {
+    http_response_code(404);
+    echo &quot;&lt;h1&gt;404&lt;/h1&gt;&quot;;
+}">require __DIR__ . '/../vendor/autoload.php';
+
+$router = new Router();
+$router-&gt;add('GET', '/', BoshSahifa::class);
+$router-&gt;add('GET', '/vakansiyalar', Vakansiyalar::class);
+
+$metod = $_SERVER['REQUEST_METHOD'];
+$yol = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+
+try {
+    echo $router-&gt;dispatch($metod, $yol);
+} catch (RouteTopilmadi $e) {
+    http_response_code(404);
+    echo "&lt;h1&gt;404&lt;/h1&gt;";
+}</code>
+  </div>
+
+  <p>Uch yangi detal:</p>
+  <ul>
+    <li><code>__DIR__</code> — «shu fayl turgan papka». Nisbiy yo'l
+    (<code>'vendor/autoload.php'</code>) qaysi papkadan ishga tushirilganiga bog'liq
+    bo'lardi; <code>__DIR__</code> esa har doim to'g'ri.</li>
+    <li><code>BoshSahifa::class</code> — klassning <b>to'liq nomini matn sifatida</b>
+    beradi (<code>"App\Controllers\BoshSahifa"</code>). Qo'lda yozishdan yaxshi: nomni
+    adashsangiz muharrir darhol ogohlantiradi.</li>
+    <li><code>parse_url(..., PHP_URL_PATH)</code> — manzildan <b>faqat yo'lni</b> ajratadi.
+    <code>/vakansiyalar?sahifa=2</code> dan <code>/vakansiyalar</code> qoladi — aks holda
+    query string route'ni buzardi.</li>
+  </ul>
+
+  <div class="callout note">
+    <span class="label">Bu Laravel'da qanday ko'rinadi</span>
+    <div class="natija">// sizning kodingiz
+$router-&gt;add('GET', '/vakansiyalar', Vakansiyalar::class);
+
+// Laravel
+Route::get('/vakansiyalar', [VakansiyaController::class, 'index']);</div>
+    <p>Deyarli <b>bir xil</b>. Laravel'da metod nomi ham beriladi (bitta controllerda bir
+    nechta sahifa bo'lishi uchun) va route'lar <code>routes/web.php</code> faylida turadi.
+    G'oya esa aynan bugungi g'oya.</p>
+  </div>
+
+  <!-- ═══════════════ 4) AMALIYOT / MODE-HINT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    <span class="mode-hint-title">💻 Amaliy qism kompyuterda</span>
+    <p>Amaliyotda beshta fayl yozasiz: <code>interface Controller</code>, o'z exception
+    klassingiz, <code>Router</code>, ikkita controller va <code>public/index.php</code>.
+    Keyin serverni <b>front controller rejimida</b> ko'tarib, uchta manzilni sinaysiz —
+    va oxirida yangi sahifani <b>router'ga tegmasdan</b> qo'shasiz.</p>
+    <button type="button" class="modebtn" data-set-mode="do">💻 Amaliyot rejimini ko'rish</button>
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <p>12-darsda <code>composer.json</code> va <code>src/</code> tayyorlangan —
+    <code>App\</code> → <code>src/</code> qoidasi allaqachon ishlaydi. Ustiga quramiz.</p>
+
+    <ol class="steps">
+      <li>
+        <p>Papkalarni tayyorlang</p>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/php-poydevor
+mkdir -p src/Controllers public">cd ~/Projects/Learn/php-poydevor
+mkdir -p src/Controllers public</div>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik.</p>
+      </li>
+
+      <li>
+        <p>Shartnoma va exception klassini yozing</p>
+        <p class="why-step">Ikkisi ham kichik, lekin router'ning poydevori: biri
+        «controller nima qila olishi kerak», ikkinchisi «topilmadi» holati.</p>
+        <div class="cmd" data-cmd="cat &gt; src/Controller.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+namespace App;
+
+interface Controller
+{
+    public function handle(): string;
+}
+EOF
+cat &gt; src/RouteTopilmadi.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+namespace App;
+
+class RouteTopilmadi extends \Exception {}
+EOF">cat &gt; src/Controller.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+namespace App;
+
+interface Controller
+{
+    public function handle(): string;
+}
+EOF
+cat &gt; src/RouteTopilmadi.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+namespace App;
+
+class RouteTopilmadi extends \Exception {}
+EOF</div>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik.
+        <br>Diqqat: <code>extends \Exception</code> — oldidagi <b>teskari chiziq</b>
+        muhim. <code>App</code> namespace ichida turganimiz uchun, usiz PHP
+        <code>App\Exception</code> ni izlaydi. <code>\</code> «eng yuqoridan (global'dan)
+        ol» degani.</p>
+      </li>
+
+      <li>
+        <p>Router'ni yozing</p>
+        <p class="why-step">Butun framework'ning yuragi — 20 qator.</p>
+        <div class="cmd" data-cmd="cat &gt; src/Router.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+namespace App;
+
+class Router
+{
+    private array $routes = [];
+
+    public function add(string $metod, string $yol, string $controller): void
+    {
+        $this-&gt;routes[$metod][$yol] = $controller;
+    }
+
+    public function dispatch(string $metod, string $yol): string
+    {
+        $klass = $this-&gt;routes[$metod][$yol] ?? null;
+
+        if ($klass === null) {
+            throw new RouteTopilmadi(&quot;Route topilmadi: {$metod} {$yol}&quot;);
+        }
+
+        $controller = new $klass();
+        return $controller-&gt;handle();
+    }
+}
+EOF">cat &gt; src/Router.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+namespace App;
+
+class Router
+{
+    private array $routes = [];
+
+    public function add(string $metod, string $yol, string $controller): void
+    {
+        $this-&gt;routes[$metod][$yol] = $controller;
+    }
+
+    public function dispatch(string $metod, string $yol): string
+    {
+        $klass = $this-&gt;routes[$metod][$yol] ?? null;
+
+        if ($klass === null) {
+            throw new RouteTopilmadi("Route topilmadi: {$metod} {$yol}");
+        }
+
+        $controller = new $klass();
+        return $controller-&gt;handle();
+    }
+}
+EOF</div>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik.</p>
+      </li>
+
+      <li>
+        <p>Ikkita controller yozing</p>
+        <div class="cmd" data-cmd="cat &gt; src/Controllers/BoshSahifa.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+namespace App\Controllers;
+
+use App\Controller;
+
+class BoshSahifa implements Controller
+{
+    public function handle(): string
+    {
+        return &quot;&lt;h1&gt;IshTop&lt;/h1&gt;&lt;p&gt;Bosh sahifa&lt;/p&gt;&quot;;
+    }
+}
+EOF
+cat &gt; src/Controllers/Vakansiyalar.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+namespace App\Controllers;
+
+use App\Controller;
+
+class Vakansiyalar implements Controller
+{
+    public function handle(): string
+    {
+        return &quot;&lt;h1&gt;Vakansiyalar&lt;/h1&gt;&lt;p&gt;Ro'yxat&lt;/p&gt;&quot;;
+    }
+}
+EOF">cat &gt; src/Controllers/BoshSahifa.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+namespace App\Controllers;
+
+use App\Controller;
+
+class BoshSahifa implements Controller
+{
+    public function handle(): string
+    {
+        return "&lt;h1&gt;IshTop&lt;/h1&gt;&lt;p&gt;Bosh sahifa&lt;/p&gt;";
+    }
+}
+EOF
+cat &gt; src/Controllers/Vakansiyalar.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+namespace App\Controllers;
+
+use App\Controller;
+
+class Vakansiyalar implements Controller
+{
+    public function handle(): string
+    {
+        return "&lt;h1&gt;Vakansiyalar&lt;/h1&gt;&lt;p&gt;Ro'yxat&lt;/p&gt;";
+    }
+}
+EOF</div>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik. Diqqat: fayl
+        <code>src/Controllers/</code> da, namespace esa <code>App\Controllers</code> —
+        PSR-4 qoidasi bo'yicha <b>papka = namespace</b> (12-dars).</p>
+      </li>
+
+      <li>
+        <p>Kirish nuqtasini yozing</p>
+        <div class="cmd" data-cmd="cat &gt; public/index.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+require __DIR__ . '/../vendor/autoload.php';
+
+use App\Router;
+use App\RouteTopilmadi;
+use App\Controllers\BoshSahifa;
+use App\Controllers\Vakansiyalar;
+
+$router = new Router();
+$router-&gt;add('GET', '/', BoshSahifa::class);
+$router-&gt;add('GET', '/vakansiyalar', Vakansiyalar::class);
+
+$metod = $_SERVER['REQUEST_METHOD'];
+$yol = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+
+try {
+    echo $router-&gt;dispatch($metod, $yol);
+} catch (RouteTopilmadi $e) {
+    http_response_code(404);
+    echo &quot;&lt;h1&gt;404&lt;/h1&gt;&lt;p&gt;&quot;, htmlspecialchars($e-&gt;getMessage()), &quot;&lt;/p&gt;&quot;;
+}
+EOF">cat &gt; public/index.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+require __DIR__ . '/../vendor/autoload.php';
+
+use App\Router;
+use App\RouteTopilmadi;
+use App\Controllers\BoshSahifa;
+use App\Controllers\Vakansiyalar;
+
+$router = new Router();
+$router-&gt;add('GET', '/', BoshSahifa::class);
+$router-&gt;add('GET', '/vakansiyalar', Vakansiyalar::class);
+
+$metod = $_SERVER['REQUEST_METHOD'];
+$yol = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+
+try {
+    echo $router-&gt;dispatch($metod, $yol);
+} catch (RouteTopilmadi $e) {
+    http_response_code(404);
+    echo "&lt;h1&gt;404&lt;/h1&gt;&lt;p&gt;", htmlspecialchars($e-&gt;getMessage()), "&lt;/p&gt;";
+}
+EOF</div>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik. Diqqat: 404 xabarida ham
+        <code>htmlspecialchars</code> — chunki xabar ichida foydalanuvchi so'ragan
+        <b>manzil</b> bor (13-dars qoidasi!).</p>
+      </li>
+
+      <li>
+        <p>Serverni <b>front controller rejimida</b> ko'taring</p>
+        <p class="why-step">Manzil oxiriga fayl nomi berilsa, PHP <b>har so'rovni</b> shu
+        fayldan o'tkazadi — aynan bizga kerak bo'lgani.</p>
+        <div class="cmd" data-cmd="php -S localhost:8000 public/index.php">php -S localhost:8000 public/index.php
+<span class="out">[...] PHP 8.3.32 Development Server (http://localhost:8000) started</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> server ishlaydi. Farqni sezdingizmi —
+        oldin <code>php -S localhost:8000</code> deb yozardik, endi oxirida
+        <b><code>public/index.php</code></b> bor. Shu argument «hamma so'rovni bu fayldan
+        o't» deydi.
+        <br>Yangi terminal oynasi oching yoki brauzerda sinang.</p>
+      </li>
+
+      <li>
+        <p>Uchta manzilni sinang</p>
+        <p class="why-step">Bu darsning g'alabasi: <code>.php</code>siz, toza manzillar.</p>
+        <div class="cmd" data-cmd="curl -s http://localhost:8000/ ; echo
+curl -s http://localhost:8000/vakansiyalar ; echo
+curl -s -w '\n[status: %{http_code}]\n' http://localhost:8000/yoq">curl -s http://localhost:8000/ ; echo
+curl -s http://localhost:8000/vakansiyalar ; echo
+curl -s -w '\n[status: %{http_code}]\n' http://localhost:8000/yoq
+<span class="out">&lt;h1&gt;IshTop&lt;/h1&gt;&lt;p&gt;Bosh sahifa&lt;/p&gt;</span>
+<span class="out">&lt;h1&gt;Vakansiyalar&lt;/h1&gt;&lt;p&gt;Ro'yxat&lt;/p&gt;</span>
+<span class="out">&lt;h1&gt;404&lt;/h1&gt;&lt;p&gt;Route topilmadi: GET /yoq&lt;/p&gt;</span>
+<span class="out">[status: 404]</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> ikki sahifa va bitta 404 — <b>haqiqiy
+        HTTP status 404 bilan</b>. 🎉 Diqqat: manzillarda <code>.php</code> yo'q, va
+        <code>/vakansiyalar</code> degan <b>fayl ham yo'q</b>. Router hal qildi.</p>
+      </li>
+
+      <li>
+        <p>Metod ham muhimligini tekshiring</p>
+        <div class="cmd" data-cmd="curl -s -X POST -w '\n[status: %{http_code}]\n' http://localhost:8000/">curl -s -X POST -w '\n[status: %{http_code}]\n' http://localhost:8000/
+<span class="out">&lt;h1&gt;404&lt;/h1&gt;&lt;p&gt;Route topilmadi: POST /&lt;/p&gt;</span>
+<span class="out">[status: 404]</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> <code>GET /</code> bor, lekin
+        <code>POST /</code> <b>yo'q</b> → 404. Route jadvali <b>metod + yo'l</b> bo'yicha
+        kalitlangan. Laravel'dagi <code>Route::get</code> va <code>Route::post</code>
+        farqi aynan shu.</p>
+      </li>
+
+      <li>
+        <p>Yangi sahifa qo'shing — router'ga <b>tegmasdan</b></p>
+        <p class="why-step">Bu 10-darsdagi shartnomaning haqiqiy foydasi.</p>
+        <div class="cmd" data-cmd="cat &gt; src/Controllers/Kompaniyalar.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+namespace App\Controllers;
+
+use App\Controller;
+
+class Kompaniyalar implements Controller
+{
+    public function handle(): string
+    {
+        return &quot;&lt;h1&gt;Kompaniyalar&lt;/h1&gt;&quot;;
+    }
+}
+EOF
+php -r '
+require &quot;vendor/autoload.php&quot;;
+echo (new App\Controllers\Kompaniyalar())-&gt;handle(), PHP_EOL;
+'">cat &gt; src/Controllers/Kompaniyalar.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+namespace App\Controllers;
+
+use App\Controller;
+
+class Kompaniyalar implements Controller
+{
+    public function handle(): string
+    {
+        return "&lt;h1&gt;Kompaniyalar&lt;/h1&gt;";
+    }
+}
+EOF
+php -r '
+require "vendor/autoload.php";
+echo (new App\Controllers\Kompaniyalar())-&gt;handle(), PHP_EOL;
+'
+<span class="out">&lt;h1&gt;Kompaniyalar&lt;/h1&gt;</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> ishladi — va diqqat qiling,
+        <code>composer dump-autoload</code> <b>qilmadik</b>! Nega ishladi:
+        <code>vendor/composer/autoload_psr4.php</code> ichida faqat <b>qoida</b> turadi
+        (<code>'App\\' =&gt; src/</code>), fayl ro'yxati emas. Ya'ni yangi klass
+        <b>darhol</b> topiladi. <code>dump-autoload</code> faqat
+        <code>composer.json</code> o'zgarganda kerak.</p>
+      </li>
+
+      <li>
+        <p>Yangi controller'ni route'ga ulang</p>
+        <p class="why-step">Bitta qator — Router faylining ichiga tegilmaydi.</p>
+        <p><code>public/index.php</code> ni muharrirda ochib, ikkita qator qo'shing:
+        <code>use App\Controllers\Kompaniyalar;</code> (yuqoriga) va
+        <code>$router-&gt;add('GET', '/kompaniyalar', Kompaniyalar::class);</code>
+        (route'lar yoniga). Keyin:</p>
+        <div class="cmd" data-cmd="curl -s http://localhost:8000/kompaniyalar">curl -s http://localhost:8000/kompaniyalar
+<span class="out">&lt;h1&gt;Kompaniyalar&lt;/h1&gt;</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> yangi sahifa ishlaydi.
+        <code>Router.php</code> ga <b>tegmadik</b> — chunki u shartnomaga tayanadi,
+        aniq klasslarga emas.</p>
+      </li>
+
+      <li>
+        <p>Ishni saqlang</p>
+        <div class="cmd" data-cmd="git add -A
+git commit -m &quot;14-dars: front controller va router&quot;">git add -A
+git commit -m "14-dars: front controller va router"</div>
+        <p class="expect"><b>Kutilgan natija:</b> commit haqida xabar. Serverni
+        <code>Ctrl+C</code> bilan to'xtatishni unutmang.</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><input type="checkbox" id="d14c1"><label for="d14c1"><code>public/</code> nega yagona ochiq papka ekanini bilaman</label></li>
+      <li><input type="checkbox" id="d14c2"><label for="d14c2">Router'ni o'z qo'lim bilan yozdim (20 qator)</label></li>
+      <li><input type="checkbox" id="d14c3"><label for="d14c3"><b><code>.php</code>siz toza manzil ishlayotganini ko'rdim</b> 🎉</label></li>
+      <li><input type="checkbox" id="d14c4"><label for="d14c4">404 haqiqiy HTTP status bilan qaytishini tasdiqladim</label></li>
+      <li><input type="checkbox" id="d14c5"><label for="d14c5">Route <b>metod + yo'l</b> bo'yicha kalitlanganini sinadim</label></li>
+      <li><input type="checkbox" id="d14c6"><label for="d14c6"><b>Yangi sahifani Router'ga tegmasdan qo'shdim</b></label></li>
+      <li><input type="checkbox" id="d14c7"><label for="d14c7"><code>dump-autoload</code> nega kerak bo'lmaganini tushuntira olaman</label></li>
+      <li><input type="checkbox" id="d14c8"><label for="d14c8">Ishni commit qildim</label></li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 5) TAXMIN + QUIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Route'lar shunday e'lon qilingan:</p>
+    <div class="codefile">
+      <div class="fname">public/index.php</div>
+      <code class="cmd" data-cmd="$router-&gt;add('GET', '/vakansiyalar', Vakansiyalar::class);">$router-&gt;add('GET', '/vakansiyalar', Vakansiyalar::class);</code>
+    </div>
+    <p>Quyidagi <b>uch so'rov</b> nima qaytaradi?</p>
+    <div class="codefile">
+      <div class="fname">so'rovlar</div>
+      <code class="cmd" data-cmd="A)  GET  /vakansiyalar?sahifa=2
+B)  POST /vakansiyalar
+C)  GET  /vakansiyalar/">A)  GET  /vakansiyalar?sahifa=2
+B)  POST /vakansiyalar
+C)  GET  /vakansiyalar/</code>
+    </div>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <div class="natija">A)  ✅ ishlaydi  — Vakansiyalar sahifasi
+B)  ❌ 404      — metod mos kelmadi
+C)  ❌ 404      — yo'l mos kelmadi (oxirgi / qo'shimcha)</div>
+        <p><b>A ishlaydi</b>, chunki <code>parse_url(..., PHP_URL_PATH)</code> query
+        qismini <b>ajratib tashlaydi</b>: <code>/vakansiyalar?sahifa=2</code> dan
+        <code>/vakansiyalar</code> qoladi. Bu qator bo'lmasa, A ham 404 bergan bo'lardi —
+        va bu juda chalkash bug' bo'lardi.</p>
+        <p><b>B — 404</b>, chunki jadval <code>$routes['GET']['/vakansiyalar']</code> deb
+        saqlangan; <code>POST</code> uchun yozuv yo'q. Bu <b>xato emas, xususiyat</b>:
+        bir manzilda GET (ko'rsatish) va POST (saqlash) har xil ish qilishi kerak.</p>
+        <p><b>C — 404</b>, chunki <code>"/vakansiyalar/"</code> va
+        <code>"/vakansiyalar"</code> — <b>ikki boshqa matn</b> (3-dars:
+        <code>===</code> qat'iy solishtiradi). Bizning router'da oxirgi chiziqni
+        normallashtiruvchi kod yo'q.</p>
+        <p class="expect">Mana <b>real framework nima uchun kattaroq</b> ekanining javobi:
+        Laravel bunday holatlarni o'zi hal qiladi — oxirgi chiziq, <code>HEAD</code> metodi,
+        katta-kichik harf, route parametrlari (<code>/vakansiyalar/{id}</code>), nomlangan
+        route'lar. Yadro g'oyasi esa siz yozgan 20 qator.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span> Nega faqat <code>public/</code>
+    papkasi brauzerga ochiq bo'ladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Kod va sozlamalar yashirinadi</button></li>
+      <li><button class="quiz-option">Sahifalar ancha tezroq yuklansin</button></li>
+      <li><button class="quiz-option">Fayllar tartibli joylashgan bo'lsin</button></li>
+    </ul>
+    <div class="quiz-explain">Xavfsizlik: <code>src/</code>, <code>vendor/</code>,
+    <code>.env</code> — brauzer uchun <b>mavjud emas</b>. Aks holda hujumchi kod yoki
+    parollarni so'rab olishi mumkin edi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span> Router controller'lar haqida nima
+    biladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Faqat handle() metodi borligini</button></li>
+      <li><button class="quiz-option">Har klassning to'liq nomini</button></li>
+      <li><button class="quiz-option">Ularning ichidagi butun kodni</button></li>
+    </ul>
+    <div class="quiz-explain">Router <code>interface Controller</code> shartnomasiga
+    tayanadi. Shuning uchun yangi sahifa qo'shilganda <code>Router.php</code> ga
+    <b>tegilmaydi</b> — 10-darsdagi g'oyaning amaliy foydasi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span> Yangi klass qo'shganda
+    <code>composer dump-autoload</code> kerakmi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Yo'q — PSR-4 qoida bilan topadi</button></li>
+      <li><button class="quiz-option">Ha — har yangi fayl uchun</button></li>
+      <li><button class="quiz-option">Ha — lekin faqat controller uchun</button></li>
+    </ul>
+    <div class="quiz-explain">PSR-4 <b>qoida</b> saqlaydi (<code>App\ → src/</code>), fayl
+    ro'yxatini emas. <code>dump-autoload</code> faqat <code>composer.json</code>
+    o'zgarganda kerak.</div>
+  </div>
+
+  <!-- ═══════════════ 6) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+    <p class="recall-intro">Avval o'zingiz javob bering, keyin ochib tekshiring.
+    Oxirgi ikkitasi — <a href="0013-http-qolda.html">13-darsni</a> takrorlash.</p>
+
+    <details class="recall">
+      <summary>Front controller qanday to'rtta muammoni yechadi?</summary>
+      <div class="answer"><p>1) Sozlash <b>takrorlanmaydi</b> (bir joyda).
+      2) <b>Markaziy nazorat</b> paydo bo'ladi (log, auth). 3) <b>Chiroyli manzil</b>
+      mumkin (<code>/vakansiyalar/12</code>). 4) <b>Xavfsizlik</b> — faqat
+      <code>public/</code> ochiq.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary><code>new $klass()</code> nima qiladi?</summary>
+      <div class="answer"><p>Klass nomi <b>o'zgaruvchida matn sifatida</b> turadi va PHP
+      shu nomli klassdan obyekt yasaydi. Faylni <b>autoload</b> o'zi topadi. Shuning
+      uchun router aniq klasslarni bilishi shart emas.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Nega <code>parse_url(..., PHP_URL_PATH)</code> kerak?</summary>
+      <div class="answer"><p>Manzildan <b>faqat yo'lni</b> ajratish uchun.
+      <code>/vakansiyalar?sahifa=2</code> → <code>/vakansiyalar</code>. Usiz query string
+      route'ni buzardi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: nega 404 xabarida <code>htmlspecialchars</code> bor?</summary>
+      <div class="answer"><p>Chunki xabar ichida foydalanuvchi <b>so'ragan manzil</b> bor —
+      ya'ni tashqaridan kelgan matn. Uni xom holda chiqarish <b>XSS</b> ochadi (13-dars).</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: <code>$_SESSION</code> ma'lumoti qayerda yashaydi?</summary>
+      <div class="answer"><p><b>Serverda</b>, kaliti (session ID) esa brauzerdagi
+      <b>cookie</b> da. Cookie bo'lmasa server foydalanuvchini tanimaydi.</p></div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 7) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Cho'ntak xulosasi</span>
+    <ul>
+      <li><b>Front controller:</b> hamma so'rov <code>public/index.php</code> ga keladi.
+      Faqat <code>public/</code> brauzerga ochiq.</li>
+      <li><b>Router</b> — ichma-ich massiv: <code>$routes[$metod][$yol] = KlassNomi</code>.
+      Metod ham kalit.</li>
+      <li><code>interface Controller { handle(): string; }</code> — router shartnomaga
+      tayanadi, aniq klasslarga emas.</li>
+      <li><code>new $klass()</code> — klass nomi o'zgaruvchida bo'lishi mumkin; faylni
+      autoload topadi.</li>
+      <li><code>Klass::class</code> — to'liq nomni matn sifatida beradi (adashsangiz
+      muharrir aytadi).</li>
+      <li><code>parse_url(..., PHP_URL_PATH)</code> — query'ni ajratadi.
+      <code>__DIR__</code> — yo'lni ishonchli qiladi.</li>
+      <li>404 — <code>RouteTopilmadi</code> exception + <code>http_response_code(404)</code>.</li>
+      <li><code>php -S localhost:8000 <b>public/index.php</b></code> — front controller
+      rejimi.</li>
+      <li>PSR-4 <b>qoida</b> saqlaydi → yangi klass uchun <code>dump-autoload</code>
+      kerak emas.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars — Modul A ning cho'qqisi</span>
+    <p>Router ishlayapti, lekin bitta zaif joyi bor: <code>new $klass()</code> —
+    controller'ga <b>hech narsa berilmaydi</b>. Agar <code>Vakansiyalar</code> controller'i
+    bazaga ulanish yoki xabar yuboruvchi kerak bo'lsa, u ularni <b>o'zi yasashga</b>
+    majbur bo'ladi. Va shu bilan controller aniq klasslarga <b>qattiq bog'lanib</b>
+    qoladi — 10-darsda aytgan muammo qaytadi.</p>
+    <p><b>15-darsda</b> buni <b>container</b> yechadi: obyektlarni <b>u</b> yasaydi, va
+    kerakli bog'liqliklarni <b>o'zi topib qo'yadi</b>. Bu Laravel'ning eng markaziy
+    mexanizmi — <code>Service Container</code>. Uni o'z qo'lingiz bilan yozgandan keyin,
+    Laravel'da controller konstruktoriga yozilgan har bir parametr sizga tushunarli
+    bo'ladi.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel — Routing</b> hujjati:
+    <a href="https://laravel.com/docs/13.x/routing">laravel.com/docs/13.x/routing</a>.<sup><a href="#fn1">1</a></sup>
+    Bugungi kodni yozgandan keyin o'qing — «ha, bu tanish» degan hissiyot bo'ladi.<br>
+    <b>Request Lifecycle</b>: <a href="https://laravel.com/docs/13.x/lifecycle">laravel.com/docs/13.x/lifecycle</a>
+    — 17-darsda batafsil ko'ramiz.<br>
+    Qo'llanma (ko'zgu): <a href="https://devdocs.io/php/function.parse-url">devdocs.io — parse_url</a>.<sup><a href="#fn2">2</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b> «<code>/vakansiyalar/{id}</code> kabi
+    parametrli route qanday qilinadi?», «bir controllerda bir necha sahifa bo'lsa-chi?»,
+    «middleware qanday qo'shiladi?», «nginx/apache'da <code>public/</code> qanday
+    sozlanadi?» — har qanday savol yaxshi. Birinchi ikkitasi ayniqsa qiziq: xohlasangiz
+    router'ni parametr qabul qiladigan qilib birga kengaytiramiz.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0013-http-qolda.html">Oldingi: HTTP qo'lda</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel 13 — <a href="https://laravel.com/docs/13.x/routing">Routing</a>
+      va <a href="https://laravel.com/docs/13.x/lifecycle">Request Lifecycle</a>.</li>
+      <li id="fn2">PHP Manual — <i>parse_url</i>, DevDocs ko'zgusi orqali:
+      <a href="https://devdocs.io/php/function.parse-url">devdocs.io/php/function.parse-url</a>.
+      Rasmiy <code>php.net</code> bu tarmoqdan ochilmaydi.</li>
+      <li id="fn3">Butun mini-framework PHP <b>8.3.32</b> ning ichki serverida jonli sinab
+      ko'rilgan: <code>/</code>, <code>/vakansiyalar</code>, <code>/yoq</code> (404 statusi
+      bilan), <code>?sahifa=2</code> bilan, <code>POST /</code> (404) va
+      <code>dump-autoload</code>siz yangi klass.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

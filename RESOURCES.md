@@ -23,9 +23,16 @@
   13 dars, 120 daqiqa. Routing, controller, view, Eloquent — to'liq ilova qurish.
   Use for: **Modul B–C** uchun video hamroh.
 
-- [**PHP rasmiy qo'llanmasi**](https://www.php.net/manual/en/)
-  Tilning o'zi haqida yakuniy haqiqat manbasi. Use for: funksiya imzosi, tip
-  o'zgarishi qoidalari, `array_*` funksiyalari, versiyalar farqi.
+- [**PHP qo'llanmasi — DevDocs ko'zgusi**](https://devdocs.io/php/)
+  Tilning o'zi haqida yakuniy haqiqat manbasi (rasmiy PHP manual matni).
+  Use for: funksiya imzosi, tip o'zgarishi qoidalari, `array_*` funksiyalari.
+  🔴 **Nega php.net emas:** `php.net` bu tarmoqdan **ochilmaydi** — bosh sahifa ham 404,
+  DNS darajasida ushlangan (2026-08-10 da tekshirildi, 1.1.1.1 va 8.8.8.8 bilan ham).
+  Shuning uchun darslarda php.net havolasi **berilmaydi**. DevDocs oflaynda ham ishlaydi.
+
+- [**PHP The Right Way**](https://phptherightway.com/)
+  Zamonaviy PHP amaliyoti bo'yicha jamoa tomonidan yuritiladigan qo'llanma.
+  Use for: «to'g'ri yo'l qaysi?» savoli — kod stili, tuzilma, xavfsizlik odatlari.
 
 - [**Pest hujjatlari**](https://pestphp.com/docs/installation)
   Use for: **Modul E** — test sintaksisi, `expect()`, Laravel plugin'i.

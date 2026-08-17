@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 02 — O'zgaruvchi, tip va string</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 02 · MODUL A — POYDEVOR</p>
+  <h1>O'zgaruvchi va tip: ma'lumotni ko'ra bilish</h1>
+  <p class="lead">Bu darsdan keyin ma'lumotni o'zgaruvchida saqlaysiz va — eng muhimi —
+  uning <b>tipini taxmin qilmasdan, ko'rib</b> ayta olasiz. Buning uchun bitta asbob bor:
+  <code>var_dump()</code>. Kursning qolgan 70 darsida uni doim ishlatasiz.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 7 daqiqa</span>
+    <span>💻 Amaliyot ≈ 10 daqiqa</span>
+    <span>Kerak: <a href="0001-php-qanday-ishlaydi.html">Dars 01</a></span>
+  </p>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Nega bu muhim</span>
+    <p>Ishda buziladigan kodning katta qismi bitta sabab bilan buziladi:
+    <b>«men buni son deb o'ylagandim, u matn edi»</b>. Formadan kelgan <code>25</code>
+    aslida <code>"25"</code> bo'ladi. Bazadan kelgan qiymat <code>null</code> chiqadi.
+    Bunday paytda taxmin qilish emas — <b>qarash</b> kerak.</p>
+    <p>Laravel'da xuddi shu ishni <code>dd($narsa)</code> bajaradi — «dump and die».
+    Ya'ni bugun o'rganadigan asbob keyin ham qo'lingizda qoladi, faqat nomi qisqaradi.
+    <b>Tushunmayapman</b> degan holatdan chiqishning eng tez yo'li — o'zgaruvchining
+    ichiga qarash.</p>
+  </div>
+
+  <!-- ═══════════════ 2) TUSHUNCHA ═══════════════ -->
+  <h2>O'zgaruvchi — yorliqli quti</h2>
+
+  <p>O'zgaruvchi — qiymat saqlanadigan joyga qo'yilgan <b>nom</b>. PHP'da nom har doim
+  <code>$</code> bilan boshlanadi:</p>
+
+  <div class="codefile">
+    <div class="fname">tushuncha</div>
+    <code class="cmd" data-cmd="$ism = &quot;Doston&quot;;">$ism = "Doston";</code>
+  </div>
+
+  <p>O'ngdagi qiymat chapdagi nomga <b>joylashtiriladi</b>. <code>=</code> bu «teng» degani
+  emas — «o'ngdagisini chapga sol» degani. Bu farq keyinroq (3-darsda) muhim bo'ladi,
+  chunki «teng»ni tekshirish uchun boshqa belgi ishlatiladi.</p>
+
+  <h3>Tip qiymatda yashaydi, o'zgaruvchida emas</h3>
+
+  <p>Ko'p tillarda o'zgaruvchini yaratganda tipini aytish kerak. PHP'da <b>kerak emas</b> —
+  tipni <b>qiymatning o'zi</b> olib keladi. Shu sababli bitta o'zgaruvchi hayoti davomida
+  tipini o'zgartira oladi:</p>
+
+  <div class="codefile">
+    <div class="fname">tushuncha</div>
+    <code class="cmd" data-cmd="$x = 5;        // hozir son
+$x = &quot;besh&quot;;   // endi matn — PHP qarshilik qilmaydi">$x = 5;        // hozir son
+$x = "besh";   // endi matn — PHP qarshilik qilmaydi</code>
+  </div>
+
+  <div class="callout note">
+    <span class="label">Mana muammoning ildizi</span>
+    <p>Tip kodda <b>yozilmagani</b> uchun, kodga qarab uni bilib olish mumkin emas.
+    <code>$yosh</code> nomini ko'rib «son bo'lsa kerak» deb o'ylaysiz — lekin u
+    <code>"25"</code> ham, <code>null</code> ham bo'lishi mumkin. Shuning uchun PHP'da
+    <b>qarash asbobi</b> shunchalik muhim.</p>
+  </div>
+
+  <h3>Beshta asosiy tip</h3>
+
+  <p>Hozircha beshtasi yetadi (oltinchisi — <code>array</code> — 5-darsda):</p>
+
+  <table class="sheet">
+    <tr><th>Tip</th><th>Misol</th><th class="note-cell"><code>var_dump</code> nima deydi</th></tr>
+    <tr><td><code>string</code></td><td><code>"Doston"</code></td><td class="note-cell"><code>string(6) "Doston"</code> — 6 = belgilar soni</td></tr>
+    <tr><td><code>int</code></td><td><code>25</code></td><td class="note-cell"><code>int(25)</code> — butun son</td></tr>
+    <tr><td><code>float</code></td><td><code>1.75</code></td><td class="note-cell"><code>float(1.75)</code> — kasrli son</td></tr>
+    <tr><td><code>bool</code></td><td><code>true</code></td><td class="note-cell"><code>bool(true)</code> — rost yoki yolg'on</td></tr>
+    <tr><td><code>null</code></td><td><code>null</code></td><td class="note-cell"><code>NULL</code> — «qiymat yo'q»</td></tr>
+  </table>
+
+  <p><code>null</code> alohida diqqatga arziq: u «nol» ham, «bo'sh matn» ham emas —
+  u <b>«hech narsa yo'q»</b>. Bazadagi to'ldirilmagan maydon aynan shunday keladi, va
+  keyinchalik <code>null</code> ustida ish qilishga urinish eng ko'p uchraydigan xato
+  bo'ladi.</p>
+
+  <!-- ═══════════════ 3) KOD IZOHI ═══════════════ -->
+  <h2>Kod: ikkita fayl</h2>
+
+  <h3>Birinchisi: tiplarni ko'rish</h3>
+
+  <div class="codefile">
+    <div class="fname">php-poydevor/03-tiplar.php <span class="yangi">yangi</span></div>
+    <code class="cmd" data-cmd="&lt;?php
+$ism = &quot;Doston&quot;;
+$yosh = 25;
+$boy = 1.75;
+$ishlaydi = true;
+$kasb = null;
+var_dump($ism, $yosh, $boy, $ishlaydi, $kasb);">&lt;?php
+$ism = "Doston";
+$yosh = 25;
+$boy = 1.75;
+$ishlaydi = true;
+$kasb = null;
+<span class="add">var_dump($ism, $yosh, $boy, $ishlaydi, $kasb);</span></code>
+  </div>
+
+  <p><code>var_dump()</code> — PHP'ning ichida kelgan funksiya. U <b>qiymatni ham, tipini
+  ham</b> ko'rsatadi. Bir vaqtda bir nechta narsani berish mumkin — vergul bilan
+  ajratasiz. Natija:</p>
+
+  <div class="natija">string(6) "Doston"
+int(25)
+float(1.75)
+bool(true)
+NULL</div>
+
+  <p>Diqqat: <code>echo</code> bo'lsa <code>true</code> ni <code>1</code> deb, <code>null</code>
+  ni esa <b>hech narsa</b> deb chiqarardi — ya'ni sizni chalg'itardi.
+  <code>var_dump</code> esa rostini aytadi. Shuning uchun tekshirishda
+  <code>echo</code> emas, <code>var_dump</code> ishlatiladi.</p>
+
+  <h3>Ikkinchisi: matn ichiga qiymat qo'yish</h3>
+
+  <div class="codefile">
+    <div class="fname">php-poydevor/04-matn.php <span class="yangi">yangi</span></div>
+    <code class="cmd" data-cmd="&lt;?php
+$ism = &quot;Doston&quot;;
+echo &quot;Salom, $ism!&quot;, PHP_EOL;
+echo 'Salom, $ism!', PHP_EOL;
+echo &quot;Salom, {$ism}!&quot;, PHP_EOL;">&lt;?php
+$ism = "Doston";
+echo "Salom, $ism!", PHP_EOL;
+echo 'Salom, $ism!', PHP_EOL;
+echo "Salom, {$ism}!", PHP_EOL;</code>
+  </div>
+
+  <p>Uchta qator bir xil ko'rinadi, lekin natijasi bir xil emas:</p>
+
+  <div class="natija">Salom, Doston!
+Salom, $ism!
+Salom, Doston!</div>
+
+  <p>Sababi — <b>tirnoq turi</b>:</p>
+
+  <ul>
+    <li><code>"qo'shtirnoq"</code> — ichidagi <code>$ism</code> ni <b>qiymatiga
+    almashtiradi</b>. Bu «interpolation» deb ataladi.</li>
+    <li><code>'bittalik tirnoq'</code> — ichidagi hamma narsani <b>xuddi shundayligicha</b>
+    oladi. <code>$ism</code> matn bo'lib qoladi.</li>
+    <li><code>{$ism}</code> — qo'shtirnoq ichida, lekin qavs bilan. Qavs
+    <b>chegara belgilaydi</b>: <code>"{$ism}chi"</code> ishlaydi, <code>"$ismchi"</code> esa
+    yo'q — PHP <code>$ismchi</code> degan boshqa o'zgaruvchini izlaydi.</li>
+  </ul>
+
+  <div class="callout tip">
+    <span class="label">Amaliy qoida</span>
+    <p>Ikkilanmang: matn ichida o'zgaruvchi bo'lsa — <b>qo'shtirnoq + qavs</b>
+    (<code>"{$ism}"</code>). Blade shablonlarida ham keyinchalik shunga o'xshash qavsli
+    yozuvni (<code>{{ $ism }}</code>) ko'rasiz — g'oya bir xil: «bu joyga qiymat kelsin».</p>
+  </div>
+
+  <p><code>PHP_EOL</code> — «end of line», ya'ni yangi qator. Terminalda natijalar
+  bir-biriga yopishib qolmasligi uchun qo'shdik.</p>
+
+  <!-- ═══════════════ 4) AMALIYOT / MODE-HINT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    <span class="mode-hint-title">💻 Amaliy qism kompyuterda</span>
+    <p>Amaliyotda ikkita fayl yozasiz: <code>03-tiplar.php</code> (beshta tipni
+    <code>var_dump</code> bilan ko'rasiz) va <code>04-matn.php</code> (tirnoqlar farqini
+    o'z ko'zingiz bilan solishtirasiz). Oxirida <code>echo</code> va <code>var_dump</code>
+    ni <code>true</code> ustida yonma-yon sinab, nega tekshirishda <code>var_dump</code>
+    ishlatilishini isbotlaysiz.</p>
+    <button type="button" class="modebtn" data-set-mode="do">💻 Amaliyot rejimini ko'rish</button>
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <p>Papkaga o'ting</p>
+        <p class="why-step">Barcha Modul A mashqlari bir joyda — modul oxirida bu yerda
+        mini-framework turadi.</p>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/php-poydevor">cd ~/Projects/Learn/php-poydevor</div>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik. <code>ls</code> qilsangiz
+        1-darsdagi fayllar turadi.</p>
+      </li>
+
+      <li>
+        <p>Tiplar faylini yarating</p>
+        <p class="why-step">Beshta tipni bitta faylda yonma-yon qo'yamiz — farqi shunda
+        aniq ko'rinadi.</p>
+        <div class="cmd" data-cmd="cat &gt; 03-tiplar.php &lt;&lt;'EOF'
+&lt;?php
+$ism = &quot;Doston&quot;;
+$yosh = 25;
+$boy = 1.75;
+$ishlaydi = true;
+$kasb = null;
+var_dump($ism, $yosh, $boy, $ishlaydi, $kasb);
+EOF">cat &gt; 03-tiplar.php &lt;&lt;'EOF'
+&lt;?php
+$ism = "Doston";
+$yosh = 25;
+$boy = 1.75;
+$ishlaydi = true;
+$kasb = null;
+var_dump($ism, $yosh, $boy, $ishlaydi, $kasb);
+EOF</div>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik — fayl yaratildi.</p>
+      </li>
+
+      <li>
+        <p>Bajaring va tiplarni ko'ring</p>
+        <p class="why-step">Bu darsning asosiy g'alabasi: tip endi taxmin emas, ko'rinadigan
+        narsa.</p>
+        <div class="cmd" data-cmd="php 03-tiplar.php">php 03-tiplar.php
+<span class="out">string(6) "Doston"</span>
+<span class="out">int(25)</span>
+<span class="out">float(1.75)</span>
+<span class="out">bool(true)</span>
+<span class="out">NULL</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> beshta qator. <code>string(6)</code> dagi
+        6 — «Doston» dagi belgilar soni. <code>NULL</code> bosh harflar bilan —
+        u alohida tip.</p>
+      </li>
+
+      <li>
+        <p>Matn faylini yarating</p>
+        <p class="why-step">Uchta qator bir xil ko'rinadi — natijasi esa uch xil bo'ladi.</p>
+        <div class="cmd" data-cmd="cat &gt; 04-matn.php &lt;&lt;'EOF'
+&lt;?php
+$ism = &quot;Doston&quot;;
+echo &quot;Salom, $ism!&quot;, PHP_EOL;
+echo 'Salom, $ism!', PHP_EOL;
+echo &quot;Salom, {$ism}!&quot;, PHP_EOL;
+EOF">cat &gt; 04-matn.php &lt;&lt;'EOF'
+&lt;?php
+$ism = "Doston";
+echo "Salom, $ism!", PHP_EOL;
+echo 'Salom, $ism!', PHP_EOL;
+echo "Salom, {$ism}!", PHP_EOL;
+EOF</div>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik.</p>
+      </li>
+
+      <li>
+        <p>Bajaring va tirnoqlar farqini ko'ring</p>
+        <p class="why-step">Bu farqni bir marta ko'rgan odam boshqa adashmaydi.</p>
+        <div class="cmd" data-cmd="php 04-matn.php">php 04-matn.php
+<span class="out">Salom, Doston!</span>
+<span class="out">Salom, $ism!</span>
+<span class="out">Salom, Doston!</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> o'rtadagi qatorda <code>$ism</code> matn
+        bo'lib qoldi — chunki u <b>bittalik tirnoq</b> ichida edi.</p>
+      </li>
+
+      <li>
+        <p>Isbot: nega <code>echo</code> emas, <code>var_dump</code></p>
+        <p class="why-step"><code>echo</code> sizni chalg'itishi mumkinligini o'z ko'zingiz
+        bilan ko'rasiz. Bu — kelasi darslarda xato izlashning poydevori.</p>
+        <div class="cmd" data-cmd="php -r '$a = true; $b = null; echo &quot;echo: [$a][$b]&quot;, PHP_EOL; var_dump($a, $b);'">php -r '$a = true; $b = null; echo "echo: [$a][$b]", PHP_EOL; var_dump($a, $b);'
+<span class="out">echo: [1][]</span>
+<span class="out">bool(true)</span>
+<span class="out">NULL</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> <code>echo</code> <code>true</code> ni
+        <code>1</code> qildi, <code>null</code> ni esa <b>butunlay yashirdi</b> — bo'sh
+        qavs qoldi. <code>var_dump</code> esa ikkalasining rostini aytdi.
+        <br><code>php -r</code> = «fayl yaratmasdan, shu kodni bajar» — tez sinash uchun.</p>
+      </li>
+
+      <li>
+        <p>Ishni saqlab qo'ying</p>
+        <p class="why-step">Har dars oxirida commit — Git kursida o'rgangan odat.</p>
+        <div class="cmd" data-cmd="git add -A
+git commit -m &quot;02-dars: o'zgaruvchi va tiplar&quot;">git add -A
+git commit -m "02-dars: o'zgaruvchi va tiplar"</div>
+        <p class="expect"><b>Kutilgan natija:</b> commit yaratilgani haqida xabar.</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><input type="checkbox" id="d2c1"><label for="d2c1">Beshta tipni <code>var_dump</code> bilan ko'rdim</label></li>
+      <li><input type="checkbox" id="d2c2"><label for="d2c2"><code>string(6)</code> dagi raqam nimani bildirishini bilaman</label></li>
+      <li><input type="checkbox" id="d2c3"><label for="d2c3">Qo'shtirnoq va bittalik tirnoq farqini o'z natijamda ko'rdim</label></li>
+      <li><input type="checkbox" id="d2c4"><label for="d2c4"><code>{$ism}</code> qavsining ma'nosini aytib beraman</label></li>
+      <li><input type="checkbox" id="d2c5"><label for="d2c5"><b><code>echo</code> nega chalg'itishini isbotladim</b> 🎉</label></li>
+      <li><input type="checkbox" id="d2c6"><label for="d2c6">Ishni commit qildim</label></li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 5) TAXMIN + QUIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Ikkita qator. Chap tomonda bir xil ikki qiymat — <code>"5"</code> (matn) va
+    <code>5</code> (son). Faqat <b>operator</b> farq qiladi. Natijalar nima bo'ladi —
+    qiymati ham, <b>tipi</b> ham?</p>
+    <div class="codefile">
+      <div class="fname">taxmin.php</div>
+      <code class="cmd" data-cmd="&lt;?php
+var_dump(&quot;5&quot; + 5);
+var_dump(&quot;5&quot; . 5);">&lt;?php
+var_dump("5" + 5);
+var_dump("5" . 5);</code>
+    </div>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <div class="natija">int(10)
+string(2) "55"</div>
+        <p>Bir xil ikki qiymat, ikki xil natija — hatto <b>tipi ham boshqa</b>:</p>
+        <ul>
+          <li><code>+</code> — bu <b>arifmetik</b> operator. PHP «demak sonlar kerak» deb
+          <code>"5"</code> ni <code>5</code> ga aylantiradi → <code>int(10)</code>.</li>
+          <li><code>.</code> — bu <b>ulash</b> (concatenation) operatori. PHP «demak matn
+          kerak» deb <code>5</code> ni <code>"5"</code> ga aylantiradi → <code>"55"</code>.</li>
+        </ul>
+        <p><b>Xulosa:</b> PHP tipni <b>operatorga qarab</b> o'zgartiradi. Bu qulay, lekin
+        xavfli: <code>+</code> deb o'ylab <code>.</code> yozib qo'ysangiz, xato chiqmaydi —
+        shunchaki natija butunlay boshqa bo'ladi. Aynan shu sababdan
+        <code>var_dump</code> bilan tekshirish odat bo'lishi kerak.</p>
+        <p class="expect">Diqqat: PHP'da matnni ulash uchun <code>+</code> emas,
+        <b><code>.</code></b> ishlatiladi. Boshqa tillardan kelganlar shu yerda ko'p
+        adashadi.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span> PHP'da o'zgaruvchining tipi qayerda
+    belgilanadi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Berilgan qiymatning o'zida bevosita</button></li>
+      <li><button class="quiz-option">O'zgaruvchi nomi oldidagi turda</button></li>
+      <li><button class="quiz-option">Fayl boshidagi umumiy sozlamada</button></li>
+    </ul>
+    <div class="quiz-explain">Tip <b>qiymatdan</b> keladi, shuning uchun bitta o'zgaruvchi
+    tipini o'zgartira oladi. Kodga qarab tipni bilib bo'lmaydi — shuning uchun
+    <code>var_dump</code> kerak.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span> <code>echo 'Salom, $ism!';</code>
+    nima chiqaradi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Salom, $ism! deb chiqaradi</button></li>
+      <li><button class="quiz-option">Salom, Doston! deb chiqaradi</button></li>
+      <li><button class="quiz-option">Xato beradi va to'xtaydi</button></li>
+    </ul>
+    <div class="quiz-explain"><b>Bittalik tirnoq</b> ichidagi hech narsa almashtirilmaydi.
+    Qiymat kerak bo'lsa qo'shtirnoq ishlatiladi: <code>"Salom, {$ism}!"</code>.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span> Nega tekshirishda <code>echo</code>
+    emas, <code>var_dump</code> ishlatiladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Tipni ham ko'rsatib beradi</button></li>
+      <li><button class="quiz-option">Kodni ancha tezroq bajaradi</button></li>
+      <li><button class="quiz-option">Xatolarni o'zi tuzatib qo'yadi</button></li>
+    </ul>
+    <div class="quiz-explain"><code>echo</code> <code>true</code> ni <code>1</code>,
+    <code>null</code> ni bo'shliq qilib ko'rsatadi — ya'ni chalg'itadi.
+    <code>var_dump</code> qiymat bilan birga <b>tipni</b> beradi.</div>
+  </div>
+
+  <!-- ═══════════════ 6) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+    <p class="recall-intro">Avval o'zingiz javob bering, keyin ochib tekshiring.
+    Oxirgi ikkitasi — <a href="0001-php-qanday-ishlaydi.html">1-darsni</a> takrorlash
+    (eski bilimni qayta eslash uni mustahkamlaydi).</p>
+
+    <details class="recall">
+      <summary>Beshta asosiy tip qaysilar?</summary>
+      <div class="answer"><p><code>string</code> (matn), <code>int</code> (butun son),
+      <code>float</code> (kasrli son), <code>bool</code> (rost/yolg'on),
+      <code>null</code> («qiymat yo'q»). Oltinchisi — <code>array</code> — 5-darsda.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary><code>string(6) "Doston"</code> dagi 6 nima?</summary>
+      <div class="answer"><p>Matndagi <b>belgilar soni</b>. <code>var_dump</code> matn
+      uzunligini ham ko'rsatadi — bu bo'sh joy yoki ko'rinmas belgi qolib ketganini
+      topishda juda foydali.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Nega <code>"{$ism}"</code> shaklini tavsiya qilaman?</summary>
+      <div class="answer"><p>Qavs o'zgaruvchi nomining <b>chegarasini</b> aniq belgilaydi.
+      <code>"$ismchi"</code> da PHP <code>$ismchi</code> degan o'zgaruvchini izlaydi va
+      topmaydi; <code>"{$ism}chi"</code> esa to'g'ri ishlaydi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: brauzerga PHP kodi boradimi?</summary>
+      <div class="answer"><p>Yo'q. PHP <b>serverda</b> bajariladi, brauzerga faqat
+      <b>natija</b> (matn) boradi. Shuning uchun «manbani ko'rish»da <code>&lt;?php</code>
+      topilmaydi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: <code>&lt;?php ... ?&gt;</code> tashqarisidagi matn bilan nima bo'ladi?</summary>
+      <div class="answer"><p>PHP unga tegmaydi — <b>o'zgarmasdan</b> javobga qo'shib
+      yuboriladi. Shuning uchun <code>.php</code> faylni deyarli butunlay HTML qilib
+      yozish ham mumkin.</p></div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 7) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Cho'ntak xulosasi</span>
+    <ul>
+      <li>O'zgaruvchi — <code>$</code> bilan boshlanadigan <b>nom</b>. <code>=</code> =
+      «o'ngdagisini chapga sol».</li>
+      <li><b>Tip qiymatda yashaydi</b>, o'zgaruvchida emas → bitta o'zgaruvchi tipini
+      o'zgartira oladi.</li>
+      <li>Beshta tip: <code>string</code> · <code>int</code> · <code>float</code> ·
+      <code>bool</code> · <code>null</code>.</li>
+      <li><code>var_dump($a, $b)</code> = qiymat <b>+ tip</b>. Tekshirishda shu ishlatiladi,
+      <code>echo</code> emas.</li>
+      <li><code>"qo'shtirnoq"</code> qiymatni qo'yadi · <code>'bittalik'</code> qo'ymaydi ·
+      <code>{$ism}</code> = chegara aniq.</li>
+      <li>Matnni ulash — <code>.</code> (nuqta), <code>+</code> emas. Operator tipni
+      o'zgartiradi.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Kelasi darslar uchun urug'</span>
+    <p><code>"5"</code> va <code>5</code> ni <b>solishtirganda</b> nima bo'ladi — teng
+    deb topiladimi? PHP'da bu savolning <b>ikkita</b> javobi bor, chunki ikkita
+    solishtirish belgisi mavjud: <code>==</code> va <code>===</code>. Farqi intervyularda
+    doim so'raladi va biz unga <b>keyingi darsda</b> (shart va sikl) yetib boramiz —
+    bugun ko'rgan «operator tipni o'zgartiradi» qoidasi o'sha yerda ochiladi.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>PHP Fundamentals</b> — Laravel'ning rasmiy bepul kursi, o'zgaruvchi va tiplar
+    epizodlari: <a href="https://laravel.com/learn/php-fundamentals">laravel.com/learn/php-fundamentals</a>.<sup><a href="#fn1">1</a></sup><br>
+    Qo'llanma (ko'zgu): <a href="https://devdocs.io/php/language.types">devdocs.io/php — Types</a>.<sup><a href="#fn2">2</a></sup><br>
+    O'zbekcha: <a href="https://uzbekdevs.uz/darsliklar/php">uzbekdevs.uz</a> — «O'zgaruvchilar»
+    va «Ma'lumotlar turlari» darslari.</p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b> «<code>float</code> va
+    <code>int</code> ni qachon ishlataman?», «<code>null</code> va bo'sh matn farqi
+    nima?», «o'zgaruvchi nomini qanday qo'yish kerak?», «<code>var_dump</code> chiqishi
+    chalkash ko'rinadi» — har qanday savol yaxshi.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0001-php-qanday-ishlaydi.html">Oldingi: PHP qanday ishlaydi</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel — <a href="https://laravel.com/learn/php-fundamentals">PHP
+      Fundamentals</a> (rasmiy bepul mini-kurs, 10 dars / 71 daqiqa).</li>
+      <li id="fn2">PHP Manual — <i>Types</i> bo'limi, DevDocs ko'zgusi orqali:
+      <a href="https://devdocs.io/php/language.types">devdocs.io/php/language.types</a>.
+      Rasmiy <code>php.net</code> bu tarmoqdan ochilmaydi (DNS darajasida to'silgan),
+      shuning uchun ko'zgu ishlatiladi.</li>
+      <li id="fn3">Darsdagi barcha natijalar PHP <b>8.3.32</b> da jonli sinab ko'rilgan.
+      Eski PHP versiyalarida ba'zi chiqishlar farq qilishi mumkin — masalan aniqlanmagan
+      o'zgaruvchi PHP 8 dan boshlab <code>Warning</code>, undan oldin <code>Notice</code>
+      edi.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

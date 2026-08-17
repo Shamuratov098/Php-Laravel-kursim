@@ -17,16 +17,393 @@
   muhit ma'lumotlari. Har dars yangi buyruq o'rgatilsa, shu yerga qo'shiladi.</p>
 
   <p class="lesson-meta">
-    <span>Qamrov: <b>muhit va ishga tushirish</b></span>
+    <span>Qamrov: <b>1-dars</b> — muhit va ishga tushirish</span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>💻 Amaliyotga mos</span>
   </p>
 
   <div class="callout note">
     <span class="label">Bu hujjat o'sib boradi</span>
-    <p>Hozir faqat <b>tekshirilgan</b> muhit ma'lumotlari va ishga tushirish buyruqlari
-    bor. Artisan buyruqlari, Eloquent va Blade naqshlari o'z darsi yozilganda qo'shiladi —
-    oldindan emas, chunki har bir buyruq avval jonli sinovdan o'tishi kerak.</p>
+    <p>Har bir buyruq shu yerga faqat <b>jonli sinovdan o'tgandan keyin</b> qo'shiladi.
+    Artisan, Eloquent va Blade naqshlari o'z darsi yozilganda paydo bo'ladi.</p>
+  </div>
+
+  <h2>PHP sintaksisi</h2>
+  <table class="sheet">
+    <tr><th>Kod</th><th class="note-cell">Ma'nosi</th></tr>
+    <tr><td><code>&lt;?php</code></td><td class="note-cell">PHP hududi boshlanadi. Keyin bo'sh joy yoki yangi qator <b>shart</b></td></tr>
+    <tr><td><code>?&gt;</code></td><td class="note-cell">PHP hududi tugaydi. Faqat PHP'dan iborat faylda <b>yozilmaydi</b></td></tr>
+    <tr><td><code>echo "matn";</code></td><td class="note-cell">Javobga matn qo'shadi (ekranga chizmaydi)</td></tr>
+    <tr><td><code>;</code></td><td class="note-cell">Ko'rsatma oxiri. Tushib qolsa <code>syntax error</code></td></tr>
+    <tr><td><code>date("Y-m-d")</code></td><td class="note-cell">Bugungi sana, masalan <code>2026-08-10</code></td></tr>
+    <tr><td><code>$ism = "Doston";</code></td><td class="note-cell">O'zgaruvchi. <code>=</code> = «o'ngdagisini chapga sol»</td></tr>
+    <tr><td><code>var_dump($a, $b);</code></td><td class="note-cell">Qiymat <b>+ tip</b>. Tekshirishda shu ishlatiladi</td></tr>
+    <tr><td><code>PHP_EOL</code></td><td class="note-cell">Yangi qator (terminalda natijalar yopishmasligi uchun)</td></tr>
+    <tr><td><code>php -r 'kod'</code></td><td class="note-cell">Fayl yaratmasdan kodni tez sinash</td></tr>
+  </table>
+
+  <h2>Tiplar va matn</h2>
+  <table class="sheet">
+    <tr><th>Yozuv</th><th class="note-cell">Natija / ma'no</th></tr>
+    <tr><td><code>"Doston"</code></td><td class="note-cell"><code>string(6)</code> — 6 = belgilar soni</td></tr>
+    <tr><td><code>25</code> / <code>1.75</code></td><td class="note-cell"><code>int(25)</code> / <code>float(1.75)</code></td></tr>
+    <tr><td><code>true</code></td><td class="note-cell"><code>bool(true)</code>. <code>echo</code> uni <code>1</code> qiladi</td></tr>
+    <tr><td><code>null</code></td><td class="note-cell"><code>NULL</code> — «qiymat yo'q». <code>echo</code> uni <b>ko'rsatmaydi</b></td></tr>
+    <tr><td><code>"Salom, {$ism}"</code></td><td class="note-cell">Qiymat qo'yiladi. <b>Qavs ishlatishni odat qiling</b></td></tr>
+    <tr><td><code>'Salom, $ism'</code></td><td class="note-cell">Qiymat qo'yilmaydi — <code>$ism</code> matn bo'lib qoladi</td></tr>
+    <tr><td><code>"5" . 5</code></td><td class="note-cell"><code>string "55"</code> — ulash (nuqta)</td></tr>
+    <tr><td><code>"5" + 5</code></td><td class="note-cell"><code>int(10)</code> — qo'shish. Operator tipni o'zgartiradi!</td></tr>
+  </table>
+
+  <h2>Solishtirish, shart va sikl</h2>
+  <table class="sheet">
+    <tr><th>Kod</th><th class="note-cell">Ma'nosi</th></tr>
+    <tr><td><code>==</code></td><td class="note-cell">Faqat qiymat. Tipni o'zgartiradi. <b>Ehtiyot bo'ling</b></td></tr>
+    <tr><td><code>===</code></td><td class="note-cell">Qiymat <b>va tip</b>. <b>Doim shuni ishlating</b></td></tr>
+    <tr><td><code>!==</code></td><td class="note-cell">Qat'iy «teng emas»</td></tr>
+    <tr><td><code>if / elseif / else</code></td><td class="note-cell">Yuqoridan pastga, birinchi rostda to'xtaydi</td></tr>
+    <tr><td><code>match ($x) { ... }</code></td><td class="note-cell">Qiymat qaytaradi, <code>===</code> bilan solishtiradi. <code>default</code> yozing</td></tr>
+    <tr><td><code>for ($i=1; $i&lt;=3; $i++)</code></td><td class="note-cell">Soni ma'lum bo'lganda</td></tr>
+    <tr><td><code>while ($shart)</code></td><td class="note-cell">Shart buzilguncha. Kamaytirishni unutmang!</td></tr>
+    <tr><td><code>(bool)$x</code></td><td class="note-cell">Bool'ga aylantirish (cast)</td></tr>
+  </table>
+
+  <div class="callout warning">
+    <span class="label">Falsy qiymatlar — yodda tuting</span>
+    <p><code>false</code> · <code>0</code> · <code>0.0</code> · <code>""</code> ·
+    <code>"0"</code> · <code>null</code> · <code>[]</code><br>
+    Qolgan hammasi <b>rost</b> — <code>"false"</code> va <code>" "</code> ham.</p>
+  </div>
+
+  <h2>Massiv</h2>
+  <table class="sheet">
+    <tr><th>Kod</th><th class="note-cell">Ma'nosi</th></tr>
+    <tr><td><code>["PHP", "SQL"]</code></td><td class="note-cell">Indeksli — kalitlari <code>0, 1</code></td></tr>
+    <tr><td><code>["nom" =&gt; "Backend"]</code></td><td class="note-cell">Assotsiativ — kaliti nom</td></tr>
+    <tr><td><code>$a[0]</code> · <code>$a["nom"]</code></td><td class="note-cell">Qiymatni o'qish</td></tr>
+    <tr><td><code>$a[] = "yangi";</code></td><td class="note-cell">Oxiriga qo'shadi — «eng katta son kalit + 1»</td></tr>
+    <tr><td><code>count($a)</code></td><td class="note-cell">Elementlar <b>soni</b> (eng katta kalit emas!)</td></tr>
+    <tr><td><code>foreach ($a as $q)</code></td><td class="note-cell">Qiymatlarni aylanadi</td></tr>
+    <tr><td><code>foreach ($a as $k =&gt; $q)</code></td><td class="note-cell">Kalit va qiymatni aylanadi</td></tr>
+    <tr><td><code>"{$v['nom']}"</code></td><td class="note-cell">Matn ichida kalit — <b>qavs ishlating</b></td></tr>
+  </table>
+  <div class="callout note">
+    <span class="label">PHP massivi — xarita, ro'yxat emas</span>
+    <p>Har doim «kalit → qiymat». Kalitlar uzluksiz bo'lmasligi mumkin, shuning uchun
+    <code>for ($i=0; $i&lt;count($a); $i++)</code> <b>xavfli</b> — <code>foreach</code> ishlating.<br>
+    Yo'q kalitni o'qish → <code>Warning: Undefined array key</code> + <code>null</code>, dastur davom etadi.</p>
+  </div>
+
+  <h2>Funksiya</h2>
+  <table class="sheet">
+    <tr><th>Kod</th><th class="note-cell">Ma'nosi</th></tr>
+    <tr><td><code>function nom(int $x): string</code></td><td class="note-cell">Parametr tipi va qaytish tipi</td></tr>
+    <tr><td><code>return $qiymat;</code></td><td class="note-cell">Qaytaradi va funksiyani tugatadi. <code>echo</code> EMAS</td></tr>
+    <tr><td><code>string $v = "$"</code></td><td class="note-cell">Standart qiymat — <b>oxirida</b> turishi kerak</td></tr>
+    <tr><td><code>declare(strict_types=1);</code></td><td class="note-cell"><b>Type hint'ni kafolatga aylantiradi.</b> Fayl boshida, birinchi ko'rsatma</td></tr>
+    <tr><td><code>array_map("nom", $a)</code></td><td class="note-cell">Har elementni o'zgartiradi, yangi massiv qaytaradi</td></tr>
+    <tr><td><code>array_filter($a, "nom")</code></td><td class="note-cell">Funksiya <code>true</code> qaytarganini tanlaydi</td></tr>
+    <tr><td><code>strtoupper($s)</code></td><td class="note-cell">Tayyor funksiya — katta harfga o'giradi</td></tr>
+  </table>
+  <div class="callout warning">
+    <span class="label">Type hint o'zi kafolat bermaydi</span>
+    <p><code>strict_types</code> yo'q → <code>ikkilantir("5")</code> jimgina <code>int(10)</code> beradi.<br>
+    <code>strict_types</code> bor → <code>TypeError</code>. Qoida <b>fayl bo'yicha</b> ishlaydi.</p>
+  </div>
+
+  <h2>OOP — klass va obyekt</h2>
+  <table class="sheet">
+    <tr><th>Kod</th><th class="note-cell">Ma'nosi</th></tr>
+    <tr><td><code>class Vakansiya { }</code></td><td class="note-cell">Chizma. Bir marta yoziladi, o'zi <b>tipga aylanadi</b></td></tr>
+    <tr><td><code>$v = new Vakansiya(...)</code></td><td class="note-cell">Obyekt yasaydi. Har <code>new</code> — mustaqil obyekt</td></tr>
+    <tr><td><code>public function __construct()</code></td><td class="note-cell">Obyekt yasalganda <b>avtomatik</b> ishlaydi</td></tr>
+    <tr><td><code>$this-&gt;nom</code></td><td class="note-cell">«Aynan shu obyektning» xossasi. Metod ichida <b>shart</b></td></tr>
+    <tr><td><code>$v-&gt;nom</code> · <code>$v-&gt;metod()</code></td><td class="note-cell">Obyektga murojaat</td></tr>
+    <tr><td><code>Klass::CONST</code> · <code>self::$x</code></td><td class="note-cell">Klassga murojaat — obyekt kerak emas</td></tr>
+    <tr><td><code>$b = clone $a;</code></td><td class="note-cell">Haqiqiy nusxa (<code>=</code> nusxalamaydi!)</td></tr>
+    <tr><td><code>require 'fayl.php';</code></td><td class="note-cell">Faylni qo'shadi (10-darsda avtomatlashtiriladi)</td></tr>
+  </table>
+  <div class="callout warning">
+    <span class="label">Obyekt <code>=</code> bilan nusxalanmaydi</span>
+    <p>Massiv: <code>$b = $a</code> → mustaqil nusxa.<br>
+    Obyekt: <code>$b = $a</code> → <b>ikki nom, bitta obyekt</b>. Nusxa uchun <code>clone</code>.</p>
+  </div>
+
+  <h2>OOP — himoya, static, const</h2>
+  <table class="sheet">
+    <tr><th>Kod</th><th class="note-cell">Ma'nosi</th></tr>
+    <tr><td><code>public</code></td><td class="note-cell">Hamma ko'radi (standart holat)</td></tr>
+    <tr><td><code>private</code></td><td class="note-cell">Faqat shu klass ichi. <b>Shundan boshlang</b></td></tr>
+    <tr><td><code>protected</code></td><td class="note-cell">Klass + merosxo'rlar</td></tr>
+    <tr><td><code>__construct(private string $nom)</code></td><td class="note-cell"><b>Qisqa konstruktor</b> — xossani o'zi yaratadi. <b>Laravel shu shaklda</b></td></tr>
+    <tr><td><code>public const HOLAT = "faol";</code></td><td class="note-cell">O'zgarmas, klassga tegishli. <code>Klass::HOLAT</code></td></tr>
+    <tr><td><code>private static int $soni = 0;</code></td><td class="note-cell">Klass uchun <b>bitta</b> qiymat. <code>self::$soni</code></td></tr>
+    <tr><td><code>public static function f()</code></td><td class="note-cell">Obyekt kerak emas. Ichida <code>$this</code> <b>yo'q</b></td></tr>
+    <tr><td><code>: void</code></td><td class="note-cell">Hech narsa qaytarmaydi, faqat ish qiladi</td></tr>
+  </table>
+
+  <h2>OOP — meros, interface, trait</h2>
+  <table class="sheet">
+    <tr><th>Kod</th><th class="note-cell">Ma'nosi</th></tr>
+    <tr><td><code>class B extends A</code></td><td class="note-cell">Meros. B, A ning hamma narsasini oladi. <b>Faqat bitta ota</b></td></tr>
+    <tr><td><code>parent::metod()</code></td><td class="note-cell">Otaning versiyasini chaqirish</td></tr>
+    <tr><td><code>parent::__construct(...)</code></td><td class="note-cell">⚠️ Avlodda konstruktor yozsangiz — <b>shart</b></td></tr>
+    <tr><td><code>abstract class X</code></td><td class="note-cell">Obyekt yasab bo'lmaydi, faqat asos</td></tr>
+    <tr><td><code>abstract function f();</code></td><td class="note-cell">Tanasi yo'q — avlod yozishi shart (xato e'londa chiqadi)</td></tr>
+    <tr><td><code>$x instanceof A</code></td><td class="note-cell">Avlod <b>ikkala tipga</b> mos keladi</td></tr>
+    <tr><td><code>interface I { f(); }</code></td><td class="note-cell">Shartnoma — faqat imzolar, kod yo'q</td></tr>
+    <tr><td><code>class C implements I, J</code></td><td class="note-cell">Bir nechta shartnoma mumkin</td></tr>
+    <tr><td><code>trait T { ... }</code> · <code>use T;</code></td><td class="note-cell">Kodni klass ichiga ko'chiradi. Tip <b>bermaydi</b></td></tr>
+    <tr><td><code>static::class</code></td><td class="note-cell">«Hozir men qaysi klass ichidaman»</td></tr>
+    <tr><td><code>get_class($x)</code></td><td class="note-cell">Obyektning klass nomi</td></tr>
+  </table>
+  <div class="callout tip">
+    <span class="label">interface yoki trait — qaysi biri?</span>
+    <p><b>Tip</b> kerak bo'lsa → <code>interface</code> («nima qila oladi», kod yo'q,
+    <code>f(Yuboruvchi $x)</code> yozish mumkin).<br>
+    <b>Takrorlanadigan kod</b>ni yo'qotish kerak bo'lsa → <code>trait</code> («qanday qiladi»).<br>
+    Metod ustunligi: <b>o'z klassi &gt; trait &gt; ota klass</b> — trait otani <b>yengadi</b>.</p>
+  </div>
+
+  <h2>Exception — xatoni tutish</h2>
+  <table class="sheet">
+    <tr><th>Kod</th><th class="note-cell">Ma'nosi</th></tr>
+    <tr><td><code>throw new Xato("xabar");</code></td><td class="note-cell">Otadi; funksiya darhol to'xtaydi</td></tr>
+    <tr><td><code>try { } catch (Tur $e) { }</code></td><td class="note-cell">Tutadi, keyin dastur <b>davom etadi</b></td></tr>
+    <tr><td><code>finally { }</code></td><td class="note-cell"><b>Har holda</b> ishlaydi (tozalash uchun)</td></tr>
+    <tr><td><code>$e-&gt;getMessage()</code></td><td class="note-cell">Xato matni. Yana: <code>getFile()</code>, <code>getLine()</code></td></tr>
+    <tr><td><code>class X extends Exception {}</code></td><td class="note-cell">O'z xatosi — bo'sh tanasi bilan ham foydali (<b>nom beradi</b>)</td></tr>
+    <tr><td><code>catch (Throwable $e)</code></td><td class="note-cell"><b>Hammasini</b> tutadi</td></tr>
+  </table>
+  <div class="callout warning">
+    <span class="label"><code>Error</code> ≠ <code>Exception</code></span>
+    <p>Ular <b>aka-uka</b>, otasi — <code>Throwable</code>.<br>
+    <code>catch (Exception)</code> → <code>DivisionByZeroError</code> va <code>TypeError</code> ni <b>tutmaydi</b>.<br>
+    <code>Exception</code> = kutilgan muammo (tutiladi) · <code>Error</code> = dasturchi xatosi (<b>tuzatiladi</b>).<br>
+    Bir necha <code>catch</code>: <b>aniqdan umumiyga</b>. Xatoni <b>jimgina yutmang</b>.</p>
+  </div>
+
+  <h2>namespace, autoload, Composer</h2>
+  <table class="sheet">
+    <tr><th>Kod / buyruq</th><th class="note-cell">Ma'nosi</th></tr>
+    <tr><td><code>namespace App;</code></td><td class="note-cell">Nomning old qismi → <code>App\Xabar</code>. Faylning <b>birinchi</b> ko'rsatmasi</td></tr>
+    <tr><td><code>use App\Xabar;</code></td><td class="note-cell">Import — qisqa nom. <b>Yuklamaydi</b>, faqat nomni hal qiladi</td></tr>
+    <tr><td><code>"App\\": "src/"</code></td><td class="note-cell">PSR-4: namespace = papka, klass = fayl nomi</td></tr>
+    <tr><td><code>composer dump-autoload</code></td><td class="note-cell"><code>vendor/autoload.php</code> ni yasaydi</td></tr>
+    <tr><td><code>require 'vendor/autoload.php';</code></td><td class="note-cell"><b>Bitta</b> qator — barcha require'lar o'rniga</td></tr>
+    <tr><td><code>composer require paket/nom</code></td><td class="note-cell">Kutubxona o'rnatadi</td></tr>
+    <tr><td><code>composer install</code></td><td class="note-cell"><code>composer.lock</code> dan aynan o'sha versiyalarni tiklaydi</td></tr>
+    <tr><td><code>git check-ignore -v vendor/</code></td><td class="note-cell">Papka ignore qilinganini tekshirish</td></tr>
+  </table>
+  <div class="callout note">
+    <span class="label">Git'ga nima tushadi</span>
+    <p><code>composer.json</code> ✅ (nima kerak) · <code>composer.lock</code> ✅ (aynan qaysi versiya) ·
+    <code>vendor/</code> ❌ (<code>composer install</code> tiklaydi).<br>
+    <code>dump()</code> — <code>symfony/var-dumper</code> dan; Laravel'dagi <code>dd()</code> ning manbasi.</p>
+  </div>
+
+  <h2>HTTP — forma, XSS, session</h2>
+  <table class="sheet">
+    <tr><th>Kod</th><th class="note-cell">Ma'nosi</th></tr>
+    <tr><td><code>$_SERVER['REQUEST_METHOD']</code></td><td class="note-cell"><code>GET</code> yoki <code>POST</code></td></tr>
+    <tr><td><code>$_SERVER['REQUEST_URI']</code></td><td class="note-cell">So'ralgan manzil (query bilan)</td></tr>
+    <tr><td><code>$_GET['x']</code> · <code>$_POST['x']</code></td><td class="note-cell">Query va forma ma'lumoti — oddiy massivlar</td></tr>
+    <tr><td><code>$_POST['x'] ?? ''</code></td><td class="note-cell">Yo'q kalit uchun standart qiymat</td></tr>
+    <tr><td><code>htmlspecialchars($x, ENT_QUOTES)</code></td><td class="note-cell">🔒 <b>Chiqarishdan oldin SHART</b> — XSS himoyasi</td></tr>
+    <tr><td><code>session_start();</code></td><td class="note-cell">Har qanday chiqishdan <b>oldin</b></td></tr>
+    <tr><td><code>$_SESSION['x']</code></td><td class="note-cell">So'rovlar orasida saqlanadi (serverda)</td></tr>
+    <tr><td><code>header('Location: /x'); exit;</code></td><td class="note-cell">Redirect (302). <code>exit</code> shart</td></tr>
+    <tr><td><code>&lt;?= $x ?&gt;</code></td><td class="note-cell"><code>&lt;?php echo $x; ?&gt;</code> ning qisqasi</td></tr>
+    <tr><td><code>parse_url($u, PHP_URL_PATH)</code></td><td class="note-cell">Manzildan faqat yo'lni ajratadi</td></tr>
+  </table>
+  <div class="callout warning">
+    <span class="label">XSS — eng muhim qoida</span>
+    <p>Tashqaridan kelgan <b>har qanday</b> ma'lumot HTML'ga chiqishdan oldin
+    <code>htmlspecialchars</code> dan o'tadi. «Tashqaridan» = forma, query, baza, API.<br>
+    Blade <code>{{ $x }}</code> buni <b>o'zi qiladi</b> · <code>{!! $x !!}</code>
+    himoyani <b>o'chiradi</b> — bilib ishlating.<br>
+    Session: <b>ma'lumot serverda, kaliti cookie'da</b>. Cookie'siz — server tanimaydi.</p>
+  </div>
+
+  <h2>Mini-framework (14–15-darslar)</h2>
+  <table class="sheet">
+    <tr><th>Bo'lak</th><th class="note-cell">Vazifasi</th></tr>
+    <tr><td><code>public/index.php</code></td><td class="note-cell"><b>Front controller</b> — yagona kirish va yagona ochiq papka</td></tr>
+    <tr><td><code>Router::add($m,$y,$k)</code></td><td class="note-cell">Jadvalga yozadi: <code>$routes[$metod][$yol]</code></td></tr>
+    <tr><td><code>Router::dispatch()</code></td><td class="note-cell">Topadi → container'dan yasaydi → <code>handle()</code></td></tr>
+    <tr><td><code>interface Controller</code></td><td class="note-cell">Shartnoma — router aniq klasslarni bilmaydi</td></tr>
+    <tr><td><code>Container::bind($i,$k)</code></td><td class="note-cell">Interface → bajarilish</td></tr>
+    <tr><td><code>Container::make($nom)</code></td><td class="note-cell">Obyekt yasaydi + bog'liqliklarni <b>o'zi topadi</b> (rekursiv)</td></tr>
+    <tr><td><code>new $klass()</code></td><td class="note-cell">Klass nomi o'zgaruvchida bo'lishi mumkin</td></tr>
+    <tr><td><code>Klass::class</code></td><td class="note-cell">To'liq nomni matn sifatida beradi</td></tr>
+    <tr><td><code>new \ReflectionClass($k)</code></td><td class="note-cell">PHP o'z kodiga qaraydi — <b>autowiring</b> shu</td></tr>
+    <tr><td><code>php -S localhost:8000 public/index.php</code></td><td class="note-cell">Front controller rejimi</td></tr>
+  </table>
+  <div class="callout tip">
+    <span class="label">Laravel'dagi ekvivalentlari</span>
+    <p><code>$router-&gt;add('GET','/x',C::class)</code> → <code>Route::get('/x', [C::class,'index'])</code><br>
+    <code>$container-&gt;bind(I::class, X::class)</code> → service provider'da <code>$this-&gt;app-&gt;bind(...)</code><br>
+    «<code>bind()</code> qilinganmi?» xatosi → <code>Target [...] is not instantiable</code><br>
+    ⚠️ Bizda <b>singleton yo'q</b> — har <code>make()</code> yangi obyekt yasaydi (G modulida).</p>
+  </div>
+
+  <h2>Laravel — artisan va route (16–17-darslar)</h2>
+  <table class="sheet">
+    <tr><th>Buyruq / kod</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>composer create-project laravel/laravel nom</code></td><td class="note-cell">Yangi loyiha. SQLite faylini <b>o'zi yaratadi</b> va migration'larni bajaradi</td></tr>
+    <tr><td><code>php artisan serve</code></td><td class="note-cell">Ishlab chiqish serveri (<code>localhost:8000</code>). Terminal band bo'ladi</td></tr>
+    <tr><td><code>php artisan route:list</code></td><td class="note-cell">Barcha route'lar. <code>--path=vakansiya</code> bilan filtrlanadi</td></tr>
+    <tr><td><code>php artisan make:controller NomController</code></td><td class="note-cell">Controller yasaydi</td></tr>
+    <tr><td><code>php artisan tinker</code></td><td class="note-cell">Laravel yuklangan interaktiv PHP. <code>--execute="kod"</code> bilan bir martalik</td></tr>
+    <tr><td><code>Route::get('/yol', [Ctrl::class, 'metod'])</code></td><td class="note-cell">GET route → controller metodi</td></tr>
+    <tr><td><code>Route::post(...)</code></td><td class="note-cell">Forma yuborish uchun</td></tr>
+    <tr><td><code>public/index.php</code></td><td class="note-cell">Yagona kirish nuqtasi — front controller (14-darsdagi o'zingizning kodingiz kabi)</td></tr>
+    <tr><td><code>bootstrap/app.php</code></td><td class="note-cell">Sozlash: <code>withRouting</code> · <code>withMiddleware</code> · <code>withExceptions</code></td></tr>
+  </table>
+  <div class="callout note">
+    <p><b>So'rov yo'li:</b> brauzer → <code>public/index.php</code> → container →
+    <b>middleware</b> (piyoz qatlamlari) → route → controller → response → <b>middleware
+    teskari tartibda</b> → brauzer.</p>
+  </div>
+
+  <h2>Blade (18–19-darslar)</h2>
+  <table class="sheet">
+    <tr><th>Sintaksis</th><th class="note-cell">Ma'nosi</th></tr>
+    <tr><td><code>view('papka.fayl', ['nom' =&gt; $q])</code></td><td class="note-cell">View qaytaradi; nuqta = papka ajratgichi</td></tr>
+    <tr><td><code>{{ $nom }}</code></td><td class="note-cell"><b>Himoyalangan</b> chiqish — <code>e()</code> ga, ya'ni <code>htmlspecialchars</code> ga aylanadi</td></tr>
+    <tr><td><code>{!! $nom !!}</code></td><td class="note-cell"><b>Himoyasiz</b> — faqat o'zingiz yozgan HTML uchun. Foydalanuvchi matni bilan — <b>XSS</b></td></tr>
+    <tr><td><code>@if</code> · <code>@else</code> · <code>@endif</code></td><td class="note-cell">Shart</td></tr>
+    <tr><td><code>@foreach ($a as $x)</code> · <code>@endforeach</code></td><td class="note-cell">Sikl</td></tr>
+    <tr><td><code>@forelse ... @empty ... @endforelse</code></td><td class="note-cell">Sikl + «bo'sh bo'lsa» holati bir joyda</td></tr>
+    <tr><td><code>@extends</code> · <code>@section</code> · <code>@yield</code></td><td class="note-cell">Layout — takrorlanadigan HTML bir joyda</td></tr>
+    <tr><td><code>&lt;x-nom /&gt;</code> + <code>@props([...])</code></td><td class="note-cell">Komponent; <code>:nom="$ifoda"</code> — ikki nuqta = PHP ifodasi</td></tr>
+    <tr><td><code>@include('bolak')</code></td><td class="note-cell">Oddiy qo'shish — parametr e'lon qilinmaydi</td></tr>
+    <tr><td><code>storage/framework/views/</code></td><td class="note-cell">Blade <b>oddiy PHP'ga kompilyatsiya</b> qilinadi — shu yerda ko'rish mumkin</td></tr>
+  </table>
+
+  <h2>Forma va validatsiya (19–20-darslar)</h2>
+  <table class="sheet">
+    <tr><th>Kod</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>@csrf</code></td><td class="note-cell">Yashirin <code>_token</code>. Yo'q bo'lsa — <b>419 Page Expired</b></td></tr>
+    <tr><td><code>@method('PUT')</code></td><td class="note-cell">Yashirin <code>_method</code> — HTML faqat GET/POST ni biladi</td></tr>
+    <tr><td><code>$request-&gt;validate([...])</code></td><td class="note-cell">Tekshiradi <b>va</b> tekshirilgan ma'lumotni qaytaradi (faqat qoidadagi maydonlar)</td></tr>
+    <tr><td><code>required</code> · <code>string</code> · <code>integer</code></td><td class="note-cell">Bo'sh bo'lmasin · tip</td></tr>
+    <tr><td><code>min:5</code> · <code>max:100</code></td><td class="note-cell">Matnda belgilar soni, sonda qiymat</td></tr>
+    <tr><td><code>nullable</code> · <code>in:a,b</code> · <code>email</code></td><td class="note-cell">Bo'sh bo'lishi mumkin · ro'yxatdan biri · email shakli</td></tr>
+    <tr><td><code>validate([...], ['nom.min' =&gt; '...'])</code></td><td class="note-cell">O'z xabarlari; <code>:min</code> qiymatga almashadi</td></tr>
+    <tr><td><code>$errors-&gt;any()</code> · <code>$errors-&gt;all()</code></td><td class="note-cell">Har view'da <b>avtomatik</b> mavjud</td></tr>
+    <tr><td><code>@error('nom') {{ $message }} @enderror</code></td><td class="note-cell">Aynan shu maydonning xatosi</td></tr>
+    <tr><td><code>old('nom')</code></td><td class="note-cell">Kiritilgan qiymatni formaga qaytaradi</td></tr>
+    <tr><td><code>redirect('/yol')-&gt;with('xabar', '...')</code></td><td class="note-cell">Flash xabar — <code>session('xabar')</code> bilan olinadi, bir marta ko'rinadi</td></tr>
+    <tr><td><code>dd($qiymat)</code></td><td class="note-cell">Chiqarib to'xtatadi (<code>var_dump</code> ning Laravel varianti)</td></tr>
+  </table>
+  <div class="callout note">
+    <p><b>Xato bo'lsa:</b> exception → sessiya → <b>302 redirect ortga</b>.
+    <code>validate()</code> dan keyingi kod <b>bajarilmaydi</b> — <code>if</code> yozish
+    kerak emas.</p>
+  </div>
+
+  <h2>SQL (21-darsdan)</h2>
+  <table class="sheet">
+    <tr><th>SQL / kod</th><th class="note-cell">Ma'nosi</th></tr>
+    <tr><td><code>DB::select('SELECT ...')</code></td><td class="note-cell">Natija <b>qaytaradigan</b> so'rov (obyektlar massivi)</td></tr>
+    <tr><td><code>DB::statement('CREATE ...')</code></td><td class="note-cell">Natija <b>qaytarmaydigan</b> so'rov</td></tr>
+    <tr><td><code>DB::select('... WHERE nom = ?', [$nom])</code></td><td class="note-cell">🔒 Foydalanuvchi qiymati — <b>faqat shunday</b>. Satrga qo'shish = SQL injection</td></tr>
+    <tr><td><code>SELECT * FROM jadval</code></td><td class="note-cell">Barcha ustun · <code>SELECT nom, maosh</code> — faqat kerakligi</td></tr>
+    <tr><td><code>WHERE maosh &gt; 700</code></td><td class="note-cell">Shart. <code>&gt;</code> qat'iy — 700 kirmaydi; <code>&gt;=</code> kiradi</td></tr>
+    <tr><td><code>WHERE shahar = 'Toshkent'</code></td><td class="note-cell">Matn <b>bittalik tirnoq</b>da</td></tr>
+    <tr><td><code>AND</code> · <code>OR</code></td><td class="note-cell">Bir necha shart</td></tr>
+    <tr><td><code>IS NULL</code> · <code>IS NOT NULL</code></td><td class="note-cell">⚠️ <code>= NULL</code> <b>ishlamaydi</b> — hech qachon rost bo'lmaydi</td></tr>
+    <tr><td><code>ORDER BY maosh DESC</code></td><td class="note-cell">Kamayish tartibida; <code>ASC</code> — o'sish (standart)</td></tr>
+    <tr><td><code>LIMIT 2</code></td><td class="note-cell">Faqat birinchi 2 qator</td></tr>
+    <tr><td><code>COUNT(*) AS soni</code></td><td class="note-cell">Qatorlar soni; <code>AS</code> — ustunga nom</td></tr>
+    <tr><td><code>PRIMARY KEY AUTOINCREMENT</code></td><td class="note-cell">Takrorlanmas raqam, o'zi ortadi</td></tr>
+    <tr><td><code>NOT NULL</code> · <code>DEFAULT 1</code></td><td class="note-cell">Baza darajasidagi qoidalar</td></tr>
+    <tr><td><code>DROP TABLE IF EXISTS</code></td><td class="note-cell">Skriptni qayta ishga tushirish mumkin bo'lishi uchun</td></tr>
+  </table>
+  <div class="callout note">
+    <p><b>Tartib o'zgarmaydi:</b>
+    <code>SELECT → FROM → WHERE → ORDER BY → LIMIT</code>.</p>
+    <p><b>SQL skriptining boshi</b> (Laravel'ni qo'lda yuklash):
+    <code>require vendor/autoload.php</code> → <code>$app = require bootstrap/app.php</code> →
+    <code>$app-&gt;make(Kernel::class)-&gt;bootstrap()</code>. Uchinchisi yo'q bo'lsa:
+    <b>«A facade root has not been set»</b>.</p>
+    <p><code>php artisan db</code> bu kompyuterda <b>ishlamaydi</b> —
+    <code>sqlite3</code> buyruq qatori o'rnatilmagan.</p>
+  </div>
+
+  <h2>SQL — yozish va birlashtirish (22-dars)</h2>
+  <table class="sheet">
+    <tr><th>SQL / kod</th><th class="note-cell">Ma'nosi</th></tr>
+    <tr><td><code>DB::insert('... VALUES (?, ?)', [$a, $b])</code></td><td class="note-cell">Qo'shish. Yangi id — <code>DB::getPdo()-&gt;lastInsertId()</code></td></tr>
+    <tr><td><code>DB::update(...)</code> · <code>DB::delete(...)</code></td><td class="note-cell"><b>Nechta qator</b> o'zgargan/o'chganini qaytaradi</td></tr>
+    <tr><td><code>UPDATE ... SET ustun = ? WHERE ...</code></td><td class="note-cell">⚠️ <code>WHERE</code> unutilsa — <b>butun jadval</b>, xato bermaydi</td></tr>
+    <tr><td><code>ALTER TABLE ... ADD COLUMN</code></td><td class="note-cell">Mavjud jadvalga ustun. <b>Bir martalik</b> — ikkinchi marta «duplicate column name»</td></tr>
+    <tr><td><code>JOIN k ON k.id = v.kompaniya_id</code></td><td class="note-cell">Juftligi <b>bor</b> qatorlar. Juftsizlar tushib qoladi</td></tr>
+    <tr><td><code>LEFT JOIN</code></td><td class="note-cell">Chapdagi <b>hamma</b> qator qoladi; juftlik yo'q bo'lsa o'ng tomon <code>NULL</code></td></tr>
+    <tr><td><code>FROM vakansiyalar v</code></td><td class="note-cell">Alias — bir xil nomli ustunlarni ajratish uchun (<code>v.nom</code>, <code>k.nom</code>)</td></tr>
+    <tr><td><code>GROUP BY k.id</code></td><td class="note-cell">Guruhlab, har guruhni bitta qator qiladi</td></tr>
+    <tr><td><code>COUNT/SUM/AVG/MIN/MAX</code></td><td class="note-cell">Guruh funksiyalari. <code>COUNT(*)</code> qatorlarni, <code>COUNT(ustun)</code> <code>NULL</code> bo'lmaganlarni</td></tr>
+    <tr><td><code>HAVING COUNT(*) &gt; 1</code></td><td class="note-cell">Guruhlarni filtrlash (<code>WHERE</code> guruhlashdan oldin ishlaydi)</td></tr>
+  </table>
+  <div class="callout note">
+    <p><b>To'liq tartib:</b>
+    <code>SELECT → FROM → JOIN → WHERE → GROUP BY → HAVING → ORDER BY → LIMIT</code>.</p>
+    <p>⚠️ <code>LEFT JOIN</code> dan keyin <code>WHERE</code> da <b>o'ng</b> jadval
+    ustunini ishlatsangiz — u jimgina oddiy <code>JOIN</code> ga aylanadi
+    (<code>NULL</code> qatorlar tushadi). Shartni <code>ON</code> ga yozing.</p>
+  </div>
+
+  <h2>Migration (23-darsdan)</h2>
+  <table class="sheet">
+    <tr><th>Buyruq / kod</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>make:migration create_<b>nom</b>_table</code></td><td class="note-cell">Jadval nomi fayl nomidan topiladi</td></tr>
+    <tr><td><code>make:migration add_<b>x</b>_to_<b>nom</b>_table</code></td><td class="note-cell"><code>Schema::table</code> (o'zgartirish) yasaydi; <code>down()</code> <b>bo'sh</b> — o'zingiz yozasiz</td></tr>
+    <tr><td><code>up()</code> · <code>down()</code></td><td class="note-cell">Qo'llash · bekor qilish</td></tr>
+    <tr><td><code>$table-&gt;id()</code></td><td class="note-cell">Birlamchi kalit, o'sib boradi</td></tr>
+    <tr><td><code>string()</code> · <code>text()</code> · <code>integer()</code> · <code>boolean()</code></td><td class="note-cell">Ustun turlari</td></tr>
+    <tr><td><code>$table-&gt;timestamps()</code></td><td class="note-cell"><b>Ikkita</b> ustun: <code>created_at</code>, <code>updated_at</code></td></tr>
+    <tr><td><code>-&gt;nullable()</code> · <code>-&gt;default(...)</code> · <code>-&gt;unique()</code></td><td class="note-cell">Zanjir bo'lib ulanadi</td></tr>
+    <tr><td><code>foreignId('kompaniya_id')-&gt;constrained('kompaniyalar')</code></td><td class="note-cell">Tashqi kalit + bazaning o'z tekshiruvi</td></tr>
+    <tr><td><code>php artisan migrate</code></td><td class="note-cell">Faqat <code>Pending</code> larni bajaradi</td></tr>
+    <tr><td><code>migrate --pretend</code></td><td class="note-cell">🔍 Bajarmaydi — <b>yuboradigan SQL'ni ko'rsatadi</b></td></tr>
+    <tr><td><code>migrate:status</code></td><td class="note-cell"><code>Ran</code> / <code>Pending</code> va <code>batch</code> raqami</td></tr>
+    <tr><td><code>migrate:rollback</code></td><td class="note-cell"><b>Oxirgi to'plamni</b> ortga qaytaradi</td></tr>
+    <tr><td><code>migrate:fresh</code></td><td class="note-cell">Hamma jadvalni tashlab noldan. ⚠️ <b>Ma'lumot yo'qoladi</b> — faqat o'z kompyuteringizda</td></tr>
+  </table>
+  <div class="callout note">
+    <p>🔑 <b>Bajarilgan migration'ni tahrirlash ish bermaydi</b> — Laravel bazadagi
+    <code>migrations</code> jadvalidan <b>fayl nomiga</b> qaraydi, fayl ichiga emas.
+    Yechim: <b>yangi</b> migration (server uchun yagona to'g'ri yo'l), yoki o'z
+    kompyuteringizda <code>migrate:fresh</code>.</p>
+    <p><code>id</code> ni ma'lumot skriptida <b>qo'lda yozmang</b> — <code>DELETE</code>
+    dan keyin <code>AUTOINCREMENT</code> davom etadi va tashqi kalit sinadi. Bazadan
+    <code>SELECT</code> bilan o'qib oling.</p>
+  </div>
+
+  <h2>Xatoni o'qish</h2>
+  <table class="sheet">
+    <tr><th>Turi</th><th class="note-cell">Kod ishladimi?</th></tr>
+    <tr><td><code>Parse error</code></td><td class="note-cell"><b>Yo'q</b> — birinchi qator ham chiqmaydi. Ko'rsatilgan qatorda topmasangiz <b>bir qator yuqoriga</b></td></tr>
+    <tr><td><code>Warning</code></td><td class="note-cell">Ha, va <b>davom etdi</b>. Natijaga ishonmang</td></tr>
+    <tr><td><code>Fatal error</code></td><td class="note-cell">Ha, keyin <b>to'xtadi</b>. Bir qismi bajarilgan</td></tr>
+  </table>
+  <table class="sheet">
+    <tr><th>Buyruq</th><th class="note-cell">Nima uchun</th></tr>
+    <tr><td><code>php -d display_errors=0 f.php</code></td><td class="note-cell">«Oq sahifa» ni ko'rish (serverdagi holat)</td></tr>
+    <tr><td><code>-d log_errors=1 -d error_log=x.log</code></td><td class="note-cell">Xatoni faylga yozdirish</td></tr>
+  </table>
+  <div class="callout tip">
+    <span class="label">Xato xabarining 4 bo'lagi</span>
+    <p><b>turi</b> → <b>xabar</b> → <b>fayl</b> → <b>qator</b>. Oq sahifa ko'rsangiz —
+    <b>logga qaraysiz</b> (Laravel'da <code>storage/logs/laravel.log</code>).</p>
+  </div>
+
+  <div class="callout warning">
+    <span class="label">Yodda tuting</span>
+    <p><code>?&gt;</code> o'zidan keyin darhol kelgan <b>yangi qatorni yeb yuboradi</b>.
+    HTML'da bu sezilmaydi, lekin fayl yoki JSON chiqarayotganda natijani buzadi —
+    aynan shu sababdan yopuvchi teg tashlab ketiladi.</p>
   </div>
 
   <h2>Muhit — nima o'rnatilgan</h2>
@@ -35,7 +412,7 @@
     <tr><td><code>php</code></td><td>8.3.32</td><td class="note-cell">Laravel 13 uchun yetarli (<code>^8.3</code>)</td></tr>
     <tr><td><code>composer</code></td><td>2.9.5</td><td class="note-cell">PHP paket menejeri</td></tr>
     <tr><td><code>node</code> / <code>npm</code></td><td>24 / 11</td><td class="note-cell">Vite (CSS/JS) uchun</td></tr>
-    <tr><td><code>docker</code></td><td>29.6</td><td class="note-cell">67-darsda (Sail) kerak bo'ladi</td></tr>
+    <tr><td><code>docker</code></td><td>29.6</td><td class="note-cell">Modul J da (Sail) kerak bo'ladi</td></tr>
     <tr><td>Laravel</td><td>13</td><td class="note-cell">Standart bazasi — SQLite</td></tr>
     <tr><td>Pest</td><td>4</td><td class="note-cell">Pest 5 PHP 8.4+ talab qiladi, bizda 8.3</td></tr>
   </table>
@@ -43,7 +420,7 @@
   <div class="callout warning">
     <span class="label">Muhitdagi ikkita cheklov</span>
     <p><b>1.</b> <code>pdo_mysql</code> o'rnatilmagan — faqat <code>pdo_sqlite</code>,
-    <code>pdo_pgsql</code> va <code>redis</code> bor. MySQL <b>60-darsda</b>
+    <code>pdo_pgsql</code> va <code>redis</code> bor. MySQL <b>Modul H da</b>
     <code>php8.3-mysql</code> o'rnatish bilan qo'shiladi.<br>
     <b>2.</b> <code>mysql</code>, <code>psql</code>, <code>sqlite3</code> buyruq qatori
     dasturlari yo'q → <code>php artisan db</code> ishlamaydi. Bazani
@@ -64,8 +441,9 @@
     <tr><td><code>php -v</code></td><td class="note-cell">PHP versiyasini ko'rsatadi</td></tr>
     <tr><td><code>php -m</code></td><td class="note-cell">O'rnatilgan kengaytmalar ro'yxati</td></tr>
     <tr><td><code>php fayl.php</code></td><td class="note-cell">Skriptni terminalda ishga tushiradi</td></tr>
-    <tr><td><code>php -S localhost:8000</code></td><td class="note-cell">PHP'ning o'z veb-serveri (Modul A da ishlatamiz)</td></tr>
+    <tr><td><code>php -S localhost:8000</code></td><td class="note-cell">PHP'ning o'z veb-serveri. Terminal <b>band bo'lib qoladi</b>; to'xtatish — <code>Ctrl+C</code></td></tr>
     <tr><td><code>composer -V</code></td><td class="note-cell">Composer versiyasi</td></tr>
+    <tr><td><code>Ctrl+U</code></td><td class="note-cell">Brauzerda «sahifa manbasini ko'rish» — PHP kodi yo'qligini tekshirish</td></tr>
   </table>
 
   <p class="lesson-nav">

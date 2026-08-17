@@ -1,0 +1,714 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 17 — Request Lifecycle: so'rovning sayohati</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 17 · MODUL B — LARAVEL</p>
+  <h1>⭐ Request Lifecycle: so'rovning Laravel ichidagi sayohati</h1>
+  <p class="lead">Bu kursning <b>eng katta bog'lanish darsi</b>. Laravel'ning
+  <code>public/index.php</code> faylini o'zingiz yozgan fayl bilan <b>yonma-yon</b>
+  qo'yamiz — va ular qator-baqator mos kelishini ko'rasiz. Bundan tashqari bitta yangi
+  tushuncha keladi: <b>middleware</b>.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 12 daqiqa</span>
+    <span>💻 Amaliyot ≈ 16 daqiqa</span>
+    <span>Kerak: <a href="0016-laravel-ornatish.html">Dars 16</a></span>
+  </p>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Nega bu muhim</span>
+    <p>«<b>So'rov Laravel ichida qanday sayohat qiladi?</b>» — bu intervyudagi eng ko'p
+    beriladigan savollardan biri. Missiyangizdagi muvaffaqiyat mezoni ham shuni o'z ichiga
+    oladi.</p>
+    <p>Lekin intervyudan muhimroq sabab bor: <b>xatoni topish</b>. Sahifa ishlamayapti —
+    muammo route'dami, middleware'dami, controllerdami? Yo'lni bilmagan odam tasodifiy
+    joylarga <code>dd()</code> tashlab ko'radi. Yo'lni bilgan odam <b>qaysi bosqichda</b>
+    uzilganini aniqlab, to'g'ridan-to'g'ri o'sha yerga boradi.</p>
+    <p>Va bugun bu dars siz uchun <b>oson</b> bo'ladi — chunki mexanizmning yarmini
+    o'zingiz yozgansiz.</p>
+  </div>
+
+  <!-- ═══════════════ 2) TUSHUNCHA ═══════════════ -->
+  <h2>Yonma-yon: sizning kodingiz va Laravel</h2>
+
+  <div class="codefile">
+    <div class="fname">SIZNING mini-framework'ingiz — public/index.php (14–15-darslar)</div>
+    <code class="cmd" data-cmd="require __DIR__ . '/../vendor/autoload.php';
+
+$container = new Container();
+$container-&gt;bind(VakansiyaRepo::class, XotiraRepo::class);
+
+$router = new Router($container);
+$router-&gt;add('GET', '/vakansiyalar', Vakansiyalar::class);
+
+$metod = $_SERVER['REQUEST_METHOD'];
+$yol = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+
+echo $router-&gt;dispatch($metod, $yol);">require __DIR__ . '/../vendor/autoload.php';
+
+$container = new Container();
+$container-&gt;bind(VakansiyaRepo::class, XotiraRepo::class);
+
+$router = new Router($container);
+$router-&gt;add('GET', '/vakansiyalar', Vakansiyalar::class);
+
+$metod = $_SERVER['REQUEST_METHOD'];
+$yol = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+
+echo $router-&gt;dispatch($metod, $yol);</code>
+  </div>
+
+  <div class="codefile">
+    <div class="fname">LARAVEL — public/index.php (haqiqiy fayl, to'liq)</div>
+    <code class="cmd" data-cmd="&lt;?php
+
+use Illuminate\Foundation\Application;
+use Illuminate\Http\Request;
+
+define('LARAVEL_START', microtime(true));
+
+// Determine if the application is in maintenance mode...
+if (file_exists($maintenance = __DIR__.'/../storage/framework/maintenance.php')) {
+    require $maintenance;
+}
+
+// Register the Composer autoloader...
+require __DIR__.'/../vendor/autoload.php';
+
+// Bootstrap Laravel and handle the request...
+$app = require_once __DIR__.'/../bootstrap/app.php';
+
+$app-&gt;handleRequest(Request::capture());">&lt;?php
+
+use Illuminate\Foundation\Application;
+use Illuminate\Http\Request;
+
+define('LARAVEL_START', microtime(true));
+
+// Determine if the application is in maintenance mode...
+if (file_exists($maintenance = __DIR__.'/../storage/framework/maintenance.php')) {
+    require $maintenance;
+}
+
+// Register the Composer autoloader...
+<span class="add">require __DIR__.'/../vendor/autoload.php';</span>
+
+// Bootstrap Laravel and handle the request...
+<span class="add">$app = require_once __DIR__.'/../bootstrap/app.php';</span>
+
+<span class="add">$app-&gt;handleRequest(Request::capture());</span></code>
+  </div>
+
+  <p><b>Laravel'ning kirish nuqtasi — 20 qator.</b> Va uch ajratilgan qator sizning
+  kodingizga to'g'ridan-to'g'ri mos keladi:</p>
+
+  <table class="sheet">
+    <tr><th>Sizda</th><th>Laravel'da</th><th class="note-cell">Ma'nosi</th></tr>
+    <tr><td><code>require 'vendor/autoload.php'</code></td><td><code>require ... vendor/autoload.php</code></td><td class="note-cell"><b>Aynan bir xil</b> (12-dars)</td></tr>
+    <tr><td><code>new Container(); bind(...)</code></td><td><code>require bootstrap/app.php</code></td><td class="note-cell">Container yasash va sozlash</td></tr>
+    <tr><td><code>$router-&gt;dispatch($metod, $yol)</code></td><td><code>$app-&gt;handleRequest(Request::capture())</code></td><td class="note-cell">So'rovni tegishli joyga yuborish</td></tr>
+  </table>
+
+  <p>Qolgan qatorlar — <b>qo'shimchalar</b>: <code>LARAVEL_START</code> (tezlikni o'lchash
+  uchun vaqt belgisi) va <b>maintenance mode</b> tekshiruvi («sayt ta'mirlanmoqda»
+  rejimi). Ular yadroga tegishli emas.</p>
+
+  <div class="callout tip">
+    <span class="label"><code>Request::capture()</code> nima</span>
+    <p>Siz <code>$_SERVER['REQUEST_METHOD']</code> va <code>$_SERVER['REQUEST_URI']</code>
+    ni <b>qo'lda</b> o'qidingiz. <code>Request::capture()</code> xuddi shu ishni qiladi —
+    faqat <b>hammasini</b>: metod, yo'l, <code>$_GET</code>, <code>$_POST</code>,
+    sarlavhalar, cookie'lar, yuklangan fayllar — va bularni bitta <b>obyektga</b> soladi.</p>
+    <p>Shuning uchun Laravel'da <code>$request-&gt;input('ism')</code> deb yozasiz,
+    <code>$_POST['ism']</code> deb emas. Ostida esa aynan <code>$_POST</code> turadi
+    (13-dars).</p>
+  </div>
+
+  <h2><code>bootstrap/app.php</code> — ilovaning sozlash nuqtasi</h2>
+
+  <div class="codefile">
+    <div class="fname">bootstrap/app.php (haqiqiy fayl, to'liq)</div>
+    <code class="cmd" data-cmd="return Application::configure(basePath: dirname(__DIR__))
+    -&gt;withRouting(
+        web: __DIR__.'/../routes/web.php',
+        commands: __DIR__.'/../routes/console.php',
+        health: '/up',
+    )
+    -&gt;withMiddleware(function (Middleware $middleware): void {
+        //
+    })
+    -&gt;withExceptions(function (Exceptions $exceptions): void {
+        ...
+    })-&gt;create();">return Application::configure(basePath: dirname(__DIR__))
+    <span class="add">-&gt;withRouting(</span>
+        web: __DIR__.'/../routes/web.php',
+        commands: __DIR__.'/../routes/console.php',
+        health: '/up',
+    )
+    <span class="add">-&gt;withMiddleware(</span>function (Middleware $middleware): void {
+        //
+    })
+    <span class="add">-&gt;withExceptions(</span>function (Exceptions $exceptions): void {
+        ...
+    })-&gt;create();</code>
+  </div>
+
+  <p>Bu fayl <b>Application obyektini yasab qaytaradi</b> — ya'ni Laravel'ning
+  <b>container'i</b>. Sizning <code>new Container()</code> qatoringizning o'rni shu.
+  Uch sozlash bloki bor:</p>
+
+  <ul>
+    <li><code>withRouting(...)</code> — «route'lar qaysi faylda». Sizda
+    <code>$router-&gt;add(...)</code> chaqiruvlari <code>index.php</code> ichida edi;
+    Laravel'da ular <b>alohida faylda</b> (<code>routes/web.php</code>) va bu yerda faqat
+    <b>yo'li</b> ko'rsatiladi. <code>health: '/up'</code> — 16-darsda ko'rgan
+    «ilova tirikmi?» route'i shu yerdan keladi.</li>
+    <li><code>withMiddleware(...)</code> — <b>yangi tushuncha</b>, pastda batafsil.</li>
+    <li><code>withExceptions(...)</code> — xatolar qanday ko'rsatilishi. 11-darsdagi
+    <code>try/catch</code> — bu uning markazlashgan shakli: Laravel <b>butun ilovani</b>
+    o'rab oladi va tutilmagan exception'ni chiroyli xato sahifasiga aylantiradi. Sizda esa
+    <code>index.php</code> da <code>try/catch</code> bor edi — <b>bir xil g'oya</b>.</li>
+  </ul>
+
+  <p><code>-&gt;withRouting(...)-&gt;withMiddleware(...)-&gt;create()</code> — har metod
+  o'zini qaytaradi, shuning uchun zanjir qilib yozish mumkin. Bu <b>fluent interface</b>
+  deb ataladi va Laravel'da juda ko'p uchraydi.</p>
+
+  <h2>🆕 Middleware — so'rov yo'lidagi qatlamlar</h2>
+
+  <p>Bu sizning mini-framework'ingizda <b>yo'q</b> edi. Middleware — so'rov controllerga
+  yetib borguncha <b>o'tadigan qatlam</b>. Har qatlam so'rovni ko'radi va qaror qiladi:
+  <b>o'tkazish</b> yoki <b>to'xtatish</b>.</p>
+
+  <div class="codefile">
+    <div class="fname">middleware tuzilishi</div>
+    <code class="cmd" data-cmd="public function handle(Request $request, Closure $next): Response
+{
+    // 1) controllerga KIRISHDAN oldin
+
+    $response = $next($request);   // ← keyingi qatlamga uzatadi
+
+    // 3) controllerdan QAYTGANDAN keyin
+
+    return $response;
+}">public function handle(Request $request, Closure $next): Response
+{
+    // 1) controllerga KIRISHDAN oldin
+
+    <span class="add">$response = $next($request);</span>   // ← keyingi qatlamga uzatadi
+
+    // 3) controllerdan QAYTGANDAN keyin
+
+    return $response;
+}</code>
+  </div>
+
+  <p><code>$next($request)</code> — «davom et». Shu chaqiruvdan <b>oldingi</b> kod
+  controllerdan oldin ishlaydi, <b>keyingi</b> kod esa controller javob qaytargandan
+  keyin. Ya'ni middleware controllerni <b>o'rab oladi</b> — sandvich kabi.</p>
+
+  <div class="areas wide">
+    <div class="area">
+      <h4>1 · Middleware (kirish)</h4>
+      <span class="en">$next dan oldin</span>
+      <div class="desc">Auth tekshiruvi, log, tilni aniqlash</div>
+    </div>
+    <div class="area">
+      <h4>2 · Controller</h4>
+      <span class="en">handle / index</span>
+      <div class="desc">Asosiy ish — javob hosil qilinadi</div>
+    </div>
+    <div class="area">
+      <h4>3 · Middleware (chiqish)</h4>
+      <span class="en">$next dan keyin</span>
+      <div class="desc">Javobga sarlavha qo'shish, vaqtni o'lchash</div>
+    </div>
+    <div class="area">
+      <h4>4 · Javob ketadi</h4>
+      <span class="en">response</span>
+      <div class="desc">Brauzerga yuboriladi (1-dars!)</div>
+    </div>
+  </div>
+
+  <p>Amaliyotda buni <b>log orqali o'z ko'zingiz bilan</b> tasdiqlaysiz: uchta yozuv
+  <code>1 → 2 → 3</code> tartibida chiqadi.</p>
+
+  <div class="callout note">
+    <span class="label">Middleware nima uchun kerak — 14-darsdagi muammoning yechimi</span>
+    <p>14-darsda front controller'ning foydalaridan birini aytgandim: «<b>markaziy
+    nazorat</b> — har so'rovni logga yozish yoki kirmagan odamni to'sib qo'yish
+    qoidasini bitta joyda yozish». Middleware — aynan shuning quroli.</p>
+    <p>Laravel'da <code>auth</code> middleware kirmagan foydalanuvchini login sahifasiga
+    yuboradi — controllerga <b>umuman yetib bormaydi</b>. Bu Modul D da (middleware darsi) batafsil.</p>
+  </div>
+
+  <h2>To'liq yo'l — yetti qadam</h2>
+
+  <table class="sheet">
+    <tr><th>#</th><th>Qadam</th><th class="note-cell">Sizdagi ekvivalenti</th></tr>
+    <tr><td>1</td><td>Server so'rovni <code>public/index.php</code> ga beradi</td><td class="note-cell">Aynan bir xil (14-dars)</td></tr>
+    <tr><td>2</td><td><code>vendor/autoload.php</code> ulanadi</td><td class="note-cell">Aynan bir xil (12-dars)</td></tr>
+    <tr><td>3</td><td><code>bootstrap/app.php</code> — container yasaladi va sozlanadi</td><td class="note-cell"><code>new Container(); bind(...)</code></td></tr>
+    <tr><td>4</td><td><code>Request::capture()</code> — so'rov obyektga aylanadi</td><td class="note-cell"><code>$_SERVER</code>, <code>$_GET</code>, <code>$_POST</code> qo'lda</td></tr>
+    <tr><td>5</td><td><b>Middleware</b> qatlamlari o'tiladi</td><td class="note-cell">— (yo'q edi)</td></tr>
+    <tr><td>6</td><td>Router mos route'ni topadi, container controllerni yasaydi</td><td class="note-cell"><code>$router-&gt;dispatch()</code> + <code>$container-&gt;make()</code></td></tr>
+    <tr><td>7</td><td>Javob middleware'lardan <b>teskari</b> qaytadi va brauzerga ketadi</td><td class="note-cell"><code>echo</code></td></tr>
+  </table>
+
+  <p>Ettitadan <b>beshtasini</b> o'zingiz yozgansiz. Qolgan ikkitasi —
+  <code>Request</code> obyekti va middleware — bugungi darsning yangiligi.</p>
+
+  <!-- ═══════════════ 4) AMALIYOT / MODE-HINT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    <span class="mode-hint-title">💻 Amaliy qism kompyuterda</span>
+    <p>Amaliyotda IshTop ichidagi <code>public/index.php</code> va
+    <code>bootstrap/app.php</code> ni to'liq o'qib chiqasiz, keyin <b>o'z
+    middleware'ingizni</b> yozasiz. Uchta joyga log qo'yib, so'rov yuborasiz va logni
+    o'qiysiz — tartib <code>1 → 2 → 3</code> bo'lishini, ya'ni middleware controllerni
+    <b>o'rab olishini</b> o'z ko'zingiz bilan tasdiqlaysiz.</p>
+    <button type="button" class="modebtn" data-set-mode="do">💻 Amaliyot rejimini ko'rish</button>
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <p>IshTop'ga o'ting va kirish nuqtasini to'liq o'qing</p>
+        <p class="why-step">20 qator — o'qib chiqishga arziydi. Bu butun Laravel ilovasining
+        boshlanishi.</p>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+cat -n public/index.php">cd ~/Projects/Learn/ishtop
+cat -n public/index.php</div>
+        <p class="expect"><b>Kutilgan natija:</b> 20 qator. Uchtasini toping:
+        <code>require ... vendor/autoload.php</code> (12-dars),
+        <code>require_once ... bootstrap/app.php</code> (container),
+        <code>$app-&gt;handleRequest(...)</code> (dispatch). Qolganlari — vaqt belgisi va
+        maintenance tekshiruvi.</p>
+      </li>
+
+      <li>
+        <p><code>bootstrap/app.php</code> ni o'qing</p>
+        <div class="cmd" data-cmd="cat -n bootstrap/app.php">cat -n bootstrap/app.php</div>
+        <p class="expect"><b>Kutilgan natija:</b> ~21 qator.
+        <code>withRouting</code> ichida <code>routes/web.php</code> yo'li va
+        <code>health: '/up'</code> — 16-darsda <code>route:list</code> da ko'rgan
+        <code>up</code> route'i <b>shu yerdan</b> kelgan. <code>withMiddleware</code>
+        hozircha bo'sh (<code>//</code>).</p>
+      </li>
+
+      <li>
+        <p>O'z middleware'ingizni yarating</p>
+        <div class="cmd" data-cmd="php artisan make:middleware IzniKuzat">php artisan make:middleware IzniKuzat
+<span class="out"> INFO  Middleware [app/Http/Middleware/IzniKuzat.php] created successfully.</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> fayl yaratildi. Ochib ko'rsangiz ichida
+        <code>return $next($request);</code> bitta qator turadi — «shunchaki o'tkazib
+        yubor».</p>
+      </li>
+
+      <li>
+        <p>Middleware'ga iz qoldiruvchi kod yozing</p>
+        <p class="why-step"><code>$next()</code> dan oldin va keyin — ikki joyga log.</p>
+        <div class="cmd" data-cmd="cat &gt; app/Http/Middleware/IzniKuzat.php &lt;&lt;'EOF'
+&lt;?php
+
+namespace App\Http\Middleware;
+
+use Closure;
+use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
+
+class IzniKuzat
+{
+    public function handle(Request $request, Closure $next): Response
+    {
+        logger()-&gt;info('1. MIDDLEWARE: controllerga KIRISHDAN oldin');
+
+        $response = $next($request);
+
+        logger()-&gt;info('3. MIDDLEWARE: controllerdan QAYTGANDAN keyin');
+
+        return $response;
+    }
+}
+EOF">cat &gt; app/Http/Middleware/IzniKuzat.php &lt;&lt;'EOF'
+&lt;?php
+
+namespace App\Http\Middleware;
+
+use Closure;
+use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
+
+class IzniKuzat
+{
+    public function handle(Request $request, Closure $next): Response
+    {
+        logger()-&gt;info('1. MIDDLEWARE: controllerga KIRISHDAN oldin');
+
+        $response = $next($request);
+
+        logger()-&gt;info('3. MIDDLEWARE: controllerdan QAYTGANDAN keyin');
+
+        return $response;
+    }
+}
+EOF</div>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik. <code>logger()-&gt;info(...)</code>
+        — Laravel'ning log yozuvchisi; yozuvlar
+        <code>storage/logs/laravel.log</code> ga tushadi (4-darsdagi log fayli!).</p>
+      </li>
+
+      <li>
+        <p>Controller'ga ham iz qo'ying</p>
+        <div class="cmd" data-cmd="cat &gt; app/Http/Controllers/VakansiyaController.php &lt;&lt;'EOF'
+&lt;?php
+
+namespace App\Http\Controllers;
+
+class VakansiyaController extends Controller
+{
+    public function index(): string
+    {
+        logger()-&gt;info('2. CONTROLLER: index ishlayapti');
+
+        return '&lt;h1&gt;Vakansiyalar&lt;/h1&gt;';
+    }
+}
+EOF">cat &gt; app/Http/Controllers/VakansiyaController.php &lt;&lt;'EOF'
+&lt;?php
+
+namespace App\Http\Controllers;
+
+class VakansiyaController extends Controller
+{
+    public function index(): string
+    {
+        logger()-&gt;info('2. CONTROLLER: index ishlayapti');
+
+        return '&lt;h1&gt;Vakansiyalar&lt;/h1&gt;';
+    }
+}
+EOF</div>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik.</p>
+      </li>
+
+      <li>
+        <p>Middleware'ni route'ga ulang</p>
+        <p class="why-step">Middleware butun ilovaga ham, bitta route'ga ham ulanishi
+        mumkin. Biz bitta route'ga ulaymiz — natija aniqroq ko'rinadi.</p>
+        <div class="cmd" data-cmd="cat &gt; routes/web.php &lt;&lt;'EOF'
+&lt;?php
+
+use App\Http\Controllers\VakansiyaController;
+use App\Http\Middleware\IzniKuzat;
+use Illuminate\Support\Facades\Route;
+
+Route::get('/', function () {
+    return view('welcome');
+});
+
+Route::get('/vakansiyalar', [VakansiyaController::class, 'index'])
+    -&gt;middleware(IzniKuzat::class);
+EOF">cat &gt; routes/web.php &lt;&lt;'EOF'
+&lt;?php
+
+use App\Http\Controllers\VakansiyaController;
+use App\Http\Middleware\IzniKuzat;
+use Illuminate\Support\Facades\Route;
+
+Route::get('/', function () {
+    return view('welcome');
+});
+
+Route::get('/vakansiyalar', [VakansiyaController::class, 'index'])
+    -&gt;middleware(IzniKuzat::class);
+EOF</div>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik.
+        <code>-&gt;middleware(...)</code> — route'ga qatlam qo'shish.</p>
+      </li>
+
+      <li>
+        <p>Logni tozalab, so'rov yuboring</p>
+        <p class="why-step">Bu darsning asosiy tajribasi.</p>
+        <div class="cmd" data-cmd="php artisan serve &gt; /dev/null 2&gt;&amp;1 &amp;
+sleep 2
+&gt; storage/logs/laravel.log
+curl -s http://localhost:8000/vakansiyalar; echo">php artisan serve &gt; /dev/null 2&gt;&amp;1 &amp;
+sleep 2
+&gt; storage/logs/laravel.log
+curl -s http://localhost:8000/vakansiyalar; echo
+<span class="out">&lt;h1&gt;Vakansiyalar&lt;/h1&gt;</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> sahifa javobi.
+        <br>Bu yerda serverni <b>fonda</b> ishga tushirdik (<code>&amp;</code> bilan), shuning
+        uchun terminal band bo'lmaydi. Keyinroq to'xtatish uchun:
+        <code>pkill -f "artisan serve"</code> — yoki oddiygina yangi terminal oynasidan
+        foydalanaversangiz ham bo'ladi.</p>
+      </li>
+
+      <li>
+        <p>Logni o'qing — tartibni ko'ring</p>
+        <div class="cmd" data-cmd="grep -oE '[123]\. (MIDDLEWARE|CONTROLLER): .*' storage/logs/laravel.log">grep -oE '[123]\. (MIDDLEWARE|CONTROLLER): .*' storage/logs/laravel.log
+<span class="out">1. MIDDLEWARE: controllerga KIRISHDAN oldin</span>
+<span class="out">2. CONTROLLER: index ishlayapti</span>
+<span class="out">3. MIDDLEWARE: controllerdan QAYTGANDAN keyin</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> aynan shu tartib. 🎉
+        <br><b>Isbot bo'ldi:</b> middleware controllerni <b>o'rab oladi</b> — bir marta
+        oldin, bir marta keyin ishlaydi. Bitta <code>handle()</code> metodi ichida, lekin
+        <code>$next($request)</code> ning ikki tomonida.</p>
+      </li>
+
+      <li>
+        <p>To'liq logni ham ko'rib chiqing</p>
+        <div class="cmd" data-cmd="tail -5 storage/logs/laravel.log">tail -5 storage/logs/laravel.log
+<span class="out">[2026-08-12 12:12:07] local.INFO: 1. MIDDLEWARE: controllerga KIRISHDAN oldin</span>
+<span class="out">[2026-08-12 12:12:07] local.INFO: 2. CONTROLLER: index ishlayapti</span>
+<span class="out">[2026-08-12 12:12:07] local.INFO: 3. MIDDLEWARE: controllerdan QAYTGANDAN keyin</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> vaqt belgisi va daraja
+        (<code>local.INFO</code>) bilan. Sana-vaqt sizda boshqacha bo'ladi.
+        <br>Bu 4-darsdagi bilimning davomi: «oq sahifa ko'rsangiz — logga qara». Laravel'da
+        o'sha log aynan shu fayl.</p>
+      </li>
+
+      <li>
+        <p>Ishni saqlang</p>
+        <div class="cmd" data-cmd="git add -A
+git commit -m &quot;17-dars: request lifecycle va birinchi middleware&quot;">git add -A
+git commit -m "17-dars: request lifecycle va birinchi middleware"</div>
+        <p class="expect"><b>Kutilgan natija:</b> commit haqida xabar. Diqqat:
+        <code>storage/logs/laravel.log</code> Git'ga <b>tushmaydi</b> — Laravel uni ham
+        ignore qilgan.</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><input type="checkbox" id="d17c1"><label for="d17c1"><code>public/index.php</code> dagi uch kalit qatorni topdim</label></li>
+      <li><input type="checkbox" id="d17c2"><label for="d17c2"><b>Ularni o'z kodim bilan solishtira olaman</b></label></li>
+      <li><input type="checkbox" id="d17c3"><label for="d17c3"><code>bootstrap/app.php</code> ni o'qidim va <code>up</code> route qaydan kelganini bilaman</label></li>
+      <li><input type="checkbox" id="d17c4"><label for="d17c4">O'z middleware'imni yozdim</label></li>
+      <li><input type="checkbox" id="d17c5"><label for="d17c5"><b>Logda <code>1 → 2 → 3</code> tartibini ko'rdim</b> 🎉</label></li>
+      <li><input type="checkbox" id="d17c6"><label for="d17c6">Middleware controllerni <b>o'rab olishini</b> tushuntira olaman</label></li>
+      <li><input type="checkbox" id="d17c7"><label for="d17c7">«So'rov Laravel ichida qanday sayohat qiladi?» — javob bera olaman</label></li>
+      <li><input type="checkbox" id="d17c8"><label for="d17c8">Ishni commit qildim</label></li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 5) TAXMIN + QUIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p><b>Ikkita</b> middleware ulangan — <code>A</code> va <code>B</code> shu tartibda.
+    Har biri <code>$next()</code> ning ikki tomonida log yozadi. Controller ham bitta log
+    yozadi. Logda <b>nechta yozuv</b> va <b>qanday tartibda</b> chiqadi?</p>
+    <div class="codefile">
+      <div class="fname">routes/web.php</div>
+      <code class="cmd" data-cmd="Route::get('/test', [C::class, 'index'])
+    -&gt;middleware([A::class, B::class]);
+
+// A: log('A-kirish') ... $next() ... log('A-chiqish')
+// B: log('B-kirish') ... $next() ... log('B-chiqish')
+// C: log('CONTROLLER')">Route::get('/test', [C::class, 'index'])
+    -&gt;middleware([A::class, B::class]);
+
+// A: log('A-kirish') ... $next() ... log('A-chiqish')
+// B: log('B-kirish') ... $next() ... log('B-chiqish')
+// C: log('CONTROLLER')</code>
+    </div>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <div class="natija">A-kirish
+B-kirish
+CONTROLLER
+B-chiqish
+A-chiqish</div>
+        <p><b>Besh yozuv</b>, va tartib <b>simmetrik</b> — <code>A</code> birinchi kiradi,
+        <b>oxirgi chiqadi</b>.</p>
+        <p><b>Sabab:</b> middleware'lar bir-birini <b>o'rab oladi</b>, ketma-ket
+        turmaydi. Ya'ni <code>A</code> ichida <code>B</code>, <code>B</code> ichida
+        controller:</p>
+        <div class="natija">A ( B ( CONTROLLER ) )</div>
+        <p>Bu tuzilma <b>piyoz</b> yoki <b>matryoshka</b> ga o'xshatiladi. Har qatlamdan
+        kirasiz, markazga yetasiz, keyin <b>teskari tartibda</b> chiqasiz.</p>
+        <p class="expect"><b>Nega bu muhim:</b> tartib real ta'sir qiladi. Masalan
+        <code>auth</code> middleware'i «tilni aniqlash» middleware'idan <b>oldin</b>
+        turishi kerak — chunki foydalanuvchi kirmagan bo'lsa, tilni aniqlashning hojati
+        yo'q. Va javobga sarlavha qo'shadigan middleware <b>tashqi</b> qatlamda turishi
+        kerak, aks holda uning «chiqish» qismi ishlamay qolishi mumkin.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span> Laravel'ning
+    <code>$app-&gt;handleRequest(...)</code> qatori sizning kodingizdagi nimaga to'g'ri
+    keladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Router'ning dispatch metodiga to'g'ri keladi</button></li>
+      <li><button class="quiz-option">Autoload ulanadigan qatorga to'g'ri keladi</button></li>
+      <li><button class="quiz-option">Container'ning bind chaqiruviga to'g'ri keladi</button></li>
+    </ul>
+    <div class="quiz-explain">Uchtasi mos keladi: <code>autoload</code> → <code>autoload</code>,
+    <code>bootstrap/app.php</code> → container yasash, <code>handleRequest()</code> →
+    <code>dispatch()</code>.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span> Middleware'da
+    <code>$next($request)</code> nima qiladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Keyingi qatlamga uzatadi</button></li>
+      <li><button class="quiz-option">Middleware'ni darhol to'xtatadi</button></li>
+      <li><button class="quiz-option">Javobni brauzerga yuboradi</button></li>
+    </ul>
+    <div class="quiz-explain"><code>$next()</code> — «davom et». Undan <b>oldingi</b> kod
+    controllerdan oldin, <b>keyingi</b> kod controllerdan keyin ishlaydi. Chaqirmasangiz —
+    so'rov to'xtaydi (masalan <code>auth</code> shunday qiladi).</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span> <code>Request::capture()</code>
+    nimani qiladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">So'rovni bitta obyektga yig'adi</button></li>
+      <li><button class="quiz-option">So'rovni bazaga yozib qo'yadi</button></li>
+      <li><button class="quiz-option">So'rov tezligini o'lchab beradi</button></li>
+    </ul>
+    <div class="quiz-explain">Metod, yo'l, <code>$_GET</code>, <code>$_POST</code>,
+    sarlavhalar, cookie, fayllar — hammasi bitta <code>Request</code> obyektiga yig'iladi.
+    Shuning uchun <code>$request-&gt;input('ism')</code> deb yozasiz.</div>
+  </div>
+
+  <!-- ═══════════════ 6) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+    <p class="recall-intro">Avval o'zingiz javob bering, keyin ochib tekshiring.
+    Oxirgi ikkitasi — <a href="0016-laravel-ornatish.html">16-darsni</a> takrorlash.</p>
+
+    <details class="recall">
+      <summary>So'rovning yo'lini yetti qadamda ayting</summary>
+      <div class="answer"><p>1) <code>public/index.php</code> ga keladi →
+      2) autoload ulanadi → 3) <code>bootstrap/app.php</code> container yasaydi →
+      4) <code>Request::capture()</code> → 5) <b>middleware</b> qatlamlari →
+      6) router topadi, container controllerni yasaydi →
+      7) javob middleware'lardan <b>teskari</b> qaytib brauzerga ketadi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Middleware nima uchun «sandvich» deb ataladi?</summary>
+      <div class="answer"><p>Chunki u controllerni <b>o'rab oladi</b>:
+      <code>$next()</code> dan <b>oldin</b> va <b>keyin</b> kod ishlaydi. Bir necha
+      middleware bo'lsa — piyoz kabi ichma-ich: <code>A(B(CONTROLLER))</code>, chiqish
+      teskari tartibda.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary><code>bootstrap/app.php</code> nima qaytaradi?</summary>
+      <div class="answer"><p><b>Application obyektini</b> — ya'ni Laravel'ning
+      <b>container'i</b>. Sizning <code>new Container()</code> qatoringizning o'rni shu.
+      Uch sozlash: <code>withRouting</code>, <code>withMiddleware</code>,
+      <code>withExceptions</code>.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: Laravel'da standart baza qaysi va u qayerda?</summary>
+      <div class="answer"><p><b>SQLite</b> — bitta fayl:
+      <code>database/database.sqlite</code>. <code>create-project</code> uni o'zi yaratib,
+      migration'larni ham bajaradi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: nega <code>.env</code> Git'ga tushmaydi?</summary>
+      <div class="answer"><p>Ichida parollar, API kalitlari va <code>APP_KEY</code> bor.
+      Repoda uning o'rniga <code>.env.example</code> turadi — kalitlar ro'yxati,
+      qiymatlarsiz.</p></div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 7) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Cho'ntak xulosasi</span>
+    <ul>
+      <li>Laravel'ning <code>public/index.php</code> — <b>20 qator</b>, va uchtasi sizning
+      kodingizga mos: autoload · <code>bootstrap/app.php</code> ·
+      <code>handleRequest()</code>.</li>
+      <li><code>bootstrap/app.php</code> — <b>Application (container)</b> ni yasaydi.
+      <code>withRouting</code> · <code>withMiddleware</code> · <code>withExceptions</code>.</li>
+      <li><code>Request::capture()</code> — <code>$_SERVER</code>, <code>$_GET</code>,
+      <code>$_POST</code>, sarlavhalar, cookie — hammasi <b>bitta obyektga</b>.</li>
+      <li>🆕 <b>Middleware</b> — so'rov yo'lidagi qatlam.
+      <code>$next($request)</code> dan <b>oldin</b> va <b>keyin</b> kod ishlaydi.</li>
+      <li>Bir necha middleware — <b>ichma-ich</b>: <code>A(B(CONTROLLER))</code>.
+      Kirish tartibda, <b>chiqish teskari</b>.</li>
+      <li><code>$next()</code> chaqirilmasa — so'rov <b>to'xtaydi</b>
+      (<code>auth</code> shunday ishlaydi).</li>
+      <li>Yo'lning <b>7 qadamidan 5 tasini</b> Modul A da o'zingiz yozgansiz.</li>
+      <li><code>logger()-&gt;info(...)</code> → <code>storage/logs/laravel.log</code>
+      (4-darsdagi log).</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🎯 Kurs dizaynining eng katta bog'lanishi — bajarildi</span>
+    <p>Yo'l xaritasida uchinchi loyihalash qoidasi shunday yozilgan edi:
+    <i>«Sehr ochiladi, keyin qaytiladi — 14–15-darslarda o'z qo'lingiz bilan
+    mini-framework yozasiz, keyinchalik Laravel'ning har bir sehrli joyiga kelganda o'sha
+    kodga qaytamiz»</i>.</p>
+    <p><b>Bugun shu qaytish birinchi marta sodir bo'ldi</b> — va u bekorga emas edi:
+    Laravel'ning kirish nuqtasi sizga notanish kod bo'lib ko'rinmadi.</p>
+    <p>Bu qaytish yana bo'ladi: butun <b>Modul G</b> shunga bag'ishlangan (Service Container chuqur, Service Provider, Facade). O'shanda
+    <code>bootstrap/app.php</code> ning ichiga kiramiz.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel — Request Lifecycle</b>:
+    <a href="https://laravel.com/docs/13.x/lifecycle">laravel.com/docs/13.x/lifecycle</a>.<sup><a href="#fn1">1</a></sup>
+    <b>Bugun o'qing</b> — bu hujjat aynan shu darsning mavzusi va endi u sizga tanish
+    tuyuladi.<br>
+    <b>Middleware</b>: <a href="https://laravel.com/docs/13.x/middleware">laravel.com/docs/13.x/middleware</a>
+    — Modul D da batafsil ko'ramiz.</p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b> «middleware'ni butun ilovaga qanday
+    ulanadi?», «<code>$next()</code> ni chaqirmasam nima bo'ladi?», «middleware guruhi
+    nima?», «<code>terminable</code> middleware nima?» — har qanday savol yaxshi.
+    Ikkinchi savolni <b>o'zingiz sinab ko'rishingiz</b> ham mumkin: middleware'da
+    <code>$next($request)</code> ni <code>return response('To'xtatildi');</code> ga
+    almashtirib ko'ring — controller <b>umuman ishlamaydi</b>.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0016-laravel-ornatish.html">Oldingi: Laravel o'rnatish</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel 13 — <a href="https://laravel.com/docs/13.x/lifecycle">Request
+      Lifecycle</a> va <a href="https://laravel.com/docs/13.x/middleware">Middleware</a>.</li>
+      <li id="fn2">Darsdagi <code>public/index.php</code> va <code>bootstrap/app.php</code>
+      kodlari <b>Laravel Framework 13.25.0</b> dan aynan ko'chirilgan (qisqartirilgan
+      joylar <code>...</code> bilan belgilangan).</li>
+      <li id="fn3">Middleware tartibi jonli sinab ko'rilgan: log faylida
+      <code>1 → 2 → 3</code> ketma-ketligi tasdiqlangan (PHP 8.3.32, Laravel 13.25.0).</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

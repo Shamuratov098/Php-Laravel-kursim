@@ -18,20 +18,840 @@
   izoh esa o'zbekcha.</p>
 
   <p class="lesson-meta">
-    <span>Atamalar: <b>5 ta</b></span>
+    <span>Atamalar: <b>98 ta</b></span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>📱 O'qishga mos</span>
   </p>
 
   <div class="callout note">
     <span class="label">Bu hujjat o'sib boradi</span>
-    <p>Hozir faqat <b>IshTop</b> loyihasining domen atamalari kiritilgan — ular reja
-    bosqichida qat'iy belgilangan va 72 dars bo'ylab o'zgarmaydi. Qolgan atamalar
-    (<code>route</code>, <code>middleware</code>, <code>Eloquent</code>...) o'z darsi
-    yozilganda qo'shiladi — oldindan emas.</p>
+    <p>Atama faqat <b>o'z darsi yozilganda</b> qo'shiladi — oldindan emas. Hozir:
+    Modul A, B va C boshi (1–23-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
+    bosqichida qat'iy belgilangan va 73 dars bo'ylab o'zgarmaydi).</p>
   </div>
 
-  <h2>IshTop — loyiha domeni</h2>
+  <ul class="toc">
+    <li><a href="#a-php">Modul A–B — PHP, veb va Laravel</a></li>
+    <li><a href="#c-sql">Modul C — ma'lumotlar bazasi</a></li>
+    <li><a href="#ishtop">IshTop — loyiha domeni</a></li>
+  </ul>
+
+  <h2 id="a-php">Modul A–B — PHP, veb va Laravel</h2>
+  <p>Darslarda uchragan atamalar:
+  <a href="../lessons/0001-php-qanday-ishlaydi.html">DARS 01</a> (so'rov–javob aylanasi) ·
+  <a href="../lessons/0002-ozgaruvchi-tip-va-string.html">DARS 02</a> (o'zgaruvchi va tiplar) ·
+  <a href="../lessons/0003-shart-solishtirish-va-takrorlash.html">DARS 03</a> (solishtirish va shart) ·
+  <a href="../lessons/0004-xatoni-oqish.html">DARS 04</a> (xato turlari) ·
+  <a href="../lessons/0005-massiv-va-foreach.html">DARS 05</a> (massiv) ·
+  <a href="../lessons/0006-funksiya-va-tiplar.html">DARS 06</a> (funksiya va tiplar) ·
+  <a href="../lessons/0007-oop-klass-va-obyekt.html">DARS 07</a> (klass va obyekt) ·
+  <a href="../lessons/0008-oop-himoya-static-const.html">DARS 08</a> (himoya, static, const) ·
+  <a href="../lessons/0009-meros-va-abstract.html">DARS 09</a> (meros va abstract) ·
+  <a href="../lessons/0010-interface-va-trait.html">DARS 10</a> (interface va trait) ·
+  <a href="../lessons/0011-exception.html">DARS 11</a> (exception) ·
+  <a href="../lessons/0012-namespace-autoload-composer.html">DARS 12</a> (namespace va Composer) ·
+  <a href="../lessons/0013-http-qolda.html">DARS 13</a> (HTTP, XSS, session) ·
+  <a href="../lessons/0014-mini-framework-router.html">DARS 14</a> (router) ·
+  <a href="../lessons/0015-mini-framework-container.html">DARS 15</a> (container va DI) ·
+  <a href="../lessons/0016-laravel-ornatish.html">DARS 16</a> (Laravel o'rnatish) ·
+  <a href="../lessons/0017-request-lifecycle.html">DARS 17</a> (lifecycle va middleware) ·
+  <a href="../lessons/0018-blade-asoslari.html">DARS 18</a> (Blade va layout) ·
+  <a href="../lessons/0019-blade-komponent-va-forma.html">DARS 19</a> (komponent, forma, CSRF).</p>
+
+  <dl>
+    <div class="term" id="request">
+      <dt>request <span class="uz">(HTTP request) — so'rov</span></dt>
+      <dd>Brauzerning serverga yuborgan «menga shu manzilni ber» degan xati. Backend ishi
+      shu xatdan boshlanadi. <span class="eg">GET /02-sahifa.php</span></dd>
+    </div>
+
+    <div class="term" id="response">
+      <dt>response <span class="uz">(HTTP response) — javob</span></dt>
+      <dd>Serverning qaytargan xati: status kodi, sarlavhalar va <b>tana</b> (matn).
+      PHP'ning butun vazifasi — shu tanani hosil qilish.
+      <span class="eg">200 OK + &lt;h1&gt;Salom&lt;/h1&gt;</span></dd>
+    </div>
+
+    <div class="term" id="interpreter">
+      <dt>interpreter <span class="uz">— interpretator, bajaruvchi</span></dt>
+      <dd>Kodni oldindan mashina tiliga aylantirmasdan, <b>o'qib turib bajaradigan</b>
+      dastur. PHP shunday ishlaydi: fayl har so'rovda qaytadan o'qiladi.
+      <span class="eg">php 01-salom.php → PHP faylni o'qib bajaradi</span></dd>
+    </div>
+
+    <div class="term" id="php-tag">
+      <dt>PHP tag <span class="uz">— PHP teglari</span></dt>
+      <dd><code>&lt;?php</code> va <code>?&gt;</code> — kod hududining chegarasi. Ichi
+      bajariladi, tashqarisi o'zgarmasdan <a href="#response">javobga</a> o'tadi. Faqat
+      PHP'dan iborat faylda yopuvchi teg yozilmaydi.
+      <span class="eg">&lt;?php echo "salom"; </span></dd>
+    </div>
+
+    <div class="term" id="echo">
+      <dt>echo <span class="uz">— javobga matn qo'shish</span></dt>
+      <dd>Ekranga chizmaydi — <a href="#response">javobga</a> yozadi. Terminalda
+      bajarsangiz javob terminalga tushadi, brauzer so'rasa brauzerga.
+      <span class="eg">echo "Salom"; → javobda: Salom</span></dd>
+    </div>
+
+    <div class="term" id="web-server">
+      <dt>web server <span class="uz">— veb-server</span></dt>
+      <dd><a href="#request">So'rov</a>ni qabul qilib, kerakli faylni topadigan va
+      <code>.php</code> bo'lsa <a href="#interpreter">PHP'ga</a> uzatadigan dastur.
+      O'rganish uchun PHP'ning ichkisi yetadi.
+      <span class="eg">php -S localhost:8000</span></dd>
+    </div>
+
+    <div class="term" id="cli">
+      <dt>CLI <span class="uz">(command line interface) — buyruq qatori</span></dt>
+      <dd>PHP'ning terminal orqali ishlash rejimi — brauzer va server ishtirokisiz.
+      <code>php -v</code> chiqishida shu so'z turadi.
+      <span class="eg">PHP 8.3.32 (cli)</span></dd>
+    </div>
+
+    <div class="term" id="variable">
+      <dt>variable <span class="uz">— o'zgaruvchi</span></dt>
+      <dd>Qiymat saqlanadigan joyga qo'yilgan nom. PHP'da har doim <code>$</code> bilan
+      boshlanadi. <code>=</code> «teng» emas, «o'ngdagisini chapga sol» degani.
+      <span class="eg">$ism = "Doston";</span></dd>
+    </div>
+
+    <div class="term" id="dynamic-typing">
+      <dt>dynamic typing <span class="uz">— dinamik tiplash</span></dt>
+      <dd><a href="#type">Tip</a> <a href="#variable">o'zgaruvchida</a> emas,
+      <b>qiymatda</b> yashaydi. Shu sababli bitta o'zgaruvchi hayoti davomida tipini
+      o'zgartira oladi va kodga qarab tipni bilib bo'lmaydi — shuning uchun
+      <a href="#var-dump">var_dump</a> kerak.
+      <span class="eg">$x = 5; keyin $x = "besh";</span></dd>
+    </div>
+
+    <div class="term" id="type">
+      <dt>type <span class="uz">— tip, ma'lumot turi</span></dt>
+      <dd>Qiymatning turi. Asosiylari: <code>string</code>, <code>int</code>,
+      <code>float</code>, <code>bool</code>, <a href="#null">null</a> va
+      <code>array</code>. Xatolarning katta qismi «tipini boshqa deb o'ylash»dan chiqadi.
+      <span class="eg">"25" — string, 25 — int</span></dd>
+    </div>
+
+    <div class="term" id="null">
+      <dt>null <span class="uz">— «qiymat yo'q»</span></dt>
+      <dd>Alohida tip: nol ham, bo'sh matn ham emas — <b>hech narsa yo'q</b>. Bazadagi
+      to'ldirilmagan maydon shunday keladi. <code>echo</code> uni <b>ko'rsatmaydi</b>,
+      <a href="#var-dump">var_dump</a> esa <code>NULL</code> deb aytadi.
+      <span class="eg">$kasb = null; → NULL</span></dd>
+    </div>
+
+    <div class="term" id="var-dump">
+      <dt>var_dump() <span class="uz">— qiymat va tipni ko'rsatuvchi asbob</span></dt>
+      <dd>Qiymatni <b>va tipini</b> birga chiqaradi; matn uzunligini ham beradi.
+      Tekshirishda <code>echo</code> o'rniga shu ishlatiladi, chunki <code>echo</code>
+      <code>true</code> ni <code>1</code>, <a href="#null">null</a> ni bo'shliq qilib
+      chalg'itadi. Laravel'dagi ekvivalenti — <code>dd()</code>.
+      <span class="eg">var_dump($a, $b); → string(6) "Doston"</span></dd>
+    </div>
+
+    <div class="term" id="interpolation">
+      <dt>string interpolation <span class="uz">— matn ichiga qiymat qo'yish</span></dt>
+      <dd><b>Qo'shtirnoq</b> ichidagi o'zgaruvchi qiymatiga almashadi; <b>bittalik
+      tirnoq</b> ichidagisi almashmaydi. Qavs chegarani aniqlaydi.
+      <span class="eg">"Salom, {$ism}!" → Salom, Doston!</span></dd>
+    </div>
+
+    <div class="term" id="concatenation">
+      <dt>concatenation <span class="uz">— matnlarni ulash</span></dt>
+      <dd>PHP'da ulash belgisi — <b>nuqta</b> (<code>.</code>), <code>+</code> emas.
+      Operator <a href="#type">tipni</a> o'zgartiradi: <code>"5" + 5</code> →
+      <code>int(10)</code>, ammo <code>"5" . 5</code> → <code>string "55"</code>.
+      <span class="eg">"Salom, " . $ism</span></dd>
+    </div>
+
+    <div class="term" id="loose-strict">
+      <dt><code>==</code> va <code>===</code> <span class="uz">— bo'sh va qat'iy solishtirish</span></dt>
+      <dd><code>==</code> faqat qiymatni tekshiradi va kerak bo'lsa <a href="#type">tipni</a>
+      o'zgartiradi; <code>===</code> qiymat <b>va tipni</b> tekshiradi. <b>Qoida: doim
+      <code>===</code>.</b>
+      <span class="eg">"25" == 25 → true · "25" === 25 → false</span></dd>
+    </div>
+
+    <div class="term" id="truthy-falsy">
+      <dt>truthy / falsy <span class="uz">— rost va yolg'on hisoblanadigan qiymatlar</span></dt>
+      <dd><code>if</code> ichida yolg'on hisoblanadigan qiymatlar: <code>false</code>,
+      <code>0</code>, <code>0.0</code>, <code>""</code>, <code>"0"</code>,
+      <a href="#null">null</a>, <code>[]</code>. Qolgan hammasi rost — <code>"false"</code>
+      va <code>" "</code> ham.
+      <span class="eg">(bool)"0" → false · (bool)"false" → true</span></dd>
+    </div>
+
+    <div class="term" id="match">
+      <dt>match <span class="uz">— qiymat qaytaradigan tanlov</span></dt>
+      <dd><code>if</code> dan farqi: natijani <b>qaytaradi</b> (o'zgaruvchiga solinadi) va
+      har doim <code>===</code> bilan solishtiradi. Mos variant topilmasa va
+      <code>default</code> yozilmagan bo'lsa — <code>UnhandledMatchError</code>.
+      <span class="eg">$m = match($holat) { "yangi" =&gt; "...", default =&gt; "..." };</span></dd>
+    </div>
+
+    <div class="term" id="parse-error">
+      <dt>Parse error <span class="uz">— sintaksis xatosi</span></dt>
+      <dd>PHP faylni <b>o'qiy olmadi</b>, shuning uchun ishga tushirmaydi ham — hatto
+      to'g'ri yozilgan birinchi qator ham bajarilmaydi. Ko'rsatilgan qator PHP muammoni
+      <b>sezgan</b> joy; topmasangiz <b>bir qator yuqoriga</b> qarang.
+      <span class="eg">unexpected token "echo", expecting ";"</span></dd>
+    </div>
+
+    <div class="term" id="warning">
+      <dt>Warning <span class="uz">— ogohlantirish</span></dt>
+      <dd>Kod ishlaydi va <b>davom etadi</b>, lekin biror narsa g'alati. Xavfli tomoni:
+      sayt «ishlab» turib noto'g'ri natija berishi mumkin. E'tiborsiz qoldirmang.
+      <span class="eg">Undefined variable $yosh</span></dd>
+    </div>
+
+    <div class="term" id="fatal-error">
+      <dt>Fatal error <span class="uz">— halokatli xato</span></dt>
+      <dd>Kod bajarilib borgan, lekin davom etish imkonsiz bo'lgan joyda <b>to'xtagan</b>.
+      Ya'ni bir qismi bajarilgan, qolgani yo'q. Ostida ko'pincha
+      <a href="#stack-trace">stack trace</a> chiqadi.
+      <span class="eg">Uncaught DivisionByZeroError: Division by zero</span></dd>
+    </div>
+
+    <div class="term" id="stack-trace">
+      <dt>stack trace <span class="uz">— chaqiruvlar zanjiri</span></dt>
+      <dd>«Bu yergacha qanday yo'l bilan kelindi» ro'yxati. <code>#0 {main}</code> =
+      xato asosiy kodda. Funksiyalar ishtirok etsa ro'yxat uzayadi va xatoga olib kelgan
+      zanjirni ko'rsatadi.
+      <span class="eg">#0 fayl.php(3): funksiyaNomi()</span></dd>
+    </div>
+
+    <div class="term" id="array">
+      <dt>array <span class="uz">— massiv</span></dt>
+      <dd>Bitta nomda ko'p qiymat. PHP'da massiv <b>har doim «kalit → qiymat» xaritasi</b> —
+      «indeksli» massiv shunchaki kalitlari <code>0, 1, 2</code> bo'lgan massiv. Shu sababli
+      kalitlar uzluksiz bo'lmasligi mumkin.
+      <span class="eg">["PHP", "SQL"] · ["nom" =&gt; "Backend"]</span></dd>
+    </div>
+
+    <div class="term" id="foreach">
+      <dt>foreach <span class="uz">— massivni aylanib chiqish</span></dt>
+      <dd>Massiv uchun eng to'g'ri sikl: mavjud <b>kalitlarni</b> oladi, shuning uchun
+      assotsiativ massivda ham, kalitlari uzluksiz bo'lmagan massivda ham ishlaydi
+      (<code>for</code> ishlamaydi).
+      <span class="eg">foreach ($a as $k =&gt; $q) { ... }</span></dd>
+    </div>
+
+    <div class="term" id="function">
+      <dt>function <span class="uz">— funksiya</span></dt>
+      <dd>Nom berilgan, qayta ishlatiladigan mantiq bo'lagi. Tashqaridan ma'lumot
+      <b>parametr</b> orqali kiradi, natija <a href="#return">return</a> orqali chiqadi.
+      Klass ichida yashaganda <b>metod</b> deb ataladi.
+      <span class="eg">function salom(string $ism): string { ... }</span></dd>
+    </div>
+
+    <div class="term" id="return">
+      <dt>return <span class="uz">— qiymat qaytarish</span></dt>
+      <dd>Qiymatni chaqirgan joyga qaytaradi va funksiyani <b>darhol tugatadi</b>.
+      <code>echo</code> dan farqi: hech narsa chiqarmaydi. Qoida — funksiya hisoblab
+      qaytarsin, chiqarishni chaqiruvchi hal qilsin.
+      <span class="eg">return "{$maosh} $";</span></dd>
+    </div>
+
+    <div class="term" id="type-hint">
+      <dt>type hint <span class="uz">— tip ko'rsatmasi</span></dt>
+      <dd>Parametr yoki qaytish qiymatining kutilgan <a href="#type">tipi</a>.
+      ⚠️ <b>O'zi kafolat bermaydi</b> — standart holatda PHP tipni o'zgartirib yuboradi.
+      Kafolat uchun <a href="#strict-types">strict_types</a> kerak.
+      <span class="eg">function f(int $son): string</span></dd>
+    </div>
+
+    <div class="term" id="strict-types">
+      <dt>declare(strict_types=1) <span class="uz">— qat'iy tip rejimi</span></dt>
+      <dd><a href="#type-hint">Type hint</a> ni haqiqiy qoidaga aylantiradi: noto'g'ri tip
+      berilsa <code>TypeError</code> chiqadi. Fayl boshida, <code>&lt;?php</code> dan keyingi
+      <b>birinchi</b> ko'rsatma bo'lishi shart va <b>har faylda alohida</b> yoziladi.
+      <span class="eg">&lt;?php declare(strict_types=1);</span></dd>
+    </div>
+
+    <div class="term" id="scope">
+      <dt>scope <span class="uz">— o'zgaruvchi doirasi</span></dt>
+      <dd>Funksiya ichida yaratilgan o'zgaruvchi tashqarida <b>mavjud emas</b> (va aksincha).
+      Bu foydali: nom to'qnashuvi bo'lmaydi. Kirish — parametr, chiqish —
+      <a href="#return">return</a>.
+      <span class="eg">funksiya ichidagi $ichki tashqarida Warning beradi</span></dd>
+    </div>
+
+    <div class="term" id="class">
+      <dt>class <span class="uz">— klass, chizma</span></dt>
+      <dd>Ma'lumot va u bilan ishlaydigan <a href="#method">metodlar</a>ni birga tutadigan
+      chizma. Bir marta yoziladi. Klass o'zi <a href="#type">tipga</a> aylanadi:
+      <code>function f(Vakansiya $v)</code> yozish mumkin.
+      <span class="eg">class Vakansiya { ... }</span></dd>
+    </div>
+
+    <div class="term" id="object">
+      <dt>object <span class="uz">— obyekt</span></dt>
+      <dd><a href="#class">Klass</a>ga ko'ra <code>new</code> bilan yasalgan aniq narsa.
+      Har <code>new</code> — yangi, mustaqil obyekt.
+      ⚠️ <code>=</code> bilan <b>nusxalanmaydi</b> (massivdan farqli) — ikki nom, bitta
+      obyekt bo'ladi; nusxa uchun <a href="#clone">clone</a>.
+      <span class="eg">$v = new Vakansiya("Backend", 800);</span></dd>
+    </div>
+
+    <div class="term" id="property">
+      <dt>property <span class="uz">— xossa</span></dt>
+      <dd><a href="#object">Obyekt</a> ichidagi ma'lumot. Tipli xossaga qiymat berilmasa
+      va o'qilsa — <code>Fatal error: Typed property ... must not be accessed before
+      initialization</code>.
+      <span class="eg">private string $nom;</span></dd>
+    </div>
+
+    <div class="term" id="method">
+      <dt>method <span class="uz">— metod</span></dt>
+      <dd><a href="#class">Klass</a> ichidagi <a href="#function">funksiya</a>. Qoidalari
+      oddiy funksiyadek, farqi — u <a href="#this">$this</a> orqali obyektning
+      ma'lumotiga yeta oladi.
+      <span class="eg">public function korinish(): string { ... }</span></dd>
+    </div>
+
+    <div class="term" id="this">
+      <dt>$this <span class="uz">— «aynan shu obyekt»</span></dt>
+      <dd>Metod hozir qaysi <a href="#object">obyekt</a> ustida ishlayotganini bildiradi.
+      Xossaga murojaat uchun <b>shart</b> — usiz <code>$nom</code> metodning lokal
+      o'zgaruvchisi bo'lib qoladi. <a href="#static">static</a> metod ichida mavjud emas.
+      <span class="eg">$this-&gt;nom = $nom;</span></dd>
+    </div>
+
+    <div class="term" id="construct">
+      <dt>__construct <span class="uz">— konstruktor</span></dt>
+      <dd>Obyekt <code>new</code> bilan yasalgan zahoti <b>avtomatik</b> ishlaydigan maxsus
+      metod. Odatda xossalarga boshlang'ich qiymat beradi. Ikki tagchiziq — «PHP uchun
+      maxsus ma'noga ega» belgisi.
+      <span class="eg">public function __construct(string $nom) { ... }</span></dd>
+    </div>
+
+    <div class="term" id="clone">
+      <dt>clone <span class="uz">— obyektning haqiqiy nusxasi</span></dt>
+      <dd><a href="#object">Obyekt</a>ni chindan nusxalaydi — natijada ikki mustaqil obyekt
+      bo'ladi. <code>=</code> esa nusxalamaydi.
+      <span class="eg">$b = clone $a;</span></dd>
+    </div>
+
+    <div class="term" id="visibility">
+      <dt>visibility <span class="uz">— ko'rinish darajasi</span></dt>
+      <dd><code>public</code> = hamma · <code>private</code> = faqat shu klass ichi ·
+      <code>protected</code> = klass va merosxo'rlari. <b>Qoida:</b>
+      <code>private</code> dan boshlang. Buzilsa —
+      <code>Fatal error: Cannot access private property</code>.
+      <span class="eg">private int $maosh;</span></dd>
+    </div>
+
+    <div class="term" id="encapsulation">
+      <dt>encapsulation <span class="uz">— enkapsulyatsiya, ma'lumotni qo'riqlash</span></dt>
+      <dd>Obyekt o'z ma'lumotini o'zi himoya qilishi: tashqaridan faqat ruxsat berilgan
+      yo'l bilan o'zgartiriladi va <a href="#method">metod</a> shart qo'ya oladi (masalan
+      manfiy maoshni rad etadi). Shart <b>bitta joyda</b> yashaydi.
+      <span class="eg">if ($yangi &lt; 0) { return; }</span></dd>
+    </div>
+
+    <div class="term" id="promotion">
+      <dt>constructor property promotion <span class="uz">— qisqa konstruktor</span></dt>
+      <dd>PHP 8: konstruktor parametri oldiga <code>private</code>/<code>public</code>
+      yozilsa, PHP <a href="#property">xossani</a> o'zi yaratadi va qiymat beradi.
+      <b>Laravel kodi shu shaklda yozilgan</b> — shuning uchun tanish bo'lishi muhim.
+      <span class="eg">__construct(private string $nom) {}</span></dd>
+    </div>
+
+    <div class="term" id="class-const">
+      <dt>class constant <span class="uz">— klass konstantasi</span></dt>
+      <dd><code>const</code> bilan e'lon qilinadigan o'zgarmas qiymat. Klassga tegishli,
+      shuning uchun obyekt yasamasdan <code>Klass::NOM</code> deb olinadi. Foydasi: adashib
+      yozsangiz PHP <b>darhol</b> xato beradi, matn esa jimgina ishlamaydi.
+      <span class="eg">Vakansiya::HOLAT_FAOL</span></dd>
+    </div>
+
+    <div class="term" id="static">
+      <dt>static <span class="uz">— klassga tegishli (obyektga emas)</span></dt>
+      <dd>Oddiy xossa har obyektda alohida, <code>static</code> esa <b>klass uchun
+      bitta</b> — barcha obyektlar bo'lishadi. Murojaat: <code>self::$nom</code> yoki
+      <code>Klass::$nom</code>. ⚠️ Global holat yaratadi va testlashni qiyinlashtiradi —
+      kamdan-kam ishlatiladi.
+      <span class="eg">private static int $soni = 0;</span></dd>
+    </div>
+
+    <div class="term" id="arrow-vs-colon">
+      <dt><code>-&gt;</code> va <code>::</code> <span class="uz">— obyekt va klass operatorlari</span></dt>
+      <dd><code>-&gt;</code> = «shu <b>obyektning</b>» (<code>$v-&gt;nom</code>).
+      <code>::</code> = «shu <b>klassning</b>» (<code>Vakansiya::HOLAT_FAOL</code>,
+      <code>self::$soni</code>) — obyekt yasashning hojati yo'q.
+      <span class="eg">$v-&gt;korinish() · Vakansiya::soni()</span></dd>
+    </div>
+
+    <div class="term" id="inheritance">
+      <dt>inheritance / extends <span class="uz">— meros</span></dt>
+      <dd><code>class B extends A</code> — B, A ning hamma narsasini <b>oladi</b>. Umumiy kod
+      ota klassda, farq qiladigan qism avlodlarda. PHP'da klass <b>faqat bitta</b> otadan
+      meros oladi.
+      <span class="eg">class EmailXabar extends Xabar</span></dd>
+    </div>
+
+    <div class="term" id="parent">
+      <dt>parent:: <span class="uz">— ota klassning versiyasi</span></dt>
+      <dd>Otaning metodini chaqirish. ⚠️ Avlod o'z konstruktorini yozsa,
+      <code>parent::__construct()</code> ni chaqirish <b>shart</b> — aks holda otaning
+      xossalari qiymatsiz qoladi.
+      <span class="eg">parent::__construct($qabulQiluvchi);</span></dd>
+    </div>
+
+    <div class="term" id="abstract">
+      <dt>abstract <span class="uz">— chala, faqat asos</span></dt>
+      <dd><code>abstract class</code> — undan obyekt yasab bo'lmaydi, faqat asos.
+      <code>abstract function f();</code> — tanasi yo'q, avlod yozishi <b>shart</b>; aks
+      holda xato <b>e'lon qilishda</b> chiqadi.
+      <span class="eg">abstract public function yubor(): string;</span></dd>
+    </div>
+
+    <div class="term" id="polymorphism">
+      <dt>polymorphism <span class="uz">— polimorfizm</span></dt>
+      <dd><b>Bir xil murojaat, har xil xatti-harakat.</b> Bitta siklda har xil obyektlar
+      ishlatiladi va <code>if</code> yozish kerak bo'lmaydi — har obyekt o'zining metodini
+      biladi. Yangi tur qo'shilsa sikl o'zgarmaydi.
+      <span class="eg">foreach ($xabarlar as $x) { $x-&gt;yubor(); }</span></dd>
+    </div>
+
+    <div class="term" id="instanceof">
+      <dt>instanceof <span class="uz">— «bu obyekt shu turdanmi?»</span></dt>
+      <dd>Avlod <b>ikkala tipga ham</b> mos keladi — o'ziga ham, otasiga ham. Shuning uchun
+      <code>f(Xabar $x)</code> ga barcha avlodlarni berish mumkin.
+      <span class="eg">$e instanceof Xabar → true</span></dd>
+    </div>
+
+    <div class="term" id="interface">
+      <dt>interface <span class="uz">— shartnoma (Laravel'da: contract)</span></dt>
+      <dd>Faqat metod <b>imzolari</b>, kod yo'q: «bu shartnomani qabul qilgan klass shu
+      metodlarni albatta yozadi». <code>implements</code> bilan qabul qilinadi, <b>bir
+      nechtasi</b> mumkin. Tip sifatida ishlatiladi — <b>kod aniq klassga emas, shartnomaga
+      tayanadi</b>.
+      <span class="eg">class EmailKanal implements Yuboruvchi</span></dd>
+    </div>
+
+    <div class="term" id="trait">
+      <dt>trait <span class="uz">— qayta ishlatiladigan kod bo'lagi</span></dt>
+      <dd>Kodni klass ichiga <b>ko'chiradi</b> (<code>use</code> bilan). Bog'liq bo'lmagan
+      klasslarga bir xil kod berish uchun. ⚠️ Tip <b>bermaydi</b> va kodni yashiradi —
+      ehtiyot bilan ishlatiladi. Ustunlik: <b>o'z klassi &gt; trait &gt; ota klass</b>.
+      <span class="eg">trait Loglaydi { ... }  →  use Loglaydi;</span></dd>
+    </div>
+
+    <div class="term" id="exception">
+      <dt>exception <span class="uz">— otiladigan xato obyekti</span></dt>
+      <dd>Xato ham <b>obyekt</b>: <code>DivisionByZeroError</code> — bu klass nomi. Shu
+      sababli uni <b>tur bo'yicha</b> tutish mumkin. <code>Exception</code> = <b>kutilgan</b>
+      muammo (validatsiya, fayl, tarmoq).
+      <span class="eg">throw new MaoshXatosi("Manfiy maosh");</span></dd>
+    </div>
+
+    <div class="term" id="throw">
+      <dt>throw <span class="uz">— xatoni otish</span></dt>
+      <dd>Obyekt yasab, uni «otadi»: funksiya <b>darhol to'xtaydi</b>,
+      <code>return</code> ga yetmaydi. 8-darsdagi «jimgina rad etish»dan farqi —
+      chaqiruvchi muammoni <b>biladi</b>.
+      <span class="eg">throw new InvalidArgumentException("...");</span></dd>
+    </div>
+
+    <div class="term" id="try-catch">
+      <dt>try / catch / finally <span class="uz">— tutib olish</span></dt>
+      <dd><code>try</code> — urinib ko'r; xato otilsa blokning <b>qolgani tashlanadi</b>.
+      <code>catch (Tur $e)</code> — shu turdagi xatoni hal qiladi (<b>avlodlarni ham
+      tutadi</b>), keyin dastur davom etadi. <code>finally</code> — <b>har holda</b>
+      ishlaydi. Bir necha catch bo'lsa: <b>aniqdan umumiyga</b>.
+      <span class="eg">try { ... } catch (Exception $e) { ... }</span></dd>
+    </div>
+
+    <div class="term" id="throwable">
+      <dt>Throwable / Error <span class="uz">— xatolar ierarxiyasi</span></dt>
+      <dd><code>Throwable</code> — eng tepadagi <a href="#interface">interface</a>.
+      Ostida ikki <b>aka-uka</b>: <code>Exception</code> (kutilgan muammo) va
+      <code>Error</code> (dasturchi xatosi — <code>TypeError</code>,
+      <code>DivisionByZeroError</code>).
+      ⚠️ <code>catch (Exception)</code> <code>Error</code> ni <b>TUTMAYDI</b> — hammasi
+      uchun <code>Throwable</code>.
+      <span class="eg">catch (Throwable $e) → hammasini tutadi</span></dd>
+    </div>
+
+    <div class="term" id="namespace">
+      <dt>namespace <span class="uz">— nom hududi</span></dt>
+      <dd>Klass nomining <b>old qismi</b>: <code>namespace App;</code> yozilsa, haqiqiy nom
+      <code>App\Xabar</code> bo'ladi. Nom to'qnashuvini yechadi. Faylning <b>birinchi</b>
+      ko'rsatmasi bo'lishi kerak (<code>declare</code> dan keyin).
+      <span class="eg">object(App\Xabar) — var_dump ko'rsatadi</span></dd>
+    </div>
+
+    <div class="term" id="use-import">
+      <dt>use (import) <span class="uz">— qisqa nom e'loni</span></dt>
+      <dd>«Bu faylda <code>Xabar</code> deganda <code>App\Xabar</code> ni tushun».
+      <b>Hech narsa yuklamaydi</b> — faqat nomni hal qiladi; yuklashni
+      <a href="#autoload">autoload</a> qiladi.
+      ⚠️ Klass <b>ichida</b> turgan <code>use</code> — bu <a href="#trait">trait</a> ulash,
+      boshqa narsa.
+      <span class="eg">use App\Xabar;</span></dd>
+    </div>
+
+    <div class="term" id="psr-4">
+      <dt>PSR-4 <span class="uz">— namespace ↔ papka qoidasi</span></dt>
+      <dd><b>Namespace = papka yo'li, klass nomi = fayl nomi.</b>
+      <code>"App\\": "src/"</code> qoidasi bilan <code>App\Kanal\Email</code> →
+      <code>src/Kanal/Email.php</code>. Shu sababli fayl nomi klass nomiga mos bo'lishi shart.
+      <span class="eg">composer.json → autoload → psr-4</span></dd>
+    </div>
+
+    <div class="term" id="autoload">
+      <dt>autoload <span class="uz">— klassni o'zi topib yuklash</span></dt>
+      <dd>Klass kerak bo'lganda PHP uni <a href="#psr-4">PSR-4</a> qoidasi bo'yicha
+      <b>o'zi</b> qidirib topadi. <code>composer dump-autoload</code> buni yasaydi, va
+      skriptda <b>bitta</b> qator yetadi — <code>require</code> zanjiri tugaydi.
+      <span class="eg">require 'vendor/autoload.php';</span></dd>
+    </div>
+
+    <div class="term" id="composer">
+      <dt>Composer <span class="uz">— PHP paket menejeri</span></dt>
+      <dd>Ikki vazifasi: (1) <a href="#autoload">autoload</a> ni boshqarish,
+      (2) begona kutubxonalarni olib kelish. <b>Laravel ham shu asbob bilan o'rnatiladi.</b>
+      Git'ga: <code>composer.json</code> ✅ · <code>composer.lock</code> ✅ ·
+      <code>vendor/</code> ❌ (u <code>composer install</code> bilan tiklanadi).
+      <span class="eg">composer require symfony/var-dumper</span></dd>
+    </div>
+
+    <div class="term" id="xss">
+      <dt>XSS <span class="uz">(cross-site scripting) — begona kod kiritish hujumi</span></dt>
+      <dd>Tashqaridan kelgan matn HTML'ga <b>xom holda</b> chiqarilsa, undagi teglar
+      brauzer tomonidan <b>bajariladi</b> — hujumchi sizning sahifangizda o'z kodini
+      ishlatadi (cookie o'g'irlash). Himoya: chiqarishdan oldin
+      <code>htmlspecialchars</code>. Blade <code>{{ }}</code> buni o'zi qiladi,
+      <code>{!! !!}</code> esa <b>o'chiradi</b>.
+      <span class="eg">&lt;script&gt; → &amp;lt;script&amp;gt;</span></dd>
+    </div>
+
+    <div class="term" id="session">
+      <dt>session <span class="uz">— so'rovlar orasida saqlanadigan holat</span></dt>
+      <dd><b>Ma'lumot serverda, kaliti (session ID) brauzerdagi cookie'da.</b> Cookie
+      bo'lmasa server foydalanuvchini tanimaydi. <code>session_start()</code> har qanday
+      chiqishdan <b>oldin</b> chaqirilishi kerak (sarlavha orqali yuboriladi).
+      <span class="eg">$_SESSION['tashrif'] = 1;</span></dd>
+    </div>
+
+    <div class="term" id="front-controller">
+      <dt>front controller <span class="uz">— yagona kirish nuqtasi</span></dt>
+      <dd>Barcha so'rov bitta faylga (<code>public/index.php</code>) keladi. To'rt foydasi:
+      sozlash takrorlanmaydi · markaziy nazorat (log, auth) · chiroyli manzil ·
+      xavfsizlik (faqat <code>public/</code> brauzerga ochiq).
+      <span class="eg">php -S localhost:8000 public/index.php</span></dd>
+    </div>
+
+    <div class="term" id="router">
+      <dt>router <span class="uz">— yo'l jadvali</span></dt>
+      <dd><b>Metod + yo'l → controller</b> moslashtiruvchi. Ichma-ich massiv:
+      <code>$routes['GET']['/vakansiyalar']</code>. <code>GET /</code> va
+      <code>POST /</code> — <b>ikki boshqa route</b>. Topilmasa 404.
+      <span class="eg">$router-&gt;add('GET', '/', BoshSahifa::class);</span></dd>
+    </div>
+
+    <div class="term" id="di">
+      <dt>dependency injection <span class="uz">— bog'liqlikni tashqaridan berish</span></dt>
+      <dd>Obyekt kerakli narsani <b>o'zi yasamaydi</b>, konstruktorda <b>e'lon qiladi</b>.
+      Tip — <a href="#interface">interface</a>, aniq klass emas. Natijada testda soxta
+      obyekt berish va bajarilishni almashtirish oson bo'ladi.
+      <span class="eg">__construct(private VakansiyaRepo $repo) {}</span></dd>
+    </div>
+
+    <div class="term" id="container">
+      <dt>container <span class="uz">— obyekt yasovchi (Laravel: Service Container)</span></dt>
+      <dd>Ikki vazifasi: <code>bind($interface, $klass)</code> — interface uchun
+      bajarilishni ko'rsatish; <code>make($nom)</code> — obyekt yasash va
+      <b>bog'liqliklarni o'zi topib qo'yish</b> (rekursiv). Interface uchun
+      <code>bind()</code> qilinmasa: «not instantiable» xatosi.
+      <span class="eg">$container-&gt;make(Vakansiyalar::class)</span></dd>
+    </div>
+
+    <div class="term" id="reflection">
+      <dt>Reflection <span class="uz">— PHP o'z kodiga qarashi</span></dt>
+      <dd>Dastur ishlab turganda klassni tekshirish: <code>isInstantiable()</code>,
+      <code>getConstructor()</code>, <code>getParameters()</code>,
+      <code>getType()</code>. <a href="#container">Container</a> shu bilan konstruktor
+      tiplarini <b>o'qiydi</b> — «sehr»ning haqiqiy mexanizmi shu.
+      <span class="eg">new \ReflectionClass($klass)</span></dd>
+    </div>
+
+    <div class="term" id="autowiring">
+      <dt>autowiring <span class="uz">— simlarni o'zi ulash</span></dt>
+      <dd><a href="#container">Container</a> konstruktordagi <a href="#type-hint">type
+      hint</a> larni <a href="#reflection">Reflection</a> bilan o'qib, kerakli obyektlarni
+      <b>o'zi</b> yasab beradi. Mana 6-darsdagi type hint nima uchun ham kerak edi: u
+      hujjat emas, <b>mashina o'qiydigan ma'lumot</b>.
+      <span class="eg">Laravel: __construct(Request $request)</span></dd>
+    </div>
+
+    <div class="term" id="artisan">
+      <dt>artisan <span class="uz">— Laravel'ning buyruq qatori</span></dt>
+      <dd><code>php artisan serve</code> (server) · <code>route:list</code> (route'lar) ·
+      <code>make:controller</code> · <code>make:middleware</code> · <code>migrate</code> ·
+      <code>tinker</code> (ilova ichida kod sinash) · <code>list</code> (barcha buyruqlar).
+      <span class="eg">php artisan route:list --path=vakansiyalar</span></dd>
+    </div>
+
+    <div class="term" id="env">
+      <dt>.env <span class="uz">— muhit sozlamalari</span></dt>
+      <dd>Baza, kalitlar, muhitga bog'liq qiymatlar. ⚠️ <b>Git'ga tushmaydi</b> (parollar
+      bor) — repoda uning o'rniga <code>.env.example</code> turadi. Laravel uni
+      <code>.gitignore</code> ga o'zi qo'shadi.
+      <span class="eg">DB_CONNECTION=sqlite · APP_KEY=base64:...</span></dd>
+    </div>
+
+    <div class="term" id="closure">
+      <dt>closure <span class="uz">— nomsiz (anonim) funksiya</span></dt>
+      <dd>Nom berilmagan, <b>joyida beriladigan</b> funksiya. Laravel route'larining qisqa
+      shaklida ishlatiladi. Real loyihada esa <a href="#router">route</a> ni
+      <b>controller</b> ga ulash afzal.
+      <span class="eg">Route::get('/', function () { ... });</span></dd>
+    </div>
+
+    <div class="term" id="middleware">
+      <dt>middleware <span class="uz">— so'rov yo'lidagi qatlam</span></dt>
+      <dd>So'rov controllerga yetib borguncha o'tadigan qatlam. <code>$next($request)</code>
+      dan <b>oldin</b> va <b>keyin</b> kod ishlaydi — ya'ni controllerni <b>o'rab
+      oladi</b>. Bir necha middleware ichma-ich: <code>A(B(CONTROLLER))</code>, chiqish
+      <b>teskari</b> tartibda. <code>$next()</code> chaqirilmasa so'rov to'xtaydi
+      (<code>auth</code> shunday ishlaydi).
+      <span class="eg">-&gt;middleware(IzniKuzat::class)</span></dd>
+    </div>
+
+    <div class="term" id="request-obj">
+      <dt>Request obyekti <span class="uz">— so'rov bitta obyektda</span></dt>
+      <dd><code>Request::capture()</code> metod, yo'l, <code>$_GET</code>,
+      <code>$_POST</code>, sarlavhalar, cookie va fayllarni <b>bitta obyektga</b> yig'adi.
+      Shu sababli Laravel'da <code>$request-&gt;input('ism')</code> yoziladi — ostida esa
+      <code>$_POST</code> turadi.
+      <span class="eg">$app-&gt;handleRequest(Request::capture())</span></dd>
+    </div>
+
+    <div class="term" id="lifecycle">
+      <dt>request lifecycle <span class="uz">— so'rovning sayohati</span></dt>
+      <dd>Yetti qadam: <code>public/index.php</code> → autoload →
+      <code>bootstrap/app.php</code> (container) → <code>Request::capture()</code> →
+      <a href="#middleware">middleware</a> → router + controller → javob middleware'lardan
+      <b>teskari</b> qaytadi. Intervyuda eng ko'p beriladigan savol.
+      <span class="eg">7 qadamdan 5 tasi Modul A da yozilgan</span></dd>
+    </div>
+
+    <div class="term" id="view">
+      <dt>view <span class="uz">— ko'rinish (Blade shabloni)</span></dt>
+      <dd>Controller <b>ma'lumot yig'adi</b>, view uni <b>ko'rsatadi</b>.
+      <code>view('papka.fayl', ['kalit' =&gt; $qiymat])</code> —
+      <b>nuqta = papka ajratuvchi</b>, kalitlar view ichida o'zgaruvchi bo'ladi. Fayllar
+      <code>resources/views/</code> da, kengaytmasi <code>.blade.php</code>.
+      <span class="eg">view('vakansiyalar.index', [...])</span></dd>
+    </div>
+
+    <div class="term" id="blade">
+      <dt>Blade <span class="uz">— Laravel shablon tili</span></dt>
+      <dd>Yangi til emas: <b>oddiy PHP fayliga kompilyatsiya qilinadi</b> va natija
+      <code>storage/framework/views/</code> da saqlanadi. <code>{{ }}</code> →
+      <code>echo e()</code>, <code>@foreach</code> → <code>foreach</code>.
+      <span class="eg">@if · @foreach · @forelse ... @empty</span></dd>
+    </div>
+
+    <div class="term" id="blade-escape">
+      <dt><code>{{ }}</code> va <code>{!! !!}</code> <span class="uz">— himoyalab va xom chiqarish</span></dt>
+      <dd>🔒 <code>{{ $x }}</code> → <code>echo e($x)</code>, va <code>e()</code> bu
+      <a href="#xss">htmlspecialchars</a> — ya'ni <b>XSS himoyasi avtomatik</b>.
+      <code>{!! $x !!}</code> → oddiy <code>echo</code>, <b>himoya yo'q</b>. Ikkinchisini
+      faqat o'zingiz yasagan ishonchli HTML uchun ishlating.
+      <span class="eg">{{ $ism }} — xavfsiz · {!! $html !!} — ehtiyot</span></dd>
+    </div>
+
+    <div class="term" id="layout">
+      <dt>layout <span class="uz">— umumiy sahifa qolipi</span></dt>
+      <dd>Takrorlanadigan qismni (head, menyu, footer) bir joyga chiqarish.
+      Layout'da <code>@yield('nom', 'standart')</code> bo'sh joy qoldiradi; sahifa
+      <code>@extends</code> bilan uni oladi va <code>@section</code> bilan to'ldiradi.
+      G'oya 9-darsdagi meros bilan bir xil.
+      <span class="eg">@extends('layouts.asosiy')</span></dd>
+    </div>
+
+    <div class="term" id="blade-component">
+      <dt>Blade komponent <span class="uz">— qayta ishlatiladigan HTML bo'lagi</span></dt>
+      <dd><code>resources/views/components/nom.blade.php</code> →
+      <code>&lt;x-nom /&gt;</code>. <code>@props([...])</code> bilan kutilayotgan parametrlar
+      <b>e'lon qilinadi</b> (<code>@include</code> da ko'rinmaydi).
+      <code>:nom="$ifoda"</code> — ikki nuqta = PHP ifodasi; ikki nuqtasiz = oddiy matn.
+      <span class="eg">&lt;x-vakansiya-karta :nom="$v['nom']" /&gt;</span></dd>
+    </div>
+
+    <div class="term" id="csrf">
+      <dt>CSRF <span class="uz">(cross-site request forgery) — so'rovni qalbakilashtirish</span></dt>
+      <dd>Brauzer <a href="#session">cookie</a> ni <b>avtomatik</b> yuborgani uchun, boshqa
+      saytdagi yashirin forma <b>sizning nomingizdan</b> so'rov yubora oladi.
+      <code>@csrf</code> formaga <b>token</b> qo'shadi (yashirin
+      <code>_token</code> input); xuddi shu token sessiyada ham bor. Hujumchi tokenni
+      <b>o'qiy olmaydi</b> (boshqa domen mazmuni yopiq). Yo'q bo'lsa —
+      <b>419 Page Expired</b>. Faqat o'zgartiruvchi metodlarga qo'llanadi.
+      <span class="eg">@csrf → &lt;input type="hidden" name="_token" ...&gt;</span></dd>
+    </div>
+
+    <div class="term" id="method-spoofing">
+      <dt>method spoofing <span class="uz">— metodni almashtirib ko'rsatish</span></dt>
+      <dd>HTML forma faqat <code>GET</code> va <code>POST</code> ni biladi. Shuning uchun
+      <code>@method('PUT')</code> yashirin <code>_method</code> maydonini qo'shadi —
+      Laravel uni ko'rib so'rovni <code>PUT</code> deb hisoblaydi.
+      <span class="eg">@method('PUT') → &lt;input name="_method" value="PUT"&gt;</span></dd>
+    </div>
+
+    <div class="term" id="display-errors">
+      <dt>display_errors <span class="uz">— xatoni ekranda ko'rsatish sozlamasi</span></dt>
+      <dd>Ishlab chiqishda <b>yoqilgan</b>, haqiqiy serverda <b>o'chirilgan</b> bo'ladi
+      (xato ichida maxfiy ma'lumot bo'lishi mumkin). O'chirilganda brauzerda <b>bo'sh oq
+      sahifa</b> chiqadi — xato yo'qolmaydi, <b>log faylga</b> yoziladi.
+      <span class="eg">php -d display_errors=0 fayl.php</span></dd>
+    </div>
+
+    <div class="term" id="validation">
+      <dt>validatsiya <span class="uz">(validation) — kirayotgan ma'lumotni tekshirish</span></dt>
+      <dd><code>$request-&gt;validate([...])</code> — bitta chaqiruv, butun tekshiruv.
+      Qoidalar <code>|</code> bilan ajratiladi (<code>required|string|min:5</code>).
+      U <b>qiymat qaytaradi</b> — va faqat <b>qoidada sanab o'tilgan</b> maydonlarni,
+      shuning uchun bazaga yozishda <code>$request-&gt;all()</code> emas, shu qiymat
+      ishlatiladi. Xato bo'lsa <a href="#exception">exception</a> otadi va keyingi kod
+      <b>bajarilmaydi</b>. Har doim <b>serverda</b> bajariladi; brauzerdagi tekshiruv
+      faqat qulaylik.
+      <span class="eg">$t = $request-&gt;validate(['nom' =&gt; 'required|min:5']);</span></dd>
+    </div>
+
+    <div class="term" id="errors-bag">
+      <dt>$errors <span class="uz">— xato xabarlari to'plami</span></dt>
+      <dd>Laravel <b>har bir view'ga avtomatik</b> qo'shadi (controller uzatmaydi).
+      <code>$errors-&gt;any()</code> — xato bormi; <code>$errors-&gt;all()</code> — barcha
+      xabarlar. Bitta maydon uchun <code>@error('nom') {{ $message }} @enderror</code>.
+      <span class="eg">@if ($errors-&gt;any()) ... @endif</span></dd>
+    </div>
+
+    <div class="term" id="old-input">
+      <dt>old() <span class="uz">— oldin kiritilgan qiymat</span></dt>
+      <dd>Validatsiya xatosidan keyin foydalanuvchi kiritgan qiymatlar
+      <a href="#session">sessiyaga</a> yoziladi; <code>old('nom')</code> ularni formaga
+      qaytaradi. Yozilmasa foydalanuvchi <b>hamma maydonni qaytadan</b> to'ldiradi.
+      <span class="eg">value="{{ old('nom') }}"</span></dd>
+    </div>
+
+    <div class="term" id="flash">
+      <dt>flash xabar <span class="uz">— bir martalik xabar</span></dt>
+      <dd><a href="#session">Sessiyada</a> <b>faqat keyingi so'rovgacha</b> yashaydi.
+      <code>redirect()-&gt;with('xabar', '...')</code> qo'yadi, view'da
+      <code>session('xabar')</code> oladi. Sahifa yangilansa <b>yo'qoladi</b> — «saqlandi»
+      degan tasdiq uchun ishlatiladi.
+      <span class="eg">return redirect('/vakansiyalar')-&gt;with('xabar', 'Qo\'shildi');</span></dd>
+    </div>
+  </dl>
+
+  <h2 id="c-sql">Modul C — ma'lumotlar bazasi</h2>
+  <p>SQL <b>Eloquent'dan oldin</b> o'rganiladi — shunda ORM sehr emas, qulaylik bo'lib
+  ko'rinadi.</p>
+
+  <dl>
+    <div class="term" id="sql">
+      <dt>SQL <span class="uz">(structured query language) — bazaga so'rov tili</span></dt>
+      <dd>Bazadan ma'lumot <b>so'rash</b> va o'zgartirish tili. O'qishga oson —
+      inglizcha gapga o'xshaydi. Tartib o'zgarmaydi:
+      <code>SELECT → FROM → WHERE → ORDER BY → LIMIT</code>. Matn <b>bittalik
+      tirnoq</b>da.
+      <span class="eg">SELECT nom FROM vakansiyalar WHERE maosh &gt; 700</span></dd>
+    </div>
+
+    <div class="term" id="table">
+      <dt>jadval <span class="uz">(table) — qator va ustunlardan iborat saqlash joyi</span></dt>
+      <dd>Har <b>qator</b> (row) — bitta yozuv, har <b>ustun</b> (column) — bitta maydon.
+      G'oyasi <a href="#array">massiv</a>lar massiviga o'xshaydi, lekin diskda saqlanadi va
+      qoidalari bor (<code>NOT NULL</code>, <code>DEFAULT</code>).
+      <span class="eg">CREATE TABLE vakansiyalar (id INTEGER PRIMARY KEY, nom TEXT NOT NULL)</span></dd>
+    </div>
+
+    <div class="term" id="primary-key">
+      <dt>birlamchi kalit <span class="uz">(primary key) — qatorning takrorlanmas raqami</span></dt>
+      <dd>Har qatorni <b>bir xilda ajratib turadigan</b> ustun.
+      <code>AUTOINCREMENT</code> bilan o'zi ortib boradi. Keyinroq boshqa jadval shu
+      raqamga tayanib bog'lanadi (<code>JOIN</code>).
+      <span class="eg">id INTEGER PRIMARY KEY AUTOINCREMENT</span></dd>
+    </div>
+
+    <div class="term" id="sql-null">
+      <dt>NULL <span class="uz">— «noma'lum», qiymatning yo'qligi</span></dt>
+      <dd>PHP'dagi <a href="#null">null</a> ning bazadagi ukasi, lekin <b>xatarliroq</b>:
+      <code>= NULL</code> va <code>!= NULL</code> <b>hech qachon</b> rost bo'lmaydi —
+      <code>IS NULL</code> / <code>IS NOT NULL</code> kerak. Undan yomoni:
+      <code>WHERE shahar != 'Toshkent'</code> <code>NULL</code> qatorni <b>jimgina
+      tashlab ketadi</b> — hisobotdan qatorlar «g'oyib bo'ladigan» klassik bug'.
+      <span class="eg">WHERE shahar IS NULL OR shahar != 'Toshkent'</span></dd>
+    </div>
+
+    <div class="term" id="sql-injection">
+      <dt>SQL injection <span class="uz">— so'rovga begona SQL kiritish</span></dt>
+      <dd>Foydalanuvchi qiymatini SQL satriga <b>qo'shib</b> yozsangiz, u SQL sifatida
+      bajariladi. Yechim — <b>parametr</b>: <code>?</code> o'rniga qiymat <b>ma'lumot</b>
+      sifatida qo'yiladi. <a href="#xss">XSS</a> bilan bitta sababdan tug'iladi:
+      tashqi ma'lumotni <b>kod deb ishlatish</b>. XSS — chiqishda, injection — so'rovda.
+      <span class="eg">DB::select('... WHERE nom = ?', [$nom]);</span></dd>
+    </div>
+
+    <div class="term" id="foreign-key">
+      <dt>tashqi kalit <span class="uz">(foreign key) — boshqa jadvalga ishora</span></dt>
+      <dd>Boshqa jadvaldagi qatorning <a href="#primary-key">id</a> sini saqlaydigan ustun;
+      nomi odatda <code>&lt;jadval&gt;_id</code>. Ma'lumot <b>takrorlanmasligi</b> uchun
+      kerak: kompaniya nomi bir joyda turadi, vakansiyalar unga <b>raqam bilan</b>
+      ishora qiladi. Migration'da <code>foreignId(...)-&gt;constrained(...)</code>
+      yozilsa, mavjud bo'lmagan raqamni <b>bazaning o'zi rad etadi</b>.
+      <span class="eg">FOREIGN KEY constraint failed</span></dd>
+    </div>
+
+    <div class="term" id="join">
+      <dt>JOIN <span class="uz">— ikki jadvalni bitta qator qilib o'qish</span></dt>
+      <dd><code>ON</code> sharti <b>qanday bog'lashni</b> aytadi. Oddiy
+      <code>JOIN</code> juftligi topilmagan qatorni <b>tushirib qoldiradi</b>;
+      <code>LEFT JOIN</code> esa uni qoldirib o'ng tomonni <a href="#sql-null">NULL</a>
+      qiladi. ⚠️ <code>LEFT JOIN</code> dan keyin <code>WHERE</code> da <b>o'ng</b>
+      jadval ustunini ishlatsangiz, u jimgina oddiy <code>JOIN</code> ga aylanadi —
+      shartni <code>ON</code> ga yozing.
+      <span class="eg">JOIN kompaniyalar k ON k.id = v.kompaniya_id</span></dd>
+    </div>
+
+    <div class="term" id="group-by">
+      <dt>GROUP BY <span class="uz">— guruhlab hisoblash</span></dt>
+      <dd>Qatorlarni guruhlarga bo'lib, har guruhni <b>bitta qator</b> qiladi.
+      Guruh funksiyalari: <code>COUNT</code>, <code>SUM</code>, <code>AVG</code>,
+      <code>MIN</code>, <code>MAX</code>. Guruhlarni filtrlash — <code>HAVING</code>
+      (<code>WHERE</code> guruhlashdan <b>oldin</b> ishlaydi, shuning uchun unda
+      <code>COUNT(*)</code> yozib bo'lmaydi). <code>COUNT(*)</code> qatorlarni,
+      <code>COUNT(ustun)</code> esa <code>NULL</code> bo'lmaganlarni sanaydi.
+      <span class="eg">GROUP BY k.id HAVING COUNT(*) &gt; 1</span></dd>
+    </div>
+
+    <div class="term" id="migration">
+      <dt>migration <span class="uz">— jadval tuzilishi kod ko'rinishida</span></dt>
+      <dd><code>database/migrations/</code> dagi fayl: <code>up()</code> o'zgarishni
+      qo'llaydi, <code>down()</code> bekor qiladi. Kod git'da yashaydi, shuning uchun
+      istalgan kompyuterda <code>php artisan migrate</code> bilan bir xil tiklanadi.
+      Laravel bajarilganlarni bazadagi <code>migrations</code> jadvalida
+      <b>fayl nomi</b> va <code>batch</code> raqami bilan yozib boradi — shuning uchun
+      <b>bajarilgan faylni tahrirlash ish bermaydi</b>. Sehr yo'q:
+      <code>--pretend</code> u yuboradigan <code>CREATE TABLE</code> ni ko'rsatadi.
+      <span class="eg">php artisan make:migration create_kompaniyalar_table</span></dd>
+    </div>
+
+    <div class="term" id="anonim-klass">
+      <dt>anonim klass <span class="uz">— nomsiz klass</span></dt>
+      <dd>Oddiy <a href="#class">klass</a>, faqat nomi yo'q — <b>bir marta</b>
+      ishlatiladigan joyda nom shart emas. Har migration fayli aynan shunday boshlanadi
+      (<code>return new class extends Migration</code>): nom berilsa, ikkita migration
+      to'qnashishi mumkin edi. G'oyasi <a href="#closure">closure</a> bilan bir xil.
+      <span class="eg">return new class extends Migration { ... };</span></dd>
+    </div>
+  </dl>
+
+  <h2 id="ishtop">IshTop — loyiha domeni</h2>
   <p>Kurs davomida quriladigan ilovaning atamalari. Matnda o'zbekcha, <b>kodda inglizcha</b>
   nom ishlatiladi — ikkisi shu jadval orqali bog'lanadi.</p>
 

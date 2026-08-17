@@ -1,0 +1,702 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 20 — Validation, xatolar va old()</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 20 · MODUL B — LARAVEL · YAKUNIY DARS</p>
+  <h1>Validation: xato kiritilganda nima bo'ladi</h1>
+  <p class="lead">Modul B ning oxirgi darsi. Bu darsdan keyin forma <b>tekshiradi</b>:
+  noto'g'ri ma'lumot kiritilsa foydalanuvchi formaga qaytadi — <b>xato xabarlari</b> va
+  <b>oldin kiritgan qiymatlari</b> bilan. Bu 13-darsdagi «POST → redirect → GET»
+  naqshining to'liq shakli.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 11 daqiqa</span>
+    <span>💻 Amaliyot ≈ 16 daqiqa</span>
+    <span>Kerak: <a href="0019-blade-komponent-va-forma.html">Dars 19</a></span>
+  </p>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Nega bu muhim</span>
+    <p>19-darsdagi forma <b>hamma narsani</b> qabul qiladi: bo'sh nom, 500 belgili matn,
+    maosh o'rniga «salom». Bunday ma'lumot bazaga tushsa — hisobot buziladi, sahifa
+    g'alati ko'rinadi, va sababini keyinroq topish qiyin bo'ladi.</p>
+    <p>Qoida oddiy va <b>istisnosiz</b>: <b>tashqaridan kelgan ma'lumotga hech qachon
+    ishonmang.</b> 13-darsda buni XSS tomonidan ko'rgandik (chiqarishda himoya), bugun
+    ikkinchi tomonini ko'ramiz — <b>kirishda tekshirish</b>.</p>
+    <p>Bu intervyu savoli ham: «validatsiyani qayerda qilasiz?» Javob: <b>serverda,
+    har doim</b>. Brauzerdagi tekshiruv (<code>required</code> atributi) faqat qulaylik —
+    uni chetlab o'tish bir daqiqalik ish.</p>
+  </div>
+
+  <!-- ═══════════════ 2) TUSHUNCHA ═══════════════ -->
+  <h2>Bitta chaqiruv — butun tekshiruv</h2>
+
+  <div class="codefile">
+    <div class="fname">app/Http/Controllers/VakansiyaController.php</div>
+    <code class="cmd" data-cmd="public function store(Request $request): RedirectResponse
+{
+    $tekshirilgan = $request-&gt;validate([
+        'nom' =&gt; 'required|string|min:5|max:100',
+        'maosh' =&gt; 'required|integer|min:1',
+    ]);
+
+    return redirect('/vakansiyalar')
+        -&gt;with('xabar', &quot;Qo'shildi: {$tekshirilgan['nom']}&quot;);
+}">public function store(Request $request): RedirectResponse
+{
+    <span class="add">$tekshirilgan = $request-&gt;validate([
+        'nom' =&gt; 'required|string|min:5|max:100',
+        'maosh' =&gt; 'required|integer|min:1',
+    ]);</span>
+
+    return redirect('/vakansiyalar')
+        -&gt;with('xabar', "Qo'shildi: {$tekshirilgan['nom']}");
+}</code>
+  </div>
+
+  <p>Qoidalar <b>vertikal chiziq</b> bilan ajratiladi. Eng ko'p ishlatiladiganlari:</p>
+
+  <table class="sheet">
+    <tr><th>Qoida</th><th class="note-cell">Ma'nosi</th></tr>
+    <tr><td><code>required</code></td><td class="note-cell">Bo'sh bo'lmasin</td></tr>
+    <tr><td><code>string</code> · <code>integer</code> · <code>boolean</code></td><td class="note-cell">Tip (2-dars!)</td></tr>
+    <tr><td><code>min:5</code> · <code>max:100</code></td><td class="note-cell">Matnda — <b>belgilar soni</b>, sonda — <b>qiymat</b></td></tr>
+    <tr><td><code>email</code></td><td class="note-cell">To'g'ri email shakli</td></tr>
+    <tr><td><code>unique:vakansiyalar,nom</code></td><td class="note-cell">Bazada takrorlanmasin (C modulida)</td></tr>
+    <tr><td><code>nullable</code></td><td class="note-cell">Bo'sh bo'lishi mumkin — lekin kelsa qoidaga mos bo'lsin</td></tr>
+    <tr><td><code>in:faol,yopiq</code></td><td class="note-cell">Faqat sanab o'tilgan qiymatlardan biri</td></tr>
+  </table>
+
+  <div class="callout note">
+    <span class="label">🔑 Eng muhim jihat: <code>validate()</code> qiymat <b>qaytaradi</b></span>
+    <p><code>$tekshirilgan = $request-&gt;validate([...])</code> — u faqat tekshirmaydi,
+    <b>tekshirilgan ma'lumotni qaytaradi</b>. Va u <b>faqat qoidada sanab o'tilgan
+    maydonlarni</b> o'z ichiga oladi.</p>
+    <p>Nega bu muhim: foydalanuvchi formaga qo'shimcha maydon qo'shib yuborsa (masalan
+    <code>rol=admin</code>), u <code>$tekshirilgan</code> ichiga <b>tushmaydi</b>. Shuning
+    uchun bazaga yozishda <code>$request-&gt;all()</code> emas, <b><code>$tekshirilgan</code>
+    ishlatiladi</b>. Bu «mass assignment» xavfsizligining birinchi qatlami — Eloquent darsida <code>$fillable</code> bilan qaytamiz.</p>
+  </div>
+
+  <h2>Xato bo'lsa nima sodir bo'ladi</h2>
+
+  <p>Bu darsning eng muhim tushunchasi. <code>validate()</code> muvaffaqiyatsiz bo'lsa,
+  <b>keyingi qator umuman bajarilmaydi</b> — Laravel exception otadi (11-dars!) va uni
+  o'zi tutib oladi. Natijada:</p>
+
+  <div class="areas wide">
+    <div class="area">
+      <h4>1 · Exception otiladi</h4>
+      <span class="en">ValidationException</span>
+      <div class="desc">Controller <b>to'xtaydi</b> — qolgan kod ishlamaydi</div>
+    </div>
+    <div class="area">
+      <h4>2 · Xatolar sessiyaga</h4>
+      <span class="en">session</span>
+      <div class="desc">Xato xabarlari va kiritilgan qiymatlar <b>sessiyaga</b> yoziladi (13-dars)</div>
+    </div>
+    <div class="area">
+      <h4>3 · Redirect back</h4>
+      <span class="en">302</span>
+      <div class="desc">Foydalanuvchi <b>formaga qaytariladi</b></div>
+    </div>
+    <div class="area">
+      <h4>4 · Forma to'ldirilgan</h4>
+      <span class="en">$errors + old()</span>
+      <div class="desc">Xatolar ko'rinadi, maydonlar <b>bo'sh qolmaydi</b></div>
+    </div>
+  </div>
+
+  <p>Diqqat qiling — bu <b>13-darsdagi ikkita bilim</b> ustiga qurilgan: sessiya
+  (ma'lumot so'rovlar orasida yashaydi) va redirect (<code>302</code> +
+  <code>Location</code>). Laravel ularni birlashtirib «flash» ma'lumot yasaydi:
+  <b>bir marta ko'rsatiladi, keyin o'chadi</b>.</p>
+
+  <h2>View tomonida: <code>$errors</code> va <code>old()</code></h2>
+
+  <div class="codefile">
+    <div class="fname">resources/views/vakansiyalar/index.blade.php</div>
+    <code class="cmd" data-cmd="@if ($errors-&gt;any())
+    &lt;ul style=&quot;color:red&quot;&gt;
+        @foreach ($errors-&gt;all() as $xato)
+            &lt;li&gt;{{ $xato }}&lt;/li&gt;
+        @endforeach
+    &lt;/ul&gt;
+@endif
+
+&lt;form method=&quot;POST&quot; action=&quot;/vakansiyalar&quot;&gt;
+    @csrf
+    &lt;input type=&quot;text&quot; name=&quot;nom&quot; value=&quot;{{ old('nom') }}&quot;&gt;
+    @error('nom') &lt;span style=&quot;color:red&quot;&gt;{{ $message }}&lt;/span&gt; @enderror
+
+    &lt;button type=&quot;submit&quot;&gt;Saqlash&lt;/button&gt;
+&lt;/form&gt;">@if ($errors-&gt;any())
+    &lt;ul style="color:red"&gt;
+        @foreach ($errors-&gt;all() as $xato)
+            &lt;li&gt;{{ $xato }}&lt;/li&gt;
+        @endforeach
+    &lt;/ul&gt;
+@endif
+
+&lt;form method="POST" action="/vakansiyalar"&gt;
+    @csrf
+    &lt;input type="text" name="nom" value="<span class="add">{{ old('nom') }}</span>"&gt;
+    <span class="add">@error('nom')</span> &lt;span style="color:red"&gt;{{ $message }}&lt;/span&gt; <span class="add">@enderror</span>
+
+    &lt;button type="submit"&gt;Saqlash&lt;/button&gt;
+&lt;/form&gt;</code>
+  </div>
+
+  <ul>
+    <li><code>$errors</code> — <b>har bir view'da avtomatik mavjud</b>. Controller uni
+    uzatmaydi ham; Laravel o'zi qo'shib qo'yadi (xato bo'lmasa — bo'sh).</li>
+    <li><code>$errors-&gt;any()</code> — «xato bormi?» ·
+    <code>$errors-&gt;all()</code> — barcha xabarlar massivi.</li>
+    <li><code>@error('nom') ... @enderror</code> — <b>aynan shu maydon</b> uchun xato
+    bo'lsa ishlaydi. Ichida <code>$message</code> o'zgaruvchisi paydo bo'ladi.</li>
+    <li><code>old('nom')</code> — <b>oldin kiritilgan qiymat</b>. Buni yozmasangiz
+    foydalanuvchi hamma maydonni <b>qaytadan</b> to'ldiradi — va bu ilovadan voz kechishning
+    eng ko'p sababi.</li>
+  </ul>
+
+  <h3>Muvaffaqiyat xabari — <code>with()</code></h3>
+
+  <div class="codefile">
+    <div class="fname">controller va view</div>
+    <code class="cmd" data-cmd="// controller
+return redirect('/vakansiyalar')-&gt;with('xabar', 'Qo'shildi!');
+
+// view
+@if (session('xabar'))
+    &lt;p style=&quot;color:green&quot;&gt;{{ session('xabar') }}&lt;/p&gt;
+@endif">// controller
+return redirect('/vakansiyalar')-&gt;with('xabar', 'Qo'shildi!');
+
+// view
+@if (session('xabar'))
+    &lt;p style="color:green"&gt;{{ session('xabar') }}&lt;/p&gt;
+@endif</code>
+  </div>
+
+  <p><code>with()</code> — sessiyaga <b>bir martalik</b> xabar qo'yadi. Sahifa yangilansa
+  yo'qoladi. Bu «flash message» deb ataladi va foydalanuvchiga «ishlandi» degan
+  tasdiq berish uchun ishlatiladi.</p>
+
+  <h2>Xabarlar inglizcha — o'zbekchaga o'tkazish</h2>
+
+  <p>Standart holatda Laravel shunday deydi:</p>
+
+  <div class="natija">The nom field must be at least 5 characters.
+The maosh field must be an integer.</div>
+
+  <p>Foydalanuvchi uchun bu yaroqsiz. <code>validate()</code> ning <b>ikkinchi
+  argumenti</b> — o'z xabarlaringiz:</p>
+
+  <div class="codefile">
+    <div class="fname">controller</div>
+    <code class="cmd" data-cmd="$tekshirilgan = $request-&gt;validate([
+    'nom' =&gt; 'required|string|min:5|max:100',
+    'maosh' =&gt; 'required|integer|min:1',
+], [
+    'nom.required' =&gt; 'Vakansiya nomi kiritilishi shart.',
+    'nom.min' =&gt; 'Vakansiya nomi kamida :min belgidan iborat bo'lsin.',
+    'maosh.required' =&gt; 'Maosh kiritilishi shart.',
+    'maosh.integer' =&gt; 'Maosh butun son bo'lishi kerak.',
+]);">$tekshirilgan = $request-&gt;validate([
+    'nom' =&gt; 'required|string|min:5|max:100',
+    'maosh' =&gt; 'required|integer|min:1',
+], <span class="add">[
+    'nom.required' =&gt; 'Vakansiya nomi kiritilishi shart.',
+    'nom.min' =&gt; 'Vakansiya nomi kamida :min belgidan iborat bo\'lsin.',
+    'maosh.required' =&gt; 'Maosh kiritilishi shart.',
+    'maosh.integer' =&gt; 'Maosh butun son bo\'lishi kerak.',
+]</span>);</code>
+  </div>
+
+  <p>Kalit shakli — <code>'maydon.qoida'</code>. Va <code>:min</code> kabi
+  <b>o'rin egallovchilar</b> qoidadagi qiymat bilan almashtiriladi (natijada
+  «kamida <b>5</b> belgidan»).</p>
+
+  <div class="callout tip">
+    <span class="label">Bu yechim vaqtinchalik</span>
+    <p>Har controllerda xabarlarni qayta yozish — <b>takrorlanish</b> (9-dars muammosi).
+    To'g'ri yechim ikkita: <b>(1)</b> tarjima fayllari
+    (<code>lang/uz/validation.php</code>) — bir marta yozib, butun ilovaga qo'llash;
+    <b>(2)</b> <b>Form Request</b> klassi — qoidalar va xabarlar controllerdan chiqib
+    o'z joyiga o'tadi. Ikkinchisini <b>Modul D da</b> (Form Request darsi) ko'ramiz.</p>
+  </div>
+
+  <!-- ═══════════════ 4) AMALIYOT / MODE-HINT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    <span class="mode-hint-title">💻 Amaliy qism kompyuterda</span>
+    <p>Amaliyotda formaga validatsiya qo'shasiz, keyin <b>ataylab noto'g'ri</b> ma'lumot
+    yuborib nima bo'lishini ko'rasiz: formaga qaytariladi, xatolar chiqadi va
+    <b>kiritgan qiymatlaringiz saqlanib qoladi</b>. Keyin xabarlarni o'zbekchaga
+    o'girasiz va muvaffaqiyat xabarini qo'shasiz.</p>
+    <button type="button" class="modebtn" data-set-mode="do">💻 Amaliyot rejimini ko'rish</button>
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <p>IshTop'ga o'ting va serverni ko'taring</p>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+php artisan serve">cd ~/Projects/Learn/ishtop
+php artisan serve</div>
+        <p class="expect"><b>Kutilgan natija:</b> server ishlaydi. Yangi oyna oching.</p>
+      </li>
+
+      <li>
+        <p>Controller'ga validatsiya qo'shing</p>
+        <p class="why-step">Bitta chaqiruv — butun tekshiruv. Va u qiymat <b>qaytaradi</b>.</p>
+        <div class="cmd" data-cmd="cat &gt; app/Http/Controllers/VakansiyaController.php &lt;&lt;'EOF'
+&lt;?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\View\View;
+
+class VakansiyaController extends Controller
+{
+    public function index(): View
+    {
+        return view('vakansiyalar.index', [
+            'vakansiyalar' =&gt; [
+                ['nom' =&gt; 'Backend dasturchi', 'maosh' =&gt; 800],
+            ],
+        ]);
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        $tekshirilgan = $request-&gt;validate([
+            'nom' =&gt; 'required|string|min:5|max:100',
+            'maosh' =&gt; 'required|integer|min:1',
+        ]);
+
+        return redirect('/vakansiyalar')
+            -&gt;with('xabar', &quot;Qo'shildi: {$tekshirilgan['nom']}&quot;);
+    }
+}
+EOF">cat &gt; app/Http/Controllers/VakansiyaController.php &lt;&lt;'EOF'
+&lt;?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\View\View;
+
+class VakansiyaController extends Controller
+{
+    public function index(): View
+    {
+        return view('vakansiyalar.index', [
+            'vakansiyalar' =&gt; [
+                ['nom' =&gt; 'Backend dasturchi', 'maosh' =&gt; 800],
+            ],
+        ]);
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        $tekshirilgan = $request-&gt;validate([
+            'nom' =&gt; 'required|string|min:5|max:100',
+            'maosh' =&gt; 'required|integer|min:1',
+        ]);
+
+        return redirect('/vakansiyalar')
+            -&gt;with('xabar', "Qo'shildi: {$tekshirilgan['nom']}");
+    }
+}
+EOF</div>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik. <code>: RedirectResponse</code> —
+        qaytish tipi endi view emas, <b>redirect</b>.</p>
+      </li>
+
+      <li>
+        <p>View'ni xatolar va <code>old()</code> bilan yangilang</p>
+        <div class="cmd" data-cmd="cat &gt; resources/views/vakansiyalar/index.blade.php &lt;&lt;'EOF'
+@extends('layouts.asosiy')
+
+@section('mazmun')
+    &lt;h1&gt;Vakansiyalar&lt;/h1&gt;
+
+    @if (session('xabar'))
+        &lt;p style=&quot;color:green&quot;&gt;{{ session('xabar') }}&lt;/p&gt;
+    @endif
+
+    @if ($errors-&gt;any())
+        &lt;ul style=&quot;color:red&quot;&gt;
+            @foreach ($errors-&gt;all() as $xato)
+                &lt;li&gt;{{ $xato }}&lt;/li&gt;
+            @endforeach
+        &lt;/ul&gt;
+    @endif
+
+    &lt;form method=&quot;POST&quot; action=&quot;/vakansiyalar&quot;&gt;
+        @csrf
+        &lt;p&gt;
+            &lt;input type=&quot;text&quot; name=&quot;nom&quot; placeholder=&quot;Nom&quot; value=&quot;{{ old('nom') }}&quot;&gt;
+            @error('nom') &lt;span style=&quot;color:red&quot;&gt;{{ $message }}&lt;/span&gt; @enderror
+        &lt;/p&gt;
+        &lt;p&gt;
+            &lt;input type=&quot;text&quot; name=&quot;maosh&quot; placeholder=&quot;Maosh&quot; value=&quot;{{ old('maosh') }}&quot;&gt;
+            @error('maosh') &lt;span style=&quot;color:red&quot;&gt;{{ $message }}&lt;/span&gt; @enderror
+        &lt;/p&gt;
+        &lt;button type=&quot;submit&quot;&gt;Saqlash&lt;/button&gt;
+    &lt;/form&gt;
+@endsection
+EOF">cat &gt; resources/views/vakansiyalar/index.blade.php &lt;&lt;'EOF'
+@extends('layouts.asosiy')
+
+@section('mazmun')
+    &lt;h1&gt;Vakansiyalar&lt;/h1&gt;
+
+    @if (session('xabar'))
+        &lt;p style="color:green"&gt;{{ session('xabar') }}&lt;/p&gt;
+    @endif
+
+    @if ($errors-&gt;any())
+        &lt;ul style="color:red"&gt;
+            @foreach ($errors-&gt;all() as $xato)
+                &lt;li&gt;{{ $xato }}&lt;/li&gt;
+            @endforeach
+        &lt;/ul&gt;
+    @endif
+
+    &lt;form method="POST" action="/vakansiyalar"&gt;
+        @csrf
+        &lt;p&gt;
+            &lt;input type="text" name="nom" placeholder="Nom" value="{{ old('nom') }}"&gt;
+            @error('nom') &lt;span style="color:red"&gt;{{ $message }}&lt;/span&gt; @enderror
+        &lt;/p&gt;
+        &lt;p&gt;
+            &lt;input type="text" name="maosh" placeholder="Maosh" value="{{ old('maosh') }}"&gt;
+            @error('maosh') &lt;span style="color:red"&gt;{{ $message }}&lt;/span&gt; @enderror
+        &lt;/p&gt;
+        &lt;button type="submit"&gt;Saqlash&lt;/button&gt;
+    &lt;/form&gt;
+@endsection
+EOF</div>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik.</p>
+      </li>
+
+      <li>
+        <p>Brauzerda <b>noto'g'ri</b> ma'lumot yuboring</p>
+        <p class="why-step">Bu darsning asosiy tajribasi. Formani <b>brauzerda</b>
+        sinaymiz — chunki <code>@csrf</code> bor va brauzer cookie'ni o'zi boshqaradi
+        (13-dars).</p>
+        <div class="cmd" data-cmd="xdg-open http://localhost:8000/vakansiyalar">xdg-open http://localhost:8000/vakansiyalar</div>
+        <p class="expect"><b>Kutilgan natija:</b> nom maydoniga <code>abc</code> (5 belgidan
+        kam), maosh maydoniga <code>xyz</code> (son emas) yozib «Saqlash» bosing:</p>
+        <div class="natija">The nom field must be at least 5 characters.
+The maosh field must be an integer.</div>
+        <p class="expect">🎉 <b>Uchta narsaga diqqat qiling:</b>
+        <br>1) Siz <b>formaga qaytdingiz</b> — manzil o'zgarmadi.
+        <br>2) Xatolar <b>ikki joyda</b> ko'rinadi — yuqoridagi ro'yxatda va maydon
+        yonida (<code>@error</code>).
+        <br>3) <b>Maydonlar bo'sh emas</b> — <code>abc</code> va <code>xyz</code>
+        o'z joyida turadi. Bu <code>old()</code> ning ishi.</p>
+      </li>
+
+      <li>
+        <p>Endi <b>to'g'ri</b> ma'lumot yuboring</p>
+        <div class="cmd" data-cmd="# formaga: nom = Laravel dasturchi, maosh = 900"># formaga: nom = Laravel dasturchi, maosh = 900</div>
+        <p class="expect"><b>Kutilgan natija:</b> yashil xabar chiqadi:</p>
+        <div class="natija">Qo'shildi: Laravel dasturchi</div>
+        <p class="expect">Va forma <b>bo'sh</b> — chunki xato yo'q, demak
+        <code>old()</code> ham bo'sh. <b>Sahifani yangilang</b> (F5) — yashil xabar
+        <b>yo'qoladi</b>. Bu «flash»ning ma'nosi: bir marta ko'rsatiladi.</p>
+      </li>
+
+      <li>
+        <p>Xabarlarni o'zbekchaga o'giring</p>
+        <p class="why-step">Foydalanuvchi inglizcha xabarni tushunmaydi.</p>
+        <p><code>store</code> metodidagi <code>validate([...])</code> ga
+        <b>ikkinchi argument</b> qo'shing:</p>
+        <div class="cmd" data-cmd="        ], [
+            'nom.required' =&gt; 'Vakansiya nomi kiritilishi shart.',
+            'nom.min' =&gt; 'Vakansiya nomi kamida :min belgidan iborat bo\'lsin.',
+            'maosh.required' =&gt; 'Maosh kiritilishi shart.',
+            'maosh.integer' =&gt; 'Maosh butun son bo\'lishi kerak.',
+        ]);">        ], [
+            'nom.required' =&gt; 'Vakansiya nomi kiritilishi shart.',
+            'nom.min' =&gt; 'Vakansiya nomi kamida :min belgidan iborat bo\'lsin.',
+            'maosh.required' =&gt; 'Maosh kiritilishi shart.',
+            'maosh.integer' =&gt; 'Maosh butun son bo\'lishi kerak.',
+        ]);</div>
+        <p class="expect"><b>Ya'ni:</b> avvalgi <code>]);</code> ni yuqoridagi bilan
+        almashtirasiz. Keyin noto'g'ri ma'lumotni qayta yuboring:</p>
+        <div class="natija">Vakansiya nomi kamida 5 belgidan iborat bo'lsin.
+Maosh butun son bo'lishi kerak.</div>
+        <p class="expect">🎉 Diqqat: <code>:min</code> o'rniga <b>5</b> qo'yildi —
+        Laravel qoidadagi qiymatni o'zi almashtirdi.</p>
+      </li>
+
+      <li>
+        <p><code>validate()</code> nima qaytarishini ko'ring</p>
+        <p class="why-step">Faqat qoidada sanab o'tilgan maydonlar qaytadi — bu xavfsizlik
+        uchun muhim.</p>
+        <p><code>store</code> metodida <code>return</code> dan oldin vaqtincha shu qatorni
+        qo'shing:</p>
+        <div class="cmd" data-cmd="        dd($tekshirilgan, $request-&gt;all());">        dd($tekshirilgan, $request-&gt;all());</div>
+        <p class="expect"><b>Kutilgan natija:</b> formani to'g'ri to'ldirib yuborsangiz,
+        ikkita massiv ko'rinadi. <code>$tekshirilgan</code> da faqat <code>nom</code> va
+        <code>maosh</code>; <code>$request-&gt;all()</code> da esa <b><code>_token</code>
+        ham</b> bor.
+        <br><code>dd()</code> — «dump and die» (2-darsdagi <code>var_dump</code> ning
+        Laravel varianti, 12-darsda uning manbasini ko'rgandik). Ko'rgandan keyin
+        <b>bu qatorni o'chirib tashlang</b>.</p>
+      </li>
+
+      <li>
+        <p>Ishni saqlang</p>
+        <div class="cmd" data-cmd="git add -A
+git commit -m &quot;20-dars: validation, xatolar va old()&quot;">git add -A
+git commit -m "20-dars: validation, xatolar va old()"</div>
+        <p class="expect"><b>Kutilgan natija:</b> commit haqida xabar.
+        <br><b>Modul B tugadi</b> — endi bazaga o'tamiz. 🎓</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><input type="checkbox" id="d20c1"><label for="d20c1"><code>validate()</code> bilan qoidalar yozdim</label></li>
+      <li><input type="checkbox" id="d20c2"><label for="d20c2"><b>Noto'g'ri ma'lumot yuborib formaga qaytdim</b> 🎉</label></li>
+      <li><input type="checkbox" id="d20c3"><label for="d20c3"><b><code>old()</code> maydonlarni saqlab qolganini ko'rdim</b></label></li>
+      <li><input type="checkbox" id="d20c4"><label for="d20c4"><code>@error</code> bilan maydon yonida xato ko'rsatdim</label></li>
+      <li><input type="checkbox" id="d20c5"><label for="d20c5">Flash xabar yangilashda yo'qolishini tasdiqladim</label></li>
+      <li><input type="checkbox" id="d20c6"><label for="d20c6">Xabarlarni o'zbekchaga o'girdim va <code>:min</code> ishlashini ko'rdim</label></li>
+      <li><input type="checkbox" id="d20c7"><label for="d20c7"><code>validate()</code> faqat qoidadagi maydonlarni qaytarishini <code>dd()</code> bilan ko'rdim</label></li>
+      <li><input type="checkbox" id="d20c8"><label for="d20c8">Ishni commit qildim</label></li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 5) TAXMIN + QUIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Validatsiya <b>muvaffaqiyatsiz</b> bo'ldi. Uch savol: <b>(a)</b>
+    <code>validate()</code> dan keyingi qatorlar bajariladimi? <b>(b)</b> foydalanuvchi
+    qaysi sahifada bo'ladi? <b>(c)</b> HTTP status kodi qanday?</p>
+    <div class="codefile">
+      <div class="fname">controller</div>
+      <code class="cmd" data-cmd="public function store(Request $request): RedirectResponse
+{
+    $tekshirilgan = $request-&gt;validate([
+        'nom' =&gt; 'required|min:5',
+    ]);
+
+    logger()-&gt;info('BU YOZILADIMI?');
+
+    return redirect('/vakansiyalar')-&gt;with('xabar', 'Qo'shildi');
+}">public function store(Request $request): RedirectResponse
+{
+    $tekshirilgan = $request-&gt;validate([
+        'nom' =&gt; 'required|min:5',
+    ]);
+
+    logger()-&gt;info('BU YOZILADIMI?');
+
+    return redirect('/vakansiyalar')-&gt;with('xabar', 'Qo\'shildi');
+}</code>
+    </div>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <div class="natija">(a) YO'Q — logga hech narsa yozilmaydi
+(b) Formada — o'zi kelgan sahifada
+(c) 302 (redirect)</div>
+        <p><b>(a)</b> <code>validate()</code> muvaffaqiyatsiz bo'lsa <b>exception otadi</b>
+        (11-dars: <code>throw</code> funksiyani darhol to'xtatadi). Shuning uchun
+        <code>logger()</code> ham, <code>redirect()</code> ham <b>bajarilmaydi</b>.
+        Ya'ni «xato bo'lsa nima qilaman?» deb <code>if</code> yozish <b>kerak emas</b> —
+        Laravel buni o'zi hal qiladi.</p>
+        <p><b>(b)</b> Laravel exception'ni tutib oladi (17-darsdagi
+        <code>withExceptions</code>!) va foydalanuvchini <b>ortga</b> qaytaradi — ya'ni
+        forma turgan sahifaga. Shu bilan birga xatolar va kiritilgan qiymatlarni
+        <b>sessiyaga</b> yozib qo'yadi.</p>
+        <p><b>(c)</b> <code>302</code> — oddiy redirect (13-dars). Ya'ni brauzer
+        nuqtai nazaridan bu «boshqa sahifaga bor» degan javob.</p>
+        <p class="expect">⚠️ <b>Muhim istisno:</b> agar so'rov <b>JSON</b> kutayotgan bo'lsa
+        (API), Laravel redirect qilmaydi — <code>422</code> status va JSON xatolar
+        qaytaradi. Buni 17-darsdagi <code>bootstrap/app.php</code> dagi
+        <code>shouldRenderJsonWhen(...)</code> qatori boshqaradi. Modul F da («xatoni to'g'ri qaytarish» darsi) shu holatni ko'ramiz.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span> Validatsiya muvaffaqiyatsiz bo'lsa,
+    controllerdagi keyingi kod nima bo'ladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Bajarilmaydi — exception otiladi</button></li>
+      <li><button class="quiz-option">Bajariladi, lekin natija tashlanadi</button></li>
+      <li><button class="quiz-option">Bajariladi va xatolar yig'iladi</button></li>
+    </ul>
+    <div class="quiz-explain"><code>validate()</code> exception otadi (11-dars), shuning
+    uchun keyingi qatorlar <b>umuman ishlamaydi</b>. «Xato bo'lsa-chi?» deb <code>if</code>
+    yozish kerak emas.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span> <code>old('nom')</code> nima
+    uchun kerak?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Kiritilgan qiymat saqlanib qolsin</button></li>
+      <li><button class="quiz-option">Xato xabarini yonida ko'rsatsin</button></li>
+      <li><button class="quiz-option">Maydonni majburiy qilib belgilasin</button></li>
+    </ul>
+    <div class="quiz-explain">Xatodan keyin foydalanuvchi hamma maydonni qaytadan
+    to'ldirmasligi uchun. Xato xabari uchun <code>@error</code>, majburiylik uchun
+    <code>required</code> qoidasi bor.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span> <code>$request-&gt;validate([...])</code>
+    nima qaytaradi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Faqat qoidadagi maydonlarni qaytaradi</button></li>
+      <li><button class="quiz-option">Barcha yuborilgan maydonlarni qaytaradi</button></li>
+      <li><button class="quiz-option">Umuman hech narsa qaytarmaydi</button></li>
+    </ul>
+    <div class="quiz-explain">Shuning uchun bazaga yozishda <code>$request-&gt;all()</code>
+    emas, <b>qaytgan qiymat</b> ishlatiladi — foydalanuvchi qo'shimcha maydon yuborsa u
+    o'tmaydi.</div>
+  </div>
+
+  <!-- ═══════════════ 6) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+    <p class="recall-intro">Avval o'zingiz javob bering, keyin ochib tekshiring.
+    Oxirgi ikkitasi — <a href="0019-blade-komponent-va-forma.html">19-darsni</a> takrorlash.</p>
+
+    <details class="recall">
+      <summary>Validatsiya xatosida to'rt qadam nima?</summary>
+      <div class="answer"><p>1) Exception otiladi → controller <b>to'xtaydi</b>.
+      2) Xatolar va kiritilgan qiymatlar <b>sessiyaga</b> yoziladi.
+      3) <b>302 redirect</b> ortga. 4) Formada <code>$errors</code> va <code>old()</code>
+      ko'rinadi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary><code>$errors</code> qayerdan keladi?</summary>
+      <div class="answer"><p>Laravel uni <b>har bir view'ga avtomatik</b> qo'shadi —
+      controller uzatmaydi. Xato bo'lmasa bo'sh bo'ladi, shuning uchun
+      <code>$errors-&gt;any()</code> ni tekshirish xavfsiz.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Nega <code>$request-&gt;all()</code> emas, <code>$tekshirilgan</code>?</summary>
+      <div class="answer"><p>Chunki <code>validate()</code> <b>faqat qoidadagi
+      maydonlarni</b> qaytaradi. Foydalanuvchi qo'shimcha maydon (masalan
+      <code>rol=admin</code>) yuborsa, u o'tmaydi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: <code>@csrf</code> siz forma yuborilsa nima bo'ladi?</summary>
+      <div class="answer"><p><b>419 Page Expired</b> — Laravel formani rad etadi, controller
+      umuman ishlamaydi (CSRF tekshiruvi middleware sifatida ishlaydi).</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: komponent va <code>@include</code> farqi?</summary>
+      <div class="answer"><p>Komponentda <code>@props</code> bilan <b>kutilayotgan
+      parametrlar e'lon qilinadi</b>; <code>@include</code> da ko'rinmaydi. Parametr bo'lsa
+      — komponent.</p></div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 7) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Cho'ntak xulosasi</span>
+    <ul>
+      <li><code>$request-&gt;validate([...])</code> — bitta chaqiruv, butun tekshiruv.
+      Qoidalar <code>|</code> bilan ajratiladi.</li>
+      <li>🔑 U <b>qiymat qaytaradi</b> — va <b>faqat qoidadagi maydonlarni</b>. Bazaga
+      yozishda shuni ishlating.</li>
+      <li>Xato bo'lsa: <b>exception → sessiya → 302 redirect ortga</b>. Keyingi kod
+      <b>bajarilmaydi</b>.</li>
+      <li><code>$errors-&gt;any()</code> · <code>$errors-&gt;all()</code> —
+      <b>har view'da avtomatik</b> mavjud.</li>
+      <li><code>@error('nom') {{ $message }} @enderror</code> — maydon yonidagi xato.</li>
+      <li><code>old('nom')</code> — <b>kiritilgan qiymatni saqlaydi</b>. Yozishni
+      unutmang!</li>
+      <li><code>redirect()-&gt;with('xabar', ...)</code> + <code>session('xabar')</code> —
+      bir martalik flash xabar.</li>
+      <li>O'zbekcha xabarlar — <code>validate()</code> ning <b>ikkinchi argumenti</b>,
+      kalit shakli <code>'maydon.qoida'</code>, <code>:min</code> almashtiriladi.</li>
+      <li>Validatsiya <b>har doim serverda</b>. Brauzerdagi tekshiruv — faqat qulaylik.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🎓 MODUL B TUGADI (7 / 7)</span>
+    <p>IshTop endi ishlaydigan veb-ilova: route, controller, Blade view, layout,
+    komponent, forma, CSRF himoyasi va validatsiya. Va Laravel'ning ichki tuzilishi
+    (lifecycle, middleware) ham tanish.</p>
+    <p>Lekin bitta katta narsa yo'q: <b>ma'lumot saqlanmaydi</b>. Forma to'g'ri
+    to'ldirilsa ham, u faqat «Qo'shildi» deb aytadi va hech narsa qolmaydi. Vakansiyalar
+    ro'yxati esa hali ham <b>controllerda qo'lda yozilgan massiv</b>.</p>
+    <p><b>Modul C — Ma'lumotlar</b> shuni yechadi. Va u <b>SQL bilan boshlanadi</b>,
+    Eloquent bilan emas — bu ataylab: SQL'ni bir marta o'z qo'lingiz bilan yozgandan keyin
+    Eloquent <b>sehr emas, qulaylik</b> bo'lib ko'rinadi. Xuddi Modul A dagi
+    mini-framework kabi.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel — Validation</b>:
+    <a href="https://laravel.com/docs/13.x/validation">laravel.com/docs/13.x/validation</a>.<sup><a href="#fn1">1</a></sup>
+    «Available Validation Rules» bo'limi — kerak bo'lganda qaraydigan ro'yxat (100+ qoida,
+    yodlash shart emas).<br>
+    Xabarlarni tarjima qilish:
+    <a href="https://laravel.com/docs/13.x/validation#working-with-error-messages">Custom Error Messages</a>
+    va <a href="https://laravel.com/docs/13.x/localization">Localization</a>.</p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b> «xabarlarni butun ilovaga bir marta
+    o'zbekchalashtirish qanday?», «maydon nomlari («nom» so'zi) ham o'zbekcha bo'lsinmi?»,
+    «<code>sometimes</code> qoidasi nima?», «o'z qoidamni yozsam bo'ladimi?» — har qanday
+    savol yaxshi. Birinchi ikkitasi bir yechim bilan hal bo'ladi —
+    <code>lang/uz/validation.php</code> fayli; xohlasangiz birga sozlaymiz.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0019-blade-komponent-va-forma.html">Oldingi: Komponent va forma</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/yol-xaritasi.html">Yo'l xaritasi</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel 13 — <a href="https://laravel.com/docs/13.x/validation">Validation</a>.</li>
+      <li id="fn2">Jonli sinab ko'rilgan (Laravel 13.25.0): noto'g'ri ma'lumot →
+      <b>302</b> redirect + xatolar + <code>old()</code> saqlangan qiymatlar
+      (<code>value="xyz"</code>) · to'g'ri ma'lumot → flash xabar · o'zbekcha xabarlar va
+      <code>:min</code> ning <b>5</b> ga almashtirilishi.</li>
+      <li id="fn3">Standart xato xabarlari inglizcha bo'ladi — bu Laravel'ning
+      standart holati, sizning xatongiz emas.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

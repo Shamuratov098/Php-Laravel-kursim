@@ -18,7 +18,7 @@ shu bog'liqlikni yo'qotib, kodning egasi bo'lish.
   va log to'g'ri sozlangan; havolasi rezyumemda
 
 ## Constraints (Cheklovlar)
-- Kuniga **~1–2 soat, har kuni** → 72 dars ≈ 2.5–3 oy. Muntazamlik zarbadan muhim.
+- Kuniga **~1–2 soat, har kuni** → 73 dars ≈ 2.5–3 oy. Muntazamlik zarbadan muhim.
 - Til: **o'zbekcha**; PHP/Laravel atamalari **inglizcha** qoladi (`route`, `middleware`,
   `migration`...) — batafsil: [[CONTEXT.md]]
 - **Faqat bepul manbalar** (asosiy: `laravel.com/docs/13.x`)

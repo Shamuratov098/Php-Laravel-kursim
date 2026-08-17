@@ -2,7 +2,7 @@
 
 O'zbek tilidagi shaxsiy kurs: sof PHP poydevoridan boshlab, ishga tayyor Laravel backend
 dasturchi darajasigacha. Bu hujjat — kursning **atamalar lug'ati**: bir tushuncha uchun bir
-so'z. 72 dars bo'ylab bir xil atamani ishlatish uchun shu ro'yxatga rioya qilinadi.
+so'z. 73 dars bo'ylab bir xil atamani ishlatish uchun shu ro'yxatga rioya qilinadi.
 
 ## Til siyosati
 
@@ -27,7 +27,7 @@ _Avoid_: natija, maqsad, outcome
 
 **Marra**:
 Kursdagi oraliq nuqta, u yerga yetganda yangi imkoniyat ochiladi. Yagona marra —
-**«Junior tayyor», 47-dars**.
+**«Junior tayyor», 48-dars** (Modul F oxiri).
 _Avoid_: nuqta, checkpoint, bosqich
 
 **Rejim**:
@@ -73,7 +73,7 @@ _Avoid_: ketma-ketlik, bog'lanish
 
 Kurs davomida quriladigan ilova: ish beruvchilar vakansiya joylaydi, nomzodlar ariza
 beradi. Matnda o'zbekcha atama, **kodda inglizcha** nom ishlatiladi — ikkisi bu jadval
-orqali bog'lanadi va 72 dars bo'ylab o'zgarmaydi.
+orqali bog'lanadi va 73 dars bo'ylab o'zgarmaydi.
 
 **Kompaniya** → `Company`:
 Vakansiya joylaydigan tashkilot. Bitta `User` (ish beruvchi) ga tegishli.

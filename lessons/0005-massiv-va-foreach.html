@@ -1,0 +1,531 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 05 — Massiv va foreach</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 05 · MODUL A — POYDEVOR</p>
+  <h1>Massiv va <code>foreach</code>: ko'p qiymat bitta joyda</h1>
+  <p class="lead">Bu darsdan keyin ro'yxat va lug'at bilan ishlaysiz va ularni aylanib
+  chiqasiz. Bu shunchaki yangi sintaksis emas: <b>bazadan keladigan ma'lumotning shakli
+  aynan shu</b> — ya'ni bugun o'rganadigan tuzilma kursning oxirigacha qo'lingizda bo'ladi.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 8 daqiqa</span>
+    <span>💻 Amaliyot ≈ 12 daqiqa</span>
+    <span>Kerak: <a href="0004-xatoni-oqish.html">Dars 04</a></span>
+  </p>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Nega bu muhim</span>
+    <p>Haqiqiy ilovada bitta qiymat deyarli uchramaydi — hamma narsa <b>ro'yxat</b>:
+    bitta vakansiyada bir nechta ko'nikma, bitta sahifada o'nlab vakansiya, bitta
+    nomzodda ko'p ariza.</p>
+    <p>Eng muhimi: <b>bazadan qaytgan ma'lumot ham massiv</b> — aniqrog'i, massivlar
+    ichidagi massiv. Ya'ni bugun yozadigan
+    <code>foreach ($vakansiyalar as $v)</code> — bu Laravel'da yozadigan kodning
+    aynan o'zi bo'ladi. IshTop loyihasidagi vakansiyalar ro'yxati sahifasi shu bitta
+    tushunchaga tayanadi.</p>
+  </div>
+
+  <!-- ═══════════════ 2) TUSHUNCHA ═══════════════ -->
+  <h2>Massiv — bitta nom, ko'p qiymat</h2>
+
+  <p>Ikki shakli bor. Farqi — qiymatga <b>qanday murojaat qilasiz</b>:</p>
+
+  <div class="codefile">
+    <div class="fname">tushuncha</div>
+    <code class="cmd" data-cmd="// 1) Indeksli — tartib muhim, murojaat raqam bilan
+$konikmalar = [&quot;PHP&quot;, &quot;Laravel&quot;, &quot;SQL&quot;];
+echo $konikmalar[0];        // PHP
+
+// 2) Assotsiativ — nom muhim, murojaat kalit bilan
+$vakansiya = [&quot;nom&quot; =&gt; &quot;Backend dasturchi&quot;, &quot;maosh&quot; =&gt; 800];
+echo $vakansiya[&quot;maosh&quot;];   // 800">// 1) Indeksli — tartib muhim, murojaat raqam bilan
+$konikmalar = ["PHP", "Laravel", "SQL"];
+echo $konikmalar[0];        // PHP
+
+// 2) Assotsiativ — nom muhim, murojaat kalit bilan
+$vakansiya = ["nom" =&gt; "Backend dasturchi", "maosh" =&gt; 800];
+echo $vakansiya["maosh"];   // 800</code>
+  </div>
+
+  <p><b>Indeks 0 dan boshlanadi</b> — birinchi element <code>[0]</code>, uchinchisi
+  <code>[2]</code>. Bu deyarli barcha dasturlash tillarida shunday.</p>
+
+  <h3>Mexanizm: ikkisi ham aslida <b>bitta narsa</b></h3>
+
+  <p>Bu PHP'ni tushunishning kalit nuqtalaridan biri. Indeksli va assotsiativ massiv
+  <b>alohida tiplar emas</b> — PHP'da massiv <b>har doim</b> «kalit → qiymat» juftliklar
+  to'plami. Indeksli massivda kalitlar shunchaki <code>0, 1, 2</code> sonlari bo'ladi.</p>
+
+  <p><code>var_dump</code> buni yashirmaydi — o'zi ko'rsatib turadi:</p>
+
+  <div class="natija">array(3) {
+  [0]=&gt;
+  string(3) "PHP"
+  [1]=&gt;
+  string(7) "Laravel"
+  [2]=&gt;
+  string(3) "SQL"
+}</div>
+
+  <p>Ko'ryapsizmi — <code>[0]</code>, <code>[1]</code>, <code>[2]</code>. Bular
+  <b>kalitlar</b>. Ya'ni «indeksli massiv» degani — «kalitlari son bo'lgan massiv».</p>
+
+  <div class="callout note">
+    <span class="label">Bu nega muhim</span>
+    <p>Chunki PHP massivi <b>ro'yxat emas, xarita</b>. Shu bitta fakt bir nechta
+    «g'alati» xatti-harakatni tushuntirib beradi — bugungi taxmin mashqida o'z ko'zingiz
+    bilan ko'rasiz. Boshqa tillardan kelgan odam shu yerda ko'p adashadi.</p>
+  </div>
+
+  <h3>Qo'shish va sanash</h3>
+
+  <div class="codefile">
+    <div class="fname">tushuncha</div>
+    <code class="cmd" data-cmd="$konikmalar[] = &quot;Redis&quot;;        // oxiriga qo'shadi — kalitni PHP o'zi tanlaydi
+$vakansiya[&quot;shahar&quot;] = &quot;Toshkent&quot;;   // yangi kalit qo'shadi
+echo count($konikmalar);          // nechta element borligini beradi">$konikmalar[] = "Redis";        // oxiriga qo'shadi — kalitni PHP o'zi tanlaydi
+$vakansiya["shahar"] = "Toshkent";   // yangi kalit qo'shadi
+echo count($konikmalar);          // nechta element borligini beradi</code>
+  </div>
+
+  <h3><code>foreach</code> — massivni aylanib chiqish</h3>
+
+  <p>3-darsda <code>for</code> va <code>while</code> ni ko'rdik. Massiv uchun esa alohida,
+  ancha qulay sikl bor — <code>foreach</code>. Ikki shakli bor:</p>
+
+  <div class="codefile">
+    <div class="fname">tushuncha</div>
+    <code class="cmd" data-cmd="// 1) Faqat qiymat kerak bo'lsa
+foreach ($konikmalar as $konikma) {
+    echo $konikma;
+}
+
+// 2) Kalit ham kerak bo'lsa
+foreach ($vakansiya as $kalit =&gt; $qiymat) {
+    echo &quot;{$kalit}: {$qiymat}&quot;;
+}">// 1) Faqat qiymat kerak bo'lsa
+foreach ($konikmalar as $konikma) {
+    echo $konikma;
+}
+
+// 2) Kalit ham kerak bo'lsa
+foreach ($vakansiya as $kalit =&gt; $qiymat) {
+    echo "{$kalit}: {$qiymat}";
+}</code>
+  </div>
+
+  <p><code>$konikma</code> va <code>$kalit</code>/<code>$qiymat</code> — nomlarni
+  <b>o'zingiz</b> tanlaysiz. PHP har aylanishda navbatdagi elementni shu nomga soladi.
+  <code>for</code> dan afzalligi: indeksni o'zingiz hisoblab yurmaysiz, va assotsiativ
+  massivda ham ishlaydi (<code>for</code> esa ishlamaydi — u faqat raqamli indekslarni
+  biladi).</p>
+
+  <h3>Ichma-ich massiv = bazadan kelgan ma'lumot</h3>
+
+  <p>Massivning elementi ham massiv bo'lishi mumkin. Bu eng ko'p uchraydigan shakl:
+  <b>yozuvlar ro'yxati</b>.</p>
+
+  <div class="codefile">
+    <div class="fname">tushuncha</div>
+    <code class="cmd" data-cmd="$vakansiyalar = [
+    [&quot;nom&quot; =&gt; &quot;Backend dasturchi&quot;, &quot;maosh&quot; =&gt; 800],
+    [&quot;nom&quot; =&gt; &quot;Frontend dasturchi&quot;, &quot;maosh&quot; =&gt; 700],
+];
+
+foreach ($vakansiyalar as $v) {
+    echo &quot;{$v['nom']} — {$v['maosh']} $&quot;;
+}">$vakansiyalar = [
+    ["nom" =&gt; "Backend dasturchi", "maosh" =&gt; 800],
+    ["nom" =&gt; "Frontend dasturchi", "maosh" =&gt; 700],
+];
+
+foreach ($vakansiyalar as $v) {
+    echo "{$v['nom']} — {$v['maosh']} $";
+}</code>
+  </div>
+
+  <p>Tashqi massiv — <b>ro'yxat</b> (indeksli). Har bir elementi — <b>bitta yozuv</b>
+  (assotsiativ). Bazadan <code>SELECT * FROM vacancies</code> qilganda qaytadigan
+  ma'lumot aynan shu shaklda bo'ladi. Shuning uchun bu tuzilmani hozir yaxshi tushunib
+  olsangiz, C modulida (Eloquent) hech qanday yangilik bo'lmaydi.</p>
+
+  <div class="callout tip">
+    <span class="label">Matn ichida kalitga murojaat — qavs ishlating</span>
+    <p><code>"{$v['nom']}"</code> — <b>shunday yozing</b>. 2-darsdagi qoida shu yerda ham
+    ishlaydi: qavs chegarani aniq belgilaydi. Qavssiz shakl ba'zi holatlarda ishlaydi,
+    lekin ba'zilarida yo'q — shuning uchun bitta odat yaxshi.</p>
+  </div>
+
+  <h3>Yo'q kalitni o'qisangiz — <code>Warning</code></h3>
+
+  <p>4-darsdagi bilim shu yerda ishga tushadi. Massivda bo'lmagan kalitni o'qisangiz PHP
+  ogohlantiradi va <code>null</code> qaytaradi — lekin <b>to'xtamaydi</b>:</p>
+
+  <div class="natija">PHP Warning:  Undefined array key "maosh" in w.php on line 4
+Maosh: </div>
+
+  <p>Ya'ni sahifa «ishlab» turadi, faqat maosh joyi bo'sh chiqadi. Bu formadan yoki
+  bazadan kelgan ma'lumot bilan ishlaganda eng ko'p uchraydigan holat — va
+  Warning'ni o'qimasangiz, sababini uzoq izlaysiz.</p>
+
+  <!-- ═══════════════ 4) AMALIYOT / MODE-HINT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    <span class="mode-hint-title">💻 Amaliy qism kompyuterda</span>
+    <p>Amaliyotda uchta fayl yozasiz: <code>11-massiv.php</code> (ikki shaklni
+    <code>var_dump</code> bilan solishtirasiz va kalitlarni ko'rasiz),
+    <code>12-foreach.php</code> (ko'nikmalar ro'yxatini chiqarasiz) va
+    <code>13-vakansiyalar.php</code> (ichma-ich massiv — bazadan kelgan ma'lumot shakli).
+    Oxirida yo'q kalitni ataylab o'qib, <code>Warning</code> ni chiqarasiz.</p>
+    <button type="button" class="modebtn" data-set-mode="do">💻 Amaliyot rejimini ko'rish</button>
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <p>Papkaga o'ting</p>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/php-poydevor">cd ~/Projects/Learn/php-poydevor</div>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik.</p>
+      </li>
+
+      <li>
+        <p>Ikki shaklni yonma-yon ko'ring</p>
+        <p class="why-step">Diqqatingiz <code>var_dump</code> chiqishidagi <b>kalitlarga</b>
+        bo'lsin — mexanizm shu yerda ko'rinadi.</p>
+        <div class="cmd" data-cmd="cat &gt; 11-massiv.php &lt;&lt;'EOF'
+&lt;?php
+$konikmalar = [&quot;PHP&quot;, &quot;Laravel&quot;, &quot;SQL&quot;];
+$vakansiya = [&quot;nom&quot; =&gt; &quot;Backend dasturchi&quot;, &quot;maosh&quot; =&gt; 800, &quot;faol&quot; =&gt; true];
+var_dump($konikmalar);
+var_dump($vakansiya);
+EOF
+php 11-massiv.php">cat &gt; 11-massiv.php &lt;&lt;'EOF'
+&lt;?php
+$konikmalar = ["PHP", "Laravel", "SQL"];
+$vakansiya = ["nom" =&gt; "Backend dasturchi", "maosh" =&gt; 800, "faol" =&gt; true];
+var_dump($konikmalar);
+var_dump($vakansiya);
+EOF
+php 11-massiv.php
+<span class="out">array(3) {</span>
+<span class="out">  [0]=&gt;</span>
+<span class="out">  string(3) "PHP"</span>
+<span class="out">  ...</span>
+<span class="out">array(3) {</span>
+<span class="out">  ["nom"]=&gt;</span>
+<span class="out">  string(17) "Backend dasturchi"</span>
+<span class="out">  ...</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> ikkita <code>array(3)</code>.
+        Birinchisining kalitlari <code>[0] [1] [2]</code>, ikkinchisining
+        <code>["nom"] ["maosh"] ["faol"]</code>. <b>Ikkisi ham bir xil tip —
+        <code>array</code>.</b> Farq faqat kalitlarda.</p>
+      </li>
+
+      <li>
+        <p>Ro'yxatni aylanib chiqing</p>
+        <div class="cmd" data-cmd="cat &gt; 12-foreach.php &lt;&lt;'EOF'
+&lt;?php
+$konikmalar = [&quot;PHP&quot;, &quot;Laravel&quot;, &quot;SQL&quot;];
+echo &quot;Talab qilinadigan ko'nikmalar:&quot;, PHP_EOL;
+foreach ($konikmalar as $konikma) {
+    echo &quot;- {$konikma}&quot;, PHP_EOL;
+}
+echo &quot;Jami: &quot;, count($konikmalar), &quot; ta&quot;, PHP_EOL;
+EOF
+php 12-foreach.php">cat &gt; 12-foreach.php &lt;&lt;'EOF'
+&lt;?php
+$konikmalar = ["PHP", "Laravel", "SQL"];
+echo "Talab qilinadigan ko'nikmalar:", PHP_EOL;
+foreach ($konikmalar as $konikma) {
+    echo "- {$konikma}", PHP_EOL;
+}
+echo "Jami: ", count($konikmalar), " ta", PHP_EOL;
+EOF
+php 12-foreach.php
+<span class="out">Talab qilinadigan ko'nikmalar:</span>
+<span class="out">- PHP</span>
+<span class="out">- Laravel</span>
+<span class="out">- SQL</span>
+<span class="out">Jami: 3 ta</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> uchta chiziqchali qator va jami soni.
+        <b>O'zingiz sinab ko'ring:</b> massivga <code>"Redis"</code> qo'shib qayta
+        bajaring — sikl va <code>count</code> ikkisi ham o'zi moslashadi.</p>
+      </li>
+
+      <li>
+        <p>Bazadan kelgan ma'lumot shaklini yasang</p>
+        <p class="why-step">Bu tuzilma C modulida (Eloquent) aynan qaytadi — shuning uchun
+        hozir tanish bo'lib qolsin.</p>
+        <div class="cmd" data-cmd="cat &gt; 13-vakansiyalar.php &lt;&lt;'EOF'
+&lt;?php
+$vakansiyalar = [
+    [&quot;nom&quot; =&gt; &quot;Backend dasturchi&quot;, &quot;maosh&quot; =&gt; 800],
+    [&quot;nom&quot; =&gt; &quot;Frontend dasturchi&quot;, &quot;maosh&quot; =&gt; 700],
+];
+foreach ($vakansiyalar as $v) {
+    echo &quot;{$v['nom']} — {$v['maosh']} $&quot;, PHP_EOL;
+}
+echo &quot;Jami: &quot;, count($vakansiyalar), &quot; ta vakansiya&quot;, PHP_EOL;
+EOF
+php 13-vakansiyalar.php">cat &gt; 13-vakansiyalar.php &lt;&lt;'EOF'
+&lt;?php
+$vakansiyalar = [
+    ["nom" =&gt; "Backend dasturchi", "maosh" =&gt; 800],
+    ["nom" =&gt; "Frontend dasturchi", "maosh" =&gt; 700],
+];
+foreach ($vakansiyalar as $v) {
+    echo "{$v['nom']} — {$v['maosh']} $", PHP_EOL;
+}
+echo "Jami: ", count($vakansiyalar), " ta vakansiya", PHP_EOL;
+EOF
+php 13-vakansiyalar.php
+<span class="out">Backend dasturchi — 800 $</span>
+<span class="out">Frontend dasturchi — 700 $</span>
+<span class="out">Jami: 2 ta vakansiya</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> ikkita vakansiya qatori.
+        <code>$v</code> — har aylanishda <b>bitta yozuv</b> (assotsiativ massiv),
+        shuning uchun undan <code>$v['nom']</code> bilan qiymat olinadi.</p>
+      </li>
+
+      <li>
+        <p>Yo'q kalitni ataylab o'qing</p>
+        <p class="why-step">4-darsdagi bilimni ishga solamiz: <code>Warning</code>
+        to'xtatmaydi, shuning uchun uni sezmay qolish mumkin.</p>
+        <div class="cmd" data-cmd="php -r '$v = [&quot;nom&quot; =&gt; &quot;Backend&quot;]; echo &quot;Maosh: {$v[&quot;maosh&quot;]}&quot;, PHP_EOL; echo &quot;Davom etdi&quot;, PHP_EOL;'">php -r '$v = ["nom" =&gt; "Backend"]; echo "Maosh: {$v["maosh"]}", PHP_EOL; echo "Davom etdi", PHP_EOL;'
+<span class="out">PHP Warning:  Undefined array key "maosh" in Command line code on line 1</span>
+<span class="out">Maosh: </span>
+<span class="out">Davom etdi</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> ogohlantirish, keyin <b>bo'sh</b> maosh,
+        keyin dastur davom etdi. Xato turini ayta olasizmi? — <code>Warning</code>,
+        demak «ishladi, lekin natijaga ishonmang».</p>
+      </li>
+
+      <li>
+        <p>Ishni saqlang</p>
+        <div class="cmd" data-cmd="git add -A
+git commit -m &quot;05-dars: massiv va foreach&quot;">git add -A
+git commit -m "05-dars: massiv va foreach"</div>
+        <p class="expect"><b>Kutilgan natija:</b> commit haqida xabar.</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><input type="checkbox" id="d5c1"><label for="d5c1">Indeksli va assotsiativ massivni yasadim</label></li>
+      <li><input type="checkbox" id="d5c2"><label for="d5c2"><b>Ikkisi ham <code>array</code> tipi ekanini <code>var_dump</code>da ko'rdim</b></label></li>
+      <li><input type="checkbox" id="d5c3"><label for="d5c3"><code>foreach</code> ning ikki shaklini bilaman</label></li>
+      <li><input type="checkbox" id="d5c4"><label for="d5c4">Massivga element qo'shib, <code>count</code> o'zgarishini ko'rdim</label></li>
+      <li><input type="checkbox" id="d5c5"><label for="d5c5"><b>Ichma-ich massiv = yozuvlar ro'yxati ekanini tushundim</b> 🎉</label></li>
+      <li><input type="checkbox" id="d5c6"><label for="d5c6">Yo'q kalit <code>Warning</code> berishini tasdiqladim</label></li>
+      <li><input type="checkbox" id="d5c7"><label for="d5c7">Ishni commit qildim</label></li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 5) TAXMIN + QUIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Ikki elementli massivga <b>5-indeks</b> bilan qiymat qo'shamiz, keyin
+    <code>[]</code> bilan yana bittasini. Savol: oxirgi elementning <b>kaliti nechchi</b>
+    bo'ladi, va <code>count</code> nima qaytaradi?</p>
+    <div class="codefile">
+      <div class="fname">taxmin.php</div>
+      <code class="cmd" data-cmd="&lt;?php
+$a = [&quot;a&quot;, &quot;b&quot;];
+$a[5] = &quot;c&quot;;
+$a[] = &quot;d&quot;;
+var_dump($a);
+echo count($a), PHP_EOL;">&lt;?php
+$a = ["a", "b"];
+$a[5] = "c";
+$a[] = "d";
+var_dump($a);
+echo count($a), PHP_EOL;</code>
+    </div>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <div class="natija">array(4) {
+  [0]=&gt; string(1) "a"
+  [1]=&gt; string(1) "b"
+  [5]=&gt; string(1) "c"
+  [6]=&gt; string(1) "d"
+}
+4</div>
+        <p>Ikkita kutilmagan narsa bor:</p>
+        <ul>
+          <li><b>Kalit 2, 3, 4 mavjud emas.</b> PHP bo'shliqni to'ldirmaydi —
+          <code>$a[2]</code> ni o'qisangiz <code>Warning</code> olasiz.</li>
+          <li><b>Oxirgi element kaliti — 6, 2 emas.</b> <code>$a[] =</code> «eng katta
+          son kalit + 1» ni oladi. Eng kattasi 5 edi → 6 bo'ldi. Ya'ni u
+          <code>count</code> ga qaramaydi.</li>
+        </ul>
+        <p><b>Sabab bitta:</b> PHP massivi — <b>ro'yxat emas, xarita</b>. Unda «uzunlik»
+        degan tushuncha yo'q, faqat kalitlar to'plami bor. <code>count</code> esa
+        elementlar <b>sonini</b> beradi — eng katta kalitni emas.</p>
+        <p class="expect">Amaliy xulosa: massivni <code>for ($i = 0; $i &lt; count($a); $i++)</code>
+        bilan aylanish <b>xavfli</b> — kalitlar uzluksiz bo'lmasa buziladi.
+        <code>foreach</code> esa har doim ishlaydi, chunki u mavjud kalitlarni oladi.
+        Mana <code>foreach</code> nega tavsiya qilinadi.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span> PHP'da indeksli va assotsiativ
+    massiv nima?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Bitta tip, kalitlari boshqacha</button></li>
+      <li><button class="quiz-option">Ikki alohida mustaqil tip</button></li>
+      <li><button class="quiz-option">Bitta tip, uzunligi boshqacha</button></li>
+    </ul>
+    <div class="quiz-explain">PHP massivi <b>har doim</b> «kalit → qiymat» to'plami.
+    Indeksli massivda kalitlar shunchaki <code>0, 1, 2</code>. <code>var_dump</code>
+    buni o'zi ko'rsatadi: <code>[0]=&gt;</code>.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span> Assotsiativ massivni aylanib
+    chiqish uchun nima ishlatiladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">foreach — kalitlarni biladi</button></li>
+      <li><button class="quiz-option">for — indeksni sanaydi</button></li>
+      <li><button class="quiz-option">while — shartni tekshiradi</button></li>
+    </ul>
+    <div class="quiz-explain"><code>for</code> faqat raqamli indekslar bilan ishlaydi.
+    <code>foreach</code> esa mavjud <b>kalitlarni</b> oladi — shuning uchun assotsiativ
+    massivda ham, kalitlari uzluksiz bo'lmagan massivda ham ishlaydi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span> Massivda yo'q kalitni o'qisangiz
+    nima bo'ladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Warning, dastur davom etadi</button></li>
+      <li><button class="quiz-option">Fatal error, dastur to'xtaydi</button></li>
+      <li><button class="quiz-option">Parse error, kod ishlamaydi</button></li>
+    </ul>
+    <div class="quiz-explain"><code>Warning: Undefined array key</code> chiqadi va qiymat
+    <code>null</code> bo'ladi — lekin dastur <b>to'xtamaydi</b>. Shuning uchun sahifa
+    «ishlab» turib bo'sh joy ko'rsatishi mumkin.</div>
+  </div>
+
+  <!-- ═══════════════ 6) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+    <p class="recall-intro">Avval o'zingiz javob bering, keyin ochib tekshiring.
+    Oxirgi ikkitasi — <a href="0004-xatoni-oqish.html">4-darsni</a> takrorlash.</p>
+
+    <details class="recall">
+      <summary>PHP massivi — ro'yxatmi yoki xarita?</summary>
+      <div class="answer"><p><b>Xarita</b> — har doim «kalit → qiymat». Indeksli massiv
+      shunchaki kalitlari <code>0, 1, 2</code> bo'lgan xarita. Shuning uchun kalitlar
+      uzluksiz bo'lmasligi mumkin.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary><code>foreach</code> ning ikki shakli qanday?</summary>
+      <div class="answer"><p><code>foreach ($a as $qiymat)</code> — faqat qiymat.
+      <code>foreach ($a as $kalit =&gt; $qiymat)</code> — kalit ham. Nomlarni o'zingiz
+      tanlaysiz.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Bazadan kelgan yozuvlar ro'yxati qanday shaklda bo'ladi?</summary>
+      <div class="answer"><p><b>Indeksli massiv ichida assotsiativ massivlar</b>: tashqisi
+      ro'yxat, har bir elementi bitta yozuv. <code>foreach ($yozuvlar as $y)</code> bilan
+      aylanib, <code>$y['ustun']</code> bilan qiymat olinadi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: <code>Warning</code> va <code>Fatal error</code> farqi?</summary>
+      <div class="answer"><p><code>Warning</code> — kod <b>davom etadi</b> (natijaga
+      ishonmang). <code>Fatal error</code> — kod <b>to'xtaydi</b> (bir qismi bajarilgan,
+      qolgani yo'q).</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: <code>Parse error</code> da qaysi qatorga qaraladi?</summary>
+      <div class="answer"><p>Ko'rsatilgan qatorda topmasangiz — <b>bir qator yuqoriga</b>.
+      PHP muammoni keyingi ko'rsatma boshlanganda sezadi.</p></div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 7) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Cho'ntak xulosasi</span>
+    <ul>
+      <li>Massiv — bitta nom, ko'p qiymat. Ikki shakl: <b>indeksli</b>
+      (<code>[0]</code>) va <b>assotsiativ</b> (<code>["kalit"]</code>).</li>
+      <li><b>Ikkisi ham bitta tip</b> — massiv har doim «kalit → qiymat» xaritasi.</li>
+      <li><code>$a[] = $x</code> qo'shadi (eng katta son kalit + 1) ·
+      <code>count($a)</code> sanaydi.</li>
+      <li><code>foreach ($a as $q)</code> yoki <code>foreach ($a as $k =&gt; $q)</code> —
+      massiv uchun eng to'g'ri sikl.</li>
+      <li>Ichma-ich massiv = <b>yozuvlar ro'yxati</b> — bazadan keladigan ma'lumot shakli.</li>
+      <li>Yo'q kalit → <code>Warning</code> + <code>null</code>, dastur <b>davom etadi</b>.</li>
+      <li>Matn ichida: <code>"{$v['nom']}"</code> — qavs ishlating.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Kelasi darslar uchun urug'</span>
+    <p>Massiv bilan ishlashning eng kuchli usullari bor: «har bir elementni o'zgartir»
+    (<code>array_map</code>) yoki «shartga mos kelganini tanla»
+    (<code>array_filter</code>). Lekin ular sizdan <b>funksiya</b> talab qiladi —
+    «bu elementga nima qilay?» degan savolga javobni funksiya shaklida berasiz.
+    Shuning uchun ular <b>keyingi darsda</b>, funksiya bilan birga keladi.
+    Laravel'da esa bularning ancha chiroyli ko'rinishi bor — <b>Collections</b> —
+    va u G modulida ochiladi.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>PHP Fundamentals</b> — Laravel'ning rasmiy bepul kursi, massivlar epizodi:
+    <a href="https://laravel.com/learn/php-fundamentals">laravel.com/learn/php-fundamentals</a>.<sup><a href="#fn1">1</a></sup><br>
+    Qo'llanma (ko'zgu): <a href="https://devdocs.io/php/language.types.array">devdocs.io — Arrays</a>.<sup><a href="#fn2">2</a></sup><br>
+    O'zbekcha: <a href="https://uzbekdevs.uz/darsliklar/php">uzbekdevs.uz</a> — «Massiv» va
+    «foreach takrorlash operatori» darslari.</p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b> «massivni qanday saralayman?»,
+    «ikki massivni qo'shish mumkinmi?», «massiv ichida massiv ichida massiv bo'lsa-chi?»,
+    «<code>isset</code> nima?» — har qanday savol yaxshi. Aytgancha, <code>isset</code>
+    aynan bugungi <code>Warning</code> muammosining yechimi — so'rasangiz ko'rsatib beraman.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0004-xatoni-oqish.html">Oldingi: Xatoni o'qish</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel — <a href="https://laravel.com/learn/php-fundamentals">PHP
+      Fundamentals</a> (rasmiy bepul mini-kurs).</li>
+      <li id="fn2">PHP Manual — <i>Arrays</i>, DevDocs ko'zgusi orqali:
+      <a href="https://devdocs.io/php/language.types.array">devdocs.io/php/language.types.array</a>.
+      Rasmiy <code>php.net</code> bu tarmoqdan ochilmaydi.</li>
+      <li id="fn3">Barcha natijalar PHP <b>8.3.32</b> da jonli sinab ko'rilgan —
+      shu jumladan taxmin mashqidagi <code>[5]</code> va <code>[6]</code> kalitlari.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

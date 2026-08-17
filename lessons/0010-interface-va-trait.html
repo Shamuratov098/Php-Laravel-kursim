@@ -1,0 +1,650 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 10 — interface va trait</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 10 · MODUL A — POYDEVOR</p>
+  <h1><code>interface</code> va <code>trait</code>: shartnoma va qayta ishlatish</h1>
+  <p class="lead">Bu darsdan keyin klasslarni <b>bir-biriga bog'lamasdan</b> almashtiriladigan
+  qilasiz. Bu kursning eng muhim g'oyalaridan biri: kod <b>aniq klassga emas, shartnomaga</b>
+  tayanadi. Laravel'ning butun ichki tuzilishi shu ustiga qurilgan.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 9 daqiqa</span>
+    <span>💻 Amaliyot ≈ 12 daqiqa</span>
+    <span>Kerak: <a href="0009-meros-va-abstract.html">Dars 09</a></span>
+  </p>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Nega bu muhim</span>
+    <p>9-darsda merosning cheklovini aytgandim: PHP'da klass <b>faqat bitta</b> otadan
+    meros oladi. Va yana bir muammo bor — meros klasslarni <b>qattiq bog'laydi</b>:
+    <code>EmailXabar</code> majburan <code>Xabar</code> ning avlodi bo'lishi kerak.</p>
+    <p>Lekin ba'zan bunday oila kerak emas. Masalan xabar yuborish uchun uchta butunlay
+    <b>bog'liq bo'lmagan</b> kanal bo'lishi mumkin — email kutubxonasi, Telegram API,
+    SMS provayder. Ularni bitta ota ostiga majburan tiqishtirish noto'g'ri. Kerak bo'lgani
+    faqat bitta narsa: <b>ularning hammasi «yuborish»ni bilsin</b>.</p>
+    <p>Aynan shu — <code>interface</code>. Va bu Laravel'da eng ko'p uchraydigan naqsh:
+    kodingiz «qaysi klass?» degan savolga emas, «<b>nima qila oladi?</b>» degan savolga
+    tayanadi.</p>
+  </div>
+
+  <!-- ═══════════════ 2) TUSHUNCHA ═══════════════ -->
+  <h2><code>interface</code> — shartnoma</h2>
+
+  <div class="codefile">
+    <div class="fname">tushuncha</div>
+    <code class="cmd" data-cmd="interface Yuboruvchi
+{
+    public function yubor(string $matn): string;   // faqat IMZO, tanasi yo'q
+}
+
+class EmailKanal implements Yuboruvchi
+{
+    public function yubor(string $matn): string { return &quot;EMAIL: {$matn}&quot;; }
+}
+
+class TelegramKanal implements Yuboruvchi
+{
+    public function yubor(string $matn): string { return &quot;TELEGRAM: {$matn}&quot;; }
+}">interface Yuboruvchi
+{
+    public function yubor(string $matn): string;   // faqat IMZO, tanasi yo'q
+}
+
+class EmailKanal implements Yuboruvchi
+{
+    public function yubor(string $matn): string { return "EMAIL: {$matn}"; }
+}
+
+class TelegramKanal implements Yuboruvchi
+{
+    public function yubor(string $matn): string { return "TELEGRAM: {$matn}"; }
+}</code>
+  </div>
+
+  <p><code>interface</code> — bu <b>ro'yxat</b>: «bu shartnomani qabul qilgan klass mana
+  shu metodlarni albatta yozadi». Ichida <b>kod yo'q</b>, faqat imzolar.
+  <code>implements</code> — «men shu shartnomani qabul qilaman».</p>
+
+  <p><code>EmailKanal</code> va <code>TelegramKanal</code> bir-biriga <b>hech qanday
+  aloqasi yo'q</b> — umumiy otasi yo'q. Lekin ikkalasi ham <code>Yuboruvchi</code>.</p>
+
+  <div class="callout note">
+    <span class="label">Shartnoma buzilsa — 9-darsdagi <b>aynan o'sha</b> xato</span>
+    <div class="natija">PHP Fatal error:  Class SmsKanal contains 1 abstract method and must therefore be declared abstract or implement the remaining methods (Yuboruvchi::yubor)</div>
+    <p>Xabar <code>abstract</code> so'zini ishlatdi — chunki <b>interface aslida hammasi
+    abstract bo'lgan klassga o'xshaydi</b>. Farqi: interface'da hech qanday kod bo'lmaydi,
+    va klass <b>bir nechta</b> interface'ni qabul qila oladi (otasi esa faqat bitta).</p>
+  </div>
+
+  <h3>Asosiy foyda: kod shartnomaga tayanadi</h3>
+
+  <div class="codefile">
+    <div class="fname">tushuncha</div>
+    <code class="cmd" data-cmd="function xabarBer(Yuboruvchi $kanal, string $matn): void
+{
+    echo $kanal-&gt;yubor($matn);
+}
+
+xabarBer(new EmailKanal(), $matn);      // ishlaydi
+xabarBer(new TelegramKanal(), $matn);   // ham ishlaydi">function xabarBer(<span class="add">Yuboruvchi</span> $kanal, string $matn): void
+{
+    echo $kanal-&gt;yubor($matn);
+}
+
+xabarBer(new EmailKanal(), $matn);      // ishlaydi
+xabarBer(new TelegramKanal(), $matn);   // ham ishlaydi</code>
+  </div>
+
+  <p>Diqqat qiling: <code>xabarBer</code> funksiyasi <code>EmailKanal</code> haqida
+  <b>hech narsa bilmaydi</b>. U faqat «menga <code>yubor()</code> ni biladigan narsa
+  bering» deydi. Natijasi:</p>
+
+  <ul>
+    <li>Yangi kanal qo'shsangiz — <code>xabarBer</code> ga <b>tegmaysiz</b>.</li>
+    <li>Testda haqiqiy email jo'natmaslik uchun <b>soxta kanal</b> yozib berishingiz
+    mumkin — u ham <code>Yuboruvchi</code> bo'lsa yetadi. (E modulida aynan shuni qilamiz.)</li>
+    <li>Kod bo'laklari bir-biridan <b>ajratilgan</b> bo'ladi.</li>
+  </ul>
+
+  <div class="callout tip">
+    <span class="label">Bu Laravel'ni tushunishning kaliti</span>
+    <p>Laravel ichida yuzlab interface bor (u yerda ular <b>contract</b> deb ataladi).
+    Masalan cache, mail, queue — hammasi interface orqali ishlatiladi, shuning uchun
+    drayverni <code>.env</code> da bitta so'z bilan almashtirish mumkin: kod
+    <code>Redis</code> yoki <code>fayl</code> haqida bilmaydi, u faqat <b>shartnomani</b>
+    biladi. <b>15-darsda</b> o'z container'ingizni yozganda, shu g'oya bilan yana
+    uchrashasiz.</p>
+  </div>
+
+  <h3>Bir nechta shartnoma</h3>
+
+  <div class="codefile">
+    <div class="fname">tushuncha</div>
+    <code class="cmd" data-cmd="class Kanal implements Yuboruvchi, Loglanadigan
+{
+    // ikkala shartnomaning metodlarini ham yozishi shart
+}">class Kanal implements Yuboruvchi, Loglanadigan
+{
+    // ikkala shartnomaning metodlarini ham yozishi shart
+}</code>
+  </div>
+
+  <p>Bu merosda mumkin emas — <code>extends</code> faqat bitta. Interface esa xohlagancha.</p>
+
+  <h2><code>trait</code> — qayta ishlatiladigan kod bo'lagi</h2>
+
+  <p>Interface «<b>nima</b> qila olishini» aytadi, lekin <b>kod bermaydi</b>. Ba'zan esa
+  aynan kod kerak bo'ladi — va u bir-biriga bog'lanmagan bir necha klassga bir xil kerak.</p>
+
+  <div class="codefile">
+    <div class="fname">tushuncha</div>
+    <code class="cmd" data-cmd="trait Loglaydi
+{
+    public function log(string $xabar): string
+    {
+        return &quot;[&quot; . static::class . &quot;] {$xabar}&quot;;
+    }
+}
+
+class SmsKanal
+{
+    use Loglaydi;      // kod shu yerga KO'CHIRILADI
+}
+
+class Vakansiya
+{
+    use Loglaydi;      // bu klassga ham
+}">trait Loglaydi
+{
+    public function log(string $xabar): string
+    {
+        return "[" . static::class . "] {$xabar}";
+    }
+}
+
+class SmsKanal
+{
+    <span class="add">use Loglaydi;</span>      // kod shu yerga KO'CHIRILADI
+}
+
+class Vakansiya
+{
+    <span class="add">use Loglaydi;</span>      // bu klassga ham
+}</code>
+  </div>
+
+  <p><code>trait</code> — «kodni PHP o'zi ko'chirib qo'yadigan» bo'lak.
+  <code>use Loglaydi;</code> yozsangiz, o'sha metodlar klass ichiga <b>ko'chiriladi</b> —
+  go'yo siz ularni qo'lda yozgan kabi.</p>
+
+  <p><code>static::class</code> — «hozir men qaysi klass ichidaman» degan javob. Natija:</p>
+
+  <div class="natija">[SmsKanal] xabar yuborildi
+[Vakansiya] vakansiya saqlandi</div>
+
+  <p>Bitta trait, ikki xil klass nomi — chunki kod <b>har klassga alohida ko'chirilgan</b>.
+  <code>SmsKanal</code> va <code>Vakansiya</code> o'zaro <b>hech qanday</b> aloqada emas.</p>
+
+  <h3>Qaysi birini qachon?</h3>
+
+  <table class="sheet">
+    <tr><th></th><th><code>interface</code></th><th><code>trait</code></th></tr>
+    <tr><td>Nima beradi</td><td>Shartnoma — «<b>nima</b> qila oladi»</td><td>Kod — «<b>qanday</b> qiladi»</td></tr>
+    <tr><td>Ichida kod</td><td><b>Yo'q</b></td><td><b>Bor</b></td></tr>
+    <tr><td>Nechta olish mumkin</td><td>Xohlagancha</td><td>Xohlagancha</td></tr>
+    <tr><td>Tip sifatida ishlatiladimi</td><td><b>Ha</b> — <code>f(Yuboruvchi $x)</code></td><td><b>Yo'q</b></td></tr>
+    <tr><td>PHP majburlaydimi</td><td>Ha — metod yozilishi shart</td><td>Yo'q — u shunchaki kod beradi</td></tr>
+  </table>
+
+  <p><b>Amaliy qoida:</b> tip kerak bo'lsa — <code>interface</code>. Takrorlanadigan kodni
+  yo'qotish kerak bo'lsa — <code>trait</code>. Ko'pincha <b>ikkalasi birga</b> ishlatiladi:
+  interface shartnomani belgilaydi, trait esa uning standart bajarilishini beradi.</p>
+
+  <div class="callout warning">
+    <span class="label"><code>trait</code> ni ko'p ishlatmang</span>
+    <p><code>trait</code> qulay, lekin u kodni <b>yashiradi</b>: klassga qarab
+    «bu metod qayerdan keldi?» deb tushunish qiyinlashadi. Va trait o'zi tip bermaydi,
+    ya'ni <code>function f(Loglaydi $x)</code> deb yozib bo'lmaydi. Shuning uchun avval
+    interface va oddiy klasslar bilan yechishga urinib ko'ring; trait — takrorlanish
+    chindan bezor qilganda ishlatiladigan asbob.</p>
+  </div>
+
+  <!-- ═══════════════ 4) AMALIYOT / MODE-HINT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    <span class="mode-hint-title">💻 Amaliy qism kompyuterda</span>
+    <p>Amaliyotda <code>23-interface.php</code> da <code>Yuboruvchi</code> shartnomasini va
+    unga mos ikkita <b>bog'liq bo'lmagan</b> kanalni yozasiz, hamda shartnomaga tayanadigan
+    funksiyani sinaysiz. <code>24-trait.php</code> da esa bitta trait'ni ikki xil klassga
+    ulaysiz. Oxirida shartnomani buzib, PHP nima deyishini ko'rasiz.</p>
+    <button type="button" class="modebtn" data-set-mode="do">💻 Amaliyot rejimini ko'rish</button>
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <p>Papkaga o'ting</p>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/php-poydevor">cd ~/Projects/Learn/php-poydevor</div>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik.</p>
+      </li>
+
+      <li>
+        <p>Shartnoma va ikkita mustaqil kanalni yozing</p>
+        <p class="why-step">Diqqat: ikki klassning <b>umumiy otasi yo'q</b> — ular faqat
+        bir xil shartnomani qabul qilgan.</p>
+        <div class="cmd" data-cmd="cat &gt; 23-interface.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+interface Yuboruvchi
+{
+    public function yubor(string $matn): string;
+}
+
+class EmailKanal implements Yuboruvchi
+{
+    public function yubor(string $matn): string
+    {
+        return &quot;EMAIL: {$matn}&quot;;
+    }
+}
+
+class TelegramKanal implements Yuboruvchi
+{
+    public function yubor(string $matn): string
+    {
+        return &quot;TELEGRAM: {$matn}&quot;;
+    }
+}
+
+function xabarBer(Yuboruvchi $kanal, string $matn): void
+{
+    echo $kanal-&gt;yubor($matn), PHP_EOL;
+}
+
+$matn = &quot;Arizangiz qabul qilindi&quot;;
+xabarBer(new EmailKanal(), $matn);
+xabarBer(new TelegramKanal(), $matn);
+EOF
+php 23-interface.php">cat &gt; 23-interface.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+interface Yuboruvchi
+{
+    public function yubor(string $matn): string;
+}
+
+class EmailKanal implements Yuboruvchi
+{
+    public function yubor(string $matn): string
+    {
+        return "EMAIL: {$matn}";
+    }
+}
+
+class TelegramKanal implements Yuboruvchi
+{
+    public function yubor(string $matn): string
+    {
+        return "TELEGRAM: {$matn}";
+    }
+}
+
+function xabarBer(Yuboruvchi $kanal, string $matn): void
+{
+    echo $kanal-&gt;yubor($matn), PHP_EOL;
+}
+
+$matn = "Arizangiz qabul qilindi";
+xabarBer(new EmailKanal(), $matn);
+xabarBer(new TelegramKanal(), $matn);
+EOF
+php 23-interface.php
+<span class="out">EMAIL: Arizangiz qabul qilindi</span>
+<span class="out">TELEGRAM: Arizangiz qabul qilindi</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> ikki qator. Muhimi:
+        <code>xabarBer</code> ikkala klass haqida <b>hech narsa bilmaydi</b> — u faqat
+        <code>Yuboruvchi</code> ni biladi.
+        <br><b>O'zingiz sinab ko'ring:</b> uchinchi kanal (<code>SmsKanal</code>) qo'shib,
+        <code>xabarBer</code> ga <b>tegmasdan</b> uni ishlatib ko'ring.</p>
+      </li>
+
+      <li>
+        <p>Shartnomani buzib ko'ring</p>
+        <p class="why-step">PHP majburlashini tasdiqlash — va 9-darsdagi xato bilan
+        solishtirish.</p>
+        <div class="cmd" data-cmd="php -r 'require &quot;23-interface.php&quot;; class SmsKanal implements Yuboruvchi {}' 2&gt;&amp;1 | tail -1">php -r 'require "23-interface.php"; class SmsKanal implements Yuboruvchi {}' 2&gt;&amp;1 | tail -1
+<span class="out">PHP Fatal error:  Class SmsKanal contains 1 abstract method and must therefore be declared abstract or implement the remaining methods (Yuboruvchi::yubor) in Command line code on line 1</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> 9-darsdagi <b>aynan o'sha</b> xato —
+        «contains 1 abstract method». Chunki interface metodlari ham abstract.
+        <br>Eslatma: <code>23-interface.php</code> ichida <code>echo</code> bor, shuning
+        uchun <code>tail -1</code> bilan faqat oxirgi qatorni oldik.</p>
+      </li>
+
+      <li>
+        <p>Trait yozing va ikki xil klassga ulang</p>
+        <p class="why-step">Ikki klass o'zaro bog'liq emas, lekin bir xil kodni oldi.</p>
+        <div class="cmd" data-cmd="cat &gt; 24-trait.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+trait Loglaydi
+{
+    public function log(string $xabar): string
+    {
+        return &quot;[&quot; . static::class . &quot;] {$xabar}&quot;;
+    }
+}
+
+class SmsKanal
+{
+    use Loglaydi;
+}
+
+class Vakansiya
+{
+    use Loglaydi;
+}
+
+echo (new SmsKanal())-&gt;log(&quot;xabar yuborildi&quot;), PHP_EOL;
+echo (new Vakansiya())-&gt;log(&quot;vakansiya saqlandi&quot;), PHP_EOL;
+EOF
+php 24-trait.php">cat &gt; 24-trait.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+trait Loglaydi
+{
+    public function log(string $xabar): string
+    {
+        return "[" . static::class . "] {$xabar}";
+    }
+}
+
+class SmsKanal
+{
+    use Loglaydi;
+}
+
+class Vakansiya
+{
+    use Loglaydi;
+}
+
+echo (new SmsKanal())-&gt;log("xabar yuborildi"), PHP_EOL;
+echo (new Vakansiya())-&gt;log("vakansiya saqlandi"), PHP_EOL;
+EOF
+php 24-trait.php
+<span class="out">[SmsKanal] xabar yuborildi</span>
+<span class="out">[Vakansiya] vakansiya saqlandi</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> qavs ichidagi nom <b>har xil</b> —
+        chunki kod har klassga alohida ko'chirilgan va <code>static::class</code> o'sha
+        klassning nomini beradi.
+        <br><code>(new SmsKanal())-&gt;log(...)</code> — obyektni o'zgaruvchiga solmasdan
+        darhol ishlatish usuli.</p>
+      </li>
+
+      <li>
+        <p>Ishni saqlang</p>
+        <div class="cmd" data-cmd="git add -A
+git commit -m &quot;10-dars: interface va trait&quot;">git add -A
+git commit -m "10-dars: interface va trait"</div>
+        <p class="expect"><b>Kutilgan natija:</b> commit haqida xabar.</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><input type="checkbox" id="d10c1"><label for="d10c1">Interface yozdim va ikki mustaqil klassga ulattim</label></li>
+      <li><input type="checkbox" id="d10c2"><label for="d10c2"><b>Funksiya aniq klassga emas, shartnomaga tayanishini tushundim</b> 🎉</label></li>
+      <li><input type="checkbox" id="d10c3"><label for="d10c3">Uchinchi kanalni <code>xabarBer</code> ga tegmasdan qo'shdim</label></li>
+      <li><input type="checkbox" id="d10c4"><label for="d10c4">Shartnomani buzib, PHP xatosini ko'rdim</label></li>
+      <li><input type="checkbox" id="d10c5"><label for="d10c5">Trait yozdim va ikki bog'liq bo'lmagan klassga uladim</label></li>
+      <li><input type="checkbox" id="d10c6"><label for="d10c6"><code>interface</code> va <code>trait</code> qachon ishlatilishini aytib beraman</label></li>
+      <li><input type="checkbox" id="d10c7"><label for="d10c7">Ishni commit qildim</label></li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 5) TAXMIN + QUIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Bitta metod nomi <b>uch joyda</b> bor: ota klassda, trait'da va (B klassida) o'zida.
+    Qaysi biri yutadi?</p>
+    <div class="codefile">
+      <div class="fname">taxmin.php</div>
+      <code class="cmd" data-cmd="&lt;?php
+class Ota
+{
+    public function kim(): string { return &quot;OTA&quot;; }
+}
+
+trait Xususiyat
+{
+    public function kim(): string { return &quot;TRAIT&quot;; }
+}
+
+class A extends Ota
+{
+    use Xususiyat;
+}
+
+class B extends Ota
+{
+    use Xususiyat;
+    public function kim(): string { return &quot;O'ZI&quot;; }
+}
+
+echo (new A())-&gt;kim(), PHP_EOL;
+echo (new B())-&gt;kim(), PHP_EOL;">&lt;?php
+class Ota
+{
+    public function kim(): string { return "OTA"; }
+}
+
+trait Xususiyat
+{
+    public function kim(): string { return "TRAIT"; }
+}
+
+class A extends Ota
+{
+    use Xususiyat;
+}
+
+class B extends Ota
+{
+    use Xususiyat;
+    public function kim(): string { return "O'ZI"; }
+}
+
+echo (new A())-&gt;kim(), PHP_EOL;
+echo (new B())-&gt;kim(), PHP_EOL;</code>
+    </div>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <div class="natija">TRAIT
+O'ZI</div>
+        <p>Ustunlik tartibi shunday:</p>
+        <div class="natija">o'z klassi   &gt;   trait   &gt;   ota klass</div>
+        <ul>
+          <li><b>A</b> da o'z metodi yo'q → <code>trait</code> yutadi, <b>otani yengib
+          o'tadi</b>. Ko'pchilik buni kutmaydi.</li>
+          <li><b>B</b> da o'z metodi bor → <b>o'zi</b> yutadi, trait ham, ota ham chetda
+          qoladi.</li>
+        </ul>
+        <p><b>Nega trait otani yengadi?</b> Chunki trait kodi klass ichiga
+        <b>ko'chiriladi</b> — go'yo siz uni o'z qo'lingiz bilan yozgan kabi. Ota klass esa
+        undan bir bosqich yuqorida turadi, va PHP har doim <b>eng yaqin</b> metodni oladi.</p>
+        <p class="expect">Amaliy xulosa: trait qo'shganingizda u <b>ota klassdagi
+        xatti-harakatni jimgina almashtirib qo'yishi mumkin</b> — va kodga qarab buni
+        sezish qiyin. Aynan shu sababdan trait'ni ehtiyot bilan ishlatish kerak.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span> <code>interface</code> ichida nima
+    bo'ladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Faqat metod imzolari, kod yo'q</button></li>
+      <li><button class="quiz-option">Metodlar va ularning to'liq kodi</button></li>
+      <li><button class="quiz-option">Faqat xossalar va ularning qiymati</button></li>
+    </ul>
+    <div class="quiz-explain">Interface — <b>shartnoma</b>: nima qilinishi kerakligini
+    aytadi, qanday qilinishini emas. Kod beradigan narsa — <code>trait</code> yoki oddiy
+    klass.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span> <code>function f(Yuboruvchi $x)</code>
+    deb yozishning foydasi nima?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Har qanday mos klass beriladi</button></li>
+      <li><button class="quiz-option">Kod ancha tezroq ishga tushadi</button></li>
+      <li><button class="quiz-option">Faqat bitta aniq klass beriladi</button></li>
+    </ul>
+    <div class="quiz-explain">Funksiya aniq klassga emas, <b>shartnomaga</b> bog'lanadi.
+    Shuning uchun yangi kanal qo'shilsa funksiyaga tegilmaydi, va testda soxta kanal
+    berish mumkin.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span> <code>trait</code> ni tip sifatida
+    ishlatish mumkinmi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Yo'q — tip bermaydi</button></li>
+      <li><button class="quiz-option">Ha — interface kabi</button></li>
+      <li><button class="quiz-option">Ha — meros kabi</button></li>
+    </ul>
+    <div class="quiz-explain"><code>trait</code> faqat <b>kod</b> beradi, tip bermaydi —
+    <code>function f(Loglaydi $x)</code> deb yozib bo'lmaydi. Tip kerak bo'lsa
+    <code>interface</code> ishlatiladi.</div>
+  </div>
+
+  <!-- ═══════════════ 6) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+    <p class="recall-intro">Avval o'zingiz javob bering, keyin ochib tekshiring.
+    Oxirgi ikkitasi — <a href="0009-meros-va-abstract.html">9-darsni</a> takrorlash.</p>
+
+    <details class="recall">
+      <summary><code>interface</code> va <code>trait</code> — bir gapda farqi?</summary>
+      <div class="answer"><p><code>interface</code> — «<b>nima</b> qila oladi» (shartnoma,
+      kod yo'q, tip beradi). <code>trait</code> — «<b>qanday</b> qiladi» (kod bor, tip
+      bermaydi).</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Nega shartnomaga tayanish yaxshi?</summary>
+      <div class="answer"><p>Chunki kod aniq klassdan <b>ajratiladi</b>: yangi klass
+      qo'shilsa funksiyaga tegilmaydi, testda soxta obyekt berish mumkin, va drayverni
+      almashtirish oson bo'ladi (Laravel'da cache/mail/queue shunday).</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Metod uch joyda bo'lsa (o'zi, trait, ota) — qaysi yutadi?</summary>
+      <div class="answer"><p><b>o'z klassi &gt; trait &gt; ota klass.</b> Trait otani
+      yengadi, chunki uning kodi klass ichiga ko'chiriladi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: <code>abstract</code> metod nima?</summary>
+      <div class="answer"><p>Tanasi yo'q, faqat imzo — «avlod buni o'zi yozishi shart».
+      Interface metodlari ham aslida shunday, shuning uchun xato xabari ham bir xil.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: avlodda konstruktor yozsangiz nimani unutmaslik kerak?</summary>
+      <div class="answer"><p><code>parent::__construct(...)</code> ni chaqirishni. Aks
+      holda otaning xossalari qiymatsiz qoladi va keyinroq
+      <code>Typed property ... must not be accessed before initialization</code> chiqadi.</p></div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 7) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Cho'ntak xulosasi</span>
+    <ul>
+      <li><code>interface</code> — <b>shartnoma</b>: faqat imzolar, kod yo'q.
+      <code>implements</code> bilan qabul qilinadi, <b>bir nechtasi</b> mumkin.</li>
+      <li>🔑 <b>Kod aniq klassga emas, shartnomaga tayansin</b> —
+      <code>f(Yuboruvchi $x)</code>. Laravel'da bu «contract» deb ataladi.</li>
+      <li>Shartnoma buzilsa — <code>contains 1 abstract method</code> xatosi
+      (<code>abstract</code> bilan bir xil).</li>
+      <li><code>trait</code> — kodni klass ichiga <b>ko'chiradi</b>. <code>use</code> bilan
+      ulanadi, tip <b>bermaydi</b>.</li>
+      <li>Ustunlik: <b>o'z klassi &gt; trait &gt; ota klass</b>.</li>
+      <li>Tip kerak → <code>interface</code>. Takrorlanadigan kod → <code>trait</code>.
+      Ehtiyot bo'ling: trait kodni yashiradi.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Kelasi darslar uchun urug'</span>
+    <p>Fayllaringiz ko'payib boryapti: <code>21-xabar.php</code>,
+    <code>23-interface.php</code>, <code>24-trait.php</code>... va har birini
+    <code>require</code> qilib yurish kerak. Klasslar 50 taga chiqsa nima bo'ladi?
+    Bundan tashqari ikki xil kutubxonada bir xil nomli klass bo'lsa — to'qnashuv chiqadi.</p>
+    <p><b>12-dars</b> ikkisini ham yechadi: <code>namespace</code> (nomlarni
+    ajratish) va <b>Composer</b> bilan <code>autoload</code> — «kerak bo'lgan klassni
+    PHP o'zi topib oladi». <code>require</code> yozish tugaydi. Va shu bilan
+    <code>composer</code> — Laravel o'rnatiladigan asbob — qo'lingizga o'tadi.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>PHP Fundamentals</b> — Laravel'ning rasmiy bepul kursi:
+    <a href="https://laravel.com/learn/php-fundamentals">laravel.com/learn/php-fundamentals</a>.<sup><a href="#fn1">1</a></sup><br>
+    Qo'llanma (ko'zgu):
+    <a href="https://devdocs.io/php/language.oop5.interfaces">devdocs.io — Interfaces</a> ·
+    <a href="https://devdocs.io/php/language.oop5.traits">Traits</a>.<sup><a href="#fn2">2</a></sup><br>
+    Laravel'dagi ko'rinishi: <a href="https://laravel.com/docs/13.x/contracts">Laravel Contracts</a>
+    — hozir o'qish shart emas, lekin bir qarab qo'ying: bu bugungi darsning real qo'llanishi.</p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b> «interface'ni qachon yozaman —
+    boshidanmi yoki keyinmi?», «ikki trait'da bir xil metod bo'lsa nima bo'ladi?»,
+    «<code>abstract class</code> va <code>interface</code> — qaysi birini tanlayman?» —
+    har qanday savol yaxshi. Oxirgi savol ayniqsa yaxshi: bu tajribali dasturchilar ham
+    muhokama qiladigan mavzu.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0009-meros-va-abstract.html">Oldingi: Meros va abstract</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel — <a href="https://laravel.com/learn/php-fundamentals">PHP
+      Fundamentals</a> (rasmiy bepul mini-kurs).</li>
+      <li id="fn2">PHP Manual — <i>Object Interfaces</i> va <i>Traits</i>, DevDocs ko'zgusi
+      orqali: <a href="https://devdocs.io/php/language.oop5.interfaces">devdocs.io/php/language.oop5.interfaces</a>.
+      Rasmiy <code>php.net</code> bu tarmoqdan ochilmaydi.</li>
+      <li id="fn3">Barcha natijalar PHP <b>8.3.32</b> da jonli sinab ko'rilgan — shu
+      jumladan ustunlik tartibi (<code>TRAIT</code> / <code>O'ZI</code>) va
+      <code>contains 1 abstract method</code> xatosi.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

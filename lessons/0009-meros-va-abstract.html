@@ -1,0 +1,634 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 09 — Meros va abstract</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 09 · MODUL A — POYDEVOR</p>
+  <h1>Meros va <code>abstract</code>: umumiy kodni bir joyda tutish</h1>
+  <p class="lead">Bu darsdan keyin bog'liq klasslar kodni <b>takrorlamasdan</b> bo'lishadi.
+  Bundan tashqari <code>abstract</code> bilan «bu qismni har bir avlod o'zi bajarishi
+  <b>shart</b>» deb aytishni o'rganasiz — Laravel'ning ko'p joyi aynan shu naqsh ustida
+  qurilgan.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 9 daqiqa</span>
+    <span>💻 Amaliyot ≈ 12 daqiqa</span>
+    <span>Kerak: <a href="0008-oop-himoya-static-const.html">Dars 08</a></span>
+  </p>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Nega bu muhim</span>
+    <p>IshTop loyihasida nomzodga xabar yuborish kerak — email bilan ham, SMS bilan ham.
+    Ikkisida <b>umumiy</b> narsa ko'p: qabul qiluvchi, matn, matnni qisqartirish.
+    Farqi esa faqat <b>yuborish usulida</b>.</p>
+    <p>Merossiz yo'l — ikkita klass yozib, umumiy qismni <b>ikki marta</b> takrorlash.
+    Uchinchi kanal (Telegram) qo'shilsa — uch marta. Keyin matnni qisqartirish qoidasi
+    o'zgarsa — uch joyni tuzatish kerak, va bittasini esdan chiqarish deyarli kafolatlangan.</p>
+    <p><b>Meros shuni yechadi:</b> umumiy qism bitta joyda, farq qiladigan qism avlodlarda.
+    Laravel'da siz bu naqshni doim ko'rasiz — masalan har bir controller
+    <code>extends Controller</code>, har bir model <code>extends Model</code>.</p>
+  </div>
+
+  <!-- ═══════════════ 2) TUSHUNCHA ═══════════════ -->
+  <h2>Meros: <code>extends</code></h2>
+
+  <div class="codefile">
+    <div class="fname">tushuncha</div>
+    <code class="cmd" data-cmd="class Xabar                       // ota klass (parent)
+{
+    public function yubor(): string { ... }
+}
+
+class EmailXabar extends Xabar    // avlod (child)
+{
+    // Xabar dagi hamma narsa bu yerda ham BOR
+}">class Xabar                       // ota klass (parent)
+{
+    public function yubor(): string { ... }
+}
+
+class EmailXabar extends Xabar    // avlod (child)
+{
+    // Xabar dagi hamma narsa bu yerda ham BOR
+}</code>
+  </div>
+
+  <p><code>extends</code> — «bu klass o'sha klassning hamma narsasini <b>oladi</b>».
+  Avlod otasining xossalari va metodlariga egalik qiladi, ustiga o'zining qismini qo'shadi.</p>
+
+  <p>Endi 8-darsdagi <code>protected</code> ma'noga to'ldi:</p>
+
+  <table class="sheet">
+    <tr><th>Daraja</th><th class="note-cell">Avlod ko'radimi?</th></tr>
+    <tr><td><code>public</code></td><td class="note-cell">Ha — va tashqaridan ham</td></tr>
+    <tr><td><code>protected</code></td><td class="note-cell"><b>Ha</b> — lekin tashqaridan yo'q. <b>Meros uchun aynan shu kerak</b></td></tr>
+    <tr><td><code>private</code></td><td class="note-cell"><b>Yo'q</b> — faqat o'sha klassning o'zi</td></tr>
+  </table>
+
+  <p>Shuning uchun ota klassda avlodlar ishlatadigan narsalar <code>protected</code> qilinadi:
+  tashqaridan yopiq, lekin «oila ichida» ochiq.</p>
+
+  <h3><code>parent::</code> — otaning versiyasini chaqirish</h3>
+
+  <div class="codefile">
+    <div class="fname">tushuncha</div>
+    <code class="cmd" data-cmd="class EmailXabar extends Xabar
+{
+    public function __construct(string $qabulQiluvchi, private string $mavzu)
+    {
+        parent::__construct($qabulQiluvchi);   // otaning konstruktorini ishlat
+    }
+
+    public function yubor(): string
+    {
+        return parent::yubor() . &quot; [mavzu: {$this-&gt;mavzu}]&quot;;   // ustiga qo'sh
+    }
+}">class EmailXabar extends Xabar
+{
+    public function __construct(string $qabulQiluvchi, private string $mavzu)
+    {
+        parent::__construct($qabulQiluvchi);   // otaning konstruktorini ishlat
+    }
+
+    public function yubor(): string
+    {
+        return parent::yubor() . " [mavzu: {$this-&gt;mavzu}]";   // ustiga qo'sh
+    }
+}</code>
+  </div>
+
+  <p>Avlod otaning metodini <b>o'zining versiyasi bilan almashtira oladi</b> — bu
+  <b>override</b> deb ataladi. <code>parent::</code> esa «otaning versiyasini ham
+  ishlatmoqchiman» degani.</p>
+
+  <div class="callout warning">
+    <span class="label">Avlod o'z konstruktorini yozsa — <code>parent::__construct()</code> shart</span>
+    <p>Aks holda otaning konstruktori <b>umuman ishlamaydi</b> va uning xossalari qiymatsiz
+    qoladi → 7-darsdagi <code>Typed property ... must not be accessed before
+    initialization</code> xatosi chiqadi. PHP buni o'zi qilib bermaydi, siz aytishingiz kerak.</p>
+  </div>
+
+  <h2><code>abstract</code>: «buni avlod o'zi bajarsin»</h2>
+
+  <p>Bizning holatda <code>Xabar</code> ning o'zidan obyekt yasashning <b>ma'nosi yo'q</b> —
+  «umuman xabar» degan narsa yuborilmaydi, faqat email yoki SMS yuboriladi. Va
+  <code>yubor()</code> metodini ota klassda yozib ham bo'lmaydi — chunki har kanalda boshqacha.</p>
+
+  <p><code>abstract</code> aynan shu holat uchun:</p>
+
+  <div class="codefile">
+    <div class="fname">tushuncha</div>
+    <code class="cmd" data-cmd="abstract class Xabar                          // obyekt yasab bo'lmaydi
+{
+    public function __construct(
+        protected string $qabulQiluvchi,
+        protected string $matn,
+    ) {}
+
+    abstract public function yubor(): string;   // tanasi YO'Q — avlod yozadi
+
+    protected function qisqaMatn(): string      // umumiy kod — bir joyda
+    {
+        return mb_substr($this-&gt;matn, 0, 20) . &quot;...&quot;;
+    }
+}">abstract class Xabar                          // obyekt yasab bo'lmaydi
+{
+    public function __construct(
+        protected string $qabulQiluvchi,
+        protected string $matn,
+    ) {}
+
+    <span class="add">abstract public function yubor(): string;</span>   // tanasi YO'Q — avlod yozadi
+
+    protected function qisqaMatn(): string      // umumiy kod — bir joyda
+    {
+        return mb_substr($this-&gt;matn, 0, 20) . "...";
+    }
+}</code>
+  </div>
+
+  <p>Ikki narsa e'lon qilindi:</p>
+  <ul>
+    <li><code>abstract class</code> — <b>bu klassdan obyekt yasab bo'lmaydi</b>. U faqat
+    asos bo'lish uchun. Urinsangiz:
+    <code>Fatal error: Cannot instantiate abstract class</code>.</li>
+    <li><code>abstract public function yubor(): string;</code> — <b>tanasi yo'q</b>, faqat
+    imzo va nuqtali vergul. Ma'nosi: «har bir avlod buni <b>o'zi</b> yozishi shart».</li>
+  </ul>
+
+  <div class="callout tip">
+    <span class="label">Nega bu kuchli</span>
+    <p>Chunki <b>PHP majburlaydi</b>. Avlodda <code>yubor()</code> ni yozishni esdan
+    chiqarsangiz, kod <b>umuman ishga tushmaydi</b>:</p>
+    <div class="natija">PHP Fatal error:  Class Y contains 1 abstract method and must therefore be declared abstract or implement the remaining methods (X::f)</div>
+    <p>Ya'ni xato <b>ishlatishda emas, e'lon qilishda</b> chiqadi — bu eng yaxshi vaqt.
+    Xabar hatto nima qilish kerakligini ham aytadi.</p>
+  </div>
+
+  <h3>Foydasi: bitta sikl, har xil obyektlar</h3>
+
+  <div class="codefile">
+    <div class="fname">tushuncha</div>
+    <code class="cmd" data-cmd="$xabarlar = [
+    new EmailXabar(&quot;doston@example.com&quot;, $matn),
+    new SmsXabar(&quot;+998901234567&quot;, $matn),
+];
+
+foreach ($xabarlar as $x) {
+    echo $x-&gt;yubor();      // har biri O'ZINING usulini ishlatadi
+}">$xabarlar = [
+    new EmailXabar("doston@example.com", $matn),
+    new SmsXabar("+998901234567", $matn),
+];
+
+foreach ($xabarlar as $x) {
+    echo $x-&gt;yubor();      // har biri O'ZINING usulini ishlatadi
+}</code>
+  </div>
+
+  <p>Diqqat qiling: <code>foreach</code> ichida <b>hech qanday <code>if</code> yo'q</b> —
+  «bu emailmi yoki SMSmi?» deb tekshirmadik. Har obyekt o'zining <code>yubor()</code> ini
+  biladi. Bu <b>polimorfizm</b> deb ataladi: bir xil murojaat, har xil xatti-harakat.</p>
+
+  <p>Foydasi kelajakda ko'rinadi: Telegram kanali qo'shsangiz, bu <code>foreach</code>
+  ga <b>tegmaysiz ham</b> — u yangi klassni ham xuddi shunday ishlatadi.</p>
+
+  <h3><code>instanceof</code> — «bu obyekt qaysi turdan?»</h3>
+
+  <div class="natija">$e = new EmailXabar(...);
+$e instanceof EmailXabar   →  true
+$e instanceof Xabar        →  true     ← ota tipiga ham MOS</div>
+
+  <p>Avlod <b>ikkala tipga ham</b> mos keladi. Shuning uchun
+  <code>function yubor(Xabar $x)</code> deb yozsangiz — unga <code>EmailXabar</code> ham,
+  <code>SmsXabar</code> ham, kelajakdagi <code>TelegramXabar</code> ham beriladi.
+  6-darsdagi type hint endi ancha kuchli asbobga aylandi.</p>
+
+  <!-- ═══════════════ 4) AMALIYOT / MODE-HINT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    <span class="mode-hint-title">💻 Amaliy qism kompyuterda</span>
+    <p>Amaliyotda <code>21-xabar.php</code> da <code>abstract class Xabar</code> va undan
+    meros olgan ikkita klass yozasiz, <code>22-yuborish.php</code> da esa ularni bitta
+    siklda ishlatasiz. Keyin ikkita chekni sinaysiz: abstract klassdan obyekt yasashga
+    urinish va abstract metodni bajarmaslik — ikkalasi ham PHP tomonidan taqiqlanadi.</p>
+    <button type="button" class="modebtn" data-set-mode="do">💻 Amaliyot rejimini ko'rish</button>
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <p>Papkaga o'ting</p>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/php-poydevor">cd ~/Projects/Learn/php-poydevor</div>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik.</p>
+      </li>
+
+      <li>
+        <p>Abstract ota klass va ikki avlodni yozing</p>
+        <p class="why-step">Umumiy kod (<code>qisqaMatn</code>) <b>bir joyda</b>, farq
+        qiladigan qism (<code>yubor</code>) avlodlarda.</p>
+        <div class="cmd" data-cmd="cat &gt; 21-xabar.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+abstract class Xabar
+{
+    public function __construct(
+        protected string $qabulQiluvchi,
+        protected string $matn,
+    ) {}
+
+    abstract public function yubor(): string;
+
+    protected function qisqaMatn(): string
+    {
+        return mb_substr($this-&gt;matn, 0, 20) . &quot;...&quot;;
+    }
+}
+
+class EmailXabar extends Xabar
+{
+    public function yubor(): string
+    {
+        return &quot;EMAIL → {$this-&gt;qabulQiluvchi}: {$this-&gt;qisqaMatn()}&quot;;
+    }
+}
+
+class SmsXabar extends Xabar
+{
+    public function yubor(): string
+    {
+        return &quot;SMS → {$this-&gt;qabulQiluvchi}: {$this-&gt;qisqaMatn()}&quot;;
+    }
+}
+EOF
+php 21-xabar.php">cat &gt; 21-xabar.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+abstract class Xabar
+{
+    public function __construct(
+        protected string $qabulQiluvchi,
+        protected string $matn,
+    ) {}
+
+    abstract public function yubor(): string;
+
+    protected function qisqaMatn(): string
+    {
+        return mb_substr($this-&gt;matn, 0, 20) . "...";
+    }
+}
+
+class EmailXabar extends Xabar
+{
+    public function yubor(): string
+    {
+        return "EMAIL → {$this-&gt;qabulQiluvchi}: {$this-&gt;qisqaMatn()}";
+    }
+}
+
+class SmsXabar extends Xabar
+{
+    public function yubor(): string
+    {
+        return "SMS → {$this-&gt;qabulQiluvchi}: {$this-&gt;qisqaMatn()}";
+    }
+}
+EOF
+php 21-xabar.php</div>
+        <p class="expect"><b>Kutilgan natija:</b> <b>jimlik</b> — faylda faqat klasslar bor.
+        Diqqat: <code>qisqaMatn</code> <code>protected</code> — tashqaridan yopiq, lekin
+        avlodlar ishlatadi.</p>
+      </li>
+
+      <li>
+        <p>Ikki xil xabarni bitta siklda yuboring</p>
+        <p class="why-step">Bu polimorfizm — siklda hech qanday <code>if</code> yo'q.</p>
+        <div class="cmd" data-cmd="cat &gt; 22-yuborish.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+require '21-xabar.php';
+
+$matn = &quot;Arizangiz ko'rib chiqildi va suhbatga chaqirildingiz&quot;;
+
+$xabarlar = [
+    new EmailXabar(&quot;doston@example.com&quot;, $matn),
+    new SmsXabar(&quot;+998901234567&quot;, $matn),
+];
+
+foreach ($xabarlar as $x) {
+    echo $x-&gt;yubor(), PHP_EOL;
+    echo &quot;  Xabar turi: &quot;, get_class($x), PHP_EOL;
+    echo &quot;  Xabar avlodimi: &quot;, var_export($x instanceof Xabar, true), PHP_EOL;
+}
+EOF
+php 22-yuborish.php">cat &gt; 22-yuborish.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+require '21-xabar.php';
+
+$matn = "Arizangiz ko'rib chiqildi va suhbatga chaqirildingiz";
+
+$xabarlar = [
+    new EmailXabar("doston@example.com", $matn),
+    new SmsXabar("+998901234567", $matn),
+];
+
+foreach ($xabarlar as $x) {
+    echo $x-&gt;yubor(), PHP_EOL;
+    echo "  Xabar turi: ", get_class($x), PHP_EOL;
+    echo "  Xabar avlodimi: ", var_export($x instanceof Xabar, true), PHP_EOL;
+}
+EOF
+php 22-yuborish.php
+<span class="out">EMAIL → doston@example.com: Arizangiz ko'rib chi...</span>
+<span class="out">  Xabar turi: EmailXabar</span>
+<span class="out">  Xabar avlodimi: true</span>
+<span class="out">SMS → +998901234567: Arizangiz ko'rib chi...</span>
+<span class="out">  Xabar turi: SmsXabar</span>
+<span class="out">  Xabar avlodimi: true</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> har xabar o'z usulida yuborildi, lekin
+        <code>qisqaMatn</code> ikkisida ham bir xil ishladi — <b>umumiy kod bir joyda</b>.
+        Ikkisi ham <code>Xabar</code> avlodi (<code>true</code>).
+        <br><code>get_class($x)</code> — obyektning klass nomini beradi,
+        <code>var_export(..., true)</code> — <code>true</code>/<code>false</code> ni matn
+        qilib qaytaradi.</p>
+      </li>
+
+      <li>
+        <p>Birinchi chek: abstract klassdan obyekt yasashga urinish</p>
+        <p class="why-step">PHP taqiqlashini o'z ko'zingiz bilan ko'rasiz.</p>
+        <div class="cmd" data-cmd="php -r 'require &quot;21-xabar.php&quot;; new Xabar(&quot;test&quot;, &quot;matn&quot;);' 2&gt;&amp;1 | head -1">php -r 'require "21-xabar.php"; new Xabar("test", "matn");' 2&gt;&amp;1 | head -1
+<span class="out">PHP Fatal error:  Uncaught Error: Cannot instantiate abstract class Xabar in Command line code:1</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> «abstract klassdan obyekt yasab
+        bo'lmaydi». To'g'ri — «umuman xabar» degan narsa yo'q.</p>
+      </li>
+
+      <li>
+        <p>Ikkinchi chek: abstract metodni bajarmaslik</p>
+        <p class="why-step">Xato <b>e'lon qilishda</b> chiqadi — ishlatishni kutmaydi.</p>
+        <div class="cmd" data-cmd="php -r 'require &quot;21-xabar.php&quot;; class TelegramXabar extends Xabar {}' 2&gt;&amp;1 | head -1">php -r 'require "21-xabar.php"; class TelegramXabar extends Xabar {}' 2&gt;&amp;1 | head -1
+<span class="out">PHP Fatal error:  Class TelegramXabar contains 1 abstract method and must therefore be declared abstract or implement the remaining methods (Xabar::yubor) in Command line code on line 1</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> PHP aynan <b>nima yetishmayotganini</b>
+        aytdi — <code>Xabar::yubor</code>. Endi <b>o'zingiz sinab ko'ring:</b> shu
+        buyruqqa <code>yubor()</code> metodini qo'shib, xato yo'qolishini tekshiring.</p>
+      </li>
+
+      <li>
+        <p>Ishni saqlang</p>
+        <div class="cmd" data-cmd="git add -A
+git commit -m &quot;09-dars: meros va abstract&quot;">git add -A
+git commit -m "09-dars: meros va abstract"</div>
+        <p class="expect"><b>Kutilgan natija:</b> commit haqida xabar.</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><input type="checkbox" id="d9c1"><label for="d9c1">Umumiy kodni ota klassga, farqni avlodlarga ajratdim</label></li>
+      <li><input type="checkbox" id="d9c2"><label for="d9c2"><code>protected</code> nega meros uchun kerakligini bilaman</label></li>
+      <li><input type="checkbox" id="d9c3"><label for="d9c3"><b>Bitta siklda <code>if</code>siz ikki xil obyekt ishlatdim</b> 🎉</label></li>
+      <li><input type="checkbox" id="d9c4"><label for="d9c4"><code>abstract</code> klassdan obyekt yasalmasligini tasdiqladim</label></li>
+      <li><input type="checkbox" id="d9c5"><label for="d9c5">Abstract metodni bajarmaslik xatosini ko'rdim va tuzatdim</label></li>
+      <li><input type="checkbox" id="d9c6"><label for="d9c6"><code>instanceof</code> avlodga ham, otaga ham <code>true</code> berishini bilaman</label></li>
+      <li><input type="checkbox" id="d9c7"><label for="d9c7">Ishni commit qildim</label></li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 5) TAXMIN + QUIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Avlod klass o'z konstruktorini yozgan, lekin <code>parent::__construct()</code> ni
+    <b>chaqirmagan</b>. Nima bo'ladi?</p>
+    <div class="codefile">
+      <div class="fname">taxmin.php</div>
+      <code class="cmd" data-cmd="&lt;?php
+class Xabar
+{
+    public function __construct(protected string $qabulQiluvchi) {}
+}
+
+class EmailXabar extends Xabar
+{
+    public function __construct(private string $mavzu)
+    {
+        // parent::__construct(...) YO'Q
+    }
+
+    public function korinish(): string
+    {
+        return &quot;{$this-&gt;qabulQiluvchi} — {$this-&gt;mavzu}&quot;;
+    }
+}
+
+$e = new EmailXabar(&quot;Ariza holati&quot;);
+echo &quot;Obyekt yasaldi&quot;, PHP_EOL;
+echo $e-&gt;korinish();">&lt;?php
+class Xabar
+{
+    public function __construct(protected string $qabulQiluvchi) {}
+}
+
+class EmailXabar extends Xabar
+{
+    public function __construct(private string $mavzu)
+    {
+        // parent::__construct(...) YO'Q
+    }
+
+    public function korinish(): string
+    {
+        return "{$this-&gt;qabulQiluvchi} — {$this-&gt;mavzu}";
+    }
+}
+
+$e = new EmailXabar("Ariza holati");
+echo "Obyekt yasaldi", PHP_EOL;
+echo $e-&gt;korinish();</code>
+    </div>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <div class="natija">Obyekt yasaldi
+PHP Fatal error:  Uncaught Error: Typed property Xabar::$qabulQiluvchi must not be accessed before initialization</div>
+        <p>Diqqat qiling — <b>obyekt yasaldi</b>, xato faqat <code>korinish()</code> ni
+        chaqirganda chiqdi. Ya'ni muammo <b>yaratilishda emas, keyinroq</b> ko'rindi —
+        aynan shunday xatolarni topish qiyin bo'ladi.</p>
+        <p><b>Sabab:</b> avlod o'z konstruktorini yozganda, otaning konstruktori
+        <b>avtomatik ishlamaydi</b>. Demak <code>$qabulQiluvchi</code> ga hech kim qiymat
+        bermadi va u <b>qiymatsiz</b> qoldi. 7-darsdagi «Typed property ... must not be
+        accessed before initialization» xatosi shu.</p>
+        <p><b>Yechim:</b> avlod konstruktorining birinchi qatorida:</p>
+        <div class="natija">parent::__construct($qabulQiluvchi);</div>
+        <p class="expect">Qoida: <b>avlodda konstruktor yozsangiz —
+        <code>parent::__construct()</code> ni chaqirishni unutmang.</b> PHP buni o'zi
+        qilmaydi. Bu Laravel'da ham uchraydi: masalan o'z Request klassingizni yozganda.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span> <code>abstract class</code> ning
+    asosiy xususiyati nima?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Undan obyekt yasab bo'lmaydi</button></li>
+      <li><button class="quiz-option">Uning metodlari juda tezroq</button></li>
+      <li><button class="quiz-option">Undan meros olib bo'lmaydi</button></li>
+    </ul>
+    <div class="quiz-explain"><code>abstract class</code> faqat <b>asos</b> bo'lish uchun.
+    <code>new</code> qilishga urinsangiz: <code>Cannot instantiate abstract class</code>.
+    Meros olish esa aynan uning maqsadi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span> Ota klassdagi xossani avlod ko'rishi
+    uchun u qanday bo'lishi kerak?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">protected yoki public bo'lishi</button></li>
+      <li><button class="quiz-option">private yoki static bo'lishi</button></li>
+      <li><button class="quiz-option">const yoki abstract bo'lishi</button></li>
+    </ul>
+    <div class="quiz-explain"><code>private</code> — faqat o'sha klassning o'zi, avlod ham
+    ko'rmaydi. <code>protected</code> — «oila ichida ochiq, tashqaridan yopiq», meros uchun
+    aynan shu kerak.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span> <code>abstract</code> metodni
+    avlodda yozmasangiz nima bo'ladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">E'lon qilishda xato beradi</button></li>
+      <li><button class="quiz-option">Metod chaqirilganda xato beradi</button></li>
+      <li><button class="quiz-option">Otaning versiyasi ishlatilib ketadi</button></li>
+    </ul>
+    <div class="quiz-explain">Xato <b>ishlatishda emas, e'lon qilishda</b> chiqadi — bu eng
+    yaxshi vaqt. Va PHP nima yetishmayotganini aniq aytadi
+    (<code>Xabar::yubor</code>). Otada tanasi yo'q, shuning uchun «ishlatib ketish»
+    imkoni ham yo'q.</div>
+  </div>
+
+  <!-- ═══════════════ 6) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+    <p class="recall-intro">Avval o'zingiz javob bering, keyin ochib tekshiring.
+    Oxirgi ikkitasi — <a href="0008-oop-himoya-static-const.html">8-darsni</a> takrorlash.</p>
+
+    <details class="recall">
+      <summary>Meros qanday muammoni yechadi?</summary>
+      <div class="answer"><p><b>Takrorlanishni.</b> Bog'liq klasslardagi umumiy kod bitta
+      joyda (ota klassda) yashaydi, farq qiladigan qism avlodlarda. Qoida o'zgarsa —
+      bitta joy tuzatiladi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary><code>abstract</code> metod nima va nega kuchli?</summary>
+      <div class="answer"><p>Tanasi yo'q, faqat imzo: «har avlod buni o'zi yozishi shart».
+      Kuchli, chunki <b>PHP majburlaydi</b> — yozmasangiz kod e'lon qilishda xato beradi,
+      ya'ni muammo eng erta payt topiladi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Polimorfizm nima — bir gapda?</summary>
+      <div class="answer"><p><b>Bir xil murojaat, har xil xatti-harakat.</b>
+      <code>$x-&gt;yubor()</code> deb yozasiz, obyekt esa o'zining usulini ishlatadi —
+      siklda <code>if</code> yozish kerak bo'lmaydi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: <code>-&gt;</code> va <code>::</code> farqi?</summary>
+      <div class="answer"><p><code>-&gt;</code> = obyektning, <code>::</code> = klassning.
+      Bugun yana bittasi qo'shildi: <code>parent::</code> — «ota klassning».</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: qisqa konstruktor (promotion) nima qiladi?</summary>
+      <div class="answer"><p>Parametr oldiga <code>private</code>/<code>protected</code>
+      yozilsa, PHP xossani <b>o'zi</b> yaratadi. Bugun ota klassda
+      <code>protected string $qabulQiluvchi</code> aynan shu shaklda yozildi.</p></div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 7) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Cho'ntak xulosasi</span>
+    <ul>
+      <li><code>class B extends A</code> — B, A ning hamma narsasini <b>oladi</b>.</li>
+      <li><code>protected</code> = «oila ichida ochiq, tashqaridan yopiq» — meros uchun
+      aynan shu.</li>
+      <li><code>parent::metod()</code> — otaning versiyasini chaqirish.
+      <b>Avlodda konstruktor yozsangiz <code>parent::__construct()</code> shart.</b></li>
+      <li><code>abstract class</code> — obyekt yasab bo'lmaydi, faqat asos.</li>
+      <li><code>abstract function f();</code> — tanasi yo'q, avlod yozishi <b>shart</b>;
+      aks holda e'lon qilishda xato.</li>
+      <li><b>Polimorfizm:</b> bitta siklda har xil obyektlar, <code>if</code> yo'q.</li>
+      <li><code>instanceof</code> — avlod <b>ikkala tipga ham</b> mos keladi.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Kelasi darslar uchun urug'</span>
+    <p>Meros kuchli, lekin bitta cheklovi bor: PHP'da klass <b>faqat bitta</b> otadan
+    meros oladi. Unda nima qilamiz, agar <code>EmailXabar</code> ga «logga yozish»
+    qobiliyati ham kerak bo'lsa — va u qobiliyat <code>Xabar</code> bilan hech qanday
+    aloqasi yo'q boshqa klasslarga ham kerak bo'lsa?</p>
+    <p><b>Keyingi dars</b> ikki yechimni beradi: <code>interface</code> — «bu klass shu
+    ishni <b>qila oladi</b>» degan shartnoma, va <code>trait</code> — «mana <b>qanday</b>
+    qiladi» degan qayta ishlatiladigan kod bo'lagi. Laravel'ning ichida ikkisi ham juda
+    ko'p ishlatiladi.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>PHP Fundamentals</b> — Laravel'ning rasmiy bepul kursi:
+    <a href="https://laravel.com/learn/php-fundamentals">laravel.com/learn/php-fundamentals</a>.<sup><a href="#fn1">1</a></sup><br>
+    Qo'llanma (ko'zgu):
+    <a href="https://devdocs.io/php/language.oop5.inheritance">devdocs.io — Inheritance</a> ·
+    <a href="https://devdocs.io/php/language.oop5.abstract">Abstract classes</a>.<sup><a href="#fn2">2</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b> «meros qachon yaxshi, qachon yomon?»,
+    «<code>final</code> nima?», «bir necha bosqichli meros bo'ladimi?»,
+    «<code>self::</code> va <code>static::</code> farqi?» — har qanday savol yaxshi.
+    Aytgancha, «merosni ko'p ishlatmang» degan maslahat ham bor — sababini so'rasangiz
+    tushuntirib beraman, bu I modulida (arxitektura) muhim bo'ladi.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0008-oop-himoya-static-const.html">Oldingi: Himoya, static, const</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel — <a href="https://laravel.com/learn/php-fundamentals">PHP
+      Fundamentals</a> (rasmiy bepul mini-kurs).</li>
+      <li id="fn2">PHP Manual — <i>Object Inheritance</i> va <i>Class Abstraction</i>,
+      DevDocs ko'zgusi orqali:
+      <a href="https://devdocs.io/php/language.oop5.inheritance">devdocs.io/php/language.oop5.inheritance</a>.
+      Rasmiy <code>php.net</code> bu tarmoqdan ochilmaydi.</li>
+      <li id="fn3">Barcha natijalar PHP <b>8.3.32</b> da jonli sinab ko'rilgan — shu
+      jumladan <code>Cannot instantiate abstract class</code>,
+      <code>contains 1 abstract method</code> va taxmin mashqidagi
+      <code>Typed property ... must not be accessed before initialization</code> xatolari.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

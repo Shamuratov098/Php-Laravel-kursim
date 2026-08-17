@@ -1,0 +1,648 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 13 — HTTP qo'lda: forma, GET/POST, session</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 13 · MODUL A — POYDEVOR</p>
+  <h1>HTTP qo'lda: forma, GET/POST va session</h1>
+  <p class="lead">Bu darsdan keyin forma yuborasiz, kelgan ma'lumotni <b>xavfsiz</b>
+  chiqarasiz va foydalanuvchini so'rovlar orasida eslab qolasiz. Bu Modul A ning oxirgi
+  «tushuncha» darsi — keyingi ikkitasida hammasini birlashtirib
+  <b>mini-framework</b> yozasiz.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 10 daqiqa</span>
+    <span>💻 Amaliyot ≈ 14 daqiqa</span>
+    <span>Kerak: <a href="0012-namespace-autoload-composer.html">Dars 12</a></span>
+  </p>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Nega bu muhim</span>
+    <p>1-darsda so'rov–javob aylanasini <b>tashqaridan</b> ko'rdik. Bugun uning <b>ichiga</b>
+    kiramiz: so'rov qanday qismlardan iborat, forma ma'lumoti qayerdan keladi, va server
+    qanday qilib «bu — o'sha foydalanuvchi» deb bilib oladi.</p>
+    <p>Laravel'da bularning hammasi tayyor: <code>$request-&gt;input('ism')</code>,
+    <code>session()</code>, <code>redirect()</code>. Lekin ular <b>ustiga qurilgan</b>
+    poydevor aynan bugungi narsa. Va bir narsa Laravel'da ham <b>sizning
+    mas'uliyatingizda</b> qoladi: foydalanuvchi kiritgan matnni xavfsiz chiqarish.
+    Bu — intervyuda so'raladigan <b>XSS</b> mavzusi.</p>
+  </div>
+
+  <!-- ═══════════════ 2) TUSHUNCHA ═══════════════ -->
+  <h2>So'rov nimadan iborat</h2>
+
+  <table class="sheet">
+    <tr><th>Qism</th><th>PHP'da</th><th class="note-cell">Nima</th></tr>
+    <tr><td>Metod</td><td><code>$_SERVER['REQUEST_METHOD']</code></td><td class="note-cell"><code>GET</code> (o'qish) yoki <code>POST</code> (yuborish)</td></tr>
+    <tr><td>Manzil</td><td><code>$_SERVER['REQUEST_URI']</code></td><td class="note-cell"><code>/sahifa.php?ism=Ali</code></td></tr>
+    <tr><td>Query</td><td><code>$_GET</code></td><td class="note-cell">Manzildagi <code>?</code> dan keyingi qism</td></tr>
+    <tr><td>Tana</td><td><code>$_POST</code></td><td class="note-cell">Forma yuborgan ma'lumot — manzilda ko'rinmaydi</td></tr>
+  </table>
+
+  <p><code>$_GET</code> va <code>$_POST</code> — <b>oddiy assotsiativ massivlar</b>
+  (5-dars!). Ular PHP tomonidan avtomatik to'ldiriladi. Ya'ni yangi tushuncha emas —
+  faqat yangi manba.</p>
+
+  <div class="callout note">
+    <span class="label">GET va POST — qachon qaysi biri</span>
+    <p><b>GET</b> — <b>o'qish</b> uchun: qidiruv, filtr, sahifalash. Manzilda ko'rinadi,
+    demak havolani nusxalab yuborish mumkin.<br>
+    <b>POST</b> — <b>o'zgartirish</b> uchun: yaratish, tahrirlash, o'chirish. Manzilda
+    ko'rinmaydi, brauzer uni «qayta yuborilsinmi?» deb so'raydi.<br>
+    Qoida: <b>ma'lumotni o'zgartiradigan amal hech qachon GET bo'lmasin</b>. Aks holda
+    havolani ochishning o'zi ma'lumotni o'chirib qo'yishi mumkin.</p>
+  </div>
+
+  <h3>Forma va uni qabul qilish</h3>
+
+  <div class="codefile">
+    <div class="fname">tushuncha</div>
+    <code class="cmd" data-cmd="&lt;?php
+$xabar = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $ism = trim($_POST['ism'] ?? '');
+    $xabar = $ism === ''
+        ? 'Ism kiritilmadi'
+        : 'Salom, ' . htmlspecialchars($ism, ENT_QUOTES) . '!';
+}
+?&gt;
+&lt;form method=&quot;post&quot;&gt;
+  &lt;input type=&quot;text&quot; name=&quot;ism&quot;&gt;
+  &lt;button type=&quot;submit&quot;&gt;Yuborish&lt;/button&gt;
+&lt;/form&gt;">&lt;?php
+$xabar = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $ism = trim($_POST['ism'] ?? '');
+    $xabar = $ism === ''
+        ? 'Ism kiritilmadi'
+        : 'Salom, ' . <span class="add">htmlspecialchars($ism, ENT_QUOTES)</span> . '!';
+}
+?&gt;
+&lt;form method="post"&gt;
+  &lt;input type="text" name="ism"&gt;
+  &lt;button type="submit"&gt;Yuborish&lt;/button&gt;
+&lt;/form&gt;</code>
+  </div>
+
+  <p>Bir necha yangi detal:</p>
+
+  <ul>
+    <li><b>Bitta fayl ikki ish qiladi</b>: <code>GET</code> da formani ko'rsatadi,
+    <code>POST</code> da uni qabul qiladi. Shuning uchun <code>REQUEST_METHOD</code> ni
+    tekshiramiz.</li>
+    <li><code>name="ism"</code> → <code>$_POST['ism']</code>. Forma maydonining
+    <b>nomi</b> massiv kalitiga aylanadi.</li>
+    <li><code>?? ''</code> — <b>null coalescing</b>: «agar kalit yo'q bo'lsa, bo'sh matn
+    ol». 5-darsdagi <code>Warning: Undefined array key</code> ning toza yechimi.</li>
+    <li><code>trim()</code> — chetdagi bo'sh joylarni olib tashlaydi. Foydalanuvchi
+    faqat probel yuborsa, u bo'sh deb hisoblansin.</li>
+    <li><code>?:</code> — <b>ternary</b>: <code>shart ? rost : yolg'on</code>. Qisqa
+    <code>if/else</code> (3-dars).</li>
+  </ul>
+
+  <h2>🔒 XSS: kiritilgan matnni xom holda chiqarmang</h2>
+
+  <p>Bu darsning eng muhim qismi. Tasavvur qiling <code>htmlspecialchars</code> yozilmagan:</p>
+
+  <div class="codefile">
+    <div class="fname">xavfli.php — SHUNDAY YOZMANG</div>
+    <code class="cmd" data-cmd="$ism = $_POST['ism'] ?? '';
+echo &quot;Salom, {$ism}!&quot;;">$ism = $_POST['ism'] ?? '';
+echo "Salom, {$ism}!";     <span class="del">// xom holda javobga tushdi</span></code>
+  </div>
+
+  <p>Foydalanuvchi ismi o'rniga <code>&lt;script&gt;alert(1)&lt;/script&gt;</code> yozsa,
+  natija:</p>
+
+  <div class="natija">Salom, &lt;script&gt;alert(1)&lt;/script&gt;!</div>
+
+  <p>Bu <b>haqiqiy HTML teg</b> bo'lib javobga tushdi — brauzer uni <b>kod sifatida
+  bajaradi</b>. Bu <b>XSS</b> (cross-site scripting): tajovuzkor sizning sahifangizda
+  o'z kodini ishlatadi — cookie o'g'irlashi, forma yuborishi mumkin.</p>
+
+  <p><code>htmlspecialchars</code> bilan esa:</p>
+
+  <div class="natija">Salom, &amp;lt;script&amp;gt;alert(1)&amp;lt;/script&amp;gt;!</div>
+
+  <p>Teg belgilar <b>zararsiz matnga</b> aylandi — ekranda <code>&lt;script&gt;</code> deb
+  <b>ko'rinadi</b>, lekin bajarilmaydi.</p>
+
+  <div class="callout warning">
+    <span class="label">Qoida — hech qachon buzmang</span>
+    <p><b>Tashqaridan kelgan har qanday ma'lumot HTML'ga chiqarilishidan oldin
+    <code>htmlspecialchars</code> dan o'tadi.</b> «Tashqaridan» = forma, query, baza,
+    API — ya'ni siz yozmagan hamma narsa.</p>
+    <p>Yaxshi xabar: <b>Blade buni o'zi qiladi.</b> <code>{{ $ism }}</code> yozganingizda
+    Laravel avtomatik <code>htmlspecialchars</code> qo'llaydi. Lekin buni <b>bilib</b>
+    ishlating — chunki Blade'da himoyani <b>o'chirish</b> usuli ham bor
+    (<code>{!! $ism !!}</code>), va uni bilmasdan ishlatish aynan shu teshikni ochadi.</p>
+  </div>
+
+  <h2>Session: server sizni eslab qoladi</h2>
+
+  <p>1-darsda ko'rgan muhim fakt: PHP <b>har so'rovda noldan</b> ishga tushadi.
+  O'zgaruvchilar so'rov tugagach yo'qoladi. Unda sayt qanday qilib «siz kirgansiz» deb
+  biladi?</p>
+
+  <div class="codefile">
+    <div class="fname">tushuncha</div>
+    <code class="cmd" data-cmd="session_start();                                    // 1) sessiyani ochadi
+
+$_SESSION['tashrif'] = ($_SESSION['tashrif'] ?? 0) + 1;   // 2) yozadi/o'qiydi
+
+echo $_SESSION['tashrif'];                          // keyingi so'rovda ham saqlanadi">session_start();                                    // 1) sessiyani ochadi
+
+$_SESSION['tashrif'] = ($_SESSION['tashrif'] ?? 0) + 1;   // 2) yozadi/o'qiydi
+
+echo $_SESSION['tashrif'];                          // keyingi so'rovda ham saqlanadi</code>
+  </div>
+
+  <p><code>$_SESSION</code> — yana bir <b>assotsiativ massiv</b>, lekin u
+  <b>so'rovlar orasida yashaydi</b>. Ishlash mexanizmi ikki qismdan:</p>
+
+  <div class="areas wide">
+    <div class="area">
+      <h4>1 · Server yozadi</h4>
+      <span class="en">server-side</span>
+      <div class="desc">Ma'lumot <b>serverda</b> saqlanadi (odatda faylda). Brauzer uni ko'rmaydi</div>
+    </div>
+    <div class="area">
+      <h4>2 · Kalit beriladi</h4>
+      <span class="en">cookie</span>
+      <div class="desc">Brauzerga faqat <b>session ID</b> — cookie'da. Bu «shkaf raqami»</div>
+    </div>
+    <div class="area">
+      <h4>3 · Brauzer qaytaradi</h4>
+      <span class="en">har so'rovda</span>
+      <div class="desc">Keyingi so'rovda cookie avtomatik yuboriladi</div>
+    </div>
+    <div class="area">
+      <h4>4 · Server topadi</h4>
+      <span class="en">$_SESSION</span>
+      <div class="desc">ID bo'yicha o'sha ma'lumotni topib, massivga soladi</div>
+    </div>
+  </div>
+
+  <p>Ya'ni <b>ma'lumot serverda, kaliti brauzerda</b>. Amaliyotda buni isbotlaysiz:
+  cookie bilan hisoblagich <code>1, 2, 3</code> bo'lib o'sadi; cookie'siz esa
+  <b>har doim 1</b> — chunki server «siz kim ekanligingizni» bilmaydi.</p>
+
+  <div class="callout tip">
+    <span class="label"><code>session_start()</code> chiqishdan <b>oldin</b></span>
+    <p>Session cookie <b>sarlavha</b> (header) orqali yuboriladi, sarlavhalar esa
+    javob tanasidan <b>oldin</b> ketadi. Shuning uchun <code>session_start()</code> hech
+    qanday <code>echo</code> yoki HTML'dan <b>oldin</b> chaqirilishi kerak. Aks holda:
+    <code>Warning: session_start(): Session cannot be started after headers have already
+    been sent</code>. Bu 1-darsdagi qoidaning davomi: <code>?&gt;</code> dan keyin adashib
+    qoldirilgan bo'sh qator ham javobga tushadi — va aynan shu xatoni keltiradi.</p>
+  </div>
+
+  <h3>Redirect: «boshqa manzilga bor»</h3>
+
+  <div class="codefile">
+    <div class="fname">tushuncha</div>
+    <code class="cmd" data-cmd="header('Location: /29-session.php');
+exit;                       // exit SHART">header('Location: /29-session.php');
+<span class="add">exit;</span>                       // exit SHART</code>
+  </div>
+
+  <p><code>header()</code> javobga sarlavha qo'shadi; <code>Location</code> sarlavhasi
+  brauzerga «boshqa manzilga o't» deydi (status <code>302 Found</code>).
+  <code>exit</code> <b>shart</b> — aks holda PHP qolgan kodni bajarishda davom etadi va
+  siz kutmagan ish sodir bo'ladi.</p>
+
+  <p>Nega redirect kerak: <b>POST → redirect → GET</b> naqshi. Forma qabul qilingandan
+  keyin foydalanuvchini GET sahifasiga yuborasiz, shunda u sahifani yangilaganda
+  forma <b>qayta yuborilmaydi</b>. Laravel'da bu <code>return redirect()</code> bo'ladi.</p>
+
+  <!-- ═══════════════ 4) AMALIYOT / MODE-HINT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    <span class="mode-hint-title">💻 Amaliy qism kompyuterda</span>
+    <p>Amaliyotda <code>28-forma.php</code> (forma + xavfsiz chiqarish) va
+    <code>29-session.php</code> (tashrif hisoblagichi + redirect) yozasiz. Ikki muhim
+    isbot: <b>(1)</b> <code>&lt;script&gt;</code> yuborib, himoyali va himoyasiz kod
+    farqini ko'rasiz; <b>(2)</b> cookie bilan va cookie'siz so'rov yuborib, session
+    qanday ishlashini tasdiqlaysiz.</p>
+    <button type="button" class="modebtn" data-set-mode="do">💻 Amaliyot rejimini ko'rish</button>
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <p>Papkaga o'ting va formani yozing</p>
+        <p class="why-step">Bitta fayl ikki ish qiladi: GET da ko'rsatadi, POST da qabul
+        qiladi.</p>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/php-poydevor
+cat &gt; 28-forma.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+$xabar = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $ism = trim($_POST['ism'] ?? '');
+    $xabar = $ism === ''
+        ? 'Ism kiritilmadi'
+        : 'Salom, ' . htmlspecialchars($ism, ENT_QUOTES) . '!';
+}
+?&gt;
+&lt;!doctype html&gt;
+&lt;h1&gt;Ariza formasi&lt;/h1&gt;
+&lt;?php if ($xabar !== ''): ?&gt;
+  &lt;p&gt;&lt;b&gt;&lt;?= $xabar ?&gt;&lt;/b&gt;&lt;/p&gt;
+&lt;?php endif; ?&gt;
+&lt;form method=&quot;post&quot;&gt;
+  &lt;input type=&quot;text&quot; name=&quot;ism&quot; placeholder=&quot;Ismingiz&quot;&gt;
+  &lt;button type=&quot;submit&quot;&gt;Yuborish&lt;/button&gt;
+&lt;/form&gt;
+&lt;p&gt;Metod: &lt;?= $_SERVER['REQUEST_METHOD'] ?&gt;&lt;/p&gt;
+EOF">cd ~/Projects/Learn/php-poydevor
+cat &gt; 28-forma.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+$xabar = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $ism = trim($_POST['ism'] ?? '');
+    $xabar = $ism === ''
+        ? 'Ism kiritilmadi'
+        : 'Salom, ' . htmlspecialchars($ism, ENT_QUOTES) . '!';
+}
+?&gt;
+&lt;!doctype html&gt;
+&lt;h1&gt;Ariza formasi&lt;/h1&gt;
+&lt;?php if ($xabar !== ''): ?&gt;
+  &lt;p&gt;&lt;b&gt;&lt;?= $xabar ?&gt;&lt;/b&gt;&lt;/p&gt;
+&lt;?php endif; ?&gt;
+&lt;form method="post"&gt;
+  &lt;input type="text" name="ism" placeholder="Ismingiz"&gt;
+  &lt;button type="submit"&gt;Yuborish&lt;/button&gt;
+&lt;/form&gt;
+&lt;p&gt;Metod: &lt;?= $_SERVER['REQUEST_METHOD'] ?&gt;&lt;/p&gt;
+EOF</div>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik.
+        <br>Yangi yozuvlar: <code>&lt;?= $x ?&gt;</code> — bu <code>&lt;?php echo $x; ?&gt;</code>
+        ning qisqasi. <code>if (...):</code> ... <code>endif;</code> — HTML orasida
+        qavs o'rniga ishlatiladigan shakl (o'qish osonroq).</p>
+      </li>
+
+      <li>
+        <p>Serverni ko'tarib, formani sinab ko'ring</p>
+        <div class="cmd" data-cmd="php -S localhost:8000">php -S localhost:8000
+<span class="out">[...] PHP 8.3.32 Development Server (http://localhost:8000) started</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> server ishlab turadi. Brauzerda
+        <code>http://localhost:8000/28-forma.php</code> ni ochib, ismingizni yozib
+        yuboring. «Metod:» qatori <code>GET</code> dan <code>POST</code> ga o'zgaradi.
+        <br>Terminal band bo'ladi — <b>yangi oyna</b> oching yoki keyingi qadamlarni
+        brauzerda bajaring.</p>
+      </li>
+
+      <li>
+        <p>🔒 XSS'ni sinab ko'ring — himoyali kod</p>
+        <p class="why-step">Bu darsning eng muhim tajribasi. Formaga oddiy ism emas,
+        <b>kod</b> yozamiz.</p>
+        <p>Formaga aynan shuni kiritib yuboring:</p>
+        <div class="cmd" data-cmd="&lt;script&gt;alert(1)&lt;/script&gt;">&lt;script&gt;alert(1)&lt;/script&gt;</div>
+        <p class="expect"><b>Kutilgan natija:</b> sahifada <b>hech qanday oyna
+        chiqmaydi</b>. Matn shunchaki ko'rinadi:
+        <code>Salom, &lt;script&gt;alert(1)&lt;/script&gt;!</code>
+        <br>Brauzerda <code>Ctrl+U</code> bilan manbani ko'rsangiz —
+        <code>&amp;lt;script&amp;gt;</code> deb yozilgan. Ya'ni teg <b>matnga aylangan</b>.</p>
+      </li>
+
+      <li>
+        <p>🔒 Endi himoyasiz kod bilan solishtiring</p>
+        <p class="why-step">Farqni o'z ko'zingiz bilan ko'rish — «har doim
+        <code>htmlspecialchars</code>» qoidasini yodlashdan ishonchli.</p>
+        <div class="cmd" data-cmd="cat &gt; xavfli.php &lt;&lt;'EOF'
+&lt;?php
+$ism = $_POST['ism'] ?? '';
+echo &quot;Salom, {$ism}!&quot;;
+EOF
+curl -s -X POST --data-urlencode 'ism=&lt;script&gt;alert(1)&lt;/script&gt;' http://localhost:8000/xavfli.php">cat &gt; xavfli.php &lt;&lt;'EOF'
+&lt;?php
+$ism = $_POST['ism'] ?? '';
+echo "Salom, {$ism}!";
+EOF
+curl -s -X POST --data-urlencode 'ism=&lt;script&gt;alert(1)&lt;/script&gt;' http://localhost:8000/xavfli.php
+<span class="out">Salom, &lt;script&gt;alert(1)&lt;/script&gt;!</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> teg <b>xom holda</b> javobga tushdi —
+        ya'ni brauzer uni bajaradi. Farqni ko'rdingiz: bitta funksiya bor-yo'qligi
+        xavfsizlik teshigini ochadi yoki yopadi.
+        <br><code>curl</code> ishlatdik, chunki brauzerda bu haqiqatan oyna chiqaradi.
+        <b>Bu faylni o'chirib tashlashni unutmang:</b> <code>rm xavfli.php</code></p>
+      </li>
+
+      <li>
+        <p>Session bilan hisoblagich yozing</p>
+        <div class="cmd" data-cmd="cat &gt; 29-session.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+session_start();
+
+$_SESSION['tashrif'] = ($_SESSION['tashrif'] ?? 0) + 1;
+
+if (($_POST['chiqish'] ?? '') !== '') {
+    session_destroy();
+    header('Location: /29-session.php');
+    exit;
+}
+?&gt;
+&lt;!doctype html&gt;
+&lt;p&gt;Siz bu sahifaga &lt;b&gt;&lt;?= $_SESSION['tashrif'] ?&gt;&lt;/b&gt; marta kirdingiz.&lt;/p&gt;
+&lt;form method=&quot;post&quot;&gt;
+  &lt;button type=&quot;submit&quot; name=&quot;chiqish&quot; value=&quot;1&quot;&gt;Hisobni tozalash&lt;/button&gt;
+&lt;/form&gt;
+EOF">cat &gt; 29-session.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+session_start();
+
+$_SESSION['tashrif'] = ($_SESSION['tashrif'] ?? 0) + 1;
+
+if (($_POST['chiqish'] ?? '') !== '') {
+    session_destroy();
+    header('Location: /29-session.php');
+    exit;
+}
+?&gt;
+&lt;!doctype html&gt;
+&lt;p&gt;Siz bu sahifaga &lt;b&gt;&lt;?= $_SESSION['tashrif'] ?&gt;&lt;/b&gt; marta kirdingiz.&lt;/p&gt;
+&lt;form method="post"&gt;
+  &lt;button type="submit" name="chiqish" value="1"&gt;Hisobni tozalash&lt;/button&gt;
+&lt;/form&gt;
+EOF</div>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik. Brauzerda
+        <code>http://localhost:8000/29-session.php</code> ni ochib, sahifani bir necha
+        marta yangilang — raqam <b>o'sib boradi</b>. «Hisobni tozalash» bosilsa 1 ga
+        qaytadi.</p>
+      </li>
+
+      <li>
+        <p>Session cookie'ga bog'liqligini isbotlang</p>
+        <p class="why-step">Ma'lumot serverda, lekin <b>kaliti</b> brauzerda. Cookie
+        bo'lmasa server sizni tanimaydi.</p>
+        <div class="cmd" data-cmd="echo '--- cookie BILAN (3 marta) ---'
+for i in 1 2 3; do curl -s -c /tmp/c.txt -b /tmp/c.txt http://localhost:8000/29-session.php | grep -oE '&lt;b&gt;[0-9]+&lt;/b&gt;'; done
+echo '--- cookie SIZ (2 marta) ---'
+for i in 1 2; do curl -s http://localhost:8000/29-session.php | grep -oE '&lt;b&gt;[0-9]+&lt;/b&gt;'; done">echo '--- cookie BILAN (3 marta) ---'
+for i in 1 2 3; do curl -s -c /tmp/c.txt -b /tmp/c.txt http://localhost:8000/29-session.php | grep -oE '&lt;b&gt;[0-9]+&lt;/b&gt;'; done
+echo '--- cookie SIZ (2 marta) ---'
+for i in 1 2; do curl -s http://localhost:8000/29-session.php | grep -oE '&lt;b&gt;[0-9]+&lt;/b&gt;'; done
+<span class="out">--- cookie BILAN (3 marta) ---</span>
+<span class="out">&lt;b&gt;1&lt;/b&gt;</span>
+<span class="out">&lt;b&gt;2&lt;/b&gt;</span>
+<span class="out">&lt;b&gt;3&lt;/b&gt;</span>
+<span class="out">--- cookie SIZ (2 marta) ---</span>
+<span class="out">&lt;b&gt;1&lt;/b&gt;</span>
+<span class="out">&lt;b&gt;1&lt;/b&gt;</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> cookie bilan <code>1, 2, 3</code>;
+        cookie'siz <b>har doim 1</b>. 🎉 Mana isbot: session serverda yashaydi, lekin uni
+        topish uchun <b>cookie'dagi kalit</b> kerak.
+        <br><code>-c</code> = cookie'ni saqla, <code>-b</code> = saqlanganini yubor.</p>
+      </li>
+
+      <li>
+        <p>Redirect'ni ko'ring</p>
+        <div class="cmd" data-cmd="curl -s -D - -o /dev/null -c /tmp/c.txt -b /tmp/c.txt -X POST -d 'chiqish=1' http://localhost:8000/29-session.php | grep -iE 'HTTP/|location'">curl -s -D - -o /dev/null -c /tmp/c.txt -b /tmp/c.txt -X POST -d 'chiqish=1' http://localhost:8000/29-session.php | grep -iE 'HTTP/|location'
+<span class="out">HTTP/1.1 302 Found</span>
+<span class="out">Location: /29-session.php</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> <code>302 Found</code> va
+        <code>Location</code> sarlavhasi. Javob <b>tanasi yo'q</b> — brauzerga faqat
+        «boshqa yerga bor» deyilgan.</p>
+      </li>
+
+      <li>
+        <p>Tozalang va ishni saqlang</p>
+        <div class="cmd" data-cmd="rm -f xavfli.php
+git add -A
+git commit -m &quot;13-dars: HTTP qo'lda — forma, XSS, session&quot;">rm -f xavfli.php
+git add -A
+git commit -m "13-dars: HTTP qo'lda — forma, XSS, session"</div>
+        <p class="expect"><b>Kutilgan natija:</b> commit haqida xabar. Serverni
+        <code>Ctrl+C</code> bilan to'xtatishni unutmang.</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><input type="checkbox" id="d13c1"><label for="d13c1">Bitta fayl GET va POST'da har xil ishlashini yozdim</label></li>
+      <li><input type="checkbox" id="d13c2"><label for="d13c2"><b><code>&lt;script&gt;</code> yuborib, himoyali va himoyasiz kod farqini ko'rdim</b> 🎉</label></li>
+      <li><input type="checkbox" id="d13c3"><label for="d13c3"><code>htmlspecialchars</code> qoidasini aytib beraman</label></li>
+      <li><input type="checkbox" id="d13c4"><label for="d13c4">Session hisoblagichi o'sishini ko'rdim</label></li>
+      <li><input type="checkbox" id="d13c5"><label for="d13c5"><b>Cookie'siz session ishlamasligini isbotladim</b></label></li>
+      <li><input type="checkbox" id="d13c6"><label for="d13c6"><code>302</code> va <code>Location</code> sarlavhasini ko'rdim</label></li>
+      <li><input type="checkbox" id="d13c7"><label for="d13c7"><code>xavfli.php</code> ni o'chirdim va commit qildim</label></li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 5) TAXMIN + QUIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Bir xil sahifa <b>ikki marta</b> so'raladi — bir marta cookie saqlanadi, bir marta
+    yo'q. Hisoblagich nima ko'rsatadi?</p>
+    <div class="codefile">
+      <div class="fname">terminal</div>
+      <code class="cmd" data-cmd="# A — cookie saqlanadi
+curl -c /tmp/c.txt -b /tmp/c.txt .../29-session.php
+curl -c /tmp/c.txt -b /tmp/c.txt .../29-session.php
+
+# B — cookie saqlanmaydi
+curl .../29-session.php
+curl .../29-session.php"># A — cookie saqlanadi
+curl -c /tmp/c.txt -b /tmp/c.txt .../29-session.php
+curl -c /tmp/c.txt -b /tmp/c.txt .../29-session.php
+
+# B — cookie saqlanmaydi
+curl .../29-session.php
+curl .../29-session.php</code>
+    </div>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <div class="natija">A:  1  keyin  2
+B:  1  keyin  1</div>
+        <p><b>B da hisoblagich o'smaydi</b> — har so'rov <b>yangi</b> session boshlaydi.</p>
+        <p><b>Sabab:</b> <code>$_SESSION</code> ma'lumoti <b>serverda</b> saqlanadi, lekin
+        u <b>session ID</b> bo'yicha topiladi. ID esa brauzerga <b>cookie</b> orqali
+        beriladi. Cookie saqlanmasa, keyingi so'rovda ID kelmaydi → server «bu yangi
+        mehmon» deb o'ylab, <b>yangi bo'sh session</b> yasaydi.</p>
+        <p><b>Nega bu muhim:</b> bu «foydalanuvchi tizimga kirgan» degan holatning ham
+        mexanizmi. Login qilganda server sessionga «bu foydalanuvchi №5» deb yozadi, va
+        keyingi har so'rovda cookie'dagi ID orqali sizni tanib oladi. Cookie o'chirilsa —
+        tizimdan chiqib ketasiz.</p>
+        <p class="expect">Va shu yerda XSS nega xavfli ekani ham ochiladi: tajovuzkorning
+        JavaScript kodi <b>cookie'ni o'qiy oladi</b> — ya'ni session ID'ni o'g'irlab,
+        sizning nomingizdan kirishi mumkin. Mana nega
+        <code>htmlspecialchars</code> shunchaki «chiroyli chiqarish» emas, <b>xavfsizlik
+        chorasi</b>.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span> Ma'lumotni <b>o'zgartiradigan</b>
+    amal qaysi metod bilan yuborilishi kerak?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">POST — manzilda ko'rinmaydi</button></li>
+      <li><button class="quiz-option">GET — manzilda ko'rinadi</button></li>
+      <li><button class="quiz-option">Ikkisi ham bir xil</button></li>
+    </ul>
+    <div class="quiz-explain">GET — <b>o'qish</b> uchun (qidiruv, filtr). O'zgartirish GET
+    bo'lsa, havolani ochishning o'zi ma'lumotni o'chirib qo'yishi mumkin.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span> <code>htmlspecialchars</code>
+    nima qiladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Teg belgilarni zararsiz matnga aylantiradi</button></li>
+      <li><button class="quiz-option">Kiritilgan matndan teglarni butunlay o'chiradi</button></li>
+      <li><button class="quiz-option">Matnni bazaga yozishdan oldin tekshiradi</button></li>
+    </ul>
+    <div class="quiz-explain"><code>&lt;</code> → <code>&amp;lt;</code> ga aylanadi: teg
+    ekranda <b>ko'rinadi</b>, lekin brauzer uni bajarmaydi. O'chirmaydi —
+    <b>zararsizlantiradi</b>.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span> <code>$_SESSION</code> ma'lumoti
+    qayerda saqlanadi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Serverda, kaliti cookie'da</button></li>
+      <li><button class="quiz-option">Brauzerda, cookie ichida</button></li>
+      <li><button class="quiz-option">Manzilda, query qismida</button></li>
+    </ul>
+    <div class="quiz-explain">Ma'lumot <b>serverda</b>, brauzerga faqat <b>session ID</b>
+    beriladi. Shuning uchun cookie'siz so'rovda hisoblagich har doim 1 bo'ldi.</div>
+  </div>
+
+  <!-- ═══════════════ 6) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+    <p class="recall-intro">Avval o'zingiz javob bering, keyin ochib tekshiring.
+    Oxirgi ikkitasi — <a href="0012-namespace-autoload-composer.html">12-darsni</a> takrorlash.</p>
+
+    <details class="recall">
+      <summary><code>$_GET</code> va <code>$_POST</code> — bu qanday narsalar?</summary>
+      <div class="answer"><p>Oddiy <b>assotsiativ massivlar</b> (5-dars), PHP tomonidan
+      avtomatik to'ldiriladi. <code>$_GET</code> — manzildagi <code>?</code> dan keyingi
+      qism, <code>$_POST</code> — forma tanasi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>XSS qanday yuzaga keladi va qanday to'xtatiladi?</summary>
+      <div class="answer"><p>Tashqaridan kelgan matn <b>xom holda</b> HTML'ga chiqarilsa,
+      undagi teglar <b>bajariladi</b>. To'xtatish: chiqarishdan oldin
+      <code>htmlspecialchars</code>. Blade <code>{{ }}</code> buni o'zi qiladi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Nega <code>session_start()</code> chiqishdan oldin turadi?</summary>
+      <div class="answer"><p>Chunki session cookie <b>sarlavha</b> orqali yuboriladi, va
+      sarlavhalar javob tanasidan oldin ketadi. Chiqish boshlangandan keyin sarlavha
+      qo'shib bo'lmaydi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: <code>use</code> klassni yuklaydimi?</summary>
+      <div class="answer"><p><b>Yo'q.</b> <code>use</code> faqat <b>nomni</b> hal qiladi;
+      yuklashni <b>autoload</b> qiladi (<code>composer dump-autoload</code> + bitta
+      <code>require 'vendor/autoload.php'</code>).</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: <code>catch (Exception)</code> nimani tutmaydi?</summary>
+      <div class="answer"><p><code>Error</code> avlodlarini — <code>TypeError</code>,
+      <code>DivisionByZeroError</code>. Hammasi uchun <code>Throwable</code>.</p></div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 7) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Cho'ntak xulosasi</span>
+    <ul>
+      <li>So'rov qismlari: <code>$_SERVER['REQUEST_METHOD']</code> ·
+      <code>REQUEST_URI</code> · <code>$_GET</code> · <code>$_POST</code>.</li>
+      <li><b>GET = o'qish, POST = o'zgartirish.</b> O'zgartirish hech qachon GET bo'lmasin.</li>
+      <li><code>name="ism"</code> → <code>$_POST['ism']</code>. Yo'q kalit uchun
+      <code>?? ''</code>.</li>
+      <li>🔒 <b>Tashqaridan kelgan matn HTML'ga chiqishdan oldin
+      <code>htmlspecialchars</code></b>. Blade <code>{{ }}</code> buni o'zi qiladi;
+      <code>{!! !!}</code> esa himoyani <b>o'chiradi</b>.</li>
+      <li><code>$_SESSION</code> — <b>ma'lumot serverda, kaliti cookie'da</b>.
+      <code>session_start()</code> har qanday chiqishdan <b>oldin</b>.</li>
+      <li><code>header('Location: ...')</code> + <code>exit;</code> — redirect
+      (<code>302</code>). POST → redirect → GET naqshi.</li>
+      <li><code>&lt;?= $x ?&gt;</code> = <code>&lt;?php echo $x; ?&gt;</code> ·
+      <code>if (...): endif;</code> — HTML orasida qulay shakl.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Kelasi darslar uchun urug'</span>
+    <p>Endi sizda hamma bo'lak bor: klass, interface, autoload, va bugungi
+    <code>$_SERVER['REQUEST_URI']</code> bilan <code>REQUEST_METHOD</code>.</p>
+    <p><b>Keyingi ikki dars — kursning yuragi.</b> 1-darsda «URL = fayl yo'li» degan
+    modelni ko'rgandik va «Laravel bu qoidani buzadi» deb aytgandim. 14-darsda o'sha
+    buzilishni <b>o'z qo'lingiz bilan</b> yasaysiz: bitta kirish nuqtasi
+    (<code>public/index.php</code>) va <b>router</b>. 15-darsda esa <b>container</b> —
+    obyektlarni o'zi yasaydigan mexanizm. Shundan keyin Laravel ochilganda har bir qismini
+    <b>allaqachon yozgan</b> bo'lasiz.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>PHP Fundamentals</b> — Laravel'ning rasmiy bepul kursi:
+    <a href="https://laravel.com/learn/php-fundamentals">laravel.com/learn/php-fundamentals</a>.<sup><a href="#fn1">1</a></sup><br>
+    Qo'llanma (ko'zgu):
+    <a href="https://devdocs.io/php/reserved.variables.post">devdocs.io — $_POST</a> ·
+    <a href="https://devdocs.io/php/function.htmlspecialchars">htmlspecialchars</a> ·
+    <a href="https://devdocs.io/php/book.session">Sessions</a>.<sup><a href="#fn2">2</a></sup><br>
+    Xavfsizlik: <a href="https://phptherightway.com/#data_filtering">PHP The Right Way — Data Filtering</a> ·
+    <a href="https://owasp.org/www-community/attacks/xss/">OWASP — XSS</a>.</p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b> «CSRF nima va nega kerak?»,
+    «cookie va session farqi?», «<code>$_REQUEST</code> nima uchun ishlatilmaydi?»,
+    «fayl yuklashda <code>$_FILES</code> qanday?» — har qanday savol yaxshi. Birinchi
+    savol ayniqsa muhim: <b>CSRF</b> — Laravel formalarida <code>@csrf</code> deb
+    yoziladigan narsa, va uni 19-darsda ko'ramiz.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0012-namespace-autoload-composer.html">Oldingi: namespace va Composer</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel — <a href="https://laravel.com/learn/php-fundamentals">PHP
+      Fundamentals</a> (rasmiy bepul mini-kurs).</li>
+      <li id="fn2">PHP Manual — <i>$_POST</i>, <i>htmlspecialchars</i>, <i>Sessions</i>,
+      DevDocs ko'zgusi orqali. Rasmiy <code>php.net</code> bu tarmoqdan ochilmaydi.</li>
+      <li id="fn3">Barcha natijalar PHP <b>8.3.32</b> ning ichki serverida jonli sinab
+      ko'rilgan — shu jumladan XSS namunasi, cookie bilan/cookie'siz session farqi
+      (<code>1,2,3</code> va <code>1,1</code>) va <code>302 Found</code> javobi.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

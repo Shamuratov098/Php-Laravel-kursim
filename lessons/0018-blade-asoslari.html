@@ -1,0 +1,719 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 18 — Blade asoslari</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 18 · MODUL B — LARAVEL</p>
+  <h1>Blade: HTML'ni ma'lumot bilan to'ldirish</h1>
+  <p class="lead">Bu darsdan keyin controller HTML qaytarishni to'xtatadi — uning o'rniga
+  <b>view</b> keladi. Va 13-darsda va'da qilgan narsani nihoyat isbotlaymiz:
+  <code>{{ }}</code> XSS'dan <b>o'zi</b> himoyalaydi — va nega, buni
+  <b>kompilyatsiya qilingan faylni ochib</b> ko'rasiz.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 11 daqiqa</span>
+    <span>💻 Amaliyot ≈ 16 daqiqa</span>
+    <span>Kerak: <a href="0017-request-lifecycle.html">Dars 17</a></span>
+  </p>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Nega bu muhim</span>
+    <p>16-darsda controller shunday yozdik:</p>
+    <div class="natija">return '&lt;h1&gt;Vakansiyalar&lt;/h1&gt;&lt;p&gt;IshTop — birinchi sahifam&lt;/p&gt;';</div>
+    <p>Bu ikki sabab bilan yaroqsiz. <b>Birinchi:</b> haqiqiy sahifada yuzlab qator HTML
+    bo'ladi — uni PHP satri ichida yozib bo'lmaydi. <b>Ikkinchi va muhimrog'i:</b>
+    ma'lumot va ko'rinish <b>aralashib ketadi</b>. Dizaynni o'zgartirish uchun
+    controllerga tegishga majbur bo'lasiz.</p>
+    <p><b>View</b> shu ikkisini ajratadi: controller <b>ma'lumot yig'adi</b>, view uni
+    <b>ko'rsatadi</b>. Bu 6-darsdagi qoidaning davomi — «funksiya hisoblasin, chiqarishni
+    chaqiruvchi hal qilsin».</p>
+  </div>
+
+  <!-- ═══════════════ 2) TUSHUNCHA ═══════════════ -->
+  <h2>Controller ma'lumot beradi, view ko'rsatadi</h2>
+
+  <div class="codefile">
+    <div class="fname">app/Http/Controllers/VakansiyaController.php</div>
+    <code class="cmd" data-cmd="public function index(): View
+{
+    $vakansiyalar = [
+        ['nom' =&gt; 'Backend dasturchi', 'maosh' =&gt; 800],
+        ['nom' =&gt; 'Frontend dasturchi', 'maosh' =&gt; 700],
+    ];
+
+    return view('vakansiyalar.index', [
+        'vakansiyalar' =&gt; $vakansiyalar,
+    ]);
+}">public function index(): View
+{
+    $vakansiyalar = [
+        ['nom' =&gt; 'Backend dasturchi', 'maosh' =&gt; 800],
+        ['nom' =&gt; 'Frontend dasturchi', 'maosh' =&gt; 700],
+    ];
+
+    <span class="add">return view('vakansiyalar.index', [
+        'vakansiyalar' =&gt; $vakansiyalar,
+    ]);</span>
+}</code>
+  </div>
+
+  <p>Ikki narsa:</p>
+  <ul>
+    <li><code>view('vakansiyalar.index')</code> —
+    <code>resources/views/vakansiyalar/index.blade.php</code> faylini bildiradi.
+    <b>Nuqta = papka ajratuvchi.</b></li>
+    <li>Ikkinchi argument — <b>massiv</b> (5-dars). Uning <b>kalitlari</b> view ichida
+    <b>o'zgaruvchi</b> bo'lib paydo bo'ladi: <code>'vakansiyalar' =&gt; ...</code> →
+    view'da <code>$vakansiyalar</code>.</li>
+  </ul>
+
+  <p>Diqqat: ma'lumot hozircha <b>qo'lda yozilgan massiv</b>. C modulida uning o'rniga
+  bazadan keladigan ma'lumot turadi — lekin <b>shakli aynan bir xil</b> bo'ladi
+  (5-darsdagi «ichma-ich massiv = yozuvlar ro'yxati»). Shuning uchun view'ga tegilmaydi.</p>
+
+  <h2>Blade sintaksisi</h2>
+
+  <table class="sheet">
+    <tr><th>Yozuv</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>{{ $x }}</code></td><td class="note-cell">Qiymatni chiqaradi — <b>XSS'dan himoyalab</b></td></tr>
+    <tr><td><code>{!! $x !!}</code></td><td class="note-cell">Xom holda chiqaradi — <b>himoyani o'chiradi</b></td></tr>
+    <tr><td><code>@if / @elseif / @else / @endif</code></td><td class="note-cell">Shart (3-dars)</td></tr>
+    <tr><td><code>@foreach / @endforeach</code></td><td class="note-cell">Sikl (5-dars)</td></tr>
+    <tr><td><code>@forelse / @empty / @endforelse</code></td><td class="note-cell"><code>foreach</code> + «bo'sh bo'lsa» holati</td></tr>
+    <tr><td><code>@extends('layouts.asosiy')</code></td><td class="note-cell">Layout'dan meros olish</td></tr>
+    <tr><td><code>@section / @endsection</code></td><td class="note-cell">Layout'dagi joyni to'ldirish</td></tr>
+    <tr><td><code>@yield('nom')</code></td><td class="note-cell">Layout ichida «bu yerga mazmun kelsin»</td></tr>
+  </table>
+
+  <div class="codefile">
+    <div class="fname">resources/views/vakansiyalar/index.blade.php</div>
+    <code class="cmd" data-cmd="&lt;h1&gt;Vakansiyalar&lt;/h1&gt;
+
+&lt;p&gt;Jami: {{ count($vakansiyalar) }} ta&lt;/p&gt;
+
+@forelse ($vakansiyalar as $v)
+    &lt;p&gt;{{ $v['nom'] }} — {{ $v['maosh'] }} $&lt;/p&gt;
+@empty
+    &lt;p&gt;Hozircha vakansiya yo'q.&lt;/p&gt;
+@endforelse">&lt;h1&gt;Vakansiyalar&lt;/h1&gt;
+
+&lt;p&gt;Jami: {{ count($vakansiyalar) }} ta&lt;/p&gt;
+
+@forelse ($vakansiyalar as $v)
+    &lt;p&gt;{{ $v['nom'] }} — {{ $v['maosh'] }} $&lt;/p&gt;
+@empty
+    &lt;p&gt;Hozircha vakansiya yo'q.&lt;/p&gt;
+@endforelse</code>
+  </div>
+
+  <p><code>@forelse</code> qulay: ro'yxat bo'sh bo'lsa <code>@empty</code> qismi ishlaydi.
+  Sof PHP'da buni <code>if (count(...) === 0)</code> bilan alohida yozish kerak bo'lardi.</p>
+
+  <h2>🔒 <code>{{ }}</code> — 13-darsdagi va'daning bajarilishi</h2>
+
+  <p>13-darsda aytgandim: «Blade <code>{{ }}</code> <code>htmlspecialchars</code> ni
+  <b>o'zi qiladi</b>». Bugun buni isbotlaymiz. Bir xil qiymatni ikki xil chiqaramiz:</p>
+
+  <div class="codefile">
+    <div class="fname">view ichida</div>
+    <code class="cmd" data-cmd="&lt;p&gt;Himoyalangan: {{ $xavfli }}&lt;/p&gt;
+&lt;p&gt;Himoyasiz: {!! $xavfli !!}&lt;/p&gt;">&lt;p&gt;Himoyalangan: {{ $xavfli }}&lt;/p&gt;
+&lt;p&gt;Himoyasiz: {!! $xavfli !!}&lt;/p&gt;</code>
+  </div>
+
+  <p><code>$xavfli</code> ichida <code>&lt;script&gt;alert(1)&lt;/script&gt;</code> bo'lsa,
+  natija:</p>
+
+  <div class="natija">&lt;p&gt;Himoyalangan: &amp;lt;script&amp;gt;alert(1)&amp;lt;/script&amp;gt;&lt;/p&gt;
+&lt;p&gt;Himoyasiz: &lt;script&gt;alert(1)&lt;/script&gt;&lt;/p&gt;</div>
+
+  <p>Birinchisi <b>zararsiz matn</b>, ikkinchisi <b>haqiqiy teg</b> — brauzer uni
+  bajaradi. Farq faqat qavslar shaklida.</p>
+
+  <h2>🔍 Sehr yo'q: Blade oddiy PHP'ga aylanadi</h2>
+
+  <p>Bu darsning eng qimmatli qismi. Blade — yangi til emas: Laravel uni
+  <b>oddiy PHP fayliga kompilyatsiya qiladi</b> va shu faylni ishga tushiradi.
+  Kompilyatsiya natijasi <code>storage/framework/views/</code> da <b>saqlanadi</b> —
+  ya'ni siz uni ochib ko'rishingiz mumkin.</p>
+
+  <p>Yuqoridagi view shunday PHP'ga aylanadi:</p>
+
+  <div class="natija">&lt;h1&gt;Vakansiyalar&lt;/h1&gt;
+
+&lt;p&gt;Jami: &lt;?php echo e(count($vakansiyalar)); ?&gt; ta&lt;/p&gt;
+
+&lt;?php foreach($vakansiyalar as $v): ?&gt;
+    &lt;p&gt;&lt;?php echo e($v['nom']); ?&gt; — &lt;?php echo e($v['maosh']); ?&gt; $&lt;/p&gt;
+&lt;?php endforeach; ?&gt;
+
+&lt;p&gt;Himoyalangan: &lt;?php echo e($xavfli); ?&gt;&lt;/p&gt;
+&lt;p&gt;Himoyasiz: &lt;?php echo $xavfli; ?&gt;&lt;/p&gt;</div>
+
+  <p>Endi hammasi ravshan:</p>
+
+  <table class="sheet">
+    <tr><th>Blade</th><th>Aslida</th><th class="note-cell">Izoh</th></tr>
+    <tr><td><code>{{ $x }}</code></td><td><code>&lt;?php echo e($x); ?&gt;</code></td><td class="note-cell"><code>e()</code> — himoyalovchi funksiya</td></tr>
+    <tr><td><code>{!! $x !!}</code></td><td><code>&lt;?php echo $x; ?&gt;</code></td><td class="note-cell">Oddiy <code>echo</code> — himoya <b>yo'q</b></td></tr>
+    <tr><td><code>@foreach</code></td><td><code>&lt;?php foreach(...): ?&gt;</code></td><td class="note-cell">5-darsdagi sikl</td></tr>
+    <tr><td><code>@endforeach</code></td><td><code>&lt;?php endforeach; ?&gt;</code></td><td class="note-cell">3-darsdagi qavssiz shakl</td></tr>
+  </table>
+
+  <div class="callout tip">
+    <span class="label">Va <code>e()</code> nima? — Aynan <code>htmlspecialchars</code></span>
+    <p>Laravel'ning <code>e()</code> yordamchisi ichida <code>htmlspecialchars</code>
+    turadi. Amaliyotda buni <b>o'zingiz tekshirasiz</b>: ikkisining natijasi
+    <code>===</code> bilan solishtirilganda <code>true</code> chiqadi.</p>
+    <p>Ya'ni zanjir to'liq: <b>13-dars</b> (<code>htmlspecialchars</code>) →
+    <b>bugun</b> (<code>{{ }}</code>) → kompilyatsiya (<code>echo e()</code>) →
+    <code>e()</code> = <code>htmlspecialchars</code>. Hech qanday sehr yo'q, faqat
+    <b>qulay yozuv</b>.</p>
+  </div>
+
+  <h2>Layout: takrorlanishni yo'qotish</h2>
+
+  <p>Har sahifada bir xil narsa bo'ladi: <code>&lt;head&gt;</code>, menyu, footer. Ularni
+  har faylda takrorlash — 9-darsdagi muammo. Yechim ham o'sha: <b>umumiy qismni bitta
+  joyga chiqarish</b>.</p>
+
+  <div class="codefile">
+    <div class="fname">resources/views/layouts/asosiy.blade.php</div>
+    <code class="cmd" data-cmd="&lt;!doctype html&gt;
+&lt;html lang=&quot;uz&quot;&gt;
+&lt;head&gt;
+    &lt;meta charset=&quot;utf-8&quot;&gt;
+    &lt;title&gt;@yield('sarlavha', 'IshTop')&lt;/title&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;nav&gt;&lt;a href=&quot;/vakansiyalar&quot;&gt;Vakansiyalar&lt;/a&gt;&lt;/nav&gt;
+
+    &lt;main&gt;
+        @yield('mazmun')
+    &lt;/main&gt;
+
+    &lt;footer&gt;IshTop &amp;copy; 2026&lt;/footer&gt;
+&lt;/body&gt;
+&lt;/html&gt;">&lt;!doctype html&gt;
+&lt;html lang="uz"&gt;
+&lt;head&gt;
+    &lt;meta charset="utf-8"&gt;
+    &lt;title&gt;<span class="add">@yield('sarlavha', 'IshTop')</span>&lt;/title&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;nav&gt;&lt;a href="/vakansiyalar"&gt;Vakansiyalar&lt;/a&gt;&lt;/nav&gt;
+
+    &lt;main&gt;
+        <span class="add">@yield('mazmun')</span>
+    &lt;/main&gt;
+
+    &lt;footer&gt;IshTop &amp;copy; 2026&lt;/footer&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code>
+  </div>
+
+  <div class="codefile">
+    <div class="fname">resources/views/vakansiyalar/index.blade.php</div>
+    <code class="cmd" data-cmd="@extends('layouts.asosiy')
+
+@section('sarlavha', 'Vakansiyalar — IshTop')
+
+@section('mazmun')
+    &lt;h1&gt;Vakansiyalar&lt;/h1&gt;
+    ...
+@endsection">@extends('layouts.asosiy')
+
+@section('sarlavha', 'Vakansiyalar — IshTop')
+
+@section('mazmun')
+    &lt;h1&gt;Vakansiyalar&lt;/h1&gt;
+    ...
+@endsection</code>
+  </div>
+
+  <ul>
+    <li><code>@yield('nom')</code> — layout'da <b>bo'sh joy</b> qoldiradi.
+    Ikkinchi argument — <b>standart qiymat</b> (6-darsdagi standart parametr g'oyasi).</li>
+    <li><code>@extends</code> — «shu layout ichida yashayman». 9-darsdagi
+    <code>extends</code> so'zi — <b>bir xil g'oya</b>: umumiy qism yuqorida, farq
+    pastda.</li>
+    <li><code>@section('nom', 'qiymat')</code> — qisqa shakl (bir qatorli mazmun uchun),
+    <code>@section ... @endsection</code> — blok shakli.</li>
+  </ul>
+
+  <!-- ═══════════════ 4) AMALIYOT / MODE-HINT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    <span class="mode-hint-title">💻 Amaliy qism kompyuterda</span>
+    <p>Amaliyotda controller'ni view qaytaradigan qilib o'zgartirasiz, vakansiyalar
+    ro'yxatini chiqarasiz, XSS himoyasini <code>{{ }}</code> va <code>{!! !!}</code> bilan
+    solishtirasiz — va eng qizig'i: <b>kompilyatsiya qilingan PHP faylni ochib</b>
+    Blade'ning ichini ko'rasiz. Oxirida layout qo'shib takrorlanishni yo'qotasiz.</p>
+    <button type="button" class="modebtn" data-set-mode="do">💻 Amaliyot rejimini ko'rish</button>
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <p>IshTop'ga o'ting va serverni ko'taring</p>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+php artisan serve">cd ~/Projects/Learn/ishtop
+php artisan serve</div>
+        <p class="expect"><b>Kutilgan natija:</b> server ishlaydi. Keyingi qadamlar uchun
+        <b>yangi terminal oynasi</b> oching.</p>
+      </li>
+
+      <li>
+        <p>Controller'ni view qaytaradigan qiling</p>
+        <p class="why-step">Controller endi HTML yozmaydi — faqat <b>ma'lumot yig'adi</b>.</p>
+        <div class="cmd" data-cmd="cat &gt; app/Http/Controllers/VakansiyaController.php &lt;&lt;'EOF'
+&lt;?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\View\View;
+
+class VakansiyaController extends Controller
+{
+    public function index(): View
+    {
+        return view('vakansiyalar.index', [
+            'vakansiyalar' =&gt; [
+                ['nom' =&gt; 'Backend dasturchi', 'maosh' =&gt; 800],
+                ['nom' =&gt; 'Frontend dasturchi', 'maosh' =&gt; 700],
+            ],
+            'xavfli' =&gt; '&lt;script&gt;alert(1)&lt;/script&gt;',
+        ]);
+    }
+}
+EOF">cat &gt; app/Http/Controllers/VakansiyaController.php &lt;&lt;'EOF'
+&lt;?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\View\View;
+
+class VakansiyaController extends Controller
+{
+    public function index(): View
+    {
+        return view('vakansiyalar.index', [
+            'vakansiyalar' =&gt; [
+                ['nom' =&gt; 'Backend dasturchi', 'maosh' =&gt; 800],
+                ['nom' =&gt; 'Frontend dasturchi', 'maosh' =&gt; 700],
+            ],
+            'xavfli' =&gt; '&lt;script&gt;alert(1)&lt;/script&gt;',
+        ]);
+    }
+}
+EOF</div>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik. <code>: View</code> — qaytish tipi
+        (6-dars). <code>'xavfli'</code> ni ataylab qo'shdik — XSS'ni sinash uchun.</p>
+      </li>
+
+      <li>
+        <p>View faylini yarating</p>
+        <div class="cmd" data-cmd="mkdir -p resources/views/vakansiyalar
+cat &gt; resources/views/vakansiyalar/index.blade.php &lt;&lt;'EOF'
+&lt;h1&gt;Vakansiyalar&lt;/h1&gt;
+
+&lt;p&gt;Jami: {{ count($vakansiyalar) }} ta&lt;/p&gt;
+
+@forelse ($vakansiyalar as $v)
+    &lt;p&gt;{{ $v['nom'] }} — {{ $v['maosh'] }} $&lt;/p&gt;
+@empty
+    &lt;p&gt;Hozircha vakansiya yo'q.&lt;/p&gt;
+@endforelse
+
+&lt;p&gt;Himoyalangan: {{ $xavfli }}&lt;/p&gt;
+&lt;p&gt;Himoyasiz: {!! $xavfli !!}&lt;/p&gt;
+EOF
+curl -s http://localhost:8000/vakansiyalar">mkdir -p resources/views/vakansiyalar
+cat &gt; resources/views/vakansiyalar/index.blade.php &lt;&lt;'EOF'
+&lt;h1&gt;Vakansiyalar&lt;/h1&gt;
+
+&lt;p&gt;Jami: {{ count($vakansiyalar) }} ta&lt;/p&gt;
+
+@forelse ($vakansiyalar as $v)
+    &lt;p&gt;{{ $v['nom'] }} — {{ $v['maosh'] }} $&lt;/p&gt;
+@empty
+    &lt;p&gt;Hozircha vakansiya yo'q.&lt;/p&gt;
+@endforelse
+
+&lt;p&gt;Himoyalangan: {{ $xavfli }}&lt;/p&gt;
+&lt;p&gt;Himoyasiz: {!! $xavfli !!}&lt;/p&gt;
+EOF
+curl -s http://localhost:8000/vakansiyalar
+<span class="out">&lt;h1&gt;Vakansiyalar&lt;/h1&gt;</span>
+<span class="out">&lt;p&gt;Jami: 2 ta&lt;/p&gt;</span>
+<span class="out">    &lt;p&gt;Backend dasturchi — 800 $&lt;/p&gt;</span>
+<span class="out">    &lt;p&gt;Frontend dasturchi — 700 $&lt;/p&gt;</span>
+<span class="out">&lt;p&gt;Himoyalangan: &amp;lt;script&amp;gt;alert(1)&amp;lt;/script&amp;gt;&lt;/p&gt;</span>
+<span class="out">&lt;p&gt;Himoyasiz: &lt;script&gt;alert(1)&lt;/script&gt;&lt;/p&gt;</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> ro'yxat chiqdi. Va oxirgi ikki qatorga
+        diqqat: <b>bir xil qiymat, ikki xil natija</b>. 🔒 <code>{{ }}</code> teglarni
+        zararsizlantirdi, <code>{!! !!}</code> esa xom holda o'tkazdi.
+        <br>Brauzerda ham ochib ko'ring — «Himoyasiz» qatoridan <b>oyna chiqadi</b>.</p>
+      </li>
+
+      <li>
+        <p>🔍 Kompilyatsiya qilingan faylni ochib ko'ring</p>
+        <p class="why-step">Bu darsning eng muhim tajribasi: Blade'ning ichida sehr yo'q,
+        oddiy PHP bor.</p>
+        <div class="cmd" data-cmd="cat $(grep -l 'Vakansiyalar' storage/framework/views/*.php | head -1)">cat $(grep -l 'Vakansiyalar' storage/framework/views/*.php | head -1)
+<span class="out">&lt;h1&gt;Vakansiyalar&lt;/h1&gt;</span>
+<span class="out">&lt;p&gt;Jami: &lt;?php echo e(count($vakansiyalar)); ?&gt; ta&lt;/p&gt;</span>
+<span class="out">&lt;?php ... foreach($__currentLoopData as $v): ... ?&gt;</span>
+<span class="out">    &lt;p&gt;&lt;?php echo e($v['nom']); ?&gt; — ...</span>
+<span class="out">&lt;p&gt;Himoyalangan: &lt;?php echo e($xavfli); ?&gt;&lt;/p&gt;</span>
+<span class="out">&lt;p&gt;Himoyasiz: &lt;?php echo $xavfli; ?&gt;&lt;/p&gt;</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> 🎉 <b>Oddiy PHP fayl!</b>
+        <code>{{ }}</code> → <code>echo e(...)</code>, <code>{!! !!}</code> → oddiy
+        <code>echo</code>, <code>@foreach</code> → <code>foreach(...)</code>.
+        <br><code>foreach</code> atrofidagi qo'shimcha kod — Blade'ning
+        <code>$loop</code> o'zgaruvchisi uchun (nechanchi aylanish, oxirgisimi va
+        boshqalar). Yadro esa oddiy <code>foreach</code>.</p>
+      </li>
+
+      <li>
+        <p>🔒 <code>e()</code> aynan nima ekanini tekshiring</p>
+        <p class="why-step">13-darsdagi bilim bilan bugungi <code>{{ }}</code> ni bir-biriga
+        ulaydigan oxirgi bo'g'in.</p>
+        <div class="cmd" data-cmd="php -r '
+require &quot;vendor/autoload.php&quot;;
+$app = require_once &quot;bootstrap/app.php&quot;;
+$x = &quot;&lt;script&gt;alert(1)&lt;/script&gt;&quot;;
+echo e($x), PHP_EOL;
+var_dump(e($x) === htmlspecialchars($x, ENT_QUOTES, &quot;UTF-8&quot;, true));
+'">php -r '
+require "vendor/autoload.php";
+$app = require_once "bootstrap/app.php";
+$x = "&lt;script&gt;alert(1)&lt;/script&gt;";
+echo e($x), PHP_EOL;
+var_dump(e($x) === htmlspecialchars($x, ENT_QUOTES, "UTF-8", true));
+'
+<span class="out">&amp;lt;script&amp;gt;alert(1)&amp;lt;/script&amp;gt;</span>
+<span class="out">bool(true)</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> <code>bool(true)</code> — ya'ni
+        <code>e()</code> va <code>htmlspecialchars</code> <b>aynan bir xil</b> natija
+        beradi. Zanjir yopildi: <code>{{ }}</code> → <code>e()</code> →
+        <code>htmlspecialchars</code> (13-dars). 🎉</p>
+      </li>
+
+      <li>
+        <p>Layout yarating</p>
+        <div class="cmd" data-cmd="mkdir -p resources/views/layouts
+cat &gt; resources/views/layouts/asosiy.blade.php &lt;&lt;'EOF'
+&lt;!doctype html&gt;
+&lt;html lang=&quot;uz&quot;&gt;
+&lt;head&gt;
+    &lt;meta charset=&quot;utf-8&quot;&gt;
+    &lt;title&gt;@yield('sarlavha', 'IshTop')&lt;/title&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;nav&gt;&lt;a href=&quot;/vakansiyalar&quot;&gt;Vakansiyalar&lt;/a&gt;&lt;/nav&gt;
+
+    &lt;main&gt;
+        @yield('mazmun')
+    &lt;/main&gt;
+
+    &lt;footer&gt;IshTop &amp;copy; 2026&lt;/footer&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+EOF">mkdir -p resources/views/layouts
+cat &gt; resources/views/layouts/asosiy.blade.php &lt;&lt;'EOF'
+&lt;!doctype html&gt;
+&lt;html lang="uz"&gt;
+&lt;head&gt;
+    &lt;meta charset="utf-8"&gt;
+    &lt;title&gt;@yield('sarlavha', 'IshTop')&lt;/title&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;nav&gt;&lt;a href="/vakansiyalar"&gt;Vakansiyalar&lt;/a&gt;&lt;/nav&gt;
+
+    &lt;main&gt;
+        @yield('mazmun')
+    &lt;/main&gt;
+
+    &lt;footer&gt;IshTop &amp;copy; 2026&lt;/footer&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+EOF</div>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik.</p>
+      </li>
+
+      <li>
+        <p>View'ni layout ichiga soling</p>
+        <div class="cmd" data-cmd="cat &gt; resources/views/vakansiyalar/index.blade.php &lt;&lt;'EOF'
+@extends('layouts.asosiy')
+
+@section('sarlavha', 'Vakansiyalar — IshTop')
+
+@section('mazmun')
+    &lt;h1&gt;Vakansiyalar&lt;/h1&gt;
+
+    @forelse ($vakansiyalar as $v)
+        &lt;p&gt;{{ $v['nom'] }} — {{ $v['maosh'] }} $&lt;/p&gt;
+    @empty
+        &lt;p&gt;Hozircha vakansiya yo'q.&lt;/p&gt;
+    @endforelse
+
+    @if (count($vakansiyalar) &gt; 1)
+        &lt;p&gt;&lt;b&gt;Bir nechta vakansiya bor.&lt;/b&gt;&lt;/p&gt;
+    @endif
+@endsection
+EOF
+curl -s http://localhost:8000/vakansiyalar | head -8">cat &gt; resources/views/vakansiyalar/index.blade.php &lt;&lt;'EOF'
+@extends('layouts.asosiy')
+
+@section('sarlavha', 'Vakansiyalar — IshTop')
+
+@section('mazmun')
+    &lt;h1&gt;Vakansiyalar&lt;/h1&gt;
+
+    @forelse ($vakansiyalar as $v)
+        &lt;p&gt;{{ $v['nom'] }} — {{ $v['maosh'] }} $&lt;/p&gt;
+    @empty
+        &lt;p&gt;Hozircha vakansiya yo'q.&lt;/p&gt;
+    @endforelse
+
+    @if (count($vakansiyalar) &gt; 1)
+        &lt;p&gt;&lt;b&gt;Bir nechta vakansiya bor.&lt;/b&gt;&lt;/p&gt;
+    @endif
+@endsection
+EOF
+curl -s http://localhost:8000/vakansiyalar | head -8
+<span class="out">&lt;!doctype html&gt;</span>
+<span class="out">&lt;html lang="uz"&gt;</span>
+<span class="out">&lt;head&gt;</span>
+<span class="out">    &lt;meta charset="utf-8"&gt;</span>
+<span class="out">    &lt;title&gt;Vakansiyalar — IshTop&lt;/title&gt;</span>
+<span class="out">&lt;/head&gt;</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> endi to'liq HTML sahifa — menyu, footer va
+        <code>&lt;title&gt;</code> bilan. <code>&lt;title&gt;</code> ichida
+        <code>@section('sarlavha', ...)</code> dan kelgan matn turadi.
+        <br><b>O'zingiz sinab ko'ring:</b> <code>@section('sarlavha', ...)</code> qatorini
+        o'chirib qayta so'rang — sarlavha <code>IshTop</code> ga (standart qiymatga)
+        qaytadi.</p>
+      </li>
+
+      <li>
+        <p>Ishni saqlang</p>
+        <div class="cmd" data-cmd="git add -A
+git commit -m &quot;18-dars: Blade asoslari va layout&quot;">git add -A
+git commit -m "18-dars: Blade asoslari va layout"</div>
+        <p class="expect"><b>Kutilgan natija:</b> commit haqida xabar. Diqqat:
+        <code>storage/framework/views/</code> Git'ga <b>tushmaydi</b> — u kesh, kerak
+        bo'lganda qayta yasaladi.</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><input type="checkbox" id="d18c1"><label for="d18c1">Controller view qaytaradi, ma'lumot massivda uzatiladi</label></li>
+      <li><input type="checkbox" id="d18c2"><label for="d18c2"><code>@forelse</code>, <code>@if</code>, <code>{{ }}</code> ni ishlatdim</label></li>
+      <li><input type="checkbox" id="d18c3"><label for="d18c3"><b><code>{{ }}</code> va <code>{!! !!}</code> farqini o'z natijamda ko'rdim</b> 🔒</label></li>
+      <li><input type="checkbox" id="d18c4"><label for="d18c4"><b>Kompilyatsiya qilingan PHP faylni ochib ko'rdim</b> 🎉</label></li>
+      <li><input type="checkbox" id="d18c5"><label for="d18c5"><code>e()</code> = <code>htmlspecialchars</code> ekanini tekshirdim</label></li>
+      <li><input type="checkbox" id="d18c6"><label for="d18c6">Layout yasab, takrorlanishni yo'qotdim</label></li>
+      <li><input type="checkbox" id="d18c7"><label for="d18c7"><code>@yield</code> ning standart qiymatini sinadim</label></li>
+      <li><input type="checkbox" id="d18c8"><label for="d18c8">Ishni commit qildim</label></li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 5) TAXMIN + QUIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Foydalanuvchi o'z ismini <code>&lt;b&gt;Doston&lt;/b&gt;</code> deb kiritgan (teglar
+    bilan). View'da ikki xil chiqarilgan. Brauzerda <b>nima ko'rinadi</b>?</p>
+    <div class="codefile">
+      <div class="fname">view</div>
+      <code class="cmd" data-cmd="&lt;p&gt;A: {{ $ism }}&lt;/p&gt;
+&lt;p&gt;B: {!! $ism !!}&lt;/p&gt;">&lt;p&gt;A: {{ $ism }}&lt;/p&gt;
+&lt;p&gt;B: {!! $ism !!}&lt;/p&gt;</code>
+    </div>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <p>Brauzerda:</p>
+        <div class="natija">A: &lt;b&gt;Doston&lt;/b&gt;      ← teglar MATN sifatida ko'rinadi
+B: Doston            ← qalin harflar bilan (teg BAJARILDI)</div>
+        <p><b>A</b> da foydalanuvchi yozgan narsa <b>xuddi shundayligicha</b> ko'rinadi —
+        chunki <code>&lt;</code> belgisi <code>&amp;lt;</code> ga aylantirilgan.
+        <b>B</b> da esa teg <b>ishlagan</b>.</p>
+        <p><b>Nega A to'g'ri:</b> foydalanuvchi HTML yozishi <b>kutilmaydi</b> — u ism
+        yozadi. Agar teglarga ruxsat bersangiz, <code>&lt;b&gt;</code> bilan cheklanmaydi:
+        <code>&lt;script&gt;</code> ham ishlaydi, ya'ni XSS.</p>
+        <p class="expect"><b>Qoida:</b> <code>{!! !!}</code> ni <b>faqat</b> siz o'zingiz
+        yasagan, ishonchli HTML uchun ishlating (masalan Markdown'dan tayyorlangan matn).
+        Foydalanuvchidan kelgan narsa uchun <b>hech qachon</b>. Va kod ko'rib chiqishda
+        (code review) <code>{!! !!}</code> ko'rinsa — birinchi savol «bu qiymat qayerdan
+        keldi?» bo'ladi.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span> <code>{{ $x }}</code> nimaga
+    kompilyatsiya qilinadi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">echo e($x) — himoyalab chiqaradi</button></li>
+      <li><button class="quiz-option">echo $x — xom chiqaradi</button></li>
+      <li><button class="quiz-option">print $x — tezroq chiqaradi</button></li>
+    </ul>
+    <div class="quiz-explain"><code>{{ }}</code> → <code>&lt;?php echo e($x); ?&gt;</code>, va
+    <code>e()</code> ichida <code>htmlspecialchars</code> turadi.
+    <code>{!! !!}</code> esa oddiy <code>echo</code> — himoyasiz.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span> <code>view('vakansiyalar.index')</code>
+    qaysi faylni bildiradi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">resources/views/vakansiyalar/index.blade.php</button></li>
+      <li><button class="quiz-option">resources/vakansiyalar/views/index.blade.php</button></li>
+      <li><button class="quiz-option">app/Views/vakansiyalar/index.blade.php</button></li>
+    </ul>
+    <div class="quiz-explain">View'lar <code>resources/views/</code> da yashaydi, va
+    <b>nuqta papka ajratuvchi</b> vazifasini bajaradi. Kengaytma —
+    <code>.blade.php</code>.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span> Blade fayllari qanday ishlatiladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">PHP faylga kompilyatsiya qilinadi</button></li>
+      <li><button class="quiz-option">Har so'rovda satrlab o'qiladi</button></li>
+      <li><button class="quiz-option">Brauzerda JavaScript bilan ishlanadi</button></li>
+    </ul>
+    <div class="quiz-explain">Laravel Blade'ni <b>oddiy PHP fayliga</b> aylantiradi va
+    natijani <code>storage/framework/views/</code> da saqlaydi. Shuning uchun Blade
+    tezlikka salbiy ta'sir qilmaydi.</div>
+  </div>
+
+  <!-- ═══════════════ 6) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+    <p class="recall-intro">Avval o'zingiz javob bering, keyin ochib tekshiring.
+    Oxirgi ikkitasi — <a href="0017-request-lifecycle.html">17-darsni</a> takrorlash.</p>
+
+    <details class="recall">
+      <summary>Controller va view mas'uliyati qanday bo'linadi?</summary>
+      <div class="answer"><p>Controller <b>ma'lumot yig'adi</b> va uni massivda uzatadi;
+      view uni <b>ko'rsatadi</b>. Dizayn o'zgarsa controllerga tegilmaydi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary><code>{{ }}</code> nima uchun xavfsiz?</summary>
+      <div class="answer"><p>Chunki u <code>echo e($x)</code> ga kompilyatsiya qilinadi, va
+      <code>e()</code> — bu <code>htmlspecialchars</code>. Ya'ni 13-darsdagi himoya
+      <b>avtomatik</b> qo'llanadi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary><code>@extends</code> va <code>@yield</code> munosabati?</summary>
+      <div class="answer"><p>Layout'da <code>@yield('nom')</code> <b>bo'sh joy</b> qoldiradi;
+      sahifa <code>@extends</code> bilan layout'ni oladi va <code>@section('nom')</code>
+      bilan o'sha joyni <b>to'ldiradi</b>.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: middleware controllerdan oldin ham, keyin ham ishlaydimi?</summary>
+      <div class="answer"><p><b>Ha.</b> <code>$next($request)</code> dan oldingi kod —
+      controllerdan oldin, keyingi kod — keyin. Middleware controllerni <b>o'rab
+      oladi</b>.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: <code>bootstrap/app.php</code> nima qaytaradi?</summary>
+      <div class="answer"><p><b>Application obyektini</b> — Laravel'ning container'i.
+      Sizning <code>new Container()</code> qatoringizning o'rni.</p></div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 7) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Cho'ntak xulosasi</span>
+    <ul>
+      <li><code>view('papka.fayl', ['kalit' =&gt; $qiymat])</code> — nuqta = papka.
+      Kalitlar view'da <b>o'zgaruvchi</b> bo'ladi.</li>
+      <li>🔒 <code>{{ $x }}</code> — <b>himoyalab</b> chiqaradi ·
+      <code>{!! $x !!}</code> — <b>xom holda</b> (ehtiyot bo'ling!).</li>
+      <li><b>Blade oddiy PHP'ga kompilyatsiya qilinadi</b>:
+      <code>{{ }}</code> → <code>echo e()</code>, <code>@foreach</code> →
+      <code>foreach</code>. Natija <code>storage/framework/views/</code> da.</li>
+      <li><code>e()</code> = <code>htmlspecialchars</code> (13-dars). Zanjir to'liq.</li>
+      <li><code>@if</code> · <code>@foreach</code> · <code>@forelse ... @empty</code>
+      (bo'sh ro'yxat uchun).</li>
+      <li>Layout: <code>@yield('nom', 'standart')</code> +
+      <code>@extends</code> + <code>@section</code>.</li>
+      <li><code>storage/framework/views/</code> — kesh, Git'ga tushmaydi.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p>Layout takrorlanishning <b>katta</b> qismini yechdi. Lekin kichik bo'laklar ham
+    takrorlanadi: vakansiya kartasi, tugma, ogohlantirish qutisi. Ular uchun
+    <b>komponent</b> bor — 10-darsdagi «takrorlanishni yo'qotish» g'oyasining Blade'dagi
+    shakli.</p>
+    <p>Va eng muhimi: <b>forma</b> yozamiz. U yerda yangi narsa bor —
+    <code>@csrf</code>. 13-darsda cookie va session'ni o'rganganingizda «CSRF nima?» degan
+    savol paydo bo'lgan bo'lsa, keyingi dars unga javob beradi. Va isbot ham bo'ladi:
+    <code>@csrf</code> ni olib tashlab, Laravel <b>419</b> xatosi bilan formani rad
+    etishini ko'rasiz.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel — Blade Templates</b>:
+    <a href="https://laravel.com/docs/13.x/blade">laravel.com/docs/13.x/blade</a>.<sup><a href="#fn1">1</a></sup>
+    «Displaying Data» va «Blade and JavaScript frameworks» bo'limlariga qarang —
+    ikkinchisi <code>{{ }}</code> ning JS bilan to'qnashuvi haqida.<br>
+    <b>Views</b>: <a href="https://laravel.com/docs/13.x/views">laravel.com/docs/13.x/views</a>.<br>
+    <b>Getting Started with Laravel</b> (bepul video):
+    <a href="https://laravel.com/learn/getting-started-with-laravel">laravel.com/learn/getting-started-with-laravel</a>.</p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b> «<code>@php</code> direktivasi
+    bormi?», «view ichida murakkab mantiq yozsam bo'ladimi?», «<code>$loop</code> nima?»,
+    «Blade'da JS'dagi <code>{{ }}</code> bilan to'qnashuv bo'ladimi?» — har qanday savol
+    yaxshi. Ikkinchi savolga qisqa javob: <b>yozmang</b> — view faqat ko'rsatishi kerak,
+    mantiq controllerda yoki keyinroq (Modul I — «semiz controller» darsi) Service klassida bo'ladi.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0017-request-lifecycle.html">Oldingi: Request Lifecycle</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel 13 — <a href="https://laravel.com/docs/13.x/blade">Blade
+      Templates</a> va <a href="https://laravel.com/docs/13.x/views">Views</a>.</li>
+      <li id="fn2">Kompilyatsiya qilingan Blade fayli va <code>e()</code> funksiyasining
+      <code>htmlspecialchars</code> ga tengligi <b>Laravel 13.25.0</b> da jonli tekshirilgan
+      (<code>e($x) === htmlspecialchars($x, ENT_QUOTES, "UTF-8", true)</code> →
+      <code>bool(true)</code>).</li>
+      <li id="fn3">Darsdagi barcha chiqishlar haqiqiy serverdan olingan
+      (PHP 8.3.32, Laravel 13.25.0).</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

@@ -1,0 +1,715 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 08 — OOP 2: himoya, static va const</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 08 · MODUL A — POYDEVOR</p>
+  <h1>OOP 2 — himoya: obyekt o'z ma'lumotini qo'riqlaydi</h1>
+  <p class="lead">Bu darsdan keyin obyektning <b>nimasi tashqariga chiqishini</b> o'zingiz
+  boshqarasiz. Bundan tashqari PHP 8 ning qisqa yozuv usulini o'rganasiz — Laravel kodida
+  aynan shu shakl ishlatiladi, shuning uchun uni tanimasangiz o'sha kod o'qilmaydi.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 9 daqiqa</span>
+    <span>💻 Amaliyot ≈ 12 daqiqa</span>
+    <span>Kerak: <a href="0007-oop-klass-va-obyekt.html">Dars 07</a></span>
+  </p>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Nega bu muhim</span>
+    <p>7-darsda hamma xossani <code>public</code> deb yozdik. Natijasi shu:</p>
+    <div class="natija">$v-&gt;maosh = -500;      // ishlaydi. Hech kim to'xtatmaydi.
+echo $v-&gt;maosh;        // -500</div>
+    <p>Manfiy maosh — <b>ma'nosiz ma'lumot</b>, lekin obyekt uni qabul qildi. Loyiha
+    o'sganda bunday qiymat bazaga tushadi, hisobotni buzadi, va sababini topish uchun
+    <b>butun kodni</b> qarab chiqishga to'g'ri keladi — chunki uni <b>har qanday joydan</b>
+    o'zgartirish mumkin edi.</p>
+    <p>Yechim: obyekt o'z ma'lumotini <b>o'zi qo'riqlasin</b>. Tashqaridan faqat siz
+    ruxsat bergan yo'l bilan o'zgartirilsin. Bu <b>enkapsulyatsiya</b> deb ataladi va
+    mid-level dasturchini junior'dan ajratib turadigan asosiy odatlardan biri.</p>
+  </div>
+
+  <!-- ═══════════════ 2) TUSHUNCHA ═══════════════ -->
+  <h2>Uch daraja: <code>public</code>, <code>private</code>, <code>protected</code></h2>
+
+  <table class="sheet">
+    <tr><th>Kalit so'z</th><th class="note-cell">Kim ko'ra oladi</th></tr>
+    <tr><td><code>public</code></td><td class="note-cell"><b>Hamma</b> — klass ichi ham, tashqarisi ham. Standart holat</td></tr>
+    <tr><td><code>private</code></td><td class="note-cell"><b>Faqat shu klass ichi.</b> Tashqaridan murojaat — <code>Fatal error</code></td></tr>
+    <tr><td><code>protected</code></td><td class="note-cell">Shu klass <b>va undan meros olgan klasslar</b>. Meros — keyingi darsda</td></tr>
+  </table>
+
+  <div class="callout tip">
+    <span class="label">Amaliy qoida</span>
+    <p><b>Xossalarni <code>private</code> qilib boshlang.</b> Keyin, aniq zarurat bo'lsa,
+    ochasiz. Teskarisi — <code>public</code> dan boshlab keyin yopish — ancha qiyin, chunki
+    kodning boshqa joylari o'sha xossaga bog'lanib qolgan bo'ladi.</p>
+  </div>
+
+  <p><code>private</code> xossaga tashqaridan tegishga urinsangiz:</p>
+
+  <div class="natija">PHP Fatal error:  Uncaught Error: Cannot access private property Vakansiya::$maosh in a.php:19</div>
+
+  <p>Bu <b>yaxshi xabar</b> — xato darhol, aniq manzil bilan chiqdi (4-darsdagi ko'nikma
+  ishga tushdi). Aks holda muammo jimgina ichkariga kirib ketardi.</p>
+
+  <h3>Ma'lumotga qanday murojaat qilinadi?</h3>
+
+  <p><code>private</code> qilgandan keyin ham ma'lumot kerak bo'ladi. Buning uchun
+  <b>metod</b> yoziladi — va mana shu joyda kuch bor: <b>metod shart qo'ya oladi</b>.</p>
+
+  <div class="codefile">
+    <div class="fname">tushuncha</div>
+    <code class="cmd" data-cmd="private int $maosh;
+
+public function maosh(): int          // o'qish uchun — «getter»
+{
+    return $this-&gt;maosh;
+}
+
+public function maoshniOzgartir(int $yangi): void   // yozish uchun — shart bilan
+{
+    if ($yangi &lt; 0) {
+        return;                        // rad etadi — obyekt o'zini himoya qildi
+    }
+    $this-&gt;maosh = $yangi;
+}">private int $maosh;
+
+public function maosh(): int          // o'qish uchun — «getter»
+{
+    return $this-&gt;maosh;
+}
+
+public function maoshniOzgartir(int $yangi): void   // yozish uchun — shart bilan
+{
+    if ($yangi &lt; 0) {
+        return;                        // rad etadi — obyekt o'zini himoya qildi
+    }
+    $this-&gt;maosh = $yangi;
+}</code>
+  </div>
+
+  <p>Endi <b>manfiy maoshni kiritish mumkin emas</b> — qaysi fayldan urinsangiz ham.
+  Qoida bitta joyda, klass ichida yashaydi. Muammo chiqsa, qarash kerak bo'lgan joy ham
+  bitta.</p>
+
+  <p><code>void</code> — yangi qaytish tipi: «bu metod hech narsa qaytarmaydi, faqat ish
+  qiladi».</p>
+
+  <div class="callout note">
+    <span class="label">Har xossaga getter yozish shart emas</span>
+    <p>Boshlovchilar ko'p qiladigan xato — har bir <code>private</code> xossaga getter va
+    setter yozib chiqish. Bunda hech qanday himoya qolmaydi, faqat kod uzayadi.
+    <b>Faqat tashqariga chindan kerak bo'lganini</b> ochasiz. Ko'p hollarda esa
+    <code>korinish()</code> kabi <b>ma'noli</b> metod yozish yaxshiroq — u ma'lumotni
+    bermaydi, <b>natijani</b> beradi.</p>
+  </div>
+
+  <h2>PHP 8: qisqa yozuv (constructor property promotion)</h2>
+
+  <p>7-darsdagi konstruktorni eslang — xossa uch joyda takrorlanadi: e'londa,
+  parametrda, tayinlashda. PHP 8 dan buni <b>bitta joyda</b> yozish mumkin:</p>
+
+  <div class="codefile">
+    <div class="fname">eski shakl — 10 qator</div>
+    <code class="cmd" data-cmd="class Vakansiya
+{
+    private string $nom;
+    private int $maosh;
+
+    public function __construct(string $nom, int $maosh)
+    {
+        $this-&gt;nom = $nom;
+        $this-&gt;maosh = $maosh;
+    }
+}">class Vakansiya
+{
+    <span class="del">private string $nom;</span>
+    <span class="del">private int $maosh;</span>
+
+    public function __construct(string $nom, int $maosh)
+    {
+        <span class="del">$this-&gt;nom = $nom;</span>
+        <span class="del">$this-&gt;maosh = $maosh;</span>
+    }
+}</code>
+  </div>
+
+  <div class="codefile">
+    <div class="fname">yangi shakl — 4 qator, aynan bir xil natija</div>
+    <code class="cmd" data-cmd="class Vakansiya
+{
+    public function __construct(
+        private string $nom,
+        private int $maosh,
+    ) {}
+}">class Vakansiya
+{
+    public function __construct(
+        <span class="add">private string $nom,</span>
+        <span class="add">private int $maosh,</span>
+    ) {}
+}</code>
+  </div>
+
+  <p>Parametr oldiga <code>private</code> (yoki <code>public</code>) yozsangiz, PHP
+  <b>o'zi</b> xossa yaratadi va qiymatni unga soladi. Konstruktor tanasi bo'sh qoladi:
+  <code>{}</code>.</p>
+
+  <div class="callout tip">
+    <span class="label">Nega buni bilish shart</span>
+    <p>Chunki <b>Laravel kodi shu shaklda yozilgan</b>. Har bir controller, service, job
+    konstruktorida shuni ko'rasiz. Tanimasangiz — «xossalar qayerda e'lon qilingan?» deb
+    izlab yurasiz. Endi bilasiz: <b>konstruktor parametrining o'zida</b>.</p>
+  </div>
+
+  <p>Diqqat: <code>var_dump</code> himoya darajasini ham ko'rsatadi:</p>
+
+  <div class="natija">object(Vakansiya)#1 (2) {
+  ["nom":"Vakansiya":private]=&gt;
+  string(17) "Backend dasturchi"
+  ...</div>
+
+  <h2><code>const</code> — o'zgarmas qiymat</h2>
+
+  <p>Ba'zi qiymatlar hech qachon o'zgarmaydi: holat nomlari, soliq foizi, standart limit.
+  Ular uchun <code>const</code> ishlatiladi:</p>
+
+  <div class="codefile">
+    <div class="fname">tushuncha</div>
+    <code class="cmd" data-cmd="class Vakansiya
+{
+    public const HOLAT_FAOL = &quot;faol&quot;;
+    public const HOLAT_YOPIQ = &quot;yopiq&quot;;
+}
+
+echo Vakansiya::HOLAT_FAOL;    // faol  — obyekt YASAMASDAN">class Vakansiya
+{
+    public const HOLAT_FAOL = "faol";
+    public const HOLAT_YOPIQ = "yopiq";
+}
+
+echo Vakansiya::HOLAT_FAOL;    // faol  — obyekt YASAMASDAN</code>
+  </div>
+
+  <p>Diqqat: <code>-&gt;</code> emas, <code><b>::</b></code>. Sababi oddiy —
+  <code>-&gt;</code> «obyektning», <code>::</code> esa «<b>klassning</b>» degani.
+  Konstanta obyektga tegishli emas, u <b>klassga</b> tegishli, shuning uchun obyekt
+  yasashning hojati yo'q.</p>
+
+  <p>Nega shunchaki <code>"faol"</code> deb yozmaymiz? Chunki:</p>
+  <ul>
+    <li>Bir joyda <code>"faol"</code>, boshqa joyda <code>"Faol"</code> deb yozib qo'yish
+    mumkin — va bu xato <b>jimgina</b> ishlamaydi (3-darsdagi <code>===</code> ni eslang).</li>
+    <li><code>Vakansiya::HOLAT_FOAL</code> deb adashsangiz, PHP <b>darhol</b> xato beradi —
+    bunday konstanta yo'q.</li>
+    <li>Nomni o'zgartirish kerak bo'lsa — <b>bitta joyda</b> o'zgartiriladi.</li>
+  </ul>
+
+  <p><code>const</code> ni o'zgartirishga urinsangiz kod <b>umuman ishga tushmaydi</b>:</p>
+  <div class="natija">PHP Parse error:  syntax error, unexpected token "="</div>
+  <p>Ya'ni bu <code>Parse error</code> — 4-darsni eslang, bajarish bosqichi boshlanmaydi ham.</p>
+
+  <h2><code>static</code> — obyektga emas, klassga tegishli</h2>
+
+  <p>Odatdagi xossa <b>har obyektda alohida</b> bo'ladi. <code>static</code> xossa esa
+  <b>butun klass uchun bitta</b> — barcha obyektlar uni bo'lishadi:</p>
+
+  <div class="codefile">
+    <div class="fname">tushuncha</div>
+    <code class="cmd" data-cmd="private static int $soni = 0;      // hamma obyekt uchun BITTA
+
+public function __construct(...)
+{
+    self::$soni++;                 // har yasalganda oshadi
+}
+
+public static function soni(): int
+{
+    return self::$soni;
+}
+
+echo Vakansiya::soni();            // 2">private static int $soni = 0;      // hamma obyekt uchun BITTA
+
+public function __construct(...)
+{
+    self::$soni++;                 // har yasalganda oshadi
+}
+
+public static function soni(): int
+{
+    return self::$soni;
+}
+
+echo Vakansiya::soni();            // 2</code>
+  </div>
+
+  <p><code>self::</code> — «shu klassning o'zi». <code>$this-&gt;</code> obyektga,
+  <code>self::</code> klassga murojaat qiladi. <code>static</code> metod ichida
+  <code>$this</code> <b>mavjud emas</b> — chunki u hech qanday obyektga bog'lanmagan.</p>
+
+  <div class="callout warning">
+    <span class="label"><code>static</code> ni ehtiyot bilan ishlatish</span>
+    <p><code>static</code> — qulay, lekin <b>global holat</b> yaratadi: qiymat butun
+    dastur bo'ylab bitta. Bu testlashni qiyinlashtiradi (bir test qoldirgan qiymat
+    keyingisiga ta'sir qiladi) va bog'liqlikni yashiradi. Shuning uchun professional
+    kodda <code>static</code> kamdan-kam ishlatiladi — asosan yordamchi funksiyalar va
+    fabrika metodlari uchun. Laravel'dagi <code>Vakansiya::where(...)</code> kabi
+    yozuvlar <code>static</code> ga o'xshaydi, lekin ular <b>boshqa mexanizm</b> —
+    unga G modulida (facade) qaytamiz.</p>
+  </div>
+
+  <!-- ═══════════════ 4) AMALIYOT / MODE-HINT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    <span class="mode-hint-title">💻 Amaliy qism kompyuterda</span>
+    <p>Amaliyotda ikkita fayl yozasiz: <code>19-himoya.php</code> (<code>private</code> +
+    qisqa konstruktor; manfiy maoshni obyekt o'zi rad etadi) va
+    <code>20-const-static.php</code> (<code>const</code> va <code>static</code> — yasalgan
+    obyektlarni sanaydi). Oxirida <code>private</code> xossaga tashqaridan tegib,
+    <code>Fatal error</code> ni chiqarasiz — himoya ishlayotganini isbotlaysiz.</p>
+    <button type="button" class="modebtn" data-set-mode="do">💻 Amaliyot rejimini ko'rish</button>
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <p>Papkaga o'ting</p>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/php-poydevor">cd ~/Projects/Learn/php-poydevor</div>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik.</p>
+      </li>
+
+      <li>
+        <p>Himoyalangan klass yozing — qisqa shaklda</p>
+        <p class="why-step">Bir vaqtda ikki narsa: <code>private</code> himoya va PHP 8
+        ning qisqa konstruktori.</p>
+        <div class="cmd" data-cmd="cat &gt; 19-himoya.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+class Vakansiya
+{
+    public function __construct(
+        private string $nom,
+        private int $maosh,
+    ) {}
+
+    public function maoshniOzgartir(int $yangi): void
+    {
+        if ($yangi &lt; 0) {
+            echo &quot;[rad etildi: maosh manfiy bo'lolmaydi]&quot;, PHP_EOL;
+            return;
+        }
+        $this-&gt;maosh = $yangi;
+    }
+
+    public function korinish(): string
+    {
+        return &quot;{$this-&gt;nom} — {$this-&gt;maosh} $&quot;;
+    }
+}
+
+$v = new Vakansiya(&quot;Backend dasturchi&quot;, 800);
+echo $v-&gt;korinish(), PHP_EOL;
+$v-&gt;maoshniOzgartir(-500);
+echo $v-&gt;korinish(), PHP_EOL;
+$v-&gt;maoshniOzgartir(900);
+echo $v-&gt;korinish(), PHP_EOL;
+EOF
+php 19-himoya.php">cat &gt; 19-himoya.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+class Vakansiya
+{
+    public function __construct(
+        private string $nom,
+        private int $maosh,
+    ) {}
+
+    public function maoshniOzgartir(int $yangi): void
+    {
+        if ($yangi &lt; 0) {
+            echo "[rad etildi: maosh manfiy bo'lolmaydi]", PHP_EOL;
+            return;
+        }
+        $this-&gt;maosh = $yangi;
+    }
+
+    public function korinish(): string
+    {
+        return "{$this-&gt;nom} — {$this-&gt;maosh} $";
+    }
+}
+
+$v = new Vakansiya("Backend dasturchi", 800);
+echo $v-&gt;korinish(), PHP_EOL;
+$v-&gt;maoshniOzgartir(-500);
+echo $v-&gt;korinish(), PHP_EOL;
+$v-&gt;maoshniOzgartir(900);
+echo $v-&gt;korinish(), PHP_EOL;
+EOF
+php 19-himoya.php
+<span class="out">Backend dasturchi — 800 $</span>
+<span class="out">[rad etildi: maosh manfiy bo'lolmaydi]</span>
+<span class="out">Backend dasturchi — 800 $</span>
+<span class="out">Backend dasturchi — 900 $</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> manfiy qiymat <b>rad etildi</b> va maosh
+        800 da qoldi; to'g'ri qiymat esa qabul qilindi. <b>Xossalar qayerda e'lon
+        qilinganini</b> ko'ryapsizmi? — konstruktor parametrining o'zida.</p>
+      </li>
+
+      <li>
+        <p><code>private</code> himoyasini sinab ko'ring</p>
+        <p class="why-step">Himoya chindan ishlayotganini isbotlash. Va 4-darsdagi
+        ko'nikma — xato xabarini o'qish.</p>
+        <div class="cmd" data-cmd="php -r 'class V { private int $maosh = 800; } $x = new V(); echo $x-&gt;maosh;'">php -r 'class V { private int $maosh = 800; } $x = new V(); echo $x-&gt;maosh;'
+<span class="out">PHP Fatal error:  Uncaught Error: Cannot access private property</span>
+<span class="out">V::$maosh in Command line code:1</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> <code>Fatal error</code> —
+        «private xossaga murojaat qilib bo'lmaydi». Ya'ni himoya chindan ishlaydi.
+        <br>Bu yerda kichik <code>V</code> klassi ishlatildi — shunda chiqish toza bo'ladi
+        va faqat xato ko'rinadi.</p>
+      </li>
+
+      <li>
+        <p><code>const</code> va <code>static</code> ni yozing</p>
+        <div class="cmd" data-cmd="cat &gt; 20-const-static.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+class Vakansiya
+{
+    public const HOLAT_FAOL = &quot;faol&quot;;
+    public const HOLAT_YOPIQ = &quot;yopiq&quot;;
+
+    private static int $soni = 0;
+
+    public function __construct(
+        private string $nom,
+        private string $holat = self::HOLAT_FAOL,
+    ) {
+        self::$soni++;
+    }
+
+    public static function soni(): int
+    {
+        return self::$soni;
+    }
+
+    public function korinish(): string
+    {
+        return &quot;{$this-&gt;nom} [{$this-&gt;holat}]&quot;;
+    }
+}
+
+echo Vakansiya::HOLAT_FAOL, PHP_EOL;
+$a = new Vakansiya(&quot;Backend dasturchi&quot;);
+$b = new Vakansiya(&quot;Frontend dasturchi&quot;, Vakansiya::HOLAT_YOPIQ);
+echo $a-&gt;korinish(), PHP_EOL;
+echo $b-&gt;korinish(), PHP_EOL;
+echo &quot;Yasalgan obyektlar: &quot;, Vakansiya::soni(), PHP_EOL;
+EOF
+php 20-const-static.php">cat &gt; 20-const-static.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+class Vakansiya
+{
+    public const HOLAT_FAOL = "faol";
+    public const HOLAT_YOPIQ = "yopiq";
+
+    private static int $soni = 0;
+
+    public function __construct(
+        private string $nom,
+        private string $holat = self::HOLAT_FAOL,
+    ) {
+        self::$soni++;
+    }
+
+    public static function soni(): int
+    {
+        return self::$soni;
+    }
+
+    public function korinish(): string
+    {
+        return "{$this-&gt;nom} [{$this-&gt;holat}]";
+    }
+}
+
+echo Vakansiya::HOLAT_FAOL, PHP_EOL;
+$a = new Vakansiya("Backend dasturchi");
+$b = new Vakansiya("Frontend dasturchi", Vakansiya::HOLAT_YOPIQ);
+echo $a-&gt;korinish(), PHP_EOL;
+echo $b-&gt;korinish(), PHP_EOL;
+echo "Yasalgan obyektlar: ", Vakansiya::soni(), PHP_EOL;
+EOF
+php 20-const-static.php
+<span class="out">faol</span>
+<span class="out">Backend dasturchi [faol]</span>
+<span class="out">Frontend dasturchi [yopiq]</span>
+<span class="out">Yasalgan obyektlar: 2</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> to'rt qator. Diqqat:
+        <code>Vakansiya::HOLAT_FAOL</code> <b>obyekt yasamasdan</b> ishladi (birinchi
+        qator), va <code>soni()</code> ikkita obyektni sanadi — <code>static</code> xossa
+        ikkisi uchun <b>bitta</b>.</p>
+      </li>
+
+      <li>
+        <p>Ishni saqlang</p>
+        <div class="cmd" data-cmd="git add -A
+git commit -m &quot;08-dars: himoya, static va const&quot;">git add -A
+git commit -m "08-dars: himoya, static va const"</div>
+        <p class="expect"><b>Kutilgan natija:</b> commit haqida xabar.</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><input type="checkbox" id="d8c1"><label for="d8c1"><code>public</code>, <code>private</code>, <code>protected</code> farqini bilaman</label></li>
+      <li><input type="checkbox" id="d8c2"><label for="d8c2"><b>Obyekt manfiy maoshni rad etishini ko'rdim</b> 🎉</label></li>
+      <li><input type="checkbox" id="d8c3"><label for="d8c3"><code>private</code> xossaga tegib <code>Fatal error</code> oldim</label></li>
+      <li><input type="checkbox" id="d8c4"><label for="d8c4"><b>Qisqa konstruktorni</b> (promotion) yozdim — Laravel kodidagi shakl</label></li>
+      <li><input type="checkbox" id="d8c5"><label for="d8c5"><code>-&gt;</code> va <code>::</code> farqini aytib beraman</label></li>
+      <li><input type="checkbox" id="d8c6"><label for="d8c6"><code>static</code> xossa hamma obyekt uchun bitta ekanini tasdiqladim</label></li>
+      <li><input type="checkbox" id="d8c7"><label for="d8c7">Ishni commit qildim</label></li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 5) TAXMIN + QUIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Klassda <b>ikkita</b> hisoblagich bor: bittasi oddiy xossa, ikkinchisi
+    <code>static</code>. Ikkita obyekt yasab, har birida ikkisini oshiramiz. Oxirida
+    nima chiqadi?</p>
+    <div class="codefile">
+      <div class="fname">taxmin.php</div>
+      <code class="cmd" data-cmd="class Hisoblagich
+{
+    public int $oddiy = 0;
+    public static int $umumiy = 0;
+
+    public function oshir(): void
+    {
+        $this-&gt;oddiy++;
+        self::$umumiy++;
+    }
+}
+
+$a = new Hisoblagich();
+$a-&gt;oshir();
+
+$b = new Hisoblagich();
+$b-&gt;oshir();
+
+echo $a-&gt;oddiy, &quot; &quot;, $b-&gt;oddiy, &quot; &quot;, Hisoblagich::$umumiy;">class Hisoblagich
+{
+    public int $oddiy = 0;
+    public static int $umumiy = 0;
+
+    public function oshir(): void
+    {
+        $this-&gt;oddiy++;
+        self::$umumiy++;
+    }
+}
+
+$a = new Hisoblagich();
+$a-&gt;oshir();
+
+$b = new Hisoblagich();
+$b-&gt;oshir();
+
+echo $a-&gt;oddiy, " ", $b-&gt;oddiy, " ", Hisoblagich::$umumiy;</code>
+    </div>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <div class="natija">1 1 2</div>
+        <p>Ya'ni:</p>
+        <ul>
+          <li><code>$a-&gt;oddiy</code> = <b>1</b> va <code>$b-&gt;oddiy</code> = <b>1</b> —
+          oddiy xossa <b>har obyektda alohida</b>. Har biri o'z hisoblagichini bir marta
+          oshirdi.</li>
+          <li><code>Hisoblagich::$umumiy</code> = <b>2</b> — <code>static</code> xossa
+          <b>klass uchun bitta</b>. Ikkita obyekt <b>bitta</b> qiymatni bo'lishdi va
+          uni ikki marta oshirdilar.</li>
+        </ul>
+        <p><b>Mana <code>static</code> ning ma'nosi:</b> «bu ma'lumot obyektga emas,
+        <b>klassga</b> tegishli». Shuning uchun unga <code>$this-&gt;</code> emas,
+        <code>self::</code> bilan murojaat qilinadi, va tashqaridan
+        <code>Hisoblagich::$umumiy</code> deb — obyekt yasamasdan.</p>
+        <p class="expect">Va mana <b>xavfi ham</b> shu: qiymat butun dastur bo'ylab bitta.
+        Uni bir joyda o'zgartirsangiz, butunlay boshqa joydagi kod ta'sirlanadi — bu
+        «global holat» muammosi. Shuning uchun <code>static</code> kamdan-kam ishlatiladi.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span> Xossani <code>private</code> qilish
+    nima beradi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Faqat klass ichidan o'zgartiriladi</button></li>
+      <li><button class="quiz-option">Xossa butunlay o'zgarmas bo'ladi</button></li>
+      <li><button class="quiz-option">Xossa tezroq ishlaydigan bo'ladi</button></li>
+    </ul>
+    <div class="quiz-explain"><code>private</code> — «tashqaridan tegilmaydi». O'zgartirish
+    mumkin, lekin faqat klass ichidagi metod orqali — va o'sha metod <b>shart qo'ya
+    oladi</b>. O'zgarmas qiymat uchun <code>const</code> bor.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span> <code>-&gt;</code> va <code>::</code>
+    farqi nima?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Biri obyektga, ikkinchisi klassga</button></li>
+      <li><button class="quiz-option">Biri eski, ikkinchisi yangi</button></li>
+      <li><button class="quiz-option">Biri xossaga, ikkinchisi metodga</button></li>
+    </ul>
+    <div class="quiz-explain"><code>-&gt;</code> = «shu <b>obyektning</b>»
+    (<code>$v-&gt;nom</code>). <code>::</code> = «shu <b>klassning</b>»
+    (<code>Vakansiya::HOLAT_FAOL</code>) — obyekt yasashning hojati yo'q.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span> Constructor property promotion
+    nima qiladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Xossani parametrning o'zida yaratadi</button></li>
+      <li><button class="quiz-option">Konstruktorni tezroq ishga tushiradi</button></li>
+      <li><button class="quiz-option">Barcha xossani public qiladi</button></li>
+    </ul>
+    <div class="quiz-explain">Parametr oldiga <code>private</code>/<code>public</code>
+    yozilsa, PHP xossani <b>o'zi</b> yaratadi va qiymat beradi. Laravel kodi shu shaklda
+    yozilgan — shuning uchun uni tanish muhim.</div>
+  </div>
+
+  <!-- ═══════════════ 6) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+    <p class="recall-intro">Avval o'zingiz javob bering, keyin ochib tekshiring.
+    Oxirgi ikkitasi — <a href="0007-oop-klass-va-obyekt.html">7-darsni</a> takrorlash.</p>
+
+    <details class="recall">
+      <summary>Nega xossani <code>private</code> qilib boshlash tavsiya qilinadi?</summary>
+      <div class="answer"><p>Chunki keyin ochish oson, yopish qiyin. <code>public</code>
+      xossaga kodning boshqa joylari bog'lanib qoladi va manfiy maosh kabi ma'nosiz
+      ma'lumot <b>har qanday joydan</b> kirib kelishi mumkin.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary><code>static</code> xossa oddiy xossadan nimasi bilan farq qiladi?</summary>
+      <div class="answer"><p>Oddiy xossa <b>har obyektda alohida</b>, <code>static</code>
+      esa <b>klass uchun bitta</b> — barcha obyektlar bo'lishadi. Murojaat:
+      <code>self::$nom</code> yoki <code>Klass::$nom</code>.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Nega <code>"faol"</code> o'rniga <code>const</code> ishlatiladi?</summary>
+      <div class="answer"><p>Chunki matnni adashib yozsangiz PHP <b>jimgina</b> ishlamaydi,
+      konstanta nomini adashsangiz esa <b>darhol</b> xato beradi. Bundan tashqari
+      o'zgartirish bitta joyda bo'ladi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: <code>$b = $a</code> — obyekt nusxalanadimi?</summary>
+      <div class="answer"><p><b>Yo'q.</b> Ikki nom — bitta obyekt. Massiv esa nusxalanadi.
+      Haqiqiy nusxa uchun <code>clone</code>.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: <code>$this</code> nimani bildiradi?</summary>
+      <div class="answer"><p>«Metod hozir <b>qaysi obyekt</b> ustida ishlayapti».
+      <code>static</code> metod ichida esa <code>$this</code> <b>mavjud emas</b> — u
+      obyektga bog'lanmagan.</p></div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 7) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Cho'ntak xulosasi</span>
+    <ul>
+      <li><code>public</code> = hamma · <code>private</code> = faqat klass ichi ·
+      <code>protected</code> = klass + merosxo'rlar.</li>
+      <li><b>Qoida:</b> <code>private</code> dan boshlang, kerak bo'lsa ochasiz.</li>
+      <li>Ma'lumotga murojaat — metod orqali, va <b>metod shart qo'ya oladi</b>
+      (manfiy maoshni rad etish).</li>
+      <li>Har xossaga getter/setter yozish <b>shart emas</b> — ma'noli metod yaxshiroq.</li>
+      <li>🔑 <b>Qisqa konstruktor:</b> parametr oldiga <code>private</code> →
+      PHP xossani o'zi yaratadi. <b>Laravel shu shaklda yozilgan.</b></li>
+      <li><code>const</code> — o'zgarmas, klassga tegishli. Murojaat:
+      <code>Klass::NOM</code>.</li>
+      <li><code>static</code> — klass uchun <b>bitta</b> qiymat. <code>self::$nom</code>.
+      Ehtiyot bilan: global holat yaratadi.</li>
+      <li><code>-&gt;</code> obyektga · <code>::</code> klassga.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Kelasi darslar uchun urug'</span>
+    <p>Endi tasavvur qiling: <code>Vakansiya</code> va <code>Ariza</code> klasslari bor,
+    va ikkalasida ham «yaratilgan vaqtni saqlash» kerak. Kodni <b>ikki marta</b>
+    yozamizmi?</p>
+    <p><b>Keyingi dars</b> shuni yechadi — <code>extends</code> bilan meros olish va
+    <code>abstract</code> bilan «buni avlod o'zi bajarsin» deyish. Undan keyin
+    <code>interface</code> va <code>trait</code> (10-dars), va <b>11-darsda</b> 4-darsdan
+    qolgan <b>qarz</b> to'lanadi: <code>try/catch</code> bilan xatoni <b>tutib olish</b>.
+    Nega o'shanda? Chunki <code>Exception</code> — bu <b>klass</b>, va uni tutish uchun
+    klasslar ierarxiyasini tushunish kerak.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>PHP Fundamentals</b> — Laravel'ning rasmiy bepul kursi:
+    <a href="https://laravel.com/learn/php-fundamentals">laravel.com/learn/php-fundamentals</a>.<sup><a href="#fn1">1</a></sup><br>
+    Qo'llanma (ko'zgu):
+    <a href="https://devdocs.io/php/language.oop5.visibility">devdocs.io — Visibility</a> ·
+    <a href="https://devdocs.io/php/language.oop5.static">Static</a> ·
+    <a href="https://devdocs.io/php/language.oop5.constants">Constants</a>.<sup><a href="#fn2">2</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b> «<code>protected</code> qachon
+    kerak?», «<code>readonly</code> nima?», «<code>self::</code> va <code>static::</code>
+    farqi bormi?», «getter yozish shartmi?» — har qanday savol yaxshi. Bu darsdagi
+    qarorlar (nimani yopish, nimani ochish) tajriba bilan keladi — so'rab turing.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0007-oop-klass-va-obyekt.html">Oldingi: Klass va obyekt</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel — <a href="https://laravel.com/learn/php-fundamentals">PHP
+      Fundamentals</a> (rasmiy bepul mini-kurs).</li>
+      <li id="fn2">PHP Manual — <i>Visibility</i>, <i>Static Keyword</i>,
+      <i>Class Constants</i>, DevDocs ko'zgusi orqali:
+      <a href="https://devdocs.io/php/language.oop5.visibility">devdocs.io/php/language.oop5.visibility</a>.
+      Rasmiy <code>php.net</code> bu tarmoqdan ochilmaydi.</li>
+      <li id="fn3">Barcha natijalar PHP <b>8.3.32</b> da jonli sinab ko'rilgan — shu
+      jumladan <code>Cannot access private property</code> xatosi va taxmin mashqidagi
+      <code>1 1 2</code> natijasi.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

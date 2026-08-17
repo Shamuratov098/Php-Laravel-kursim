@@ -1,0 +1,530 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 04 — Xatoni o'qish: qo'rquvni yo'qotish</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 04 · MODUL A — POYDEVOR</p>
+  <h1>Xatoni o'qish: xato — jazo emas, <b>manzil</b></h1>
+  <p class="lead">Bu darsdan keyin qizil xato xabarini ko'rganda vahima qilmaysiz.
+  PHP sizga <b>qaysi faylda, qaysi qatorda</b> muammo borligini o'zi aytadi — faqat uni
+  o'qishni bilish kerak. Bu kursdagi eng qimmatli 12 daqiqa.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 7 daqiqa</span>
+    <span>💻 Amaliyot ≈ 12 daqiqa</span>
+    <span>Kerak: <a href="0003-shart-solishtirish-va-takrorlash.html">Dars 03</a></span>
+  </p>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Nega bu dars aynan shu yerda turadi</span>
+    <p>Diqqat qilgan bo'lsangiz — bu dars massiv va funksiyadan ham <b>oldin</b> keladi.
+    Bu ataylab. Sabab shunda: <b>xatoni tuzatishni bilgan odam tajriba qilishdan
+    qo'rqmaydi.</b> U kodni o'zgartirib ko'radi, buzadi, tuzatadi va tez o'rganadi.</p>
+    <p>Qo'rqqan odam esa boshqa yo'ldan yuradi: har qizil xabarda kimdan (yoki nimadan)
+    yordam so'raydi, kodni tushunmasdan almashtiradi. Sizning maqsadingiz —
+    <b>AI'siz ishlay olish</b>. Bu qobiliyat aynan shu darsdan boshlanadi: xato xabari
+    dushman emas, u <b>eng aniq va eng halol yordamchi</b> — chunki muammoning manzilini
+    to'g'ridan-to'g'ri aytib beradi.</p>
+  </div>
+
+  <!-- ═══════════════ 2) TUSHUNCHA ═══════════════ -->
+  <h2>Uch xil xabar — uch xil xatti-harakat</h2>
+
+  <p>PHP'ning xabarlarini bir-biridan ajratish kerak, chunki ular <b>butunlay boshqacha</b>
+  ta'sir qiladi:</p>
+
+  <table class="sheet">
+    <tr><th>Turi</th><th>Kod ishga tushadimi?</th><th class="note-cell">Ma'nosi</th></tr>
+    <tr><td><code>Parse error</code></td><td><b>❌ Yo'q</b> — birinchi qator ham bajarilmaydi</td><td class="note-cell">Sintaksis buzuq. PHP faylni o'qiy olmadi, demak ishga tushirmaydi ham</td></tr>
+    <tr><td><code>Warning</code></td><td>✅ Ha — va <b>davom etadi</b></td><td class="note-cell">Biror narsa g'alati, lekin ishlash mumkin. Xavfli: kod noto'g'ri natija berib turishi mumkin</td></tr>
+    <tr><td><code>Fatal error</code></td><td>⚠️ Ha — keyin <b>to'xtaydi</b></td><td class="note-cell">Kod bajarilib borgan, lekin davom etish imkonsiz bo'lgan joyga kelib to'xtagan</td></tr>
+  </table>
+
+  <div class="callout note">
+    <span class="label">Farqi nega muhim</span>
+    <p><code>Parse error</code> ko'rsangiz — <b>hech narsa ishlamagan</b>, demak
+    o'zgartirishlaringiz sinalmagan ham. <code>Warning</code> ko'rsangiz — kod ishlagan,
+    lekin natijaga <b>ishonmaslik</b> kerak. <code>Fatal error</code> ko'rsangiz — kod
+    yarim yo'lda to'xtagan, ya'ni ba'zi ishlar bajarilgan, ba'zilari yo'q. Bu uchtasi uch
+    xil vaziyat va uch xil yondashuv talab qiladi.</p>
+  </div>
+
+  <h2>Xato xabarini o'qish: to'rt bo'lak</h2>
+
+  <p>Har bir xabar bir xil tuzilishga ega. Mana haqiqiy misol:</p>
+
+  <div class="natija">PHP Warning:  Undefined variable $yosh in 09-warning.php on line 4
+    ↑ 1-TUR         ↑ 2-XABAR              ↑ 3-FAYL          ↑ 4-QATOR</div>
+
+  <ol>
+    <li><b>Turi</b> — <code>Parse error</code> / <code>Warning</code> /
+    <code>Fatal error</code>. Yuqoridagi jadvalga qarang.</li>
+    <li><b>Xabar</b> — muammoning o'zi. Inglizcha, lekin qisqa va aniq.
+    <code>Undefined variable $yosh</code> = «<code>$yosh</code> degan o'zgaruvchi
+    aniqlanmagan».</li>
+    <li><b>Fayl</b> — qaysi faylda.</li>
+    <li><b>Qator</b> — nechanchi qatorda. <b>Aynan shu joyga borasiz.</b></li>
+  </ol>
+
+  <p>Ya'ni xato xabari — bu <b>manzil</b>. Uni o'qib to'g'ri joyga borasiz. Boshqa hech
+  narsa qilish kerak emas.</p>
+
+  <div class="callout warning">
+    <span class="label">⚠️ Eng muhim tuzoq: qator raqami «yolg'on» gapirishi mumkin</span>
+    <p>PHP ko'rsatgan qator — <b>u muammoni sezgan</b> joy, siz xato qilgan joy emas.
+    Bu ayniqsa <code>Parse error</code> da shunday: nuqtali vergul 3-qatorda tushib
+    qolgan bo'lsa, PHP buni faqat <b>4-qatorga</b> kelganda sezadi (chunki 3-qator hali
+    tugamagan bo'lishi mumkin edi).</p>
+    <p><b>Qoida:</b> <code>Parse error</code> da ko'rsatilgan qatorda hech narsa
+    topmasangiz — <b>bir qator yuqoriga qarang</b>. Odatda javob shu yerda:
+    tushib qolgan <code>;</code>, yopilmagan <code>"</code> yoki <code>}</code>.</p>
+  </div>
+
+  <h3>Stack trace nima?</h3>
+
+  <p><code>Fatal error</code> ostida ko'pincha shunday qo'shimcha chiqadi:</p>
+
+  <div class="natija">Stack trace:
+#0 {main}
+  thrown in 10-fatal.php on line 5</div>
+
+  <p><b>Stack trace</b> — «bu yergacha qanday yo'l bilan kelindi» degan ro'yxat.
+  <code>#0 {main}</code> degani: xato <b>asosiy kodda</b>, hech qanday chuqurlikda emas.
+  Hozircha shunday bo'ladi, chunki biz hali funksiya yozmadik. Funksiyalarni o'rgangach
+  (<a href="../reference/yol-xaritasi.html">6-dars</a>) bu ro'yxat uzayadi va
+  <code>#0</code>, <code>#1</code>, <code>#2</code> bo'lib, xatoga olib kelgan
+  <b>chaqiruvlar zanjirini</b> ko'rsatadi. Laravel'da bu ro'yxat uzun bo'ladi — va uni
+  o'qish siz o'rganadigan eng foydali ko'nikmalardan biri.</p>
+
+  <h3>«Oq sahifa» — vahimaning eng ko'p sababi</h3>
+
+  <p>Terminalda ishlaganda xato ko'rinadi. Lekin haqiqiy serverda xatolarni
+  <b>ko'rsatmaslik</b> sozlamasi yoqiladi (chunki xato xabari ichida fayl yo'llari va
+  boshqa maxfiy ma'lumot bo'ladi). Natijada brauzerda <b>butunlay bo'sh sahifa</b>
+  chiqadi — na xato, na mazmun.</p>
+
+  <p>Bu holat boshlovchini eng ko'p qo'rqitadi, lekin sirli narsa yo'q: xato yo'qolmagan,
+  u shunchaki <b>log faylga</b> yozilgan. Amaliyotda buni o'z ko'zingiz bilan ko'rasiz.
+  Laravel'da o'sha log <code>storage/logs/laravel.log</code> da turadi — bu bilan
+  keyinroq tanishamiz.</p>
+
+  <!-- ═══════════════ 3) KOD IZOHI ═══════════════ -->
+  <h2>Kod: uchta xatoni ataylab yasaymiz</h2>
+
+  <p>Xatodan qo'rqmaslikning eng yaxshi yo'li — uni <b>o'zingiz yasab ko'rish</b>.
+  Amaliyotda uchta fayl yozasiz, har biri boshqa turdagi xato beradi.</p>
+
+  <div class="codefile">
+    <div class="fname">php-poydevor/08-xato.php <span class="yangi">yangi</span> — Parse error</div>
+    <code class="cmd" data-cmd="&lt;?php
+echo &quot;birinchi&quot;, PHP_EOL;
+echo &quot;ikkinchi&quot;, PHP_EOL
+echo &quot;uchinchi&quot;, PHP_EOL;">&lt;?php
+echo "birinchi", PHP_EOL;
+<span class="del">echo "ikkinchi", PHP_EOL</span>
+echo "uchinchi", PHP_EOL;</code>
+  </div>
+
+  <p>Ajratilgan qatorda <code>;</code> yo'q. Diqqat qiling: xato <b>3-qatorda</b>, lekin
+  PHP <b>4-qatorni</b> ko'rsatadi. Va eng muhimi — <code>"birinchi"</code> ham
+  chiqmaydi, garchi u mutlaqo to'g'ri yozilgan bo'lsa ham.</p>
+
+  <div class="codefile">
+    <div class="fname">php-poydevor/09-warning.php <span class="yangi">yangi</span> — Warning</div>
+    <code class="cmd" data-cmd="&lt;?php
+$ism = &quot;Doston&quot;;
+echo &quot;Salom, {$ism}&quot;, PHP_EOL;
+echo &quot;Yosh: {$yosh}&quot;, PHP_EOL;
+echo &quot;Dastur tugadi&quot;, PHP_EOL;">&lt;?php
+$ism = "Doston";
+echo "Salom, {$ism}", PHP_EOL;
+<span class="del">echo "Yosh: {$yosh}", PHP_EOL;</span>
+echo "Dastur tugadi", PHP_EOL;</code>
+  </div>
+
+  <p><code>$yosh</code> hech qachon yaratilmagan. PHP ogohlantiradi — lekin
+  <b>to'xtamaydi</b>: «Yosh: » deb bo'sh joy chiqaradi va oxirigacha ishlaydi.
+  Bu 2-darsdagi qoidaning davomi: <code>echo</code> yo'q qiymatni <b>yashiradi</b>.</p>
+
+  <div class="codefile">
+    <div class="fname">php-poydevor/10-fatal.php <span class="yangi">yangi</span> — Fatal error</div>
+    <code class="cmd" data-cmd="&lt;?php
+$jami = 10;
+$bolinuvchi = 0;
+echo &quot;Hisoblash boshlandi&quot;, PHP_EOL;
+echo $jami / $bolinuvchi, PHP_EOL;
+echo &quot;Bu qator hech qachon chiqmaydi&quot;, PHP_EOL;">&lt;?php
+$jami = 10;
+$bolinuvchi = 0;
+echo "Hisoblash boshlandi", PHP_EOL;
+<span class="del">echo $jami / $bolinuvchi, PHP_EOL;</span>
+echo "Bu qator hech qachon chiqmaydi", PHP_EOL;</code>
+  </div>
+
+  <p>Nolga bo'lish mumkin emas. PHP birinchi ikki qatorni bajaradi, keyin to'xtaydi —
+  oxirgi qator chiqmaydi. Bu <code>Warning</code> dan farqi: <b>davom etmaydi</b>.</p>
+
+  <!-- ═══════════════ 4) AMALIYOT / MODE-HINT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    <span class="mode-hint-title">💻 Amaliy qism kompyuterda</span>
+    <p>Amaliyotda uchta xatoni <b>ataylab yasaysiz</b>, har birining xabarini o'qib
+    turini aniqlaysiz, keyin <code>Parse error</code> ni <b>o'zingiz tuzatasiz</b>.
+    Oxirida «oq sahifa» hodisasini bir buyruq bilan ko'rsatib beraman: xato bor, lekin
+    ekran bo'sh — va u qayerga yashiringanini topamiz.</p>
+    <button type="button" class="modebtn" data-set-mode="do">💻 Amaliyot rejimini ko'rish</button>
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <p>Papkaga o'ting</p>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/php-poydevor">cd ~/Projects/Learn/php-poydevor</div>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik.</p>
+      </li>
+
+      <li>
+        <p><code>Parse error</code> yasang — va nima chiqmaganiga diqqat qiling</p>
+        <p class="why-step">Bu darsning eng muhim kuzatuvi: to'g'ri yozilgan qator ham
+        bajarilmaydi.</p>
+        <div class="cmd" data-cmd="cat &gt; 08-xato.php &lt;&lt;'EOF'
+&lt;?php
+echo &quot;birinchi&quot;, PHP_EOL;
+echo &quot;ikkinchi&quot;, PHP_EOL
+echo &quot;uchinchi&quot;, PHP_EOL;
+EOF
+php 08-xato.php">cat &gt; 08-xato.php &lt;&lt;'EOF'
+&lt;?php
+echo "birinchi", PHP_EOL;
+echo "ikkinchi", PHP_EOL
+echo "uchinchi", PHP_EOL;
+EOF
+php 08-xato.php
+<span class="out">PHP Parse error:  syntax error, unexpected token "echo",</span>
+<span class="out">expecting "," or ";" in 08-xato.php on line 4</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> faqat xato. <b><code>birinchi</code> ham
+        chiqmadi!</b> Chunki PHP faylni o'qiyolmagan — demak ishga tushirmagan ham.
+        <br>Va diqqat qiling: xabar <code>line 4</code> deydi, lekin <code>;</code>
+        <b>3-qatorda</b> tushib qolgan.</p>
+      </li>
+
+      <li>
+        <p>O'zingiz tuzating</p>
+        <p class="why-step">Bu — darsning g'alabasi. Xabarni o'qib, o'zingiz hal qilasiz.</p>
+        <p>Faylni muharrirda ochib, <b>3-qator</b> oxiriga <code>;</code> qo'ying va
+        saqlang. Keyin qayta bajaring:</p>
+        <div class="cmd" data-cmd="php 08-xato.php">php 08-xato.php
+<span class="out">birinchi</span>
+<span class="out">ikkinchi</span>
+<span class="out">uchinchi</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> uchta qator. Xato yo'q. 🎉
+        <br>Muharrir yo'q bo'lsa, tuzatilgan faylni shunday yozib qo'yish ham mumkin:
+        <code>cat &gt; 08-xato.php</code> bilan yuqoridagi kodni <code>;</code> qo'shib
+        qayta yozing.</p>
+      </li>
+
+      <li>
+        <p><code>Warning</code> yasang — u davom etadi</p>
+        <div class="cmd" data-cmd="cat &gt; 09-warning.php &lt;&lt;'EOF'
+&lt;?php
+$ism = &quot;Doston&quot;;
+echo &quot;Salom, {$ism}&quot;, PHP_EOL;
+echo &quot;Yosh: {$yosh}&quot;, PHP_EOL;
+echo &quot;Dastur tugadi&quot;, PHP_EOL;
+EOF
+php 09-warning.php">cat &gt; 09-warning.php &lt;&lt;'EOF'
+&lt;?php
+$ism = "Doston";
+echo "Salom, {$ism}", PHP_EOL;
+echo "Yosh: {$yosh}", PHP_EOL;
+echo "Dastur tugadi", PHP_EOL;
+EOF
+php 09-warning.php
+<span class="out">Salom, Doston</span>
+<span class="out">PHP Warning:  Undefined variable $yosh in 09-warning.php on line 4</span>
+<span class="out">Yosh: </span>
+<span class="out">Dastur tugadi</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> xato bor, lekin dastur
+        <b>oxirigacha ishlagan</b>. <code>Yosh: </code> qatori bo'sh qolgan — mana shu
+        xavfli: agar Warning'ni o'qimasangiz, sayt «ishlayapti» deb o'ylaysiz.</p>
+      </li>
+
+      <li>
+        <p><code>Fatal error</code> yasang — u to'xtatadi</p>
+        <div class="cmd" data-cmd="cat &gt; 10-fatal.php &lt;&lt;'EOF'
+&lt;?php
+$jami = 10;
+$bolinuvchi = 0;
+echo &quot;Hisoblash boshlandi&quot;, PHP_EOL;
+echo $jami / $bolinuvchi, PHP_EOL;
+echo &quot;Bu qator hech qachon chiqmaydi&quot;, PHP_EOL;
+EOF
+php 10-fatal.php">cat &gt; 10-fatal.php &lt;&lt;'EOF'
+&lt;?php
+$jami = 10;
+$bolinuvchi = 0;
+echo "Hisoblash boshlandi", PHP_EOL;
+echo $jami / $bolinuvchi, PHP_EOL;
+echo "Bu qator hech qachon chiqmaydi", PHP_EOL;
+EOF
+php 10-fatal.php
+<span class="out">Hisoblash boshlandi</span>
+<span class="out">PHP Fatal error:  Uncaught DivisionByZeroError: Division by zero</span>
+<span class="out">in 10-fatal.php:5</span>
+<span class="out">Stack trace:</span>
+<span class="out">#0 {main}</span>
+<span class="out">  thrown in 10-fatal.php on line 5</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> birinchi qator chiqdi, oxirgisi
+        <b>chiqmadi</b>. Uchta turni endi taqqoslay olasiz: Parse = hech narsa ·
+        Warning = hammasi · Fatal = yarmi.</p>
+      </li>
+
+      <li>
+        <p>«Oq sahifa» hodisasini ko'ring</p>
+        <p class="why-step">Serverda xato ko'rsatilmasa nima bo'ladi — buni bir marta
+        ko'rgan odam keyin vahima qilmaydi.</p>
+        <div class="cmd" data-cmd="php -d display_errors=0 10-fatal.php">php -d display_errors=0 10-fatal.php
+<span class="out">Hisoblash boshlandi</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> faqat bitta qator — <b>xato haqida
+        hech narsa yo'q</b>, dastur shunchaki jimgina to'xtadi. Brauzerda bu «yarim
+        yuklangan yoki bo'sh sahifa» bo'lib ko'rinadi.
+        <br><code>-d display_errors=0</code> = «xatolarni ekranga chiqarma» sozlamasini
+        vaqtincha yoqish.</p>
+      </li>
+
+      <li>
+        <p>Yashiringan xatoni log faylda toping</p>
+        <p class="why-step">Xato yo'qolmaydi — u boshqa joyga yoziladi. Ish joyida
+        muammoni aynan shunday topasiz.</p>
+        <div class="cmd" data-cmd="php -d display_errors=0 -d log_errors=1 -d error_log=xato.log 10-fatal.php
+cat xato.log">php -d display_errors=0 -d log_errors=1 -d error_log=xato.log 10-fatal.php
+cat xato.log
+<span class="out">Hisoblash boshlandi</span>
+<span class="out">[11-Aug-2026 04:23:41 UTC] PHP Fatal error:  Uncaught DivisionByZeroError:</span>
+<span class="out">Division by zero in 10-fatal.php:5</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> ekranda xato yo'q, lekin
+        <code>xato.log</code> faylida <b>xuddi o'sha xabar</b> turadi — vaqt belgisi
+        bilan. Sana-vaqt sizda boshqa bo'ladi.
+        <br>Xulosa: <b>oq sahifa ko'rsangiz — logga qaraysiz.</b></p>
+      </li>
+
+      <li>
+        <p>Ishni saqlang</p>
+        <div class="cmd" data-cmd="git add -A
+git commit -m &quot;04-dars: xatoni o'qish&quot;">git add -A
+git commit -m "04-dars: xatoni o'qish"</div>
+        <p class="expect"><b>Kutilgan natija:</b> commit haqida xabar.
+        <code>xato.log</code> ham qo'shiladi — muammo emas.</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><input type="checkbox" id="d4c1"><label for="d4c1">Uch turdagi xatoni o'zim yasadim</label></li>
+      <li><input type="checkbox" id="d4c2"><label for="d4c2"><code>Parse error</code> da <b>birinchi qator ham chiqmaganini</b> ko'rdim</label></li>
+      <li><input type="checkbox" id="d4c3"><label for="d4c3"><b>Xatoni o'zim tuzatdim</b> va kod ishladi 🎉</label></li>
+      <li><input type="checkbox" id="d4c4"><label for="d4c4">Qator raqami «bir qator pastda» ko'rsatishi mumkinligini bilaman</label></li>
+      <li><input type="checkbox" id="d4c5"><label for="d4c5">«Oq sahifa» ni ko'rdim va xatoni <b>logdan</b> topdim</label></li>
+      <li><input type="checkbox" id="d4c6"><label for="d4c6">Xato xabarining 4 bo'lagini ayta olaman</label></li>
+      <li><input type="checkbox" id="d4c7"><label for="d4c7">Ishni commit qildim</label></li>
+    </ul>
+
+    <div class="callout tip">
+      <span class="label">Bundan keyingi odat</span>
+      <p>Xato ko'rsangiz <b>birinchi ish</b>: xabarni to'liq o'qing. Oxirigacha.
+      Ko'p odam qizil rangni ko'rib darrov panika qiladi yoki nusxa olib qidiruvga
+      tashlaydi — lekin javob ko'p hollarda o'sha xabarning o'zida turadi.</p>
+    </div>
+  </div>
+
+  <!-- ═══════════════ 5) TAXMIN + QUIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Quyidagi faylda <code>;</code> <b>3-qatorda</b> tushib qolgan. Ikki savol:
+    <b>(a)</b> PHP qaysi qator raqamini ko'rsatadi? <b>(b)</b> ekranda nima chiqadi?</p>
+    <div class="codefile">
+      <div class="fname">08-xato.php</div>
+      <code class="cmd" data-cmd="&lt;?php
+echo &quot;birinchi&quot;, PHP_EOL;
+echo &quot;ikkinchi&quot;, PHP_EOL
+echo &quot;uchinchi&quot;, PHP_EOL;">&lt;?php
+echo "birinchi", PHP_EOL;
+echo "ikkinchi", PHP_EOL
+echo "uchinchi", PHP_EOL;</code>
+    </div>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <div class="natija">PHP Parse error:  syntax error, unexpected token "echo", expecting "," or ";" in 08-xato.php on line 4</div>
+        <p><b>(a) 4-qator</b> — xato 3-qatorda bo'lsa ham. Nega: PHP 3-qatorni o'qib
+        tugatgandan keyin ham «hali tugamagan bo'lishi mumkin» deb kutadi (masalan
+        <code>, PHP_EOL, "yana"</code> davom etishi mumkin edi). Faqat 4-qatordagi
+        <code>echo</code> so'zini ko'rganda «bu yerda yangi ko'rsatma boshlanyapti, demak
+        oldingisi tugallanmagan» deb tushunadi. Xabarning o'zi shuni aytadi:
+        <b>«<code>echo</code> ni kutmagandim, <code>,</code> yoki <code>;</code> kutgandim»</b>.</p>
+        <p><b>(b) Ekranda faqat xato chiqadi — boshqa hech narsa.</b>
+        <code>birinchi</code> ham, <code>ikkinchi</code> ham, <code>uchinchi</code> ham
+        chiqmaydi. Chunki <code>Parse error</code> — bu «o'qish» bosqichidagi muammo,
+        «bajarish» bosqichi <b>umuman boshlanmaydi</b>.</p>
+        <p><b>Amaliy xulosa:</b> <code>Parse error</code> ko'rsangiz, ko'rsatilgan qatorda
+        hech narsa topmasangiz — <b>bir qator yuqoriga qarang</b>.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span> <code>Parse error</code> chiqsa,
+    fayldagi to'g'ri yozilgan qatorlar bajariladimi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Yo'q — hech biri bajarilmaydi</button></li>
+      <li><button class="quiz-option">Ha — faqat xatogacha bajariladi</button></li>
+      <li><button class="quiz-option">Ha — hammasi to'liq bajariladi</button></li>
+    </ul>
+    <div class="quiz-explain"><code>Parse error</code> — <b>o'qish</b> bosqichida chiqadi.
+    PHP faylni tushunmaganda uni ishga tushirmaydi ham. Shuning uchun birinchi qator ham
+    chiqmaydi. <code>Fatal error</code> esa boshqa — u bajarish paytida to'xtatadi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span> <code>Warning</code> chiqqanda
+    dastur nima qiladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Ishlashda davom etadi oxirigacha</button></li>
+      <li><button class="quiz-option">Darhol to'xtaydi va chiqadi</button></li>
+      <li><button class="quiz-option">Xato qatorini tashlab ketadi</button></li>
+    </ul>
+    <div class="quiz-explain"><code>Warning</code> to'xtatmaydi — shuning uchun xavfli:
+    natija noto'g'ri bo'lsa ham sayt «ishlayapti» ko'rinadi. Warning'larni e'tiborsiz
+    qoldirmang.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span> Brauzerda bo'sh oq sahifa
+    ko'rsangiz, birinchi navbatda qayerga qaraysiz?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Serverning log fayliga</button></li>
+      <li><button class="quiz-option">Brauzerning manba kodiga</button></li>
+      <li><button class="quiz-option">Sahifani qayta yuklashga</button></li>
+    </ul>
+    <div class="quiz-explain">Xato yo'qolmaydi — <code>display_errors</code> o'chirilgan
+    bo'lsa u <b>logga</b> yoziladi. Laravel'da bu <code>storage/logs/laravel.log</code>.</div>
+  </div>
+
+  <!-- ═══════════════ 6) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+    <p class="recall-intro">Avval o'zingiz javob bering, keyin ochib tekshiring.
+    Oxirgi ikkitasi — <a href="0003-shart-solishtirish-va-takrorlash.html">3-darsni</a> takrorlash.</p>
+
+    <details class="recall">
+      <summary>Uch turdagi xabar va ularning farqi?</summary>
+      <div class="answer"><p><code>Parse error</code> — kod <b>umuman</b> ishga tushmaydi
+      (sintaksis buzuq). <code>Warning</code> — ishlaydi va <b>davom etadi</b>.
+      <code>Fatal error</code> — ishlaydi, keyin <b>to'xtaydi</b>.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Xato xabarining to'rt bo'lagi qanday?</summary>
+      <div class="answer"><p><b>Turi</b> → <b>xabar</b> → <b>fayl</b> → <b>qator</b>.
+      To'rttasi ham bir qatorda turadi. Qatorga borasiz va tuzatasiz.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Nega <code>Parse error</code> da bir qator yuqoriga qaraladi?</summary>
+      <div class="answer"><p>Chunki PHP ko'rsatgan qator — u <b>muammoni sezgan</b> joy.
+      Tushib qolgan <code>;</code> ni faqat keyingi ko'rsatma boshlanganda sezadi,
+      shuning uchun xato bir qator pastda ko'rsatiladi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: <code>"25" == 25</code> va <code>"25" === 25</code>?</summary>
+      <div class="answer"><p><code>true</code> va <code>false</code>. <code>==</code> faqat
+      qiymatni, <code>===</code> qiymat va <b>tipni</b> tekshiradi. Qoida: doim
+      <code>===</code>.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: <code>"0"</code> va <code>"false"</code> — qaysi biri rost?</summary>
+      <div class="answer"><p><code>"false"</code> <b>rost</b> (oddiy matn),
+      <code>"0"</code> esa <b>yolg'on</b> — u falsy ro'yxatidagi eng kutilmagan a'zo.</p></div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 7) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Cho'ntak xulosasi</span>
+    <ul>
+      <li><b>Xato — manzil, jazo emas.</b> Birinchi ish: xabarni <b>oxirigacha</b> o'qish.</li>
+      <li>To'rt bo'lak: <b>turi</b> · <b>xabar</b> · <b>fayl</b> · <b>qator</b>.</li>
+      <li><code>Parse error</code> = hech narsa ishlamadi · <code>Warning</code> = ishladi,
+      davom etdi · <code>Fatal</code> = ishladi, to'xtadi.</li>
+      <li><code>Parse error</code> da ko'rsatilgan qatorda topmasangiz —
+      <b>bir qator yuqoriga</b>.</li>
+      <li><code>Warning</code> ni e'tiborsiz qoldirmang: kod «ishlab» turib noto'g'ri
+      natija berishi mumkin.</li>
+      <li><b>Oq sahifa = logga qara.</b> Xato yo'qolmaydi, faqat boshqa joyga yoziladi.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Kelasi darslar uchun urug'</span>
+    <p>Bugun xatoni <b>o'qishni</b> o'rgandik. Uni <b>tutib olish</b> ham mumkin —
+    ya'ni «xato bo'lsa dastur to'xtamasin, men o'zim hal qilaman» deyish. Bu
+    <code>try / catch</code> deb ataladi va u <b>11-darsda</b> keladi. Nega o'shanda?
+    Chunki xato PHP'da <b>obyekt</b> — <code>DivisionByZeroError</code> degan nom aslida
+    <b>klass</b> nomi. Obyekt va klassni 7–10-darslarda o'rganamiz, shundan keyin
+    <code>try/catch</code> sehr emas, mantiq bo'lib ko'rinadi.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>PHP Fundamentals</b> — Laravel'ning rasmiy bepul kursi:
+    <a href="https://laravel.com/learn/php-fundamentals">laravel.com/learn/php-fundamentals</a>.<sup><a href="#fn1">1</a></sup><br>
+    Xato turlari (ko'zgu):
+    <a href="https://devdocs.io/php/errorfunc.constants">devdocs.io — Error level constants</a>.<sup><a href="#fn2">2</a></sup><br>
+    Amaliy tavsiyalar: <a href="https://phptherightway.com/#errors_and_exceptions">PHP The Right Way — Errors and Exceptions</a>.</p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Xato chiqdi va tushunmadingizmi — xabarni menga to'liq yuboring.</b> Birga
+    o'qiymiz va nima demoqchi ekanini tushuntirib beraman. «<code>Deprecated</code> nima?»,
+    «<code>Notice</code> ni ko'rdim, u nima?», «xatoni inglizchadan tushunmadim» —
+    har qanday savol yaxshi. Xato xabarini tarjima qilib berish — men uchun eng oson ish.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0003-shart-solishtirish-va-takrorlash.html">Oldingi: Shart va solishtirish</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel — <a href="https://laravel.com/learn/php-fundamentals">PHP
+      Fundamentals</a> (rasmiy bepul mini-kurs).</li>
+      <li id="fn2">PHP Manual — xato darajalari va <code>display_errors</code> /
+      <code>log_errors</code> sozlamalari, DevDocs ko'zgusi orqali:
+      <a href="https://devdocs.io/php/errorfunc.constants">devdocs.io/php/errorfunc.constants</a>.
+      Rasmiy <code>php.net</code> bu tarmoqdan ochilmaydi.</li>
+      <li id="fn3">Darsdagi barcha xato xabarlari PHP <b>8.3.32</b> da jonli chiqarilgan va
+      shundayligicha ko'chirilgan. Xabar matni PHP versiyalari orasida ozgina farq
+      qilishi mumkin — masalan aniqlanmagan o'zgaruvchi PHP 8 dan boshlab
+      <code>Warning</code>, undan oldin <code>Notice</code> edi.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

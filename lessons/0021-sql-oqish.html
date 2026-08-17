@@ -1,0 +1,643 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 21 — SQL 1: ma'lumotni o'qish</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 21 · MODUL C — MA'LUMOTLAR</p>
+  <h1>SQL 1: bazadan kerakli qatorni so'rab olish</h1>
+  <p class="lead">Modul C boshlandi. Va u <b>Eloquent bilan emas, SQL bilan</b> boshlanadi —
+  bu ataylab, xuddi Modul A dagi mini-framework kabi. SQL'ni bir marta o'z qo'lingiz bilan
+  yozgandan keyin Eloquent <b>sehr emas, qulaylik</b> bo'lib ko'rinadi.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 11 daqiqa</span>
+    <span>💻 Amaliyot ≈ 18 daqiqa</span>
+    <span>Kerak: <a href="0020-validation.html">Dars 20</a></span>
+  </p>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Nega SQL Eloquent'dan oldin</span>
+    <p>Uch sabab:</p>
+    <ol>
+      <li><b>Intervyuda so'raladi.</b> «Faqat Eloquent bilaman» deyish — junior uchun
+      jiddiy kamchilik. <code>JOIN</code>, indeks, <code>GROUP BY</code> savollari
+      deyarli har suhbatda bo'ladi.</li>
+      <li><b>Eloquent SQL yozadi.</b> U sehr emas — u sizning nomingizdan SQL tuzadi.
+      Sekin sahifani tuzatish uchun <b>u qanday SQL yozganini o'qish</b> kerak bo'ladi
+      (Modul H — N+1 muammosi). SQL bilmasangiz — o'qib bo'lmaydi.</li>
+      <li><b>Ba'zan Eloquent yetmaydi.</b> Murakkab hisobotlarda toza SQL yoziladi.</li>
+    </ol>
+    <p>Yaxshi xabar: SQL <b>o'qishga oson</b> til. U inglizcha gapga o'xshaydi:
+    «<i>select</i> nom <i>from</i> vakansiyalar <i>where</i> maosh > 700».</p>
+  </div>
+
+  <!-- ═══════════════ 2) TUSHUNCHA ═══════════════ -->
+  <h2>SQL'ni qanday ishga tushiramiz</h2>
+
+  <p>Bitta amaliy muammo bor: sizning kompyuteringizda <b>SQLite buyruq qatori
+  o'rnatilmagan</b>. Ya'ni <code>php artisan db</code> ishlamaydi (tekshirib ko'rasiz —
+  xato beradi).</p>
+
+  <p>Yechim esa foydali chiqadi: SQL'ni <b>kichik PHP faylida</b> yozib, oddiy
+  <code>php</code> bilan ishga tushiramiz. Faylning boshida uch qator bo'ladi:</p>
+
+  <div class="codefile">
+    <div class="fname">sql/*.php — har faylning boshi</div>
+    <code class="cmd" data-cmd="&lt;?php
+
+use Illuminate\Support\Facades\DB;
+
+require __DIR__ . '/../vendor/autoload.php';
+$app = require_once __DIR__ . '/../bootstrap/app.php';
+$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();">&lt;?php
+
+use Illuminate\Support\Facades\DB;
+
+<span class="add">require __DIR__ . '/../vendor/autoload.php';</span>
+<span class="add">$app = require_once __DIR__ . '/../bootstrap/app.php';</span>
+<span class="add">$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();</span></code>
+  </div>
+
+  <p>Bu uch qator sizga <b>tanish</b> bo'lishi kerak — 17-darsda Laravel'ning
+  <code>public/index.php</code> faylini o'qiganda ko'rgansiz:</p>
+
+  <table class="sheet">
+    <tr><th>Qator</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>require vendor/autoload.php</code></td><td class="note-cell">Autoload (12-dars) — klasslarni topish</td></tr>
+    <tr><td><code>require bootstrap/app.php</code></td><td class="note-cell"><b>Container</b>ni yasaydi (15 va 17-darslar)</td></tr>
+    <tr><td><code>-&gt;bootstrap()</code></td><td class="note-cell">Sozlamalarni yuklaydi — bazaga ulanish shu yerdan keladi</td></tr>
+  </table>
+
+  <div class="callout tip">
+    <span class="label">Uchinchi qatorni unutsangiz — foydali xato</span>
+    <p>Amaliyotda ataylab sinab ko'rasiz:</p>
+    <div class="natija">PHP Fatal error:  Uncaught RuntimeException: A facade root has not been set. in …/Facade.php:361</div>
+    <p>«Fasadning ildizi o'rnatilmagan» — ya'ni <code>DB::</code> ishlatmoqchi bo'ldik,
+    lekin <b>container tayyor emas</b> (15-dars!). Bu xato Laravel'da tez-tez uchraydi va
+    endi siz uning ma'nosini bilasiz. <code>DB</code> nima ekanini — <b>fasad</b> —
+    Modul G da ochamiz.</p>
+  </div>
+
+  <h2>Jadval va ma'lumot</h2>
+
+  <p>SQL o'rganish uchun ma'lumot kerak. Uni ham SQL bilan yasaymiz:</p>
+
+  <div class="codefile">
+    <div class="fname">sql/01-jadval.php</div>
+    <code class="cmd" data-cmd="DB::statement('
+    CREATE TABLE vakansiyalar (
+        id     INTEGER PRIMARY KEY AUTOINCREMENT,
+        nom    TEXT    NOT NULL,
+        maosh  INTEGER,
+        shahar TEXT,
+        faol   INTEGER DEFAULT 1
+    )
+');">DB::statement('
+    CREATE TABLE vakansiyalar (
+        id     INTEGER PRIMARY KEY AUTOINCREMENT,
+        nom    TEXT    NOT NULL,
+        maosh  INTEGER,
+        shahar TEXT,
+        faol   INTEGER DEFAULT 1
+    )
+');</code>
+  </div>
+
+  <ul>
+    <li><b>Jadval</b> = 5-darsdagi «yozuvlar ro'yxati». Har <b>qator</b> = bitta yozuv,
+    har <b>ustun</b> = maydon.</li>
+    <li><code>id INTEGER PRIMARY KEY AUTOINCREMENT</code> — <b>birlamchi kalit</b>: har
+    qatorning takrorlanmas raqami, o'zi ortib boradi.</li>
+    <li><code>NOT NULL</code> — bu ustun bo'sh bo'lolmaydi (20-darsdagi
+    <code>required</code> ga o'xshaydi, lekin <b>baza darajasida</b>).</li>
+    <li><code>DEFAULT 1</code> — qiymat berilmasa <code>1</code> qo'yiladi (6-darsdagi
+    standart parametr g'oyasi).</li>
+    <li>SQLite'da <code>faol</code> uchun <code>BOOLEAN</code> yo'q — <code>0</code>/<code>1</code>
+    ishlatiladi.</li>
+  </ul>
+
+  <p><code>DB::statement()</code> — natija <b>qaytarmaydigan</b> SQL uchun
+  (<code>CREATE</code>, <code>INSERT</code>, <code>UPDATE</code>).
+  <code>DB::select()</code> — natija <b>qaytaradigan</b> SQL uchun.</p>
+
+  <h2><code>SELECT</code> — o'qishning barcha shakllari</h2>
+
+  <table class="sheet">
+    <tr><th>SQL</th><th class="note-cell">Ma'nosi</th></tr>
+    <tr><td><code>SELECT * FROM vakansiyalar</code></td><td class="note-cell"><b>Barcha</b> ustun, barcha qator</td></tr>
+    <tr><td><code>SELECT nom, maosh FROM ...</code></td><td class="note-cell">Faqat kerakli ustunlar — <b>shunday yozish yaxshi</b></td></tr>
+    <tr><td><code>WHERE maosh &gt; 700</code></td><td class="note-cell">Shartga mos qatorlar (3-darsdagi shart)</td></tr>
+    <tr><td><code>WHERE shahar = 'Toshkent'</code></td><td class="note-cell">Matn <b>bittalik tirnoq</b>da (SQL'da qo'shtirnoq boshqa ma'noda)</td></tr>
+    <tr><td><code>AND</code> · <code>OR</code></td><td class="note-cell">Bir necha shart</td></tr>
+    <tr><td><code>ORDER BY maosh DESC</code></td><td class="note-cell">Saralash: <code>DESC</code> kamayish, <code>ASC</code> o'sish (standart)</td></tr>
+    <tr><td><code>LIMIT 2</code></td><td class="note-cell">Faqat birinchi 2 qator</td></tr>
+    <tr><td><code>COUNT(*)</code></td><td class="note-cell">Qatorlar <b>soni</b> (5-darsdagi <code>count()</code> ga o'xshash)</td></tr>
+    <tr><td><code>AS soni</code></td><td class="note-cell">Natija ustuniga nom berish</td></tr>
+  </table>
+
+  <div class="codefile">
+    <div class="fname">misol</div>
+    <code class="cmd" data-cmd="SELECT nom, maosh
+FROM vakansiyalar
+WHERE shahar = 'Toshkent' AND faol = 1
+ORDER BY maosh DESC
+LIMIT 2">SELECT nom, maosh
+FROM vakansiyalar
+WHERE shahar = 'Toshkent' AND faol = 1
+ORDER BY maosh DESC
+LIMIT 2</code>
+  </div>
+
+  <p>O'qib ko'ring: «<b>nom va maoshni ol</b>, vakansiyalar jadvalidan, <b>shartga mos</b>
+  bo'lganlarni, <b>maosh bo'yicha kamayish</b> tartibida, <b>faqat 2 ta</b>».
+  Tartib har doim shunday: <code>SELECT → FROM → WHERE → ORDER BY → LIMIT</code>.</p>
+
+  <div class="callout warning">
+    <span class="label">🔒 SQL'ni qo'lda yopishtirib yozmang</span>
+    <p>Foydalanuvchi kiritgan qiymatni SQL satriga <b>qo'shib</b> yozish —
+    <b>SQL injection</b> deb ataladigan xavfsizlik teshigi:</p>
+    <div class="natija">// ❌ HECH QACHON SHUNDAY QILMANG
+DB::select("SELECT * FROM vakansiyalar WHERE nom = '{$request-&gt;input('nom')}'");</div>
+    <p>To'g'ri yo'l — <b>parametr</b> ishlatish:</p>
+    <div class="natija">// ✅ To'g'ri
+DB::select('SELECT * FROM vakansiyalar WHERE nom = ?', [$nom]);</div>
+    <p><code>?</code> o'rniga qiymat <b>xavfsiz</b> qo'yiladi — u SQL sifatida emas,
+    <b>ma'lumot</b> sifatida ishlanadi. Bu 13-darsdagi XSS qoidasining ukasi: XSS —
+    chiqishda, SQL injection — <b>bazaga so'rov yuborishda</b>. Ikkalasi ham bitta
+    sababdan: <b>tashqi ma'lumotni kod deb ishlatish</b>. Buni Modul I da (xavfsizlik darsi) batafsil ko'ramiz; Eloquent esa buni <b>o'zi</b> qiladi.</p>
+  </div>
+
+  <!-- ═══════════════ 4) AMALIYOT / MODE-HINT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    <span class="mode-hint-title">💻 Amaliy qism kompyuterda</span>
+    <p>Amaliyotda <code>sql/</code> papkasida ikkita fayl yozasiz: birinchisi jadval yasab
+    5 qator qo'shadi, ikkinchisi beshta xil <code>SELECT</code> ni bajarib natijalarni
+    chiqaradi. Yo'lda <code>php artisan db</code> nega ishlamasligini va
+    «facade root has not been set» xatosini ham ko'rasiz.</p>
+    <button type="button" class="modebtn" data-set-mode="do">💻 Amaliyot rejimini ko'rish</button>
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <p>IshTop'ga o'ting va <code>php artisan db</code> ni sinab ko'ring</p>
+        <p class="why-step">Nega alohida usul kerakligini o'z ko'zingiz bilan ko'rasiz.</p>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+php artisan db">cd ~/Projects/Learn/ishtop
+php artisan db
+<span class="out">   Symfony\Component\Process\Exception\RuntimeException</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> xato. Sababi: bu buyruq
+        <code>sqlite3</code> nomli tashqi dasturni chaqiradi, u esa sizning kompyuteringizda
+        o'rnatilmagan. Muammo emas — pastdagi usul ancha foydali.</p>
+      </li>
+
+      <li>
+        <p>Jadval yasovchi faylni yozing</p>
+        <div class="cmd" data-cmd="mkdir -p sql
+cat &gt; sql/01-jadval.php &lt;&lt;'EOF'
+&lt;?php
+
+use Illuminate\Support\Facades\DB;
+
+require __DIR__ . '/../vendor/autoload.php';
+$app = require_once __DIR__ . '/../bootstrap/app.php';
+$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+
+DB::statement('DROP TABLE IF EXISTS vakansiyalar');
+
+DB::statement('
+    CREATE TABLE vakansiyalar (
+        id     INTEGER PRIMARY KEY AUTOINCREMENT,
+        nom    TEXT    NOT NULL,
+        maosh  INTEGER,
+        shahar TEXT,
+        faol   INTEGER DEFAULT 1
+    )
+');
+
+DB::statement(&quot;
+    INSERT INTO vakansiyalar (nom, maosh, shahar, faol) VALUES
+        ('Backend dasturchi',  800,  'Toshkent',  1),
+        ('Frontend dasturchi', 700,  'Toshkent',  1),
+        ('Laravel dasturchi',  1200, 'Samarqand', 1),
+        ('QA muhandis',        500,  'Toshkent',  0),
+        ('DevOps injener',     1500, 'Toshkent',  1)
+&quot;);
+
+echo 'Jadval yaratildi va 5 qator qo\'shildi.', PHP_EOL;
+EOF
+php sql/01-jadval.php">mkdir -p sql
+cat &gt; sql/01-jadval.php &lt;&lt;'EOF'
+&lt;?php
+
+use Illuminate\Support\Facades\DB;
+
+require __DIR__ . '/../vendor/autoload.php';
+$app = require_once __DIR__ . '/../bootstrap/app.php';
+$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+
+DB::statement('DROP TABLE IF EXISTS vakansiyalar');
+
+DB::statement('
+    CREATE TABLE vakansiyalar (
+        id     INTEGER PRIMARY KEY AUTOINCREMENT,
+        nom    TEXT    NOT NULL,
+        maosh  INTEGER,
+        shahar TEXT,
+        faol   INTEGER DEFAULT 1
+    )
+');
+
+DB::statement("
+    INSERT INTO vakansiyalar (nom, maosh, shahar, faol) VALUES
+        ('Backend dasturchi',  800,  'Toshkent',  1),
+        ('Frontend dasturchi', 700,  'Toshkent',  1),
+        ('Laravel dasturchi',  1200, 'Samarqand', 1),
+        ('QA muhandis',        500,  'Toshkent',  0),
+        ('DevOps injener',     1500, 'Toshkent',  1)
+");
+
+echo 'Jadval yaratildi va 5 qator qo\'shildi.', PHP_EOL;
+EOF
+php sql/01-jadval.php
+<span class="out">Jadval yaratildi va 5 qator qo'shildi.</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> tasdiq xabari. Diqqat:
+        <code>DROP TABLE IF EXISTS</code> boshida turadi — shuning uchun bu faylni
+        <b>xohlagancha qayta ishga tushirishingiz</b> mumkin, har marta toza boshlanadi.</p>
+      </li>
+
+      <li>
+        <p>Uchinchi qatorni olib tashlab, xatoni ko'ring</p>
+        <p class="why-step">15-darsdagi container bilimini ishga solamiz.</p>
+        <div class="cmd" data-cmd="grep -v 'Kernel::class' sql/01-jadval.php &gt; sql/xato.php
+php sql/xato.php 2&gt;&amp;1 | head -1
+rm sql/xato.php">grep -v 'Kernel::class' sql/01-jadval.php &gt; sql/xato.php
+php sql/xato.php 2&gt;&amp;1 | head -1
+rm sql/xato.php
+<span class="out">PHP Fatal error:  Uncaught RuntimeException: A facade root has not been set. in …/Facade.php:361</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> «facade root has not been set» —
+        ya'ni <code>DB::</code> ishlatildi, lekin <b>container tayyorlanmagan</b>.
+        (Yo'lning boshi sizda boshqacha bo'ladi — u sizning papkangizga bog'liq.)
+        Bu xatoni tanib olish foydali: Laravel'dan tashqarida (skript, cron) ishlaganda
+        uchraydi.</p>
+        <p class="expect">⚠️ Nusxani <b>loyiha ichida</b> yasadik (<code>sql/xato.php</code>),
+        <code>/tmp</code> da emas — chunki skript <code>__DIR__</code> ga tayanadi
+        («bu faylning papkasi»). Boshqa papkaga ko'chirilsa <code>vendor/autoload.php</code>
+        topilmaydi va biz kutgan xato o'rniga <b>boshqa</b> xato chiqadi. Bu ham
+        foydali kuzatuv: <code>__DIR__</code> fayl <b>qayerda turganiga</b> bog'liq.</p>
+      </li>
+
+      <li>
+        <p><code>SELECT</code> larni yozing</p>
+        <p class="why-step">Beshta shakl bir faylda — solishtirish oson bo'ladi.</p>
+        <div class="cmd" data-cmd="cat &gt; sql/02-select.php &lt;&lt;'EOF'
+&lt;?php
+
+use Illuminate\Support\Facades\DB;
+
+require __DIR__ . '/../vendor/autoload.php';
+$app = require_once __DIR__ . '/../bootstrap/app.php';
+$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+
+function chiqar(string $sarlavha, array $qatorlar): void
+{
+    echo PHP_EOL, &quot;── {$sarlavha}&quot;, PHP_EOL;
+    foreach ($qatorlar as $q) {
+        echo '   ', implode(' | ', (array) $q), PHP_EOL;
+    }
+    echo '   (', count($qatorlar), ' qator)', PHP_EOL;
+}
+
+chiqar('1) Hammasi', DB::select('SELECT id, nom, maosh FROM vakansiyalar'));
+
+chiqar('2) WHERE — maoshi 700 dan katta', DB::select('
+    SELECT nom, maosh FROM vakansiyalar WHERE maosh &gt; 700
+'));
+
+chiqar('3) ORDER BY + LIMIT — eng yuqori 2 maosh', DB::select('
+    SELECT nom, maosh FROM vakansiyalar ORDER BY maosh DESC LIMIT 2
+'));
+
+chiqar('4) Bir necha shart', DB::select(&quot;
+    SELECT nom, shahar FROM vakansiyalar WHERE shahar = 'Toshkent' AND faol = 1
+&quot;));
+
+chiqar('5) COUNT', DB::select('SELECT COUNT(*) AS soni FROM vakansiyalar'));
+EOF
+php sql/02-select.php">cat &gt; sql/02-select.php &lt;&lt;'EOF'
+&lt;?php
+
+use Illuminate\Support\Facades\DB;
+
+require __DIR__ . '/../vendor/autoload.php';
+$app = require_once __DIR__ . '/../bootstrap/app.php';
+$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+
+function chiqar(string $sarlavha, array $qatorlar): void
+{
+    echo PHP_EOL, "── {$sarlavha}", PHP_EOL;
+    foreach ($qatorlar as $q) {
+        echo '   ', implode(' | ', (array) $q), PHP_EOL;
+    }
+    echo '   (', count($qatorlar), ' qator)', PHP_EOL;
+}
+
+chiqar('1) Hammasi', DB::select('SELECT id, nom, maosh FROM vakansiyalar'));
+
+chiqar('2) WHERE — maoshi 700 dan katta', DB::select('
+    SELECT nom, maosh FROM vakansiyalar WHERE maosh &gt; 700
+'));
+
+chiqar('3) ORDER BY + LIMIT — eng yuqori 2 maosh', DB::select('
+    SELECT nom, maosh FROM vakansiyalar ORDER BY maosh DESC LIMIT 2
+'));
+
+chiqar('4) Bir necha shart', DB::select("
+    SELECT nom, shahar FROM vakansiyalar WHERE shahar = 'Toshkent' AND faol = 1
+"));
+
+chiqar('5) COUNT', DB::select('SELECT COUNT(*) AS soni FROM vakansiyalar'));
+EOF
+php sql/02-select.php
+<span class="out">── 1) Hammasi</span>
+<span class="out">   1 | Backend dasturchi | 800</span>
+<span class="out">   2 | Frontend dasturchi | 700</span>
+<span class="out">   ... (5 qator)</span>
+<span class="out">── 2) WHERE — maoshi 700 dan katta</span>
+<span class="out">   Backend dasturchi | 800</span>
+<span class="out">   Laravel dasturchi | 1200</span>
+<span class="out">   DevOps injener | 1500</span>
+<span class="out">   (3 qator)</span>
+<span class="out">── 3) ORDER BY + LIMIT — eng yuqori 2 maosh</span>
+<span class="out">   DevOps injener | 1500</span>
+<span class="out">   Laravel dasturchi | 1200</span>
+<span class="out">   (2 qator)</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> besh bo'lim.
+        <br>2-bo'limga diqqat: <code>maosh &gt; 700</code> — <b>Frontend (700) yo'q</b>,
+        chunki <code>&gt;</code> «katta», <code>&gt;=</code> emas.
+        <br>4-bo'limda QA muhandis <b>yo'q</b> — uning <code>faol = 0</code>.
+        <br><code>(array) $q</code> — <code>DB::select</code> obyekt qaytaradi, uni massivga
+        o'girdik (5-dars).</p>
+      </li>
+
+      <li>
+        <p>O'zingiz so'rov yozib ko'ring</p>
+        <p class="why-step">SQL faqat yozib ko'rish bilan o'rganiladi.</p>
+        <p><code>sql/02-select.php</code> oxiriga qo'shib ko'ring:</p>
+        <div class="cmd" data-cmd="chiqar('6) Samarqanddagi vakansiyalar', DB::select(&quot;
+    SELECT nom, maosh FROM vakansiyalar WHERE shahar = 'Samarqand'
+&quot;));
+
+chiqar('7) Maoshi eng past 3 ta', DB::select('
+    SELECT nom, maosh FROM vakansiyalar ORDER BY maosh ASC LIMIT 3
+'));">chiqar('6) Samarqanddagi vakansiyalar', DB::select("
+    SELECT nom, maosh FROM vakansiyalar WHERE shahar = 'Samarqand'
+"));
+
+chiqar('7) Maoshi eng past 3 ta', DB::select('
+    SELECT nom, maosh FROM vakansiyalar ORDER BY maosh ASC LIMIT 3
+'));</div>
+        <p class="expect"><b>Kutilgan natija:</b> 6-bo'limda 1 qator (Laravel dasturchi),
+        7-bo'limda 3 qator eng pastdan boshlab (QA 500 → Frontend 700 → Backend 800).
+        <br><b>Yana sinab ko'ring:</b> <code>faol = 0</code> bo'lganlarni toping;
+        maoshi 600 va 1300 orasidagilarni toping (<code>AND</code> bilan).</p>
+      </li>
+
+      <li>
+        <p>Ishni saqlang</p>
+        <div class="cmd" data-cmd="git add -A
+git commit -m &quot;21-dars: SQL o'qish — SELECT, WHERE, ORDER BY, LIMIT&quot;">git add -A
+git commit -m "21-dars: SQL o'qish — SELECT, WHERE, ORDER BY, LIMIT"</div>
+        <p class="expect"><b>Kutilgan natija:</b> commit haqida xabar. Diqqat:
+        <code>database/database.sqlite</code> Git'ga <b>tushmaydi</b> — Laravel uni
+        ignore qilgan (ma'lumot bazasi kodga tegishli emas).</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><input type="checkbox" id="d21c1"><label for="d21c1"><code>php artisan db</code> nega ishlamasligini bilaman</label></li>
+      <li><input type="checkbox" id="d21c2"><label for="d21c2">SQL skriptining uch qatorli boshini tushunaman</label></li>
+      <li><input type="checkbox" id="d21c3"><label for="d21c3">«facade root has not been set» xatosini ko'rdim va sababini bilaman</label></li>
+      <li><input type="checkbox" id="d21c4"><label for="d21c4">Jadval yasadim va 5 qator qo'shdim</label></li>
+      <li><input type="checkbox" id="d21c5"><label for="d21c5"><b>Beshta xil <code>SELECT</code> ni bajardim</b> 🎉</label></li>
+      <li><input type="checkbox" id="d21c6"><label for="d21c6"><code>&gt;</code> va <code>&gt;=</code> farqini natijada ko'rdim</label></li>
+      <li><input type="checkbox" id="d21c7"><label for="d21c7"><b>O'zim ikkita so'rov yozdim</b></label></li>
+      <li><input type="checkbox" id="d21c8"><label for="d21c8">Ishni commit qildim</label></li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 5) TAXMIN + QUIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Jadvalga <b>oltinchi</b> qator qo'shildi — uning <code>shahar</code> ustuni
+    <code>NULL</code> (ya'ni «qiymat yo'q», 2-darsni eslang):</p>
+    <div class="codefile">
+      <div class="fname">qo'shilgan qator</div>
+      <code class="cmd" data-cmd="INSERT INTO vakansiyalar (nom, maosh, shahar, faol)
+VALUES ('Sirli ish', NULL, NULL, 1)">INSERT INTO vakansiyalar (nom, maosh, shahar, faol)
+VALUES ('Sirli ish', NULL, NULL, 1)</code>
+    </div>
+    <p>Endi <b>jami 6 qator</b> bor. Uchta so'rov <b>nechta qator</b> qaytaradi?</p>
+    <div class="codefile">
+      <div class="fname">so'rovlar</div>
+      <code class="cmd" data-cmd="A)  SELECT * FROM vakansiyalar WHERE shahar = NULL
+B)  SELECT * FROM vakansiyalar WHERE shahar IS NULL
+C)  SELECT * FROM vakansiyalar WHERE shahar != 'Toshkent'">A)  SELECT * FROM vakansiyalar WHERE shahar = NULL
+B)  SELECT * FROM vakansiyalar WHERE shahar IS NULL
+C)  SELECT * FROM vakansiyalar WHERE shahar != 'Toshkent'</code>
+    </div>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <div class="natija">A)  0 qator   ← hech narsa!
+B)  1 qator   ← Sirli ish
+C)  1 qator   ← faqat Laravel dasturchi (Samarqand)</div>
+        <p><b>A — 0 qator.</b> <code>shahar = NULL</code> <b>hech qachon</b> rost bo'lmaydi.
+        SQL'da <code>NULL</code> — qiymat emas, «<b>noma'lum</b>». Noma'lum narsani biror
+        narsaga tenglashtirish natijasi ham noma'lum, ya'ni «rost emas». Shuning uchun
+        <code>NULL</code> ni tekshirish uchun <b>maxsus</b> so'z bor:
+        <code>IS NULL</code> / <code>IS NOT NULL</code>.</p>
+        <p><b>C — eng kutilmagani. 1 qator, 2 emas.</b> «Toshkent emas» degan shartga
+        mantiqan <code>Sirli ish</code> ham (shahri yo'q) tushishi kerak edi. Lekin
+        <code>NULL != 'Toshkent'</code> ham <b>noma'lum</b> beradi — demak qator
+        <b>chiqarib tashlanadi</b>.</p>
+        <p class="expect"><b>Amaliy xulosa:</b> <code>NULL</code> bo'lishi mumkin bo'lgan
+        ustunni shartda ishlatganda <b>ehtiyot bo'ling</b>. «Toshkentda bo'lmaganlarning
+        hammasi» kerak bo'lsa, aniq yozish kerak:
+        <code>WHERE shahar != 'Toshkent' OR shahar IS NULL</code>.
+        <br>Bu ish joyidagi klassik bug': hisobotdan qatorlar «g'oyib bo'ladi», sababi esa
+        <code>NULL</code>.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span> Nega SQL Eloquent'dan oldin
+    o'rganiladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Eloquent aslida SQL yozadi</button></li>
+      <li><button class="quiz-option">Eloquent hozircha ishlamaydi bizda</button></li>
+      <li><button class="quiz-option">SQL Eloquentdan ancha tezroq</button></li>
+    </ul>
+    <div class="quiz-explain">Eloquent sizning nomingizdan SQL tuzadi. Sekin sahifani
+    tuzatish uchun <b>u yozgan SQL'ni o'qish</b> kerak bo'ladi (Modul H). Va intervyuda
+    SQL so'raladi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span> <code>WHERE shahar = NULL</code>
+    nima qaytaradi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Nol qator qaytaradi</button></li>
+      <li><button class="quiz-option">Shahri yo'q qatorlarni</button></li>
+      <li><button class="quiz-option">Butun jadvalni qaytaradi</button></li>
+    </ul>
+    <div class="quiz-explain"><code>NULL</code> — «noma'lum», shuning uchun uni
+    <code>=</code> bilan solishtirish hech qachon rost bo'lmaydi. To'g'ri yo'l —
+    <code>IS NULL</code>.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span> Foydalanuvchi kiritgan qiymatni
+    SQL'ga qanday qo'shiladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Savol belgisi parametri bilan</button></li>
+      <li><button class="quiz-option">Satrga qo'shib yozib qo'yiladi</button></li>
+      <li><button class="quiz-option">Avval katta harfga o'giriladi</button></li>
+    </ul>
+    <div class="quiz-explain"><code>DB::select('... WHERE nom = ?', [$nom])</code> —
+    qiymat <b>ma'lumot</b> sifatida ishlanadi, SQL sifatida emas. Satrga qo'shib yozish
+    <b>SQL injection</b> teshigini ochadi.</div>
+  </div>
+
+  <!-- ═══════════════ 6) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+    <p class="recall-intro">Avval o'zingiz javob bering, keyin ochib tekshiring.
+    Oxirgi ikkitasi — <a href="0020-validation.html">20-darsni</a> takrorlash.</p>
+
+    <details class="recall">
+      <summary><code>SELECT</code> so'rovining tartibi qanday?</summary>
+      <div class="answer"><p><code>SELECT</code> (qaysi ustunlar) → <code>FROM</code>
+      (qaysi jadval) → <code>WHERE</code> (shart) → <code>ORDER BY</code> (saralash) →
+      <code>LIMIT</code> (nechta). Tartib o'zgarmaydi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary><code>DB::statement</code> va <code>DB::select</code> farqi?</summary>
+      <div class="answer"><p><code>statement</code> — natija <b>qaytarmaydigan</b> SQL
+      (<code>CREATE</code>, <code>INSERT</code>, <code>UPDATE</code>).
+      <code>select</code> — natija <b>qaytaradigan</b> SQL.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary><code>NULL</code> bilan ishlashning qoidasi nima?</summary>
+      <div class="answer"><p><code>=</code> yoki <code>!=</code> <b>ishlamaydi</b> —
+      <code>IS NULL</code> / <code>IS NOT NULL</code> kerak. Va <code>NULL</code> bo'lishi
+      mumkin bo'lgan ustun shartda <b>qatorni jimgina chiqarib tashlashi</b> mumkin.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: <code>validate()</code> nima qaytaradi?</summary>
+      <div class="answer"><p><b>Faqat qoidada sanab o'tilgan maydonlarni.</b> Shuning uchun
+      bazaga yozishda <code>$request-&gt;all()</code> emas, qaytgan qiymat ishlatiladi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: <code>old()</code> nima uchun kerak?</summary>
+      <div class="answer"><p>Validatsiya xatosidan keyin foydalanuvchi kiritgan qiymatlar
+      formada <b>saqlanib qolishi</b> uchun — aks holda hammasini qaytadan to'ldiradi.</p></div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 7) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Cho'ntak xulosasi</span>
+    <ul>
+      <li>SQL skripti uchta qator bilan boshlanadi: <b>autoload → bootstrap/app.php →
+      bootstrap()</b>. Uchinchisi yo'q bo'lsa: «A facade root has not been set».</li>
+      <li><code>DB::statement()</code> — natija qaytarmaydigan SQL ·
+      <code>DB::select()</code> — qaytaradigan.</li>
+      <li>Tartib: <code>SELECT → FROM → WHERE → ORDER BY → LIMIT</code>.</li>
+      <li>Matn SQL'da <b>bittalik tirnoq</b>da: <code>'Toshkent'</code>.</li>
+      <li><code>ORDER BY ... DESC</code> kamayish · <code>ASC</code> o'sish (standart) ·
+      <code>COUNT(*) AS soni</code>.</li>
+      <li>🔑 <b><code>NULL</code> — qiymat emas, «noma'lum»</b>.
+      <code>= NULL</code> ishlamaydi → <code>IS NULL</code>. Va <code>!=</code> shartlari
+      <code>NULL</code> qatorlarni <b>jimgina tashlab ketadi</b>.</li>
+      <li>🔒 Foydalanuvchi qiymati SQL'ga <b>faqat parametr</b> bilan:
+      <code>'... = ?', [$nom]</code>. Aks holda — <b>SQL injection</b>.</li>
+      <li>Jadval = yozuvlar ro'yxati (5-dars) · <code>PRIMARY KEY</code> = takrorlanmas
+      raqam · <code>NOT NULL</code>, <code>DEFAULT</code> — baza darajasidagi qoidalar.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p>Bugun faqat <b>o'qidik</b>. 22-darsda <b>yozamiz va bog'laymiz</b>:
+    <code>INSERT</code> ni chuqurroq, <code>UPDATE</code>, <code>DELETE</code>, va eng
+    muhimi — <b><code>JOIN</code></b>: ikki jadvalni bir-biriga ulash.</p>
+    <p><code>JOIN</code> muhim, chunki real ma'lumot <b>bir jadvalda sig'maydi</b>:
+    vakansiya <b>kompaniyaga</b> tegishli, ariza <b>nomzodga</b>. Bu 5-darsdagi
+    «ichma-ich massiv» ning bazadagi shakli — va C modulining qolgan qismi (Eloquent
+    bog'lanishlari) butunlay shu tushunchaga tayanadi. Intervyuda ham
+    <code>JOIN</code> eng ko'p so'raladigan SQL mavzusi.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>SQLite — SELECT hujjati</b>:
+    <a href="https://www.sqlite.org/lang_select.html">sqlite.org/lang_select.html</a>.<sup><a href="#fn1">1</a></sup>
+    Rasmiy va aniq, lekin quruq — asos sifatida yaxshi.<br>
+    <b>Laravel — Raw SQL</b>:
+    <a href="https://laravel.com/docs/13.x/database#running-queries">laravel.com/docs/13.x/database</a>
+    — <code>DB::select</code>, parametrlar va ulanishlar.<sup><a href="#fn2">2</a></sup><br>
+    O'zbekcha: <a href="https://uzbekdevs.uz/darsliklar/php">uzbekdevs.uz</a> da SQL
+    bo'yicha material bo'lsa foydali bo'ladi — hozircha asosiy manba inglizcha.</p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b> «<code>LIKE</code> nima?»,
+    «<code>BETWEEN</code> bormi?», «<code>DISTINCT</code> nima qiladi?», «indeks nima va
+    qachon kerak?», «bazani ko'z bilan ko'radigan dastur bormi?» — har qanday savol yaxshi.
+    Oxirgi savol amaliy: SQLite faylini grafik dasturda (masalan DB Browser for SQLite)
+    ochib ko'rish mumkin — xohlasangiz o'rnatishni ko'rsataman.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0020-validation.html">Oldingi: Validation</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">SQLite — <a href="https://www.sqlite.org/lang_select.html">SELECT</a>
+      va <a href="https://www.sqlite.org/nulls.html">NULL handling</a>.</li>
+      <li id="fn2">Laravel 13 — <a href="https://laravel.com/docs/13.x/database#running-queries">Running
+      SQL Queries</a>.</li>
+      <li id="fn3">Barcha so'rovlar va natijalar jonli sinab ko'rilgan (Laravel 13.25.0,
+      SQLite): <code>php artisan db</code> ning xatosi · «facade root has not been set» ·
+      beshta <code>SELECT</code> natijasi · va taxmin mashqidagi
+      <code>= NULL</code> → <b>0</b>, <code>IS NULL</code> → <b>1</b>,
+      <code>!= 'Toshkent'</code> → <b>1</b> natijalari.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

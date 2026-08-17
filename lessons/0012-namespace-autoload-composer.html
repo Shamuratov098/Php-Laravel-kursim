@@ -1,0 +1,674 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 12 — namespace, autoload va Composer</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 12 · MODUL A — POYDEVOR</p>
+  <h1><code>namespace</code>, autoload va Composer</h1>
+  <p class="lead">Bu darsdan keyin <code>require</code> yozish <b>tugaydi</b> — kerakli
+  klassni PHP o'zi topib oladi. Va shu bilan <b>Composer</b> qo'lingizga o'tadi: Laravel
+  ham aynan shu asbob bilan o'rnatiladi, ya'ni bugun B moduliga eshik ochiladi.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 10 daqiqa</span>
+    <span>💻 Amaliyot ≈ 14 daqiqa</span>
+    <span>Kerak: <a href="0011-exception.html">Dars 11</a></span>
+  </p>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Nega bu muhim</span>
+    <p>Ikkita muammo to'planib qoldi:</p>
+    <p><b>1) <code>require</code> zanjiri.</b> Har klass uchun bitta <code>require</code>.
+    Klasslar 50 taga chiqsa — 50 qator, va tartibi ham muhim (biri ikkinchisiga tayansa).
+    Bu qo'lda boshqariladigan ish emas.</p>
+    <p><b>2) Nom to'qnashuvi.</b> Sizda <code>Xabar</code> klassi bor. Kutubxona
+    o'rnatdingiz — unda ham <code>Xabar</code> bor. PHP'da bir xil nomli ikki klass
+    <b>bo'lishi mumkin emas</b> — kod ishga tushmaydi.</p>
+    <p><b>Yechim ikkitasi ham bitta darsda:</b> <code>namespace</code> nomlarni ajratadi,
+    <b>Composer</b> esa fayllarni o'zi topadi. Va eng muhimi — Laravel loyihasi
+    <b>butunlay shu ikki narsaga qurilgan</b>: siz Laravel'da ko'radigan har bir
+    <code>use App\Models\User;</code> qatori bugungi darsning natijasi.</p>
+  </div>
+
+  <!-- ═══════════════ 2) TUSHUNCHA ═══════════════ -->
+  <h2><code>namespace</code> — klass nomining bir qismi</h2>
+
+  <div class="codefile">
+    <div class="fname">src/Xabar.php</div>
+    <code class="cmd" data-cmd="&lt;?php
+declare(strict_types=1);
+
+namespace App;
+
+class Xabar { ... }">&lt;?php
+declare(strict_types=1);
+
+<span class="add">namespace App;</span>
+
+class Xabar { ... }</code>
+  </div>
+
+  <p>Endi bu klassning <b>haqiqiy nomi</b> — <code>Xabar</code> emas,
+  <code>App\Xabar</code>. Bu shunchaki gap emas, <code>var_dump</code> buni ko'rsatadi:</p>
+
+  <div class="natija">object(App\Xabar)#2 (2) { ... }</div>
+
+  <p>Ya'ni <code>namespace</code> — <b>nomning old qismi</b>. Papkaga o'xshaydi:
+  <code>App\Xabar</code> va <code>Kutubxona\Xabar</code> — <b>ikki boshqa klass</b>,
+  to'qnashuv yo'q.</p>
+
+  <div class="callout warning">
+    <span class="label">Ikkita qat'iy qoida</span>
+    <p><b>1.</b> <code>namespace</code> — faylning <b>eng birinchi</b> ko'rsatmasi bo'lishi
+    kerak (faqat <code>declare</code> undan oldin turishi mumkin). Buzsangiz:</p>
+    <div class="natija">PHP Fatal error:  Namespace declaration statement has to be the very first statement or after any declare call in the script</div>
+    <p><b>2.</b> Bir faylda <b>bitta klass</b> — va fayl nomi klass nomiga <b>mos</b>
+    bo'lishi kerak (<code>Xabar</code> → <code>Xabar.php</code>). Bu Composer uchun shart,
+    quyida sababini ko'rasiz.</p>
+  </div>
+
+  <h3><code>use</code> — qisqa nom bilan ishlash</h3>
+
+  <p>Har joyda <code>new App\Xabar(...)</code> deb yozish zerikarli. <code>use</code>
+  buni yechadi:</p>
+
+  <div class="codefile">
+    <div class="fname">tushuncha</div>
+    <code class="cmd" data-cmd="use App\Xabar;          // «Xabar deganda App\Xabar ni tushun»
+
+$x = new Xabar(...);   // endi qisqa nom ishlaydi">use App\Xabar;          // «Xabar deganda App\Xabar ni tushun»
+
+$x = new Xabar(...);   // endi qisqa nom ishlaydi</code>
+  </div>
+
+  <p><code>use</code> — <b>import</b>, ya'ni «shu faylda bu qisqa nom nimani bildirishini
+  aytib qo'yaman». Hech narsa yuklamaydi, faqat <b>nom</b> haqida.</p>
+
+  <div class="callout note">
+    <span class="label">Diqqat: <code>use</code> ning ikki xil ma'nosi bor</span>
+    <p>10-darsda <code>use</code> ni <b>trait</b> ulash uchun ko'rgandik
+    (<code>class C { use Loglaydi; }</code>). Bugungisi boshqa: <b>fayl boshida</b> turgan
+    <code>use</code> — namespace import qilish. Bir xil so'z, ikki xil vazifa — joyiga
+    qarab ajratiladi: klass <b>ichida</b> = trait, klass <b>tashqarisida</b> = import.</p>
+  </div>
+
+  <h2>Composer va autoload: PHP klassni o'zi topadi</h2>
+
+  <p><b>Autoload</b> — «klass kerak bo'lganda PHP uni <b>o'zi</b> qidirib topadi» degani.
+  Buning uchun PHP'ga qoida aytish kerak: qaysi namespace qaysi papkada yashaydi. Bu
+  qoida <b>PSR-4</b> deb ataladi va <code>composer.json</code> da yoziladi:</p>
+
+  <div class="codefile">
+    <div class="fname">composer.json</div>
+    <code class="cmd" data-cmd="{
+    &quot;name&quot;: &quot;dostonbek/php-poydevor&quot;,
+    &quot;version&quot;: &quot;1.0.0&quot;,
+    &quot;require&quot;: {
+        &quot;php&quot;: &quot;^8.3&quot;
+    },
+    &quot;autoload&quot;: {
+        &quot;psr-4&quot;: {
+            &quot;App\\\\&quot;: &quot;src/&quot;
+        }
+    }
+}">{
+    "name": "dostonbek/php-poydevor",
+    "version": "1.0.0",
+    "require": {
+        "php": "^8.3"
+    },
+    "autoload": {
+        "psr-4": {
+            <span class="add">"App\\": "src/"</span>
+        }
+    }
+}</code>
+  </div>
+
+  <p><code>"App\\": "src/"</code> — bu bitta gap: <b>«<code>App\</code> bilan boshlanadigan
+  klassni <code>src/</code> papkasidan izla»</b>. Shundan keyin:</p>
+
+  <div class="natija">App\Xabar          →  src/Xabar.php
+App\Kanal\Email    →  src/Kanal/Email.php</div>
+
+  <p>Ya'ni <b>namespace = papka yo'li</b>, <b>klass nomi = fayl nomi</b>. Mana nega fayl
+  nomi klass nomiga mos bo'lishi shart edi — Composer faylni <b>nom bo'yicha</b> topadi.
+  (<code>\\</code> ikki marta yozilgan, chunki JSON'da <code>\</code> maxsus belgi.)</p>
+
+  <h3>Uch qadam</h3>
+
+  <table class="sheet">
+    <tr><th>Qadam</th><th class="note-cell">Nima bo'ladi</th></tr>
+    <tr><td><code>composer dump-autoload</code></td><td class="note-cell">Composer qoidani o'qib, <code>vendor/autoload.php</code> faylini <b>yasaydi</b></td></tr>
+    <tr><td><code>require 'vendor/autoload.php';</code></td><td class="note-cell">Skriptda <b>bitta</b> shu qator — barcha <code>require</code> larning o'rniga</td></tr>
+    <tr><td><code>use App\Xabar;</code></td><td class="note-cell">Qisqa nom bilan ishlash</td></tr>
+  </table>
+
+  <p>Shundan keyin <code>new Xabar(...)</code> yozganingizda PHP: «<code>App\Xabar</code>
+  kerak → qoidaga ko'ra <code>src/Xabar.php</code> → faylni o'qiy» deb <b>o'zi</b> hal
+  qiladi. Siz hech narsa qilmaysiz.</p>
+
+  <h2><code>composer require</code> — begona kodni olib kelish</h2>
+
+  <p>Composer'ning ikkinchi vazifasi — <b>paket menejeri</b>. Dunyodagi minglab PHP
+  kutubxonasini bitta buyruq bilan olib kelasiz:</p>
+
+  <div class="codefile">
+    <div class="fname">terminal</div>
+    <code class="cmd" data-cmd="composer require symfony/var-dumper">composer require symfony/var-dumper</code>
+  </div>
+
+  <p>Bu paketni ataylab tanladim. U <code>dump()</code> funksiyasini beradi — va
+  <b>Laravel'dagi <code>dd()</code> aynan shu paketdan keladi</b>. 2-darsda
+  «<code>var_dump</code> ning Laravel'dagi ekvivalenti <code>dd()</code>» degandim; endi
+  uning qayerdan kelganini ko'rasiz.</p>
+
+  <p>Farqni solishtiring:</p>
+
+  <div class="natija">=== var_dump ===
+object(App\Xabar)#2 (2) {
+  ["qabulQiluvchi":"App\Xabar":private]=&gt;
+  string(18) "doston@example.com"
+  ["matn":"App\Xabar":private]=&gt;
+  string(23) "Arizangiz qabul qilindi"
+}
+=== dump (symfony/var-dumper) ===
+App\Xabar {#2
+  -qabulQiluvchi: "doston@example.com"
+  -matn: "Arizangiz qabul qilindi"
+}</div>
+
+  <p>Bir xil ma'lumot, lekin <code>dump()</code> ancha o'qiladigan
+  (<code>-</code> = private). Va e'tibor bering: <b>bu kodni siz yozmadingiz</b> — Composer
+  olib keldi va autoload uni o'zi ulab qo'ydi.</p>
+
+  <h3>Qaysi fayl Git'ga tushadi?</h3>
+
+  <table class="sheet">
+    <tr><th>Fayl / papka</th><th class="note-cell">Git'ga tushadimi</th></tr>
+    <tr><td><code>composer.json</code></td><td class="note-cell"><b>Ha</b> — «menga qaysi paketlar kerak» ro'yxati</td></tr>
+    <tr><td><code>composer.lock</code></td><td class="note-cell"><b>Ha</b> — «aynan qaysi versiyalar o'rnatilgan». Jamoada hamma bir xil versiyani oladi</td></tr>
+    <tr><td><code>vendor/</code></td><td class="note-cell"><b>Yo'q</b> — <code>.gitignore</code> da. Bu yuklab olingan kod, u <code>composer install</code> bilan qayta tiklanadi</td></tr>
+  </table>
+
+  <p>Shuning uchun boshqa kompyuterda loyihani ishga tushirish uchun bitta buyruq yetadi:
+  <code>composer install</code> — u <code>composer.lock</code> ni o'qib, aynan o'sha
+  versiyalarni tiklaydi. Laravel loyihasini klon qilganda birinchi qiladigan ishingiz
+  ham shu bo'ladi.</p>
+
+  <div class="callout tip">
+    <span class="label">Bu B moduliga eshik</span>
+    <p>Laravel <b>Composer paketi</b>. <b>16-darsda</b> IshTop loyihasini yaratganda
+    ichkarida aynan bugungi mexanizm ishlaydi: <code>vendor/</code> ga Laravel yuklanadi,
+    <code>composer.json</code> da <code>"App\\": "app/"</code> qoidasi turadi, va
+    <code>public/index.php</code> ning birinchi qatorlaridan biri —
+    <code>require __DIR__.'/../vendor/autoload.php';</code> bo'ladi. Ya'ni siz bugun
+    qo'lda yozgan narsa Laravel'da tayyor holda turadi.</p>
+  </div>
+
+  <!-- ═══════════════ 4) AMALIYOT / MODE-HINT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    <span class="mode-hint-title">💻 Amaliy qism kompyuterda</span>
+    <p>Amaliyotda <code>composer.json</code> yozasiz, <code>src/</code> papkasida
+    namespace'li klass yaratasiz, <code>composer dump-autoload</code> bilan autoload'ni
+    yoqasiz va <code>require</code> zanjiridan xalos bo'lasiz. Keyin haqiqiy paket
+    (<code>symfony/var-dumper</code>) o'rnatib, <code>dump()</code> ni
+    <code>var_dump</code> bilan solishtirasiz.</p>
+    <button type="button" class="modebtn" data-set-mode="do">💻 Amaliyot rejimini ko'rish</button>
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <div class="callout note">
+      <span class="label">Eski fayllar joyida qoladi</span>
+      <p><code>01-*.php</code> … <code>25-*.php</code> fayllariga <b>tegmaymiz</b> — ular
+      mashq va o'z ishini qilgan. Bugundan boshlab <b>yangi</b> klasslar
+      <code>src/</code> papkasida, namespace bilan yashaydi. Bu real loyihalardagi
+      tuzilma.</p>
+    </div>
+
+    <ol class="steps">
+      <li>
+        <p>Papkaga o'ting va <code>composer.json</code> yozing</p>
+        <p class="why-step">Bu fayl — loyihaning «pasporti»: nomi, talablari va autoload
+        qoidasi.</p>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/php-poydevor
+cat &gt; composer.json &lt;&lt;'EOF'
+{
+    &quot;name&quot;: &quot;dostonbek/php-poydevor&quot;,
+    &quot;version&quot;: &quot;1.0.0&quot;,
+    &quot;require&quot;: {
+        &quot;php&quot;: &quot;^8.3&quot;
+    },
+    &quot;autoload&quot;: {
+        &quot;psr-4&quot;: {
+            &quot;App\\\\&quot;: &quot;src/&quot;
+        }
+    }
+}
+EOF">cd ~/Projects/Learn/php-poydevor
+cat &gt; composer.json &lt;&lt;'EOF'
+{
+    "name": "dostonbek/php-poydevor",
+    "version": "1.0.0",
+    "require": {
+        "php": "^8.3"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "src/"
+        }
+    }
+}
+EOF</div>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik. <code>cat composer.json</code>
+        bilan tekshirib ko'ring — <code>"App\\": "src/"</code> qatori turishi kerak.</p>
+      </li>
+
+      <li>
+        <p>Namespace'li klass yarating</p>
+        <p class="why-step">Fayl nomi (<code>Xabar.php</code>) klass nomiga
+        (<code>Xabar</code>) mos — Composer faylni shunday topadi.</p>
+        <div class="cmd" data-cmd="mkdir -p src
+cat &gt; src/Xabar.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+namespace App;
+
+class Xabar
+{
+    public function __construct(
+        private string $qabulQiluvchi,
+        private string $matn,
+    ) {}
+
+    public function yubor(): string
+    {
+        return &quot;→ {$this-&gt;qabulQiluvchi}: {$this-&gt;matn}&quot;;
+    }
+}
+EOF">mkdir -p src
+cat &gt; src/Xabar.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+namespace App;
+
+class Xabar
+{
+    public function __construct(
+        private string $qabulQiluvchi,
+        private string $matn,
+    ) {}
+
+    public function yubor(): string
+    {
+        return "→ {$this-&gt;qabulQiluvchi}: {$this-&gt;matn}";
+    }
+}
+EOF</div>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik. Diqqat: <code>namespace App;</code>
+        <code>declare</code> dan keyin, lekin klassdan <b>oldin</b> turadi.</p>
+      </li>
+
+      <li>
+        <p>Autoload'ni yasang</p>
+        <p class="why-step">Composer qoidani o'qib, klass qidiruvchi kodni o'zi yozib
+        beradi.</p>
+        <div class="cmd" data-cmd="composer dump-autoload">composer dump-autoload
+<span class="out">Generating autoload files</span>
+<span class="out">Generated autoload files</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> ikki qator. Endi <code>vendor/</code>
+        papkasi paydo bo'ldi — <code>ls vendor/</code> qilib ko'ring, ichida
+        <code>autoload.php</code> bor.</p>
+      </li>
+
+      <li>
+        <p><code>require</code> zanjiridan xalos bo'ling</p>
+        <p class="why-step">Bu darsning g'alabasi: <b>bitta</b> require, va klasslar
+        cheksiz bo'lishi mumkin.</p>
+        <div class="cmd" data-cmd="cat &gt; 26-autoload.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+require 'vendor/autoload.php';
+
+use App\Xabar;
+
+$x = new Xabar(&quot;doston@example.com&quot;, &quot;Arizangiz qabul qilindi&quot;);
+echo $x-&gt;yubor(), PHP_EOL;
+EOF
+php 26-autoload.php">cat &gt; 26-autoload.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+require 'vendor/autoload.php';
+
+use App\Xabar;
+
+$x = new Xabar("doston@example.com", "Arizangiz qabul qilindi");
+echo $x-&gt;yubor(), PHP_EOL;
+EOF
+php 26-autoload.php
+<span class="out">→ doston@example.com: Arizangiz qabul qilindi</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> xabar chiqdi. Diqqat qiling:
+        <code>src/Xabar.php</code> ni <b>hech qayerda <code>require</code> qilmadik</b> —
+        PHP uni o'zi topdi. 🎉</p>
+      </li>
+
+      <li>
+        <p>Haqiqiy paket o'rnating</p>
+        <p class="why-step">Composer'ning ikkinchi vazifasi. Bu paket Laravel'dagi
+        <code>dd()</code> ning manbasi.</p>
+        <div class="cmd" data-cmd="composer require symfony/var-dumper">composer require symfony/var-dumper
+<span class="out">  - Installing symfony/polyfill-mbstring (v1.38.2): Extracting archive</span>
+<span class="out">  - Installing symfony/deprecation-contracts (v3.7.1): Extracting archive</span>
+<span class="out">  - Installing symfony/var-dumper (v7.4.15): Extracting archive</span>
+<span class="out">Generating autoload files</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> uchta paket o'rnatildi (bittasini
+        so'radik, u o'zi ikkitasiga tayanadi — bu «bog'liqlik» deb ataladi). Versiyalar
+        sizda boshqacha bo'lishi mumkin. Endi <code>composer.lock</code> fayli ham paydo
+        bo'ldi.</p>
+      </li>
+
+      <li>
+        <p><code>dump()</code> ni <code>var_dump</code> bilan solishtiring</p>
+        <div class="cmd" data-cmd="cat &gt; 27-paket.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+require 'vendor/autoload.php';
+
+use App\Xabar;
+
+$x = new Xabar(&quot;doston@example.com&quot;, &quot;Arizangiz qabul qilindi&quot;);
+
+echo &quot;=== var_dump ===&quot;, PHP_EOL;
+var_dump($x);
+
+echo &quot;=== dump ===&quot;, PHP_EOL;
+dump($x);
+EOF
+php 27-paket.php">cat &gt; 27-paket.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+require 'vendor/autoload.php';
+
+use App\Xabar;
+
+$x = new Xabar("doston@example.com", "Arizangiz qabul qilindi");
+
+echo "=== var_dump ===", PHP_EOL;
+var_dump($x);
+
+echo "=== dump ===", PHP_EOL;
+dump($x);
+EOF
+php 27-paket.php
+<span class="out">=== var_dump ===</span>
+<span class="out">object(App\Xabar)#2 (2) {</span>
+<span class="out">  ["qabulQiluvchi":"App\Xabar":private]=&gt;</span>
+<span class="out">  string(18) "doston@example.com"</span>
+<span class="out">  ...</span>
+<span class="out">=== dump ===</span>
+<span class="out">App\Xabar {#2</span>
+<span class="out">  -qabulQiluvchi: "doston@example.com"</span>
+<span class="out">  -matn: "Arizangiz qabul qilindi"</span>
+<span class="out">}</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> ikki xil ko'rinish. E'tibor bering:
+        klass nomi <code>App\Xabar</code> — <b>namespace nomning bir qismi</b>.
+        Va <code>dump()</code> funksiyasini siz yozmadingiz — paket berdi, autoload uladi.</p>
+      </li>
+
+      <li>
+        <p><code>vendor/</code> Git'ga tushmasligini tekshiring</p>
+        <p class="why-step"><code>vendor/</code> — yuklab olingan kod, u repoda saqlanmaydi.</p>
+        <div class="cmd" data-cmd="git status --short">git status --short</div>
+        <p class="expect"><b>Kutilgan natija:</b> ro'yxatda <code>composer.json</code>,
+        <code>composer.lock</code>, <code>src/</code> va yangi <code>.php</code> fayllar
+        bo'ladi — lekin <code>vendor/</code> <b>bo'lmaydi</b>. Sababi: u
+        <code>.gitignore</code> da (papka yaratilganda yozib qo'yilgan).
+        <br>Aynan qaysi fayllar chiqishi sizda boshqacha bo'lishi mumkin — muhimi
+        <b><code>vendor/</code> yo'qligi</b>. Tekshirish uchun:
+        <code>git check-ignore -v vendor/</code></p>
+      </li>
+
+      <li>
+        <p>Ishni saqlang</p>
+        <div class="cmd" data-cmd="git add -A
+git commit -m &quot;12-dars: namespace, autoload va Composer&quot;">git add -A
+git commit -m "12-dars: namespace, autoload va Composer"</div>
+        <p class="expect"><b>Kutilgan natija:</b> commit haqida xabar.</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><input type="checkbox" id="d12c1"><label for="d12c1"><code>composer.json</code> yozdim va PSR-4 qoidasini tushundim</label></li>
+      <li><input type="checkbox" id="d12c2"><label for="d12c2">Namespace'li klassni <code>src/</code> ga qo'ydim</label></li>
+      <li><input type="checkbox" id="d12c3"><label for="d12c3"><b><code>require</code> qilmasdan klass ishlatdim</b> 🎉</label></li>
+      <li><input type="checkbox" id="d12c4"><label for="d12c4">Haqiqiy paket o'rnatdim va uning funksiyasini ishlatdim</label></li>
+      <li><input type="checkbox" id="d12c5"><label for="d12c5"><code>namespace = papka</code>, <code>klass = fayl</code> qoidasini aytib beraman</label></li>
+      <li><input type="checkbox" id="d12c6"><label for="d12c6"><code>vendor/</code> Git'ga tushmasligini tasdiqladim</label></li>
+      <li><input type="checkbox" id="d12c7"><label for="d12c7">Ishni commit qildim</label></li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 5) TAXMIN + QUIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Uchta variant. <code>Xabar</code> klassi <code>App</code> namespace'ida.
+    Autoload ulangan. Qaysilari ishlaydi?</p>
+    <div class="codefile">
+      <div class="fname">A — use YO'Q, qisqa nom</div>
+      <code class="cmd" data-cmd="require 'vendor/autoload.php';
+$x = new Xabar(&quot;a&quot;, &quot;b&quot;);">require 'vendor/autoload.php';
+$x = new Xabar("a", "b");</code>
+    </div>
+    <div class="codefile">
+      <div class="fname">B — use YO'Q, to'liq nom</div>
+      <code class="cmd" data-cmd="require 'vendor/autoload.php';
+$x = new App\Xabar(&quot;a&quot;, &quot;b&quot;);">require 'vendor/autoload.php';
+$x = new App\Xabar("a", "b");</code>
+    </div>
+    <div class="codefile">
+      <div class="fname">C — use BOR, qisqa nom</div>
+      <code class="cmd" data-cmd="require 'vendor/autoload.php';
+use App\Xabar;
+$x = new Xabar(&quot;a&quot;, &quot;b&quot;);">require 'vendor/autoload.php';
+use App\Xabar;
+$x = new Xabar("a", "b");</code>
+    </div>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <p><b>A — ISHLAMAYDI:</b></p>
+        <div class="natija">PHP Fatal error:  Uncaught Error: Class "Xabar" not found</div>
+        <p><b>B va C — ikkalasi ishlaydi.</b></p>
+        <p><b>Sabab:</b> klassning <b>haqiqiy nomi</b> — <code>App\Xabar</code>.
+        <code>Xabar</code> degan klass umuman <b>mavjud emas</b>.</p>
+        <ul>
+          <li><b>A</b> da PHP <code>Xabar</code> ni <b>hozirgi</b> namespace'da (ya'ni
+          global'da) izlaydi va topmaydi.</li>
+          <li><b>B</b> da to'liq nom berilgan — to'g'ridan-to'g'ri topadi.</li>
+          <li><b>C</b> da <code>use</code> «<code>Xabar</code> deganda
+          <code>App\Xabar</code> ni tushun» deb aytib qo'ygan — shuning uchun qisqa nom
+          ishlaydi.</li>
+        </ul>
+        <p class="expect">Muhim tushuncha: <code>use</code> <b>hech narsa yuklamaydi</b> —
+        u faqat <b>nomni</b> hal qiladi. Yuklashni <b>autoload</b> qiladi. Shuning uchun
+        <code>use</code> yozib ham <code>composer dump-autoload</code> qilmasangiz, klass
+        topilmaydi. Ikkisi boshqa-boshqa ish.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span> <code>namespace App;</code> yozilgan
+    <code>Xabar</code> klassining haqiqiy nomi nima?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">App\Xabar — namespace nomga kiradi</button></li>
+      <li><button class="quiz-option">Xabar — namespace nomga kirmaydi</button></li>
+      <li><button class="quiz-option">src\Xabar — papka nomi qo'shiladi</button></li>
+    </ul>
+    <div class="quiz-explain">Namespace — <b>nomning old qismi</b>.
+    <code>var_dump</code> ham shuni ko'rsatadi: <code>object(App\Xabar)</code>. Shuning
+    uchun <code>App\Xabar</code> va <code>Boshqa\Xabar</code> to'qnashmaydi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span> PSR-4 qoidasi
+    <code>"App\\": "src/"</code> nimani bildiradi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">App bilan boshlanadigan klass src papkasida</button></li>
+      <li><button class="quiz-option">src papkasidagi hamma fayl avtomatik yuklanadi</button></li>
+      <li><button class="quiz-option">App nomli klass src faylida saqlanadi</button></li>
+    </ul>
+    <div class="quiz-explain">Namespace → papka, klass nomi → fayl nomi.
+    <code>App\Kanal\Email</code> → <code>src/Kanal/Email.php</code>. Fayllar
+    <b>hammasi emas</b>, faqat <b>kerak bo'lgani</b> yuklanadi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span> Qaysi fayl Git'ga
+    <b>tushmaydi</b>?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">vendor/ papkasi</button></li>
+      <li><button class="quiz-option">composer.json fayli</button></li>
+      <li><button class="quiz-option">composer.lock fayli</button></li>
+    </ul>
+    <div class="quiz-explain"><code>vendor/</code> — yuklab olingan kod,
+    <code>composer install</code> bilan qayta tiklanadi. <code>composer.json</code> (nima
+    kerak) va <code>composer.lock</code> (aynan qaysi versiya) esa <b>tushishi kerak</b>.</div>
+  </div>
+
+  <!-- ═══════════════ 6) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+    <p class="recall-intro">Avval o'zingiz javob bering, keyin ochib tekshiring.
+    Oxirgi ikkitasi — <a href="0011-exception.html">11-darsni</a> takrorlash.</p>
+
+    <details class="recall">
+      <summary><code>namespace</code> qanday muammoni yechadi?</summary>
+      <div class="answer"><p><b>Nom to'qnashuvini.</b> <code>App\Xabar</code> va
+      <code>Kutubxona\Xabar</code> — ikki boshqa klass. Namespace nomning old qismiga
+      aylanadi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary><code>use</code> va autoload — qaysi biri klassni yuklaydi?</summary>
+      <div class="answer"><p><b>Autoload</b> yuklaydi. <code>use</code> faqat <b>nomni</b>
+      hal qiladi («qisqa nom nimani bildiradi»). Ikkisi boshqa-boshqa ish — shuning uchun
+      <code>use</code> yozib, <code>dump-autoload</code> qilmasangiz klass topilmaydi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>PSR-4 qoidasi bir gapda nima?</summary>
+      <div class="answer"><p><b>Namespace = papka yo'li, klass nomi = fayl nomi.</b>
+      <code>App\Kanal\Email</code> → <code>src/Kanal/Email.php</code>.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: <code>catch (Exception)</code> <code>TypeError</code> ni tutadimi?</summary>
+      <div class="answer"><p><b>Yo'q</b> — <code>TypeError</code> bu <code>Error</code>
+      avlodi, <code>Exception</code> emas. Ular aka-uka. Hammasi uchun
+      <code>Throwable</code>.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: nega o'z exception klassini yozadilar?</summary>
+      <div class="answer"><p><b>Nom uchun</b> — aynan shu muammoni <code>catch</code> bilan
+      ajratib hal qilish va kodni o'qigan odamga tushunarli bo'lishi uchun. Tanasi bo'sh
+      bo'lsa ham yetadi.</p></div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 7) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Cho'ntak xulosasi</span>
+    <ul>
+      <li><code>namespace App;</code> — klass nomining <b>old qismi</b>. Haqiqiy nom:
+      <code>App\Xabar</code>. Faylning <b>birinchi</b> ko'rsatmasi (<code>declare</code>
+      dan keyin).</li>
+      <li><code>use App\Xabar;</code> — <b>import</b>: qisqa nom nimani bildirishini
+      aytadi. <b>Yuklamaydi.</b></li>
+      <li>⚠️ <code>use</code> klass <b>ichida</b> = trait · klass <b>tashqarisida</b> = import.</li>
+      <li><b>PSR-4:</b> <code>"App\\": "src/"</code> → namespace = papka, klass = fayl nomi.</li>
+      <li><code>composer dump-autoload</code> → <code>vendor/autoload.php</code> yasaydi.
+      Skriptda <b>bitta</b> <code>require</code> yetadi.</li>
+      <li><code>composer require paket/nomi</code> — begona kodni olib keladi.</li>
+      <li>Git'ga: <code>composer.json</code> ✅ · <code>composer.lock</code> ✅ ·
+      <code>vendor/</code> ❌. Tiklash: <code>composer install</code>.</li>
+      <li><code>dump()</code> — <code>symfony/var-dumper</code> dan; Laravel'dagi
+      <code>dd()</code> ning manbasi.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Kelasi darslar uchun urug'</span>
+    <p>Modul A ning oxirgi uchta darsi qoldi va ular <b>eng qimmatlisi</b>.
+    <b>13-darsda</b> HTTP'ni qo'lda ko'ramiz: forma, <code>$_POST</code>, session — ya'ni
+    brauzer bilan server qanday gaplashadi.</p>
+    <p>Keyin <b>14 va 15-darslarda</b> hammasi birlashadi: siz o'z qo'lingiz bilan
+    <b>mini-framework</b> yozasiz — bitta kirish nuqtasi, <code>router</code> va
+    <code>container</code>. Bugungi <code>namespace</code> + autoload esa uning
+    poydevori bo'ladi. Shundan keyin Laravel ochilganda «sehr» qolmaydi: har bir qismini
+    o'zingiz yozib ko'rgan bo'lasiz.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Composer rasmiy qo'llanmasi</b> — «Basic usage» va «Autoloading»:
+    <a href="https://getcomposer.org/doc/01-basic-usage.md">getcomposer.org/doc</a>.<sup><a href="#fn1">1</a></sup><br>
+    <b>PHP Fundamentals</b> (Laravel, bepul):
+    <a href="https://laravel.com/learn/php-fundamentals">laravel.com/learn/php-fundamentals</a>.<br>
+    Qo'llanma (ko'zgu): <a href="https://devdocs.io/php/language.namespaces">devdocs.io — Namespaces</a>.<sup><a href="#fn2">2</a></sup><br>
+    PSR-4 standarti: <a href="https://www.php-fig.org/psr/psr-4/">php-fig.org/psr/psr-4</a>.</p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b> «<code>composer update</code> va
+    <code>install</code> farqi nima?», «<code>^8.3</code> dagi <code>^</code> nimani
+    bildiradi?», «paket xavfsizmi, qanday tekshiraman?», «<code>use ... as</code> nima?» —
+    har qanday savol yaxshi. Ikkinchi savol ayniqsa muhim: versiya belgilari
+    (<code>^</code>, <code>~</code>) jamoada ishlaganda tez-tez muammo tug'diradi.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0011-exception.html">Oldingi: Exception</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Composer — <a href="https://getcomposer.org/doc/01-basic-usage.md">Basic
+      usage</a> va <a href="https://getcomposer.org/doc/04-schema.md#autoload">autoload
+      sxemasi</a>. Composer 2.9.5 da sinab ko'rilgan.</li>
+      <li id="fn2">PHP Manual — <i>Namespaces</i>, DevDocs ko'zgusi orqali:
+      <a href="https://devdocs.io/php/language.namespaces">devdocs.io/php/language.namespaces</a>.
+      Rasmiy <code>php.net</code> bu tarmoqdan ochilmaydi.</li>
+      <li id="fn3">Barcha buyruqlar va natijalar jonli sinab ko'rilgan: PHP <b>8.3.32</b>,
+      Composer <b>2.9.5</b>, <code>symfony/var-dumper</code> <b>v7.4.15</b>. Paket
+      versiyalari vaqt o'tishi bilan o'zgaradi — sizdagi raqamlar boshqacha bo'lsa,
+      bu normal.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

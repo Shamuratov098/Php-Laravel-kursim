@@ -1,0 +1,601 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 16 — Laravel o'rnatish va papka tuzilishi</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 16 · MODUL B — LARAVEL</p>
+  <h1>Laravel o'rnatish: IshTop tug'iladi</h1>
+  <p class="lead">Modul B boshlandi. Bugun <b>IshTop</b> loyihasini yaratamiz — bu kursning oxirigacha o'sib boradigan va oxirida portfoliongizga aylanadigan ilova. Va papkalarni ochib qarasangiz,
+  ko'p narsani <b>allaqachon tanigan</b> bo'lasiz.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 10 daqiqa</span>
+    <span>💻 Amaliyot ≈ 20 daqiqa</span>
+    <span>Kerak: <a href="0015-mini-framework-container.html">Dars 15</a></span>
+  </p>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Bu dars nima uchun oson bo'ladi</span>
+    <p>15 dars davomida poydevor qo'ydik va oxirida <b>mini-framework</b> yozdik. Bugun
+    Laravel ochilganda quyidagilarni ko'rasiz:</p>
+    <ul>
+      <li><code>public/index.php</code> — <b>front controller</b> (14-dars)</li>
+      <li><code>routes/web.php</code> — <b>route jadvali</b> (14-dars)</li>
+      <li><code>app/Http/Controllers/</code> — <b>controllerlar</b> (14-dars)</li>
+      <li><code>vendor/autoload.php</code> — <b>autoload</b> (12-dars)</li>
+      <li>Konstruktorga yozilgan tiplar — <b>container va DI</b> (15-dars)</li>
+    </ul>
+    <p>Ya'ni Laravel — <b>siz yozgan narsaning professional, to'liq versiyasi</b>. Bugungi
+    maqsad: ilovani ishga tushirish va <b>har papkaning nima uchun borligini</b> bilish.</p>
+  </div>
+
+  <!-- ═══════════════ 2) TUSHUNCHA ═══════════════ -->
+  <h2>O'rnatish: bitta buyruq</h2>
+
+  <div class="codefile">
+    <div class="fname">terminal</div>
+    <code class="cmd" data-cmd="composer create-project laravel/laravel ishtop">composer create-project laravel/laravel ishtop</code>
+  </div>
+
+  <p>12-darsda ko'rgan <b>Composer</b> — mana uning eng katta ishi. Bu buyruq ~1 daqiqada
+  quyidagilarni <b>o'zi</b> qiladi:</p>
+
+  <ol>
+    <li><b>79 ta paketni</b> yuklab oladi (<code>vendor/</code> ga) — Laravel'ning o'zi va
+    uning bog'liqliklari</li>
+    <li><code>.env</code> faylini yaratadi va <b>ilova kalitini</b> generatsiya qiladi
+    (<code>APP_KEY</code> — shifrlash uchun)</li>
+    <li><code>database/database.sqlite</code> faylini <b>yaratadi</b></li>
+    <li><b>Migration'larni ishga tushiradi</b> — bazada <code>users</code>,
+    <code>cache</code>, <code>jobs</code> jadvallari paydo bo'ladi</li>
+  </ol>
+
+  <div class="callout tip">
+    <span class="label">Nega SQLite — va nega bu yaxshi xabar</span>
+    <p>Laravel 11 dan boshlab standart baza — <b>SQLite</b>. Ya'ni server o'rnatish, parol,
+    port, foydalanuvchi yaratish — <b>hech narsa kerak emas</b>. Baza shunchaki
+    <b>bitta fayl</b>: <code>database/database.sqlite</code>.</p>
+    <p>Bu bizning rejaga aynan mos: C modulida Eloquent'ni o'rganganda diqqat
+    <b>ma'lumotda</b> bo'ladi, baza sozlashda emas. MySQL'ga <b>Modul H da</b> ko'chamiz —
+    va o'sha ko'chishning o'zi alohida dars bo'ladi.</p>
+  </div>
+
+  <h2>Papka tuzilishi — va siz yozgan narsa bilan solishtirish</h2>
+
+  <table class="sheet">
+    <tr><th>Laravel</th><th>Sizning mini-framework'ingiz</th><th class="note-cell">Nima</th></tr>
+    <tr><td><code>public/index.php</code></td><td><code>public/index.php</code></td><td class="note-cell"><b>Front controller</b> — yagona kirish va yagona ochiq papka</td></tr>
+    <tr><td><code>routes/web.php</code></td><td><code>$router-&gt;add(...)</code></td><td class="note-cell">Route jadvali — endi alohida faylda</td></tr>
+    <tr><td><code>app/Http/Controllers/</code></td><td><code>src/Controllers/</code></td><td class="note-cell">Controllerlar</td></tr>
+    <tr><td><code>vendor/</code></td><td><code>vendor/</code></td><td class="note-cell">Composer paketlari (Git'ga tushmaydi)</td></tr>
+    <tr><td><code>bootstrap/app.php</code></td><td><code>new Container()</code> + <code>bind()</code></td><td class="note-cell">Ilovani yasash va sozlash — <b>17-darsda</b></td></tr>
+    <tr><td><code>app/Models/</code></td><td>—</td><td class="note-cell">Eloquent modellari (C modulida)</td></tr>
+    <tr><td><code>config/</code></td><td>—</td><td class="note-cell">Sozlama fayllari (baza, kesh, mail...)</td></tr>
+    <tr><td><code>database/</code></td><td>—</td><td class="note-cell">Migration, seeder va <code>database.sqlite</code></td></tr>
+    <tr><td><code>resources/views/</code></td><td>—</td><td class="note-cell">Blade shablonlari (18-darsda)</td></tr>
+    <tr><td><code>storage/</code></td><td>—</td><td class="note-cell">Loglar, kesh, yuklangan fayllar</td></tr>
+    <tr><td><code>tests/</code></td><td>—</td><td class="note-cell">Testlar (Modul E)</td></tr>
+    <tr><td><code>.env</code></td><td>—</td><td class="note-cell">Maxfiy sozlamalar. <b>Git'ga tushmaydi!</b></td></tr>
+  </table>
+
+  <p>Chapdagi ustunning yarmi sizga tanish. Qolgan yarmi — Laravel qo'shadigan qismlar, va
+  ularni modul-modul o'rganamiz.</p>
+
+  <div class="callout warning">
+    <span class="label"><code>.env</code> — Git'ga hech qachon tushmasin</span>
+    <p>Bu faylda baza paroli, API kalitlari va <code>APP_KEY</code> bo'ladi. Laravel uni
+    <code>.gitignore</code> ga <b>o'zi</b> qo'shib qo'yadi — tekshirib ko'rasiz.
+    Uning o'rniga <code>.env.example</code> repoda turadi: «qanday kalitlar kerak»
+    ro'yxati, qiymatlarsiz.</p>
+  </div>
+
+  <h2><code>artisan</code> — Laravel'ning buyruq qatori</h2>
+
+  <table class="sheet">
+    <tr><th>Buyruq</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>php artisan serve</code></td><td class="note-cell">Serverni ko'taradi. 14-darsdagi <code>php -S ... public/index.php</code> ning Laravel varianti</td></tr>
+    <tr><td><code>php artisan route:list</code></td><td class="note-cell"><b>Barcha route'larni ko'rsatadi</b> — sizning <code>$routes</code> massivining ko'rinadigan shakli</td></tr>
+    <tr><td><code>php artisan make:controller Nom</code></td><td class="note-cell">Controller faylini yaratadi (qo'lda yozish kerak emas)</td></tr>
+    <tr><td><code>php artisan tinker</code></td><td class="note-cell">Interaktiv PHP — ilova ichida kod sinash</td></tr>
+    <tr><td><code>php artisan migrate</code></td><td class="note-cell">Migration'larni ishga tushiradi (C modulida)</td></tr>
+    <tr><td><code>php artisan list</code></td><td class="note-cell">Barcha buyruqlar ro'yxati</td></tr>
+  </table>
+
+  <h2>Route yozishning ikki shakli</h2>
+
+  <p>Laravel o'rnatilganda <code>routes/web.php</code> shunday bo'ladi:</p>
+
+  <div class="codefile">
+    <div class="fname">routes/web.php — standart holat</div>
+    <code class="cmd" data-cmd="Route::get('/', function () {
+    return view('welcome');
+});">Route::get('/', <span class="add">function () {
+    return view('welcome');
+}</span>);</code>
+  </div>
+
+  <p>Ajratilgan qism — <b>nomsiz funksiya</b> (<code>closure</code> yoki
+  <code>anonim funksiya</code>). 6-darsda funksiyalarni o'rgandik, lekin ularga har doim
+  <b>nom</b> berdik. Bu esa nomsiz: <b>funksiya darhol, joyida beriladi</b>.</p>
+
+  <p>Ma'nosi: «<code>/</code> so'ralganda mana shu kodni bajar». Kichik sahifalar uchun
+  qulay. Lekin loyiha o'sganda <code>routes/web.php</code> uzun bo'lib ketadi, shuning
+  uchun ikkinchi shakl bor — <b>controller</b>:</p>
+
+  <div class="codefile">
+    <div class="fname">routes/web.php — controller bilan</div>
+    <code class="cmd" data-cmd="Route::get('/vakansiyalar', [VakansiyaController::class, 'index']);">Route::get('/vakansiyalar', [VakansiyaController::class, 'index']);</code>
+  </div>
+
+  <p>Bu sizning <code>$router-&gt;add('GET', '/vakansiyalar', Vakansiyalar::class)</code>
+  qatoringizning aynan o'zi — faqat bitta qo'shimcha bilan: <b>metod nomi</b> ham
+  beriladi (<code>'index'</code>). Shuning uchun bitta controllerda bir nechta sahifa
+  bo'lishi mumkin — sizda esa har controllerda faqat bitta <code>handle()</code> bor edi.</p>
+
+  <div class="callout note">
+    <span class="label">Qaysi shaklni ishlatish</span>
+    <p>Bu kursda <b>controller</b> shaklini ishlatamiz — chunki real loyihada shunday
+    yoziladi va u testlash uchun ham qulay. Closure'li shakl esa juda kichik sahifalar
+    yoki tez sinov uchun qoladi.</p>
+  </div>
+
+  <!-- ═══════════════ 4) AMALIYOT / MODE-HINT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    <span class="mode-hint-title">💻 Amaliy qism kompyuterda</span>
+    <p>Amaliyotda <b>IshTop</b> loyihasini yaratasiz (bir buyruq, ~1 daqiqa), papkalarni
+    ochib ko'rasiz, <code>.env</code> ni tekshirasiz, serverni ko'tarib brauzerda
+    Laravel'ning kutib olish sahifasini ko'rasiz. Keyin <b>birinchi controller va
+    route'ingizni</b> yozib, <code>route:list</code> da paydo bo'lganini tasdiqlaysiz.</p>
+    <button type="button" class="modebtn" data-set-mode="do">💻 Amaliyot rejimini ko'rish</button>
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <p>IshTop loyihasini yarating</p>
+        <p class="why-step">Loyiha <code>Learn/</code> papkasida, kurs sayti va
+        <code>php-poydevor</code> yonida turadi — rejada shunday belgilangan.</p>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn
+composer create-project laravel/laravel ishtop">cd ~/Projects/Learn
+composer create-project laravel/laravel ishtop
+<span class="out">Creating a "laravel/laravel" project at "./ishtop"</span>
+<span class="out">...</span>
+<span class="out"> INFO  Application key set successfully.</span>
+<span class="out"> INFO  Preparing database.</span>
+<span class="out">  Creating migration table .. DONE</span>
+<span class="out"> INFO  Running migrations.</span>
+<span class="out">  0001_01_01_000000_create_users_table .. DONE</span>
+<span class="out">  0001_01_01_000001_create_cache_table .. DONE</span>
+<span class="out">  0001_01_01_000002_create_jobs_table .. DONE</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> ~1 daqiqa kutiladi, oxirida migration'lar
+        bajarilgani ko'rinadi. Diqqat: <b>siz hech narsa sozlamadingiz</b> — baza fayli
+        yaratildi va jadvallar tushdi.
+        <br>Agar tarmoq sekin bo'lsa uzoqroq davom etadi — bu normal.</p>
+      </li>
+
+      <li>
+        <p>Versiyani va tuzilmani ko'ring</p>
+        <div class="cmd" data-cmd="cd ishtop
+php artisan --version
+ls">cd ishtop
+php artisan --version
+ls
+<span class="out">Laravel Framework 13.25.0</span>
+<span class="out">app  artisan  bootstrap  composer.json  composer.lock  config  database</span>
+<span class="out">package.json  phpunit.xml  public  README.md  resources  routes  storage</span>
+<span class="out">tests  vendor  vite.config.js</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> versiya raqami (sizda kattaroq bo'lishi
+        mumkin — Laravel tez-tez yangilanadi) va papkalar ro'yxati.</p>
+      </li>
+
+      <li>
+        <p>Tanish fayllarni oching</p>
+        <p class="why-step">Bu darsning eng qiziq daqiqasi: siz yozgan narsani Laravel'da
+        ko'rish.</p>
+        <div class="cmd" data-cmd="head -3 public/index.php
+echo '---'
+cat routes/web.php
+echo '---'
+ls app/Http/Controllers/">head -3 public/index.php
+echo '---'
+cat routes/web.php
+echo '---'
+ls app/Http/Controllers/
+<span class="out">&lt;?php</span>
+<span class="out"></span>
+<span class="out">use Illuminate\Foundation\Application;</span>
+<span class="out">---</span>
+<span class="out">&lt;?php</span>
+<span class="out">use Illuminate\Support\Facades\Route;</span>
+<span class="out">Route::get('/', function () {</span>
+<span class="out">    return view('welcome');</span>
+<span class="out">});</span>
+<span class="out">---</span>
+<span class="out">Controller.php</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> <code>public/index.php</code>,
+        <code>routes/web.php</code> va <code>app/Http/Controllers/</code> — uchtasi ham
+        14-darsda o'zingiz yasagan narsalar. 17-darsda <code>index.php</code> ni
+        <b>to'liq</b> o'qib chiqamiz.</p>
+      </li>
+
+      <li>
+        <p><code>.env</code> ni tekshiring</p>
+        <div class="cmd" data-cmd="grep -E 'APP_NAME|APP_KEY|DB_CONNECTION|SESSION_DRIVER' .env
+echo '--- .env Git'\''ga tushadimi? ---'
+git check-ignore -v .env">grep -E 'APP_NAME|APP_KEY|DB_CONNECTION|SESSION_DRIVER' .env
+echo '--- .env Git'ga tushadimi? ---'
+git check-ignore -v .env
+<span class="out">APP_NAME=Laravel</span>
+<span class="out">APP_KEY=base64:...</span>
+<span class="out">DB_CONNECTION=sqlite</span>
+<span class="out">SESSION_DRIVER=database</span>
+<span class="out">.gitignore:3:.env</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> <code>APP_KEY</code> to'ldirilgan
+        (o'rnatishda generatsiya qilingan), baza — <code>sqlite</code>. Va oxirgi qator
+        muhim: <code>.env</code> <b>allaqachon</b> <code>.gitignore</code> da — Laravel
+        buni o'zi qilgan.
+        <br><code>APP_NAME</code> ni <code>IshTop</code> ga o'zgartirib qo'yishingiz mumkin.</p>
+      </li>
+
+      <li>
+        <p>Serverni ko'taring</p>
+        <div class="cmd" data-cmd="php artisan serve">php artisan serve
+<span class="out"> INFO  Server running on [http://127.0.0.1:8000].</span>
+<span class="out"> Press Ctrl+C to stop the server</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> brauzerda
+        <code>http://localhost:8000</code> ni ochsangiz — Laravel'ning kutib olish
+        sahifasi. 🎉 Ilova ishlayapti.
+        <br>Terminal band bo'ladi — <b>yangi oyna</b> oching.</p>
+      </li>
+
+      <li>
+        <p>Route'larni ko'ring</p>
+        <p class="why-step">Bu sizning <code>$routes</code> massivingizning ko'rinadigan
+        shakli.</p>
+        <div class="cmd" data-cmd="php artisan route:list">php artisan route:list
+<span class="out"> GET|HEAD  / .. routes/web.php:5</span>
+<span class="out"> GET|HEAD  storage/{path} storage.local › ...</span>
+<span class="out"> GET|HEAD  up ...</span>
+<span class="out"> Showing [4] routes</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> to'rtta route. Diqqat:
+        <code>GET|HEAD</code> — Laravel <code>HEAD</code> ni ham o'zi qo'shadi (sizning
+        router'ingizda bu yo'q edi). <code>up</code> — «ilova tirikmi?» tekshiruvi uchun
+        maxsus route.
+        <br>Sinab ko'ring: <code>curl -s -o /dev/null -w '%{http_code}\n' http://localhost:8000/up</code></p>
+      </li>
+
+      <li>
+        <p>Birinchi controller'ingizni yarating</p>
+        <p class="why-step">Qo'lda yozish kerak emas — <code>artisan</code> shablonni
+        o'zi beradi.</p>
+        <div class="cmd" data-cmd="php artisan make:controller VakansiyaController">php artisan make:controller VakansiyaController
+<span class="out"> INFO  Controller [app/Http/Controllers/VakansiyaController.php] created successfully.</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> fayl yaratilgani haqida xabar.
+        <code>cat app/Http/Controllers/VakansiyaController.php</code> bilan ochib
+        ko'ring — ichi hozircha bo'sh.</p>
+      </li>
+
+      <li>
+        <p>Controller'ga metod yozing</p>
+        <div class="cmd" data-cmd="cat &gt; app/Http/Controllers/VakansiyaController.php &lt;&lt;'EOF'
+&lt;?php
+
+namespace App\Http\Controllers;
+
+class VakansiyaController extends Controller
+{
+    public function index(): string
+    {
+        return '&lt;h1&gt;Vakansiyalar&lt;/h1&gt;&lt;p&gt;IshTop — birinchi sahifam&lt;/p&gt;';
+    }
+}
+EOF">cat &gt; app/Http/Controllers/VakansiyaController.php &lt;&lt;'EOF'
+&lt;?php
+
+namespace App\Http\Controllers;
+
+class VakansiyaController extends Controller
+{
+    public function index(): string
+    {
+        return '&lt;h1&gt;Vakansiyalar&lt;/h1&gt;&lt;p&gt;IshTop — birinchi sahifam&lt;/p&gt;';
+    }
+}
+EOF</div>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik. Diqqat qiling:
+        <code>namespace App\Http\Controllers</code> — 12-darsdagi PSR-4 qoidasi
+        (<code>App\</code> → <code>app/</code>). Va <code>extends Controller</code> —
+        9-darsdagi meros.</p>
+      </li>
+
+      <li>
+        <p>Route'ni ulang</p>
+        <div class="cmd" data-cmd="cat &gt; routes/web.php &lt;&lt;'EOF'
+&lt;?php
+
+use App\Http\Controllers\VakansiyaController;
+use Illuminate\Support\Facades\Route;
+
+Route::get('/', function () {
+    return view('welcome');
+});
+
+Route::get('/vakansiyalar', [VakansiyaController::class, 'index']);
+EOF
+curl -s http://localhost:8000/vakansiyalar; echo">cat &gt; routes/web.php &lt;&lt;'EOF'
+&lt;?php
+
+use App\Http\Controllers\VakansiyaController;
+use Illuminate\Support\Facades\Route;
+
+Route::get('/', function () {
+    return view('welcome');
+});
+
+Route::get('/vakansiyalar', [VakansiyaController::class, 'index']);
+EOF
+curl -s http://localhost:8000/vakansiyalar; echo
+<span class="out">&lt;h1&gt;Vakansiyalar&lt;/h1&gt;&lt;p&gt;IshTop — birinchi sahifam&lt;/p&gt;</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> sahifa ishlaydi. 🎉 Va e'tibor bering —
+        <b>serverni qayta ishga tushirmadik</b>. Laravel har so'rovda fayllarni qaytadan
+        o'qiydi (1-darsdagi «interpretator» xususiyati).</p>
+      </li>
+
+      <li>
+        <p>Yangi route ro'yxatda paydo bo'lganini tekshiring</p>
+        <div class="cmd" data-cmd="php artisan route:list --path=vakansiyalar">php artisan route:list --path=vakansiyalar
+<span class="out"> GET|HEAD  vakansiyalar .. VakansiyaController@index</span>
+<span class="out"> Showing [1] routes</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> <code>VakansiyaController@index</code> —
+        ya'ni «bu route shu controllerning shu metodiga boradi».
+        <code>--path=</code> — faqat mos route'larni ko'rsatadi.</p>
+      </li>
+
+      <li>
+        <p><code>tinker</code> ni sinab ko'ring</p>
+        <p class="why-step">Bu ilova ichida kod sinash uchun — C modulida bazani
+        tekshirishda juda ko'p ishlatiladi.</p>
+        <div class="cmd" data-cmd="php artisan tinker">php artisan tinker
+<span class="out">Psy Shell ... (PHP 8.3.32 — cli)</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> interaktiv rejim ochiladi. Sinab ko'ring:
+        <code>2 + 2</code> → <code>= 4</code>. Chiqish uchun <code>exit</code>.
+        <br>Bu oddiy PHP emas — <b>ilovangiz yuklangan holda</b> ishlaydi, shuning uchun
+        keyinchalik <code>User::count()</code> kabi narsalarni ham shu yerda sinaymiz.</p>
+      </li>
+
+      <li>
+        <p>Git repo yarating va saqlang</p>
+        <p class="why-step">IshTop — <b>alohida repo</b>, chunki u portfolio ishingiz
+        bo'ladi (rejada shunday belgilangan).</p>
+        <div class="cmd" data-cmd="git init -b main
+git add -A
+git commit -m &quot;IshTop: Laravel 13 loyihasi yaratildi&quot;">git init -b main
+git add -A
+git commit -m "IshTop: Laravel 13 loyihasi yaratildi"</div>
+        <p class="expect"><b>Kutilgan natija:</b> commit yaratildi. Diqqat:
+        <code>git status</code> qilsangiz <code>vendor/</code> va <code>.env</code>
+        ro'yxatda <b>yo'q</b> — Laravel <code>.gitignore</code> ni to'g'ri sozlab qo'ygan
+        (12-darsdagi qoida).</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><input type="checkbox" id="d16c1"><label for="d16c1">IshTop loyihasi yaratildi va <code>artisan --version</code> ishlaydi</label></li>
+      <li><input type="checkbox" id="d16c2"><label for="d16c2"><b>Brauzerda Laravel sahifasini ko'rdim</b> 🎉</label></li>
+      <li><input type="checkbox" id="d16c3"><label for="d16c3"><code>public/index.php</code>, <code>routes/web.php</code> — tanish fayllarni topdim</label></li>
+      <li><input type="checkbox" id="d16c4"><label for="d16c4"><code>.env</code> Git'ga tushmasligini tasdiqladim</label></li>
+      <li><input type="checkbox" id="d16c5"><label for="d16c5"><b>Birinchi controller va route'imni yozdim</b> 🎉</label></li>
+      <li><input type="checkbox" id="d16c6"><label for="d16c6"><code>route:list</code> da yangi route'ni ko'rdim</label></li>
+      <li><input type="checkbox" id="d16c7"><label for="d16c7"><code>tinker</code> ni sinab ko'rdim</label></li>
+      <li><input type="checkbox" id="d16c8"><label for="d16c8">IshTop repo'sida birinchi commit qildim</label></li>
+    </ul>
+
+    <div class="callout tip">
+      <span class="label">Bundan keyin ikki papka bilan ishlaymiz</span>
+      <p><code>~/Projects/Learn/php-poydevor/</code> — Modul A mashqlari (tugadi, lekin
+      saqlanadi: G modulida unga qaytamiz).<br>
+      <code>~/Projects/Learn/ishtop/</code> — <b>bundan keyingi barcha amaliyot shu yerda</b>.</p>
+    </div>
+  </div>
+
+  <!-- ═══════════════ 5) TAXMIN + QUIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p><code>routes/web.php</code> ga yangi route qo'shdingiz, lekin <b>serverni qayta
+    ishga tushirmadingiz</b>. Va <code>route:list</code> ni ham ishlatmadingiz.
+    Sahifa ishlaydimi?</p>
+    <div class="codefile">
+      <div class="fname">routes/web.php ga qo'shildi</div>
+      <code class="cmd" data-cmd="Route::get('/kompaniyalar', [KompaniyaController::class, 'index']);">Route::get('/kompaniyalar', [KompaniyaController::class, 'index']);</code>
+    </div>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <p><b>Ha, darhol ishlaydi</b> — server qayta ishga tushirilmasa ham.</p>
+        <p><b>Sabab:</b> 1-darsdagi fakt — PHP <b>interpretator</b>. Har so'rovda fayllar
+        <b>qaytadan o'qiladi</b>, ya'ni oxirgi holati ishlatiladi. Kompilyatsiya qilinadigan
+        tillarda (Java, Go) esa qayta qurish va qayta ishga tushirish kerak bo'lardi.</p>
+        <p><code>route:list</code> ham hech narsani «yoqmaydi» — u shunchaki
+        <b>ko'rsatadi</b>. Ya'ni tekshirish uchun asbob, sozlash uchun emas.</p>
+        <p class="expect">⚠️ <b>Bitta muhim istisno bor:</b> agar
+        <code>php artisan route:cache</code> ishlatilgan bo'lsa (ishlab chiqarish serverida
+        tezlik uchun), route'lar <b>keshlanadi</b> va yangi route ko'rinmaydi — kesh
+        tozalanmaguncha (<code>route:clear</code>). Ish joyida bu klassik chalkashlik:
+        «kodni o'zgartirdim, lekin hech narsa o'zgarmadi». Kesh haqida Modul G da (config va kesh darsi) gaplashamiz.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span> Laravel'da standart baza qaysi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">SQLite — bitta fayl, sozlash yo'q</button></li>
+      <li><button class="quiz-option">MySQL — server va parol kerak</button></li>
+      <li><button class="quiz-option">PostgreSQL — server va parol kerak</button></li>
+    </ul>
+    <div class="quiz-explain">Laravel 11 dan boshlab standart — <b>SQLite</b>, va
+    <code>create-project</code> uni <b>o'zi yaratib migration'larni ham bajaradi</b>.
+    MySQL'ga Modul H da ko'chamiz.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span> <code>routes/web.php</code> sizning
+    mini-framework'ingizdagi nimaga to'g'ri keladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Router'ning add metodi chaqiruvlariga</button></li>
+      <li><button class="quiz-option">Container'ning bind metodi qatoriga</button></li>
+      <li><button class="quiz-option">Controller interface'ining ichki shartnomasiga</button></li>
+    </ul>
+    <div class="quiz-explain"><code>Route::get('/x', [C::class, 'index'])</code> —
+    bu <code>$router-&gt;add('GET', '/x', C::class)</code> ning aynan o'zi, faqat metod nomi
+    ham beriladi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span> <code>.env</code> fayli nima uchun
+    Git'ga tushmaydi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Ichida parol va kalitlar bor</button></li>
+      <li><button class="quiz-option">U juda katta hajmni egallaydi</button></li>
+      <li><button class="quiz-option">Laravel uni o'zi qayta yaratadi</button></li>
+    </ul>
+    <div class="quiz-explain">Baza paroli, API kalitlari, <code>APP_KEY</code> — bular
+    maxfiy. Repoda uning o'rniga <code>.env.example</code> turadi: kalitlar ro'yxati,
+    qiymatlarsiz.</div>
+  </div>
+
+  <!-- ═══════════════ 6) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+    <p class="recall-intro">Avval o'zingiz javob bering, keyin ochib tekshiring.
+    Oxirgi ikkitasi — <a href="0015-mini-framework-container.html">15-darsni</a> takrorlash.</p>
+
+    <details class="recall">
+      <summary><code>composer create-project</code> to'rtta nima qiladi?</summary>
+      <div class="answer"><p>1) Paketlarni yuklaydi (<code>vendor/</code>).
+      2) <code>.env</code> va <code>APP_KEY</code> yaratadi.
+      3) <code>database/database.sqlite</code> faylini yaratadi.
+      4) Migration'larni ishga tushiradi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Closure (nomsiz funksiya) nima?</summary>
+      <div class="answer"><p>Nom berilmagan funksiya — <b>joyida, darhol</b> beriladi:
+      <code>Route::get('/', function () { ... })</code>. Kichik sahifalar uchun qulay;
+      real loyihada <b>controller</b> ishlatiladi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Laravel'dagi qaysi uch narsa sizga 14-darsdan tanish?</summary>
+      <div class="answer"><p><code>public/index.php</code> (front controller),
+      <code>routes/web.php</code> (route jadvali),
+      <code>app/Http/Controllers/</code> (controllerlar).</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: container nima qiladi?</summary>
+      <div class="answer"><p>Obyekt yasaydi va <b>kerakli bog'liqliklarni o'zi topib
+      qo'yadi</b> — konstruktor tiplarini <b>Reflection</b> bilan o'qib. Bu
+      <b>autowiring</b>.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: nega faqat <code>public/</code> brauzerga ochiq?</summary>
+      <div class="answer"><p>Xavfsizlik: <code>.env</code>, <code>vendor/</code>,
+      <code>app/</code> — brauzer uchun <b>mavjud emas</b>. Laravel ham xuddi shu
+      tuzilmani ishlatadi.</p></div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 7) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Cho'ntak xulosasi</span>
+    <ul>
+      <li><code>composer create-project laravel/laravel ishtop</code> — bitta buyruq:
+      paketlar + <code>APP_KEY</code> + SQLite fayli + migration'lar.</li>
+      <li>Standart baza — <b>SQLite</b>, bitta fayl:
+      <code>database/database.sqlite</code>. Sozlash kerak emas.</li>
+      <li>Tanish papkalar: <code>public/index.php</code> · <code>routes/web.php</code> ·
+      <code>app/Http/Controllers/</code> · <code>vendor/</code>.</li>
+      <li>Yangi papkalar: <code>app/Models</code> · <code>config</code> ·
+      <code>database</code> · <code>resources/views</code> · <code>storage</code> ·
+      <code>tests</code>.</li>
+      <li>⚠️ <code>.env</code> — <b>Git'ga tushmaydi</b> (parollar). Repoda
+      <code>.env.example</code>.</li>
+      <li><code>artisan</code>: <code>serve</code> · <code>route:list</code> ·
+      <code>make:controller</code> · <code>tinker</code> · <code>migrate</code>.</li>
+      <li>Route ikki shakli: <b>closure</b> (kichik) va <b>controller</b> (real loyiha —
+      biz shuni ishlatamiz).</li>
+      <li>Kod o'zgarsa server qayta ishga tushirilmaydi — PHP har so'rovda faylni qayta
+      o'qiydi.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars — eng katta bog'lanish</span>
+    <p>Bugun <code>public/index.php</code> ning faqat birinchi qatorlariga qaradik.
+    <b>17-darsda</b> uni <b>to'liq</b> o'qiymiz — va uning yonida <b>o'zingizning</b>
+    <code>public/index.php</code> faylini qo'yamiz. Ular <b>qator-baqator</b> mos keladi:</p>
+    <div class="natija">sizda:    require 'vendor/autoload.php';   →  Laravel: require ... vendor/autoload.php
+sizda:    new Container(); bind(...)         →  Laravel: bootstrap/app.php
+sizda:    $router-&gt;dispatch($metod, $yol)    →  Laravel: $app-&gt;handleRequest(...)</div>
+    <p>Bundan tashqari bitta <b>yangi</b> tushuncha keladi — <b>middleware</b>. Uni jonli
+    ko'rasiz: log yozadigan middleware yasab, u controllerdan <b>oldin ham, keyin ham</b>
+    ishlashini o'z ko'zingiz bilan tasdiqlaysiz.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel — Installation</b> va <b>Directory Structure</b>:
+    <a href="https://laravel.com/docs/13.x/installation">laravel.com/docs/13.x/installation</a> ·
+    <a href="https://laravel.com/docs/13.x/structure">structure</a>.<sup><a href="#fn1">1</a></sup><br>
+    <b>Getting Started with Laravel</b> — rasmiy <b>bepul video kurs</b> (13 dars, 120 daqiqa):
+    <a href="https://laravel.com/learn/getting-started-with-laravel">laravel.com/learn/getting-started-with-laravel</a>.<sup><a href="#fn2">2</a></sup>
+    Modul B uchun eng yaxshi video hamroh.</p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>O'rnatishda muammo bo'lsa — xato xabarini menga to'liq yuboring.</b>
+    «<code>npm install</code> kerakmi?», «<code>APP_KEY</code> nima uchun?»,
+    «<code>storage/</code> ga ruxsat xatosi chiqdi», «<code>composer run dev</code> nima
+    qiladi?» — har qanday savol yaxshi. Birinchi savolga qisqa javob: hozircha
+    <b>kerak emas</b> — u CSS/JS to'plash uchun, biz 18-darsda Blade'ga o'tganda
+    gaplashamiz.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0015-mini-framework-container.html">Oldingi: Container va DI</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel 13 — <a href="https://laravel.com/docs/13.x/installation">Installation</a>
+      va <a href="https://laravel.com/docs/13.x/structure">Directory Structure</a>.</li>
+      <li id="fn2">Laravel — <a href="https://laravel.com/learn/getting-started-with-laravel">Getting
+      Started with Laravel</a> (rasmiy bepul mini-kurs, 13 dars / 120 daqiqa).</li>
+      <li id="fn3">Barcha buyruqlar va chiqishlar jonli sinab ko'rilgan: <b>Laravel
+      Framework 13.25.0</b>, PHP <b>8.3.32</b>, Composer <b>2.9.5</b>. O'rnatish ~70 soniya
+      davom etdi va 79 paket yuklandi. Laravel tez yangilanadi — sizdagi versiya raqami
+      kattaroq bo'lsa, bu normal.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

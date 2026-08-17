@@ -1,0 +1,916 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 15 — Mini-framework 2: container va DI</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 15 · MODUL A — POYDEVOR · YAKUNIY DARS</p>
+  <h1>Mini-framework 2: <code>container</code> va dependency injection</h1>
+  <p class="lead">Modul A ning cho'qqisi. Bugun obyektlarni <b>o'zi yasaydigan</b> va
+  kerakli bog'liqliklarni <b>o'zi topib qo'yadigan</b> container yozasiz. Bu Laravel'ning
+  eng markaziy mexanizmi — undan keyin Laravel'da controller konstruktoriga yozilgan har
+  bir parametr sizga tushunarli bo'ladi.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 12 daqiqa</span>
+    <span>💻 Amaliyot ≈ 18 daqiqa</span>
+    <span>Kerak: <a href="0014-mini-framework-router.html">Dars 14</a></span>
+  </p>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Nega bu muhim</span>
+    <p>14-darsdagi router shunday qildi:</p>
+    <div class="natija">$controller = new $klass();   // hech qanday argument yo'q</div>
+    <p>Demak controller <b>hech narsa qabul qila olmaydi</b>. Lekin real controller'ga
+    ma'lumot kerak — vakansiyalar ro'yxati bazadan, xabar yuboruvchi, sozlamalar.</p>
+    <p>Birinchi xayolga keladigan yechim — controller ularni <b>o'zi yasasin</b>:</p>
+    <div class="natija">class Vakansiyalar implements Controller
+{
+    public function handle(): string
+    {
+        $repo = new MySqlRepo();   // ← muammo shu yerda
+        ...
+    }
+}</div>
+    <p>Bu <b>qattiq bog'lanish</b>: controller aynan <code>MySqlRepo</code> ga bog'lanib
+    qoldi. Testda soxta ma'lumot berish mumkin emas, bazani almashtirish uchun
+    controllerni tahrirlash kerak — ya'ni 10-darsda aytgan muammo qaytdi.</p>
+    <p><b>Yechim:</b> controller <b>nima kerakligini aytadi</b>, yasashni esa boshqa narsa
+    qiladi. O'sha boshqa narsa — <b>container</b>.</p>
+  </div>
+
+  <!-- ═══════════════ 2) TUSHUNCHA ═══════════════ -->
+  <h2>1-qadam: controller nima kerakligini <b>e'lon qiladi</b></h2>
+
+  <div class="codefile">
+    <div class="fname">src/Controllers/Vakansiyalar.php</div>
+    <code class="cmd" data-cmd="class Vakansiyalar implements Controller
+{
+    public function __construct(private VakansiyaRepo $repo) {}
+
+    public function handle(): string
+    {
+        foreach ($this-&gt;repo-&gt;hammasi() as $nom) { ... }
+    }
+}">class Vakansiyalar implements Controller
+{
+    public function __construct(<span class="add">private VakansiyaRepo $repo</span>) {}
+
+    public function handle(): string
+    {
+        foreach ($this-&gt;repo-&gt;hammasi() as $nom) { ... }
+    }
+}</code>
+  </div>
+
+  <p>Bu <b>dependency injection</b> (bog'liqlikni tashqaridan berish). Diqqat qiling —
+  tip <b>interface</b> (<code>VakansiyaRepo</code>), aniq klass emas. Controller
+  «menga <b>hammasi()</b> ni biladigan narsa kerak» deydi, «menga aynan MySQL kerak»
+  demaydi. 10-darsdagi g'oya — <b>shartnomaga tayanish</b>.</p>
+
+  <p>Foydasi darhol ko'rinadi: testda soxta <code>VakansiyaRepo</code> berasiz,
+  ishlab chiqarishda haqiqiysini — controller <b>farqini bilmaydi</b>.</p>
+
+  <p>Lekin savol paydo bo'ldi: <b>kim uni yasaydi?</b> Router'da
+  <code>new $klass()</code> bor, u argument bermaydi. Va agar bersa ham — router qayerdan
+  bilsin qaysi controllerga nima kerakligini?</p>
+
+  <h2>2-qadam: container</h2>
+
+  <p>Container — bu <b>obyekt yasovchi</b>. Uning ikki vazifasi bor:</p>
+
+  <table class="sheet">
+    <tr><th>Metod</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>bind($nom, $klass)</code></td><td class="note-cell">«<code>VakansiyaRepo</code> so'ralsa, <code>XotiraRepo</code> ni ber» — interface va uning bajarilishini bog'laydi</td></tr>
+    <tr><td><code>make($nom)</code></td><td class="note-cell">Obyekt yasaydi — <b>va kerakli bog'liqliklarni o'zi topib qo'yadi</b></td></tr>
+  </table>
+
+  <div class="codefile">
+    <div class="fname">src/Container.php</div>
+    <code class="cmd" data-cmd="class Container
+{
+    private array $bindings = [];
+
+    public function bind(string $nom, string $klass): void
+    {
+        $this-&gt;bindings[$nom] = $klass;
+    }
+
+    public function make(string $nom): object
+    {
+        $klass = $this-&gt;bindings[$nom] ?? $nom;
+
+        $reflector = new \ReflectionClass($klass);
+
+        if (! $reflector-&gt;isInstantiable()) {
+            throw new \Exception(&quot;Container yasay olmadi: {$klass} — bind() qilinganmi?&quot;);
+        }
+
+        $konstruktor = $reflector-&gt;getConstructor();
+
+        if ($konstruktor === null) {
+            return new $klass();
+        }
+
+        $argumentlar = [];
+        foreach ($konstruktor-&gt;getParameters() as $parametr) {
+            $tip = $parametr-&gt;getType();
+
+            if ($tip === null || $tip-&gt;isBuiltin()) {
+                throw new \Exception(&quot;Container yasay olmadi: {$klass} ning \${$parametr-&gt;getName()} parametri klass emas&quot;);
+            }
+
+            $argumentlar[] = $this-&gt;make($tip-&gt;getName());
+        }
+
+        return $reflector-&gt;newInstanceArgs($argumentlar);
+    }
+}">class Container
+{
+    private array $bindings = [];
+
+    public function bind(string $nom, string $klass): void
+    {
+        $this-&gt;bindings[$nom] = $klass;
+    }
+
+    public function make(string $nom): object
+    {
+        $klass = $this-&gt;bindings[$nom] ?? $nom;
+
+        <span class="add">$reflector = new \ReflectionClass($klass);</span>
+
+        if (! $reflector-&gt;isInstantiable()) {
+            throw new \Exception("Container yasay olmadi: {$klass} — bind() qilinganmi?");
+        }
+
+        $konstruktor = $reflector-&gt;getConstructor();
+
+        if ($konstruktor === null) {
+            return new $klass();
+        }
+
+        $argumentlar = [];
+        foreach ($konstruktor-&gt;getParameters() as $parametr) {
+            $tip = $parametr-&gt;getType();
+
+            if ($tip === null || $tip-&gt;isBuiltin()) {
+                throw new \Exception("Container yasay olmadi: {$klass} ning \${$parametr-&gt;getName()} parametri klass emas");
+            }
+
+            <span class="add">$argumentlar[] = $this-&gt;make($tip-&gt;getName());</span>
+        }
+
+        return $reflector-&gt;newInstanceArgs($argumentlar);
+    }
+}</code>
+  </div>
+
+  <h2>🔍 Reflection — «sehr»ning haqiqiy nomi</h2>
+
+  <p>Butun mexanizm bitta narsaga tayanadi: <code>ReflectionClass</code>. Bu PHP'ning
+  <b>o'z kodiga qarash</b> qobiliyati. Ya'ni dastur ishlab turganda:</p>
+
+  <ul>
+    <li>«Bu klassdan obyekt yasash mumkinmi?» → <code>isInstantiable()</code>
+    (interface va <code>abstract</code> uchun <b>yo'q</b> — 9 va 10-darslar)</li>
+    <li>«Konstruktori bormi?» → <code>getConstructor()</code></li>
+    <li>«Konstruktori qanday parametrlar kutadi?» → <code>getParameters()</code></li>
+    <li>«Bu parametrning tipi nima?» → <code>getType()</code> (6-darsdagi type hint —
+      mana u nima uchun ham kerak edi!)</li>
+  </ul>
+
+  <div class="callout tip">
+    <span class="label">Mana «sehr» nima edi</span>
+    <p>Laravel controller konstruktoriga <code>Request $request</code> deb yozsangiz, u
+    obyektni «qandaydir tarzda» o'zi beradi. Endi bilasiz <b>qanday</b>: framework
+    Reflection bilan konstruktoringizga <b>qaraydi</b>, tiplarni o'qiydi va har birini
+    yasab beradi. Hech qanday sehr yo'q — <b>type hint o'qiladi va shunga qarab obyekt
+    yasaladi</b>.</p>
+    <p>Bu <b>autowiring</b> deb ataladi: «simlarni o'zi ulash».</p>
+  </div>
+
+  <h3>Rekursiya: bog'liqlikning bog'liqligi</h3>
+
+  <p>Diqqat qiling — <code>$this-&gt;make($tip-&gt;getName())</code> <b>o'zini chaqiradi</b>.
+  Shuning uchun zanjir qanchalik uzun bo'lsa ham ishlaydi:</p>
+
+  <div class="natija">make(Vakansiyalar)
+  → konstruktorda VakansiyaRepo kerak
+    → bindings'da qaraydi → XotiraRepo
+      → XotiraRepo ning konstruktori yo'q → new XotiraRepo()
+  → new Vakansiyalar($xotiraRepo)</div>
+
+  <p>Agar <code>XotiraRepo</code> ga ham nimadir kerak bo'lsa, container yana pastga
+  tushadi. Siz faqat «menga <code>Vakansiyalar</code> ber» deysiz — qolganini u hal qiladi.</p>
+
+  <h3>Router endi container'ni ishlatadi</h3>
+
+  <div class="codefile">
+    <div class="fname">src/Router.php — ikki o'zgarish</div>
+    <code class="cmd" data-cmd="class Router
+{
+    public function __construct(private Container $container) {}
+
+    public function dispatch(string $metod, string $yol): string
+    {
+        ...
+        $controller = $this-&gt;container-&gt;make($klass);
+        return $controller-&gt;handle();
+    }
+}">class Router
+{
+    <span class="add">public function __construct(private Container $container) {}</span>
+
+    public function dispatch(string $metod, string $yol): string
+    {
+        ...
+        <span class="add">$controller = $this-&gt;container-&gt;make($klass);</span>
+        return $controller-&gt;handle();
+    }
+}</code>
+  </div>
+
+  <p>Router ham DI ishlatadi — unga container <b>tashqaridan</b> beriladi. Va
+  <code>new $klass()</code> o'rniga <code>$container-&gt;make($klass)</code>. Boshqa hech
+  narsa o'zgarmadi.</p>
+
+  <div class="codefile">
+    <div class="fname">public/index.php — sozlash joyi</div>
+    <code class="cmd" data-cmd="$container = new Container();
+$container-&gt;bind(VakansiyaRepo::class, XotiraRepo::class);
+
+$router = new Router($container);
+$router-&gt;add('GET', '/vakansiyalar', Vakansiyalar::class);">$container = new Container();
+<span class="add">$container-&gt;bind(VakansiyaRepo::class, XotiraRepo::class);</span>
+
+$router = new Router($container);
+$router-&gt;add('GET', '/vakansiyalar', Vakansiyalar::class);</code>
+  </div>
+
+  <p>Mana <b>butun ilovaning sozlash nuqtasi</b>: bitta joyda «qaysi interface uchun qaysi
+  bajarilish». Bazani almashtirmoqchi bo'lsangiz — <b>bitta qatorni</b> o'zgartirasiz,
+  controllerlarga tegmaysiz.</p>
+
+  <div class="callout warning">
+    <span class="label">Bizning container'ning cheklovi — halol aytaman</span>
+    <p><code>make()</code> har chaqirilganda <b>yangi obyekt</b> yasaydi. Ya'ni bir so'rov
+    ichida <code>Container</code> ikki marta so'ralsa, <b>ikki xil</b> obyekt chiqadi.
+    Ba'zi narsalar uchun bu yaroqsiz — masalan bazaga ulanish <b>bitta</b> bo'lishi kerak.</p>
+    <p>Buning yechimi <b>singleton</b> deb ataladi: «bir marta yasa, keyin o'shani
+    qaytar». Laravel'da bu <code>$this-&gt;app-&gt;singleton(...)</code>. Biz uni bugun
+    yozmaymiz — <b>G modulida</b> (Laravel ichki mexanizmi) Laravel'ning haqiqiy
+    container'ini o'rganganda qaytamiz.</p>
+  </div>
+
+  <!-- ═══════════════ 4) AMALIYOT / MODE-HINT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    <span class="mode-hint-title">💻 Amaliy qism kompyuterda</span>
+    <p>Amaliyotda <code>VakansiyaRepo</code> interface'i va uning bajarilishini yozasiz,
+    controller'ni DI qabul qiladigan qilib o'zgartirasiz, <code>Container</code> ni
+    yozasiz va router'ni unga ulaysiz. Keyin uchta holatni sinaysiz: normal ishlash,
+    <code>bind()</code> qilinmagan holat va oddiy tipli parametr — ikkalasi ham
+    <b>tushunarli xabar</b> beradi.</p>
+    <button type="button" class="modebtn" data-set-mode="do">💻 Amaliyot rejimini ko'rish</button>
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <p>Papkaga o'ting</p>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/php-poydevor">cd ~/Projects/Learn/php-poydevor</div>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik.</p>
+      </li>
+
+      <li>
+        <p>Shartnoma va uning bajarilishini yozing</p>
+        <p class="why-step">Interface — «nima qila oladi», klass — «qanday qiladi» (10-dars).</p>
+        <div class="cmd" data-cmd="cat &gt; src/VakansiyaRepo.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+namespace App;
+
+interface VakansiyaRepo
+{
+    public function hammasi(): array;
+}
+EOF
+cat &gt; src/XotiraRepo.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+namespace App;
+
+class XotiraRepo implements VakansiyaRepo
+{
+    public function hammasi(): array
+    {
+        return ['Backend dasturchi', 'Frontend dasturchi'];
+    }
+}
+EOF">cat &gt; src/VakansiyaRepo.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+namespace App;
+
+interface VakansiyaRepo
+{
+    public function hammasi(): array;
+}
+EOF
+cat &gt; src/XotiraRepo.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+namespace App;
+
+class XotiraRepo implements VakansiyaRepo
+{
+    public function hammasi(): array
+    {
+        return ['Backend dasturchi', 'Frontend dasturchi'];
+    }
+}
+EOF</div>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik. <code>XotiraRepo</code> —
+        «xotiradagi» soxta ma'lumot. Keyinchalik uning o'rniga bazadan o'qiydiganini
+        yozasiz, va <b>controllerga tegmaysiz</b>.</p>
+      </li>
+
+      <li>
+        <p>Container'ni yozing — darsning yuragi</p>
+        <div class="cmd" data-cmd="cat &gt; src/Container.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+namespace App;
+
+class Container
+{
+    private array $bindings = [];
+
+    public function bind(string $nom, string $klass): void
+    {
+        $this-&gt;bindings[$nom] = $klass;
+    }
+
+    public function make(string $nom): object
+    {
+        $klass = $this-&gt;bindings[$nom] ?? $nom;
+
+        $reflector = new \ReflectionClass($klass);
+
+        if (! $reflector-&gt;isInstantiable()) {
+            throw new \Exception(&quot;Container yasay olmadi: {$klass} — bind() qilinganmi?&quot;);
+        }
+
+        $konstruktor = $reflector-&gt;getConstructor();
+
+        if ($konstruktor === null) {
+            return new $klass();
+        }
+
+        $argumentlar = [];
+        foreach ($konstruktor-&gt;getParameters() as $parametr) {
+            $tip = $parametr-&gt;getType();
+
+            if ($tip === null || $tip-&gt;isBuiltin()) {
+                throw new \Exception(&quot;Container yasay olmadi: {$klass} ning \${$parametr-&gt;getName()} parametri klass emas&quot;);
+            }
+
+            $argumentlar[] = $this-&gt;make($tip-&gt;getName());
+        }
+
+        return $reflector-&gt;newInstanceArgs($argumentlar);
+    }
+}
+EOF">cat &gt; src/Container.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+namespace App;
+
+class Container
+{
+    private array $bindings = [];
+
+    public function bind(string $nom, string $klass): void
+    {
+        $this-&gt;bindings[$nom] = $klass;
+    }
+
+    public function make(string $nom): object
+    {
+        $klass = $this-&gt;bindings[$nom] ?? $nom;
+
+        $reflector = new \ReflectionClass($klass);
+
+        if (! $reflector-&gt;isInstantiable()) {
+            throw new \Exception("Container yasay olmadi: {$klass} — bind() qilinganmi?");
+        }
+
+        $konstruktor = $reflector-&gt;getConstructor();
+
+        if ($konstruktor === null) {
+            return new $klass();
+        }
+
+        $argumentlar = [];
+        foreach ($konstruktor-&gt;getParameters() as $parametr) {
+            $tip = $parametr-&gt;getType();
+
+            if ($tip === null || $tip-&gt;isBuiltin()) {
+                throw new \Exception("Container yasay olmadi: {$klass} ning \${$parametr-&gt;getName()} parametri klass emas");
+            }
+
+            $argumentlar[] = $this-&gt;make($tip-&gt;getName());
+        }
+
+        return $reflector-&gt;newInstanceArgs($argumentlar);
+    }
+}
+EOF</div>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik. 35 qator — va shu 35 qator
+        Laravel'ning eng markaziy g'oyasini o'z ichiga oladi.</p>
+      </li>
+
+      <li>
+        <p>Controller'ni DI qabul qiladigan qiling</p>
+        <div class="cmd" data-cmd="cat &gt; src/Controllers/Vakansiyalar.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+namespace App\Controllers;
+
+use App\Controller;
+use App\VakansiyaRepo;
+
+class Vakansiyalar implements Controller
+{
+    public function __construct(private VakansiyaRepo $repo) {}
+
+    public function handle(): string
+    {
+        $qatorlar = '';
+        foreach ($this-&gt;repo-&gt;hammasi() as $nom) {
+            $qatorlar .= &quot;&lt;li&gt;{$nom}&lt;/li&gt;&quot;;
+        }
+        return &quot;&lt;h1&gt;Vakansiyalar&lt;/h1&gt;&lt;ul&gt;{$qatorlar}&lt;/ul&gt;&quot;;
+    }
+}
+EOF">cat &gt; src/Controllers/Vakansiyalar.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+namespace App\Controllers;
+
+use App\Controller;
+use App\VakansiyaRepo;
+
+class Vakansiyalar implements Controller
+{
+    public function __construct(private VakansiyaRepo $repo) {}
+
+    public function handle(): string
+    {
+        $qatorlar = '';
+        foreach ($this-&gt;repo-&gt;hammasi() as $nom) {
+            $qatorlar .= "&lt;li&gt;{$nom}&lt;/li&gt;";
+        }
+        return "&lt;h1&gt;Vakansiyalar&lt;/h1&gt;&lt;ul&gt;{$qatorlar}&lt;/ul&gt;";
+    }
+}
+EOF</div>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik. Diqqat: controller
+        <code>XotiraRepo</code> haqida <b>hech narsa bilmaydi</b> — faqat
+        <code>VakansiyaRepo</code> shartnomasini biladi.</p>
+      </li>
+
+      <li>
+        <p>Container'ni to'g'ridan-to'g'ri sinab ko'ring</p>
+        <p class="why-step">Router'ga ulashdan oldin, mexanizm o'zi ishlashini
+        tasdiqlaymiz.</p>
+        <div class="cmd" data-cmd="php -r '
+require &quot;vendor/autoload.php&quot;;
+$c = new App\Container();
+$c-&gt;bind(App\VakansiyaRepo::class, App\XotiraRepo::class);
+echo $c-&gt;make(App\Controllers\Vakansiyalar::class)-&gt;handle(), PHP_EOL;
+'">php -r '
+require "vendor/autoload.php";
+$c = new App\Container();
+$c-&gt;bind(App\VakansiyaRepo::class, App\XotiraRepo::class);
+echo $c-&gt;make(App\Controllers\Vakansiyalar::class)-&gt;handle(), PHP_EOL;
+'
+<span class="out">&lt;h1&gt;Vakansiyalar&lt;/h1&gt;&lt;ul&gt;&lt;li&gt;Backend dasturchi&lt;/li&gt;&lt;li&gt;Frontend dasturchi&lt;/li&gt;&lt;/ul&gt;</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> ro'yxat chiqdi. 🎉 <b>Nima sodir
+        bo'ldi:</b> siz faqat «<code>Vakansiyalar</code> ber» dedingiz. Container uning
+        konstruktoriga qaradi, <code>VakansiyaRepo</code> kerakligini <b>o'qidi</b>,
+        bindings'da <code>XotiraRepo</code> ni topdi, uni yasadi va controllerga berdi.
+        Siz <code>XotiraRepo</code> ni <b>hech qayerda <code>new</code> qilmadingiz</b>.</p>
+      </li>
+
+      <li>
+        <p>Router'ni container'ga ulang</p>
+        <div class="cmd" data-cmd="cat &gt; src/Router.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+namespace App;
+
+class Router
+{
+    private array $routes = [];
+
+    public function __construct(private Container $container) {}
+
+    public function add(string $metod, string $yol, string $controller): void
+    {
+        $this-&gt;routes[$metod][$yol] = $controller;
+    }
+
+    public function dispatch(string $metod, string $yol): string
+    {
+        $klass = $this-&gt;routes[$metod][$yol] ?? null;
+
+        if ($klass === null) {
+            throw new RouteTopilmadi(&quot;Route topilmadi: {$metod} {$yol}&quot;);
+        }
+
+        $controller = $this-&gt;container-&gt;make($klass);
+        return $controller-&gt;handle();
+    }
+}
+EOF">cat &gt; src/Router.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+namespace App;
+
+class Router
+{
+    private array $routes = [];
+
+    public function __construct(private Container $container) {}
+
+    public function add(string $metod, string $yol, string $controller): void
+    {
+        $this-&gt;routes[$metod][$yol] = $controller;
+    }
+
+    public function dispatch(string $metod, string $yol): string
+    {
+        $klass = $this-&gt;routes[$metod][$yol] ?? null;
+
+        if ($klass === null) {
+            throw new RouteTopilmadi("Route topilmadi: {$metod} {$yol}");
+        }
+
+        $controller = $this-&gt;container-&gt;make($klass);
+        return $controller-&gt;handle();
+    }
+}
+EOF</div>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik. Faqat ikki qator o'zgardi.</p>
+      </li>
+
+      <li>
+        <p>Kirish nuqtasini yangilang</p>
+        <div class="cmd" data-cmd="cat &gt; public/index.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+require __DIR__ . '/../vendor/autoload.php';
+
+use App\Container;
+use App\Router;
+use App\RouteTopilmadi;
+use App\VakansiyaRepo;
+use App\XotiraRepo;
+use App\Controllers\BoshSahifa;
+use App\Controllers\Vakansiyalar;
+
+$container = new Container();
+$container-&gt;bind(VakansiyaRepo::class, XotiraRepo::class);
+
+$router = new Router($container);
+$router-&gt;add('GET', '/', BoshSahifa::class);
+$router-&gt;add('GET', '/vakansiyalar', Vakansiyalar::class);
+
+$metod = $_SERVER['REQUEST_METHOD'];
+$yol = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+
+try {
+    echo $router-&gt;dispatch($metod, $yol);
+} catch (RouteTopilmadi $e) {
+    http_response_code(404);
+    echo &quot;&lt;h1&gt;404&lt;/h1&gt;&lt;p&gt;&quot;, htmlspecialchars($e-&gt;getMessage()), &quot;&lt;/p&gt;&quot;;
+}
+EOF">cat &gt; public/index.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+
+require __DIR__ . '/../vendor/autoload.php';
+
+use App\Container;
+use App\Router;
+use App\RouteTopilmadi;
+use App\VakansiyaRepo;
+use App\XotiraRepo;
+use App\Controllers\BoshSahifa;
+use App\Controllers\Vakansiyalar;
+
+$container = new Container();
+$container-&gt;bind(VakansiyaRepo::class, XotiraRepo::class);
+
+$router = new Router($container);
+$router-&gt;add('GET', '/', BoshSahifa::class);
+$router-&gt;add('GET', '/vakansiyalar', Vakansiyalar::class);
+
+$metod = $_SERVER['REQUEST_METHOD'];
+$yol = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+
+try {
+    echo $router-&gt;dispatch($metod, $yol);
+} catch (RouteTopilmadi $e) {
+    http_response_code(404);
+    echo "&lt;h1&gt;404&lt;/h1&gt;&lt;p&gt;", htmlspecialchars($e-&gt;getMessage()), "&lt;/p&gt;";
+}
+EOF</div>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik.</p>
+      </li>
+
+      <li>
+        <p>Butun ilovani brauzerda sinang</p>
+        <div class="cmd" data-cmd="php -S localhost:8000 public/index.php">php -S localhost:8000 public/index.php</div>
+        <p class="expect"><b>Kutilgan natija:</b> server ishlaydi. Boshqa oynada:</p>
+        <div class="cmd" data-cmd="curl -s http://localhost:8000/vakansiyalar; echo">curl -s http://localhost:8000/vakansiyalar; echo
+<span class="out">&lt;h1&gt;Vakansiyalar&lt;/h1&gt;&lt;ul&gt;&lt;li&gt;Backend dasturchi&lt;/li&gt;&lt;li&gt;Frontend dasturchi&lt;/li&gt;&lt;/ul&gt;</span></div>
+        <p class="expect">🎉 <b>Sizda ishlaydigan mini-framework bor:</b> front controller,
+        router, container va DI.</p>
+      </li>
+
+      <li>
+        <p><code>bind()</code> ni olib tashlab, xatoni ko'ring</p>
+        <p class="why-step">Bu xato Laravel'da ham eng ko'p uchraydiganlardan biri —
+        uni tanib olish muhim.</p>
+        <div class="cmd" data-cmd="php -r '
+require &quot;vendor/autoload.php&quot;;
+$c = new App\Container();
+$c-&gt;make(App\Controllers\Vakansiyalar::class);
+' 2&gt;&amp;1 | head -1">php -r '
+require "vendor/autoload.php";
+$c = new App\Container();
+$c-&gt;make(App\Controllers\Vakansiyalar::class);
+' 2&gt;&amp;1 | head -1
+<span class="out">PHP Fatal error:  Uncaught Exception: Container yasay olmadi: App\VakansiyaRepo — bind() qilinganmi?</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> xabar <b>yechimni aytadi</b>. Sababi:
+        container <code>VakansiyaRepo</code> ni yasashga urindi, lekin u
+        <code>interface</code> — undan obyekt yasab bo'lmaydi (10-dars).
+        <br>Laravel'da xuddi shu holatda: <code>Target [App\VakansiyaRepo] is not
+        instantiable</code>. Endi bu xabar sizga tushunarli.</p>
+      </li>
+
+      <li>
+        <p>Ishni saqlang</p>
+        <div class="cmd" data-cmd="git add -A
+git commit -m &quot;15-dars: container va DI — Modul A tugadi&quot;">git add -A
+git commit -m "15-dars: container va DI — Modul A tugadi"</div>
+        <p class="expect"><b>Kutilgan natija:</b> commit haqida xabar. Serverni
+        <code>Ctrl+C</code> bilan to'xtatishni unutmang.</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><input type="checkbox" id="d15c1"><label for="d15c1">Controller bog'liqlikni <b>konstruktorda e'lon qilishini</b> yozdim</label></li>
+      <li><input type="checkbox" id="d15c2"><label for="d15c2">Controller aniq klassga emas, <b>interface</b>ga tayanadi</label></li>
+      <li><input type="checkbox" id="d15c3"><label for="d15c3">Container'ni yozdim va <code>Reflection</code> nima qilishini bilaman</label></li>
+      <li><input type="checkbox" id="d15c4"><label for="d15c4"><b>Container bog'liqlikni o'zi topib qo'yganini ko'rdim</b> 🎉</label></li>
+      <li><input type="checkbox" id="d15c5"><label for="d15c5">Router'ni container'ga uladim va butun ilova ishlaydi</label></li>
+      <li><input type="checkbox" id="d15c6"><label for="d15c6"><code>bind()</code> yo'q bo'lgandagi xatoni tanib oldim</label></li>
+      <li><input type="checkbox" id="d15c7"><label for="d15c7">Bizning container'ning cheklovini (singleton yo'q) aytib beraman</label></li>
+      <li><input type="checkbox" id="d15c8"><label for="d15c8">Ishni commit qildim — <b>Modul A tugadi!</b></label></li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 5) TAXMIN + QUIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Container'da <b>hech qanday <code>bind()</code> yo'q</b>. Uch chaqiruv nima
+    qaytaradi?</p>
+    <div class="codefile">
+      <div class="fname">taxmin.php</div>
+      <code class="cmd" data-cmd="$c = new Container();
+
+A)  $c-&gt;make(XotiraRepo::class);
+B)  $c-&gt;make(VakansiyaRepo::class);
+C)  $c-&gt;make(Vakansiyalar::class);">$c = new Container();
+
+A)  $c-&gt;make(XotiraRepo::class);
+B)  $c-&gt;make(VakansiyaRepo::class);
+C)  $c-&gt;make(Vakansiyalar::class);</code>
+    </div>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <div class="natija">A)  ✅ ishlaydi — XotiraRepo obyekti
+B)  ❌ Exception: ... App\VakansiyaRepo — bind() qilinganmi?
+C)  ❌ Exception: ... App\VakansiyaRepo — bind() qilinganmi?</div>
+        <p><b>A ishlaydi</b> — <code>XotiraRepo</code> oddiy klass, konstruktori yo'q.
+        <code>bind()</code> kerak emas: bindings'da topilmasa, container nomni
+        <b>o'zini</b> klass deb oladi (<code>$this-&gt;bindings[$nom] ?? $nom</code>).</p>
+        <p><b>B xato beradi</b> — <code>VakansiyaRepo</code> bu <b>interface</b>, undan
+        obyekt yasab bo'lmaydi (9 va 10-darslar). Container buni
+        <code>isInstantiable()</code> bilan aniqlaydi va tushunarli xabar beradi.</p>
+        <p><b>C ham xato beradi</b> — va sabab <b>B bilan bir xil</b>.
+        <code>Vakansiyalar</code> ning o'zi yasalishi mumkin, lekin uning konstruktorida
+        <code>VakansiyaRepo</code> kerak. Container rekursiv ravishda uni yasashga tushadi
+        va shu yerda to'xtaydi. <b>Xato xabari ham aynan o'sha interface'ni ko'rsatadi</b>,
+        <code>Vakansiyalar</code> ni emas — chunki muammo pastda.</p>
+        <p class="expect"><b>Amaliy xulosa:</b> Laravel'da
+        <code>Target [...] is not instantiable</code> xatosini ko'rsangiz, javob deyarli
+        har doim bitta: <b>interface uchun bajarilish bog'lanmagan</b>. Yechim —
+        service provider'da <code>bind()</code> yozish. Bu G modulida (Service Provider)
+        batafsil ko'riladi.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span> Container controller'ga nima
+    kerakligini qanday biladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Konstruktor tiplarini o'qib biladi</button></li>
+      <li><button class="quiz-option">Maxsus sozlama faylidan o'qiydi</button></li>
+      <li><button class="quiz-option">Klass nomidan taxmin qiladi</button></li>
+    </ul>
+    <div class="quiz-explain"><code>ReflectionClass</code> bilan konstruktorga
+    <b>qaraydi</b> va parametr <b>tiplarini</b> o'qiydi. Mana 6-darsdagi type hint nima
+    uchun ham kerak edi — u shunchaki hujjat emas, <b>mashina o'qiydigan ma'lumot</b>.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span> <code>bind()</code> nima uchun
+    kerak?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Interface uchun bajarilishni ko'rsatish</button></li>
+      <li><button class="quiz-option">Obyektlarni xotirada saqlab qo'yish</button></li>
+      <li><button class="quiz-option">Klassni tezroq yasash uchun</button></li>
+    </ul>
+    <div class="quiz-explain">Interface'dan obyekt yasab bo'lmaydi, shuning uchun
+    container'ga «<code>VakansiyaRepo</code> so'ralsa <code>XotiraRepo</code> ber» deb
+    aytish kerak. Oddiy klasslar uchun <code>bind()</code> shart emas.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span> Nega controller <code>XotiraRepo</code>
+    emas, <code>VakansiyaRepo</code> ni so'raydi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Bajarilishni almashtirish oson bo'lsin</button></li>
+      <li><button class="quiz-option">Interface obyektlari kichikroq bo'ladi</button></li>
+      <li><button class="quiz-option">Container interface bilan ishlaydi</button></li>
+    </ul>
+    <div class="quiz-explain">Shartnomaga tayanish (10-dars): testda soxta repo, keyinroq
+    bazadan o'qiydigan repo — controllerga <b>tegilmaydi</b>. O'zgartiriladigan joy
+    bitta: <code>index.php</code> dagi <code>bind()</code>.</div>
+  </div>
+
+  <!-- ═══════════════ 6) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+    <p class="recall-intro">Avval o'zingiz javob bering, keyin ochib tekshiring.
+    Oxirgi ikkitasi — <a href="0014-mini-framework-router.html">14-darsni</a> takrorlash.</p>
+
+    <details class="recall">
+      <summary>Dependency injection nima — bir gapda?</summary>
+      <div class="answer"><p>Obyekt kerakli narsalarni <b>o'zi yasamaydi</b>, ularni
+      <b>tashqaridan</b> (odatda konstruktor orqali) qabul qiladi. Shunda u aniq
+      klasslarga bog'lanmaydi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Reflection nima va container'da nima uchun kerak?</summary>
+      <div class="answer"><p>PHP'ning <b>o'z kodiga qarash</b> qobiliyati. Container u
+      bilan konstruktorni topadi, parametr <b>tiplarini o'qiydi</b> va har birini yasab
+      beradi. Bu <b>autowiring</b>.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Bizning container'ning asosiy cheklovi nima?</summary>
+      <div class="answer"><p><code>make()</code> har chaqirilganda <b>yangi obyekt</b>
+      yasaydi. Bazaga ulanish kabi narsalar uchun <b>singleton</b> kerak («bir marta yasa,
+      keyin o'shani qaytar») — G modulida ko'ramiz.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: front controller qanday muammolarni yechadi?</summary>
+      <div class="answer"><p>Takrorlanish (sozlash bir joyda), markaziy nazorat,
+      chiroyli manzil, xavfsizlik (faqat <code>public/</code> ochiq).</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: router controller'lar haqida nima biladi?</summary>
+      <div class="answer"><p>Faqat <code>handle()</code> metodi borligini —
+      <code>interface Controller</code> shartnomasi orqali. Shuning uchun yangi sahifa
+      qo'shilganda <code>Router.php</code> ga tegilmaydi.</p></div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 7) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Cho'ntak xulosasi</span>
+    <ul>
+      <li><b>DI:</b> obyekt kerakli narsani <b>konstruktorda e'lon qiladi</b>, o'zi
+      yasamaydi. Tip — <b>interface</b>, aniq klass emas.</li>
+      <li><b>Container</b> — obyekt yasovchi. <code>bind(interface, klass)</code> +
+      <code>make($nom)</code>.</li>
+      <li>🔑 <b>Reflection</b> — PHP o'z kodiga qaraydi: <code>isInstantiable()</code> ·
+      <code>getConstructor()</code> · <code>getParameters()</code> ·
+      <code>getType()</code>.</li>
+      <li>Bu <b>autowiring</b>: type hint o'qiladi va shunga qarab obyekt yasaladi.
+      «Sehr»ning haqiqiy nomi shu.</li>
+      <li><code>make()</code> <b>rekursiv</b> — bog'liqlikning bog'liqligi ham yasaladi.</li>
+      <li>Sozlash <b>bitta joyda</b>: <code>index.php</code> dagi <code>bind()</code>.
+      Bazani almashtirish = bitta qator.</li>
+      <li>«<code>bind()</code> qilinganmi?» xatosi = Laravel'dagi
+      <code>Target [...] is not instantiable</code>.</li>
+      <li>Cheklov: <b>singleton yo'q</b> — har <code>make()</code> yangi obyekt yasaydi.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🎓 MODUL A TUGADI — nima qildingiz</span>
+    <p>15 dars oldin PHP faylini brauzerda ochishdan boshladingiz. Bugun sizda
+    <b>ishlaydigan mini-framework</b> bor:</p>
+    <ul>
+      <li><b>Front controller</b> — hamma so'rov bitta nuqtadan o'tadi, faqat
+      <code>public/</code> ochiq</li>
+      <li><b>Router</b> — metod + yo'l → controller, 404 exception bilan</li>
+      <li><b>Container</b> — Reflection bilan autowiring va interface bog'lanishi</li>
+      <li>Ustiga: namespace, autoload, Composer, OOP, exception, XSS himoyasi</li>
+    </ul>
+    <p><b>Endi eng qiziq qismi.</b> 16-darsdan Laravel ochiladi — va siz u yerda
+    <code>public/index.php</code>, <code>routes/web.php</code>, controller konstruktoriga
+    yozilgan tiplar, <code>Target is not instantiable</code> xatosini ko'rganda
+    <b>hech qanday sehr</b> topmaysiz. Chunki har birini <b>o'z qo'lingiz bilan
+    yozgansiz</b>.</p>
+    <p>Aynan shu — kursning butun maqsadi edi. Modul A ning eng qimmatli natijasi
+    yozilgan kod emas, <b>«bu narsa qanday ishlayotganini bilaman» degan holat</b>.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel — Service Container</b>:
+    <a href="https://laravel.com/docs/13.x/container">laravel.com/docs/13.x/container</a>.<sup><a href="#fn1">1</a></sup>
+    <b>Bugun o'qing</b> — o'z container'ingizni yozganingizdan keyin bu hujjat butunlay
+    boshqacha o'qiladi. Ayniqsa «Zero Configuration Resolution» va «Binding Interfaces To
+    Implementations» bo'limlariga qarang: ikkalasi ham bugun yozgan narsangiz.<br>
+    Qo'llanma (ko'zgu): <a href="https://devdocs.io/php/class.reflectionclass">devdocs.io — ReflectionClass</a>.<sup><a href="#fn2">2</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Modul A tugadi — savollar bo'lsa ayting.</b> «singleton qanday qo'shiladi?»,
+    «Reflection sekin emasmi?», «container'ni test qilish qanday?», «Laravel'ning
+    container'i bizdan qanchalik katta?» — har qanday savol yaxshi. Va agar biror dars
+    chalkash bo'lib qolgan bo'lsa — ayting, qaytib ko'ramiz. 16-darsga o'tishdan oldin
+    poydevor mustahkam bo'lishi muhim.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0014-mini-framework-router.html">Oldingi: Front controller va router</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/yol-xaritasi.html">Yo'l xaritasi</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel 13 — <a href="https://laravel.com/docs/13.x/container">Service
+      Container</a>. Laravel'ning container'i ancha kengroq (singleton, contextual binding,
+      tagging, method injection), lekin yadro g'oyasi — Reflection bilan autowiring —
+      aynan bugungi kod.</li>
+      <li id="fn2">PHP Manual — <i>ReflectionClass</i>, DevDocs ko'zgusi orqali:
+      <a href="https://devdocs.io/php/class.reflectionclass">devdocs.io/php/class.reflectionclass</a>.
+      Rasmiy <code>php.net</code> bu tarmoqdan ochilmaydi.</li>
+      <li id="fn3">Butun mini-framework PHP <b>8.3.32</b> da jonli sinab ko'rilgan:
+      container'ning normal ishlashi, <code>bind()</code> qilinmagan holat, oddiy tipli
+      parametr xatosi, rekursiv yasash va router bilan uchdan-uchgacha (HTTP orqali) ishlashi.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

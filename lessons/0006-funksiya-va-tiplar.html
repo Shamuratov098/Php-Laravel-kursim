@@ -1,0 +1,607 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 06 — Funksiya va tiplar</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 06 · MODUL A — POYDEVOR</p>
+  <h1>Funksiya: mantiqqa nom berish</h1>
+  <p class="lead">Bu darsdan keyin qayta ishlatiladigan funksiya yozasiz va uning
+  tiplarini belgilaysiz. Ikkita katta narsa ochiladi: <b>type hint o'zi kafolat
+  bermaydi</b> (va uni kafolatga aylantirish yo'li bor), hamda 4-darsda va'da qilgan
+  <b>stack trace</b> endi to'liq ma'noga ega bo'ladi.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 9 daqiqa</span>
+    <span>💻 Amaliyot ≈ 13 daqiqa</span>
+    <span>Kerak: <a href="0005-massiv-va-foreach.html">Dars 05</a></span>
+  </p>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Nega bu muhim</span>
+    <p>Funksiya — bu <b>mantiqqa nom berish</b>. «Maoshni formatla», «arizani tekshir»,
+    «foydalanuvchini top» — har biri bitta funksiya. Foydasi uch tomonlama: kod
+    takrorlanmaydi, <b>o'qiladigan</b> bo'ladi (nomning o'zi nima qilishini aytadi) va
+    alohida <b>sinash</b> mumkin bo'ladi.</p>
+    <p>Laravel'da siz yozadigan deyarli hamma narsa funksiya bo'ladi — controller metodi,
+    policy, job, validatsiya qoidasi. Ular klass ichida yashaydi va <b>metod</b> deb
+    ataladi, lekin qoidalari aynan bugungi qoidalar. Ya'ni bu dars 7–10-darslardagi OOP
+    uchun to'g'ridan-to'g'ri poydevor.</p>
+  </div>
+
+  <!-- ═══════════════ 2) TUSHUNCHA ═══════════════ -->
+  <h2>Funksiyaning tuzilishi</h2>
+
+  <div class="codefile">
+    <div class="fname">tushuncha</div>
+    <code class="cmd" data-cmd="function maoshniFormatla(int $maosh, string $valyuta = &quot;$&quot;): string
+{
+    return &quot;{$maosh} {$valyuta}&quot;;
+}
+
+echo maoshniFormatla(800);              // 800 $
+echo maoshniFormatla(9500000, &quot;so'm&quot;);  // 9500000 so'm">function maoshniFormatla(int $maosh, string $valyuta = "$"): string
+{
+    return "{$maosh} {$valyuta}";
+}
+
+echo maoshniFormatla(800);              // 800 $
+echo maoshniFormatla(9500000, "so'm");  // 9500000 so'm</code>
+  </div>
+
+  <p>Bo'laklab ko'ramiz:</p>
+
+  <table class="sheet">
+    <tr><th>Bo'lak</th><th class="note-cell">Ma'nosi</th></tr>
+    <tr><td><code>function</code></td><td class="note-cell">«Yangi funksiya e'lon qilaman»</td></tr>
+    <tr><td><code>maoshniFormatla</code></td><td class="note-cell">Nom. PHP'da odatda <code>camelCase</code> yoziladi</td></tr>
+    <tr><td><code>int $maosh</code></td><td class="note-cell"><b>Parametr</b> + uning tipi. Funksiya ichida oddiy o'zgaruvchi</td></tr>
+    <tr><td><code>string $valyuta = "$"</code></td><td class="note-cell">Standart qiymatli parametr — berilmasa <code>"$"</code> ishlatiladi</td></tr>
+    <tr><td><code>: string</code></td><td class="note-cell"><b>Qaytish tipi</b> — funksiya nima qaytarishini aytadi</td></tr>
+    <tr><td><code>return</code></td><td class="note-cell">Natijani <b>qaytaradi</b> va funksiyani darhol tugatadi</td></tr>
+  </table>
+
+  <div class="callout note">
+    <span class="label">Eng ko'p adashtiradigan joy: <code>return</code> ≠ <code>echo</code></span>
+    <p><code>echo</code> — matnni <b>javobga yozadi</b> (1-darsni eslang). <code>return</code>
+    esa <b>hech narsa chiqarmaydi</b> — u qiymatni chaqirgan joyga <b>qaytaradi</b>, va siz
+    u bilan xohlagan ishni qilasiz: o'zgaruvchiga solasiz, boshqa funksiyaga berasiz yoki
+    <code>echo</code> qilasiz.</p>
+    <p>Qoida: funksiya <b>hisoblab qaytarsin</b>, chiqarishni chaqiruvchi hal qilsin.
+    Shunda funksiyani boshqa joyda ham ishlatasiz — masalan HTML sahifada ham, JSON API'da
+    ham. Laravel'da bu ayirma juda muhim.</p>
+  </div>
+
+  <h3>Standart qiymat va parametr tartibi</h3>
+
+  <p><code>string $valyuta = "$"</code> — bu parametrni berish <b>majburiy emas</b>.
+  Muhim qoida: standart qiymatli parametrlar <b>oxirida</b> turishi kerak, chunki PHP
+  argumentlarni tartib bo'yicha o'qiydi.</p>
+
+  <h3>O'zgaruvchi doirasi (scope): funksiya — yopiq xona</h3>
+
+  <div class="codefile">
+    <div class="fname">tushuncha</div>
+    <code class="cmd" data-cmd="function hisobla(): int
+{
+    $ichki = 42;      // faqat shu funksiya ichida yashaydi
+    return $ichki;
+}
+
+echo hisobla();       // 42 — to'g'ri
+echo $ichki;          // Warning: Undefined variable $ichki">function hisobla(): int
+{
+    $ichki = 42;      // faqat shu funksiya ichida yashaydi
+    return $ichki;
+}
+
+echo hisobla();       // 42 — to'g'ri
+echo $ichki;          // Warning: Undefined variable $ichki</code>
+  </div>
+
+  <p>Funksiya ichida yaratilgan o'zgaruvchi tashqarida <b>mavjud emas</b> — va bu
+  <b>yaxshi</b>: shuning uchun funksiya yozganda «bu nom boshqa joyda ishlatilganmi?»
+  deb o'ylash kerak bo'lmaydi. Tashqaridan ma'lumot faqat <b>parametr</b> orqali kiradi,
+  natija faqat <b>return</b> orqali chiqadi. Ikki teshikli qutiga o'xshaydi.</p>
+
+  <h2>🔑 Type hint o'zi kafolat bermaydi</h2>
+
+  <p>Bu darsning eng muhim qismi. <code>int $son</code> deb yozganingiz — «bu yerga son
+  kelishi kerak» degani. Lekin <b>PHP standart holatda buni majburlamaydi</b> — 2 va
+  3-darsdagi qoida yana ishlaydi: <b>tipni o'zgartirib yuboradi</b>.</p>
+
+  <div class="codefile">
+    <div class="fname">strict_types YO'Q</div>
+    <code class="cmd" data-cmd="function ikkilantir(int $son): int
+{
+    return $son * 2;
+}
+
+var_dump(ikkilantir(5));     // int(10)
+var_dump(ikkilantir(&quot;5&quot;));   // int(10)  ← matn berdik, xato yo'q!">function ikkilantir(int $son): int
+{
+    return $son * 2;
+}
+
+var_dump(ikkilantir(5));     // int(10)
+var_dump(ikkilantir("5"));   // int(10)  ← matn berdik, xato yo'q!</code>
+  </div>
+
+  <p>Ya'ni <code>"5"</code> matnini berdik, PHP uni jimgina <code>5</code> ga aylantirdi.
+  Type hint yozgansiz, lekin himoya olmadingiz.</p>
+
+  <p>Buni <b>haqiqiy kafolatga</b> aylantirish uchun fayl boshiga bitta qator yoziladi:</p>
+
+  <div class="codefile">
+    <div class="fname">strict_types BOR</div>
+    <code class="cmd" data-cmd="&lt;?php
+declare(strict_types=1);
+
+function ikkilantir(int $son): int
+{
+    return $son * 2;
+}
+
+var_dump(ikkilantir(5));     // int(10)
+var_dump(ikkilantir(&quot;5&quot;));   // TypeError — dastur to'xtaydi">&lt;?php
+<span class="add">declare(strict_types=1);</span>
+
+function ikkilantir(int $son): int
+{
+    return $son * 2;
+}
+
+var_dump(ikkilantir(5));     // int(10)
+var_dump(ikkilantir("5"));   // TypeError — dastur to'xtaydi</code>
+  </div>
+
+  <p><code>declare(strict_types=1);</code> — «bu faylda tiplar <b>qat'iy</b>» degani.
+  U <code>&lt;?php</code> dan keyin, eng birinchi ko'rsatma bo'lishi shart.</p>
+
+  <div class="callout tip">
+    <span class="label">Nega bu yaxshi xabar</span>
+    <p>Chunki xato <b>ertaroq</b> chiqadi. Qat'iy tip bo'lmasa, noto'g'ri tip kod ichiga
+    kirib ketadi va muammo ancha keyin, butunlay boshqa joyda ko'rinadi — sababini topish
+    qiyin bo'ladi. Qat'iy tipda esa PHP darhol «bu yerda noto'g'ri tip berildi» deb
+    manzilini aytadi. Zamonaviy professional PHP kodida bu qator deyarli har faylda bo'ladi.</p>
+  </div>
+
+  <h2>🎯 4-darsning qarzi: stack trace endi ma'noli</h2>
+
+  <p>4-darsda stack trace <code>#0 {main}</code> dan iborat edi, chunki funksiya yo'q edi.
+  Endi funksiya funksiyani chaqirsa, PHP butun <b>zanjirni</b> ko'rsatadi:</p>
+
+  <div class="natija">PHP Fatal error:  Uncaught DivisionByZeroError: Division by zero in t2.php:4
+Stack trace:
+#0 t2.php(8): bazadanOl()
+#1 t2.php(11): arizaniOqi()
+#2 {main}
+  thrown in t2.php on line 4</div>
+
+  <p>Buni <b>pastdan yuqoriga</b> o'qiysiz — bu «qanday yo'l bilan kelindi» tarixi:</p>
+
+  <ol>
+    <li><code>#2 {main}</code> — asosiy kod ishga tushdi</li>
+    <li><code>#1 ... arizaniOqi()</code> — 11-qatorda <code>arizaniOqi()</code> chaqirildi</li>
+    <li><code>#0 ... bazadanOl()</code> — 8-qatorda (ya'ni <code>arizaniOqi</code> ichida)
+    <code>bazadanOl()</code> chaqirildi</li>
+    <li><code>in t2.php:4</code> — va <b>4-qatorda</b> xato yuz berdi</li>
+  </ol>
+
+  <p>Ya'ni: <b>tepadagi qator — xato joyi, pastdagilar — unga qanday kelib qolganingiz.</b>
+  Laravel'da bu ro'yxat 30-40 qatorli bo'ladi (framework ichidagi chaqiruvlar bilan),
+  lekin sizga kerak bo'ladigani odatda <b>o'z faylingiz nomi</b> ko'ringan qatorlar —
+  qolganini o'tkazib yuborishni o'rganasiz.</p>
+
+  <h2>Funksiya + massiv: <code>array_map</code> va <code>array_filter</code></h2>
+
+  <p>5-darsda aytgan «keyingi darsda» shu yerda. Bu ikki funksiya <b>boshqa funksiyani</b>
+  qabul qiladi va uni massivning har bir elementiga qo'llaydi:</p>
+
+  <div class="codefile">
+    <div class="fname">tushuncha</div>
+    <code class="cmd" data-cmd="function kattaHarf(string $s): string
+{
+    return strtoupper($s);
+}
+
+$konikmalar = [&quot;php&quot;, &quot;laravel&quot;, &quot;sql&quot;];
+$kattalar = array_map(&quot;kattaHarf&quot;, $konikmalar);
+// natija: [&quot;PHP&quot;, &quot;LARAVEL&quot;, &quot;SQL&quot;]">function kattaHarf(string $s): string
+{
+    return strtoupper($s);
+}
+
+$konikmalar = ["php", "laravel", "sql"];
+$kattalar = array_map("kattaHarf", $konikmalar);
+// natija: ["PHP", "LARAVEL", "SQL"]</code>
+  </div>
+
+  <ul>
+    <li><code>array_map</code> — <b>har bir elementni o'zgartiradi</b>, yangi massiv
+    qaytaradi (asl massiv tegilmaydi).</li>
+    <li><code>array_filter</code> — <b>shartga mos kelganlarni tanlaydi</b>. Berilgan
+    funksiya <code>true</code> qaytarsa element qoladi.</li>
+    <li><code>strtoupper</code> — PHP'ning ichida kelgan funksiya: matnni katta harfga
+    o'giradi. Bunday tayyor funksiyalar minglab.</li>
+  </ul>
+
+  <p>Diqqat: funksiya nomi <b>matn sifatida</b> (<code>"kattaHarf"</code>) beriladi.
+  Bu «funksiyani qiymat kabi uzatish» degan g'oyaning eng oddiy shakli — Laravel'da
+  buning ancha chiroyli ko'rinishi bor va biz unga keyinroq qaytamiz.</p>
+
+  <!-- ═══════════════ 4) AMALIYOT / MODE-HINT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    <span class="mode-hint-title">💻 Amaliy qism kompyuterda</span>
+    <p>Amaliyotda uchta fayl yozasiz: <code>14-funksiya.php</code> (standart qiymatli
+    parametr), <code>15-strict.php</code> (<code>declare(strict_types=1)</code> bilan
+    <code>TypeError</code> ni chiqarasiz va uning stack trace'ini o'qiysiz) va
+    <code>16-massiv-funksiya.php</code> (<code>array_map</code>). Oxirida scope'ni
+    sinaysiz — funksiya ichidagi o'zgaruvchi tashqarida yo'qligini tasdiqlaysiz.</p>
+    <button type="button" class="modebtn" data-set-mode="do">💻 Amaliyot rejimini ko'rish</button>
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <p>Papkaga o'ting</p>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/php-poydevor">cd ~/Projects/Learn/php-poydevor</div>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik.</p>
+      </li>
+
+      <li>
+        <p>Birinchi funksiyangizni yozing</p>
+        <p class="why-step">Standart qiymat foydasi shu yerda ko'rinadi: bitta funksiya,
+        ikki xil ishlatish.</p>
+        <div class="cmd" data-cmd="cat &gt; 14-funksiya.php &lt;&lt;'EOF'
+&lt;?php
+function maoshniFormatla(int $maosh, string $valyuta = &quot;$&quot;): string
+{
+    return &quot;{$maosh} {$valyuta}&quot;;
+}
+echo maoshniFormatla(800), PHP_EOL;
+echo maoshniFormatla(9500000, &quot;so'm&quot;), PHP_EOL;
+EOF
+php 14-funksiya.php">cat &gt; 14-funksiya.php &lt;&lt;'EOF'
+&lt;?php
+function maoshniFormatla(int $maosh, string $valyuta = "$"): string
+{
+    return "{$maosh} {$valyuta}";
+}
+echo maoshniFormatla(800), PHP_EOL;
+echo maoshniFormatla(9500000, "so'm"), PHP_EOL;
+EOF
+php 14-funksiya.php
+<span class="out">800 $</span>
+<span class="out">9500000 so'm</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> ikki qator. Birinchisida valyuta
+        berilmagan — standart <code>$</code> ishlatildi.</p>
+      </li>
+
+      <li>
+        <p>Qat'iy tipni yoqing va <code>TypeError</code> ni chiqaring</p>
+        <p class="why-step">Bu darsning yuragi. Va bir vaqtda 4-darsdagi ko'nikmani
+        ishlatasiz — xatoni o'qish.</p>
+        <div class="cmd" data-cmd="cat &gt; 15-strict.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+function ikkilantir(int $son): int
+{
+    return $son * 2;
+}
+var_dump(ikkilantir(5));
+var_dump(ikkilantir(&quot;5&quot;));
+EOF
+php 15-strict.php">cat &gt; 15-strict.php &lt;&lt;'EOF'
+&lt;?php
+declare(strict_types=1);
+function ikkilantir(int $son): int
+{
+    return $son * 2;
+}
+var_dump(ikkilantir(5));
+var_dump(ikkilantir("5"));
+EOF
+php 15-strict.php
+<span class="out">int(10)</span>
+<span class="out">PHP Fatal error:  Uncaught TypeError: ikkilantir(): Argument #1 ($son)</span>
+<span class="out">must be of type int, string given, called in 15-strict.php on line 8</span>
+<span class="out">and defined in 15-strict.php:3</span>
+<span class="out">Stack trace:</span>
+<span class="out">#0 15-strict.php(8): ikkilantir()</span>
+<span class="out">#1 {main}</span>
+<span class="out">  thrown in 15-strict.php on line 3</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> birinchi chaqiruv ishladi
+        (<code>int(10)</code>), ikkinchisi <b>to'xtatdi</b>. Xabarni o'qib ko'ring — u
+        <b>ikkita</b> joyni aytadi: <code>called in ... line 8</code> (qaerdan
+        chaqirilgan) va <code>defined in ...:3</code> (funksiya qayerda yozilgan).
+        Bu juda foydali: muammo chaqiruvda ekanini darrov bilasiz.</p>
+      </li>
+
+      <li>
+        <p>Qat'iy tipni o'chirib solishtiring</p>
+        <p class="why-step">Farqni o'z ko'zingiz bilan ko'rish — «type hint o'zi kafolat
+        bermaydi» degan gapni yodlashdan ko'ra ishonchli.</p>
+        <p>Faylning 2-qatorini (<code>declare(strict_types=1);</code>) o'chirib tashlang
+        va qayta bajaring. Tez usul — o'chirilgan nusxa yasash:</p>
+        <div class="cmd" data-cmd="grep -v 'strict_types' 15-strict.php &gt; 15-bosh.php
+php 15-bosh.php">grep -v 'strict_types' 15-strict.php &gt; 15-bosh.php
+php 15-bosh.php
+<span class="out">int(10)</span>
+<span class="out">int(10)</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> ikkita <code>int(10)</code> —
+        <b>xato yo'q</b>. Ya'ni <code>"5"</code> jimgina <code>5</code> ga aylandi.
+        Bitta qator bor-yo'qligi butun xatti-harakatni o'zgartirdi.</p>
+      </li>
+
+      <li>
+        <p>Funksiyani massivga qo'llang</p>
+        <div class="cmd" data-cmd="cat &gt; 16-massiv-funksiya.php &lt;&lt;'EOF'
+&lt;?php
+function kattaHarf(string $s): string
+{
+    return strtoupper($s);
+}
+$konikmalar = [&quot;php&quot;, &quot;laravel&quot;, &quot;sql&quot;];
+$kattalar = array_map(&quot;kattaHarf&quot;, $konikmalar);
+foreach ($kattalar as $k) {
+    echo &quot;- {$k}&quot;, PHP_EOL;
+}
+EOF
+php 16-massiv-funksiya.php">cat &gt; 16-massiv-funksiya.php &lt;&lt;'EOF'
+&lt;?php
+function kattaHarf(string $s): string
+{
+    return strtoupper($s);
+}
+$konikmalar = ["php", "laravel", "sql"];
+$kattalar = array_map("kattaHarf", $konikmalar);
+foreach ($kattalar as $k) {
+    echo "- {$k}", PHP_EOL;
+}
+EOF
+php 16-massiv-funksiya.php
+<span class="out">- PHP</span>
+<span class="out">- LARAVEL</span>
+<span class="out">- SQL</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> uchta katta harfli qator.
+        <code>array_map</code> yangi massiv qaytardi — <code>$konikmalar</code>
+        o'zgarmadi (xohlasangiz <code>var_dump($konikmalar)</code> bilan tekshiring).</p>
+      </li>
+
+      <li>
+        <p>Scope'ni sinab ko'ring</p>
+        <p class="why-step">Funksiya yopiq xona ekanini isbotlash.</p>
+        <div class="cmd" data-cmd="php -r 'function f(): int { $ichki = 42; return $ichki; } echo f(), PHP_EOL; echo $ichki;'">php -r 'function f(): int { $ichki = 42; return $ichki; } echo f(), PHP_EOL; echo $ichki;'
+<span class="out">42</span>
+<span class="out">PHP Warning:  Undefined variable $ichki in Command line code on line 1</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> <code>42</code> chiqdi (funksiya ichidan
+        <code>return</code> bilan), lekin <code>$ichki</code> tashqarida <b>yo'q</b>.
+        Xato turi — <code>Warning</code>, ya'ni to'xtatmaydi.</p>
+      </li>
+
+      <li>
+        <p>Ishni saqlang</p>
+        <div class="cmd" data-cmd="git add -A
+git commit -m &quot;06-dars: funksiya va tiplar&quot;">git add -A
+git commit -m "06-dars: funksiya va tiplar"</div>
+        <p class="expect"><b>Kutilgan natija:</b> commit haqida xabar.</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><input type="checkbox" id="d6c1"><label for="d6c1">Standart qiymatli parametrli funksiya yozdim</label></li>
+      <li><input type="checkbox" id="d6c2"><label for="d6c2"><code>return</code> va <code>echo</code> farqini aytib beraman</label></li>
+      <li><input type="checkbox" id="d6c3"><label for="d6c3"><b><code>strict_types</code> bor va yo'q holatni solishtirdim</b> 🎉</label></li>
+      <li><input type="checkbox" id="d6c4"><label for="d6c4"><code>TypeError</code> xabaridagi <b>ikki joyni</b> (called / defined) topdim</label></li>
+      <li><input type="checkbox" id="d6c5"><label for="d6c5">Stack trace'ni pastdan yuqoriga o'qiy olaman</label></li>
+      <li><input type="checkbox" id="d6c6"><label for="d6c6"><code>array_map</code> ishlatdim</label></li>
+      <li><input type="checkbox" id="d6c7"><label for="d6c7">Funksiya ichidagi o'zgaruvchi tashqarida yo'qligini tasdiqladim</label></li>
+      <li><input type="checkbox" id="d6c8"><label for="d6c8">Ishni commit qildim</label></li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 5) TAXMIN + QUIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Ikki fayl <b>bir xil</b> — farqi faqat <code>declare(strict_types=1);</code>
+    qatorida. Har birida <code>ikkilantir("5")</code> chaqirilgan. Ikkalasi nima
+    qaytaradi?</p>
+    <div class="codefile">
+      <div class="fname">A varianti — declare YO'Q</div>
+      <code class="cmd" data-cmd="&lt;?php
+function ikkilantir(int $son): int { return $son * 2; }
+var_dump(ikkilantir(&quot;5&quot;));">&lt;?php
+function ikkilantir(int $son): int { return $son * 2; }
+var_dump(ikkilantir("5"));</code>
+    </div>
+    <div class="codefile">
+      <div class="fname">B varianti — declare BOR</div>
+      <code class="cmd" data-cmd="&lt;?php
+declare(strict_types=1);
+function ikkilantir(int $son): int { return $son * 2; }
+var_dump(ikkilantir(&quot;5&quot;));">&lt;?php
+<span class="add">declare(strict_types=1);</span>
+function ikkilantir(int $son): int { return $son * 2; }
+var_dump(ikkilantir("5"));</code>
+    </div>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <p><b>A varianti</b> — jimgina ishlaydi:</p>
+        <div class="natija">int(10)</div>
+        <p><b>B varianti</b> — to'xtaydi:</p>
+        <div class="natija">PHP Fatal error:  Uncaught TypeError: ikkilantir(): Argument #1 ($son) must be of type int, string given</div>
+        <p><b>Xulosa:</b> <code>int $son</code> yozganingiz o'zi hech narsani kafolatlamaydi.
+        U <b>hujjat</b> — «bu yerga son kutilyapti». Uni <b>qoidaga</b> aylantiradigan narsa —
+        <code>declare(strict_types=1);</code> qatori, va u <b>har faylda alohida</b>
+        yozilishi kerak.</p>
+        <p class="expect">Diqqat: bu qoida <b>fayl bo'yicha</b> ishlaydi — chaqirilgan
+        funksiya qaysi faylda yozilganiga qarab emas, <b>chaqiruv qaysi faylda</b>
+        turganiga qarab. Shuning uchun professional loyihalarda uni <b>hamma faylga</b>
+        yozish odat qilingan.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span> <code>return</code> nima qiladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Qiymatni chaqirgan joyga qaytaradi</button></li>
+      <li><button class="quiz-option">Qiymatni ekranga darhol chiqaradi</button></li>
+      <li><button class="quiz-option">Qiymatni keyingi funksiyaga uzatadi</button></li>
+    </ul>
+    <div class="quiz-explain"><code>return</code> hech narsa <b>chiqarmaydi</b> — qiymatni
+    qaytaradi va funksiyani tugatadi. Chiqarish <code>echo</code> ning ishi. Shuning uchun
+    funksiya hisoblab qaytarsin, chiqarishni chaqiruvchi hal qilsin.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span> <code>int $son</code> deb yozsangiz,
+    matn berilishi mumkinmi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Ha, agar strict_types yo'q bo'lsa</button></li>
+      <li><button class="quiz-option">Yo'q, hech qanday holatda ham</button></li>
+      <li><button class="quiz-option">Ha, lekin faqat bo'sh matn</button></li>
+    </ul>
+    <div class="quiz-explain">Standart holatda PHP tipni o'zgartiradi —
+    <code>"5"</code> jimgina <code>5</code> bo'ladi. <code>declare(strict_types=1);</code>
+    yozilsagina <code>TypeError</code> chiqadi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span> Stack trace'da <b>xato joyi</b>
+    qayerda ko'rsatiladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Eng tepada, ro'yxatdan oldin</button></li>
+      <li><button class="quiz-option">Eng pastda, main qatorida</button></li>
+      <li><button class="quiz-option">Ro'yxatning o'rtasida, har doim</button></li>
+    </ul>
+    <div class="quiz-explain">Tepadagi <code>in fayl.php:4</code> — <b>xato joyi</b>.
+    Pastdagi <code>#0</code>, <code>#1</code>, <code>#2 {main}</code> — unga qanday kelib
+    qolinganini ko'rsatadigan <b>chaqiruvlar zanjiri</b>.</div>
+  </div>
+
+  <!-- ═══════════════ 6) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+    <p class="recall-intro">Avval o'zingiz javob bering, keyin ochib tekshiring.
+    Oxirgi ikkitasi — <a href="0005-massiv-va-foreach.html">5-darsni</a> takrorlash.</p>
+
+    <details class="recall">
+      <summary><code>return</code> va <code>echo</code> farqi nima?</summary>
+      <div class="answer"><p><code>echo</code> <b>javobga yozadi</b>. <code>return</code>
+      <b>qiymat qaytaradi</b> va funksiyani tugatadi — chiqarishni chaqiruvchi hal qiladi.
+      Shuning uchun bir funksiyani ham HTML sahifada, ham JSON API'da ishlatish mumkin.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Type hint'ni kafolatga aylantiradigan narsa nima?</summary>
+      <div class="answer"><p><code>declare(strict_types=1);</code> — fayl boshida,
+      <code>&lt;?php</code> dan keyingi <b>birinchi</b> ko'rsatma. Usiz PHP tipni jimgina
+      o'zgartiradi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Stack trace'ni qaysi tomondan o'qiysiz?</summary>
+      <div class="answer"><p>Tepadagi qator — <b>xato joyi</b>. Undan pastdagilar
+      (<code>#0</code>, <code>#1</code>, <code>#2 {main}</code>) — <b>chaqiruvlar
+      zanjiri</b>, ya'ni «bu yergacha qanday kelindi».</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: PHP massivi ro'yxatmi yoki xarita?</summary>
+      <div class="answer"><p><b>Xarita</b> — har doim «kalit → qiymat». Shuning uchun
+      kalitlar uzluksiz bo'lmasligi mumkin va <code>foreach</code> tavsiya qilinadi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: <code>$a = ["a","b"]; $a[5]="c"; $a[]="d";</code> — oxirgi kalit?</summary>
+      <div class="answer"><p><b>6</b> — chunki <code>$a[] =</code> «eng katta son kalit + 1»
+      ni oladi, <code>count</code> ga qaramaydi.</p></div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 7) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Cho'ntak xulosasi</span>
+    <ul>
+      <li><code>function nom(tip $param): tip { return ...; }</code> — mantiqqa nom berish.</li>
+      <li><b><code>return</code> qaytaradi, <code>echo</code> chiqaradi.</b> Funksiya
+      hisoblasin, chiqarishni chaqiruvchi hal qilsin.</li>
+      <li>Standart qiymatli parametrlar <b>oxirida</b> turadi.</li>
+      <li><b>Scope:</b> funksiya ichidagi o'zgaruvchi tashqarida yo'q. Kirish — parametr,
+      chiqish — <code>return</code>.</li>
+      <li>🔑 <b>Type hint o'zi kafolat emas.</b> Kafolat —
+      <code>declare(strict_types=1);</code>, har faylda alohida.</li>
+      <li>Stack trace: <b>tepasi — xato joyi</b>, pastdagilar — chaqiruvlar zanjiri.</li>
+      <li><code>array_map</code> har elementni o'zgartiradi · <code>array_filter</code>
+      shartga mos kelganini tanlaydi.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Kelasi darslar uchun urug'</span>
+    <p>Endi funksiya yozishni bilasiz. Lekin bitta muammo bor: bog'liq funksiyalar va
+    ular ishlatadigan ma'lumot <b>alohida-alohida</b> yotadi. Masalan vakansiya ma'lumoti
+    bir massivda, uni formatlaydigan funksiya boshqa joyda — ularni birga tutib turadigan
+    narsa yo'q.</p>
+    <p><b>Keyingi dars</b> shuni yechadi: ma'lumot va u bilan ishlaydigan funksiyalarni
+    bitta qutiga solish — <b>klass</b> va <b>obyekt</b>. Klass ichidagi funksiya
+    <b>metod</b> deb ataladi, lekin qoidalari bugungi qoidalar. Laravel butunlay shu
+    tushuncha ustiga qurilgan.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>PHP Fundamentals</b> — Laravel'ning rasmiy bepul kursi, funksiyalar epizodi:
+    <a href="https://laravel.com/learn/php-fundamentals">laravel.com/learn/php-fundamentals</a>.<sup><a href="#fn1">1</a></sup><br>
+    Qo'llanma (ko'zgu):
+    <a href="https://devdocs.io/php/functions.arguments">devdocs.io — Function arguments</a> ·
+    <a href="https://devdocs.io/php/language.types.declarations">Type declarations</a>.<sup><a href="#fn2">2</a></sup><br>
+    O'zbekcha: <a href="https://uzbekdevs.uz/darsliklar/php">uzbekdevs.uz</a> — «Funksiya» darsi.</p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b> «funksiya bir nechta qiymat
+    qaytarishi mumkinmi?», «<code>?string</code> nima degani?», «<code>void</code> nima?»,
+    «nomsiz funksiya (closure) nima?», «<code>strtoupper</code> kabi tayyor funksiyalarni
+    qayerdan topaman?» — har qanday savol yaxshi.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0005-massiv-va-foreach.html">Oldingi: Massiv va foreach</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel — <a href="https://laravel.com/learn/php-fundamentals">PHP
+      Fundamentals</a> (rasmiy bepul mini-kurs).</li>
+      <li id="fn2">PHP Manual — <i>Function arguments</i> va <i>Type declarations</i>,
+      DevDocs ko'zgusi orqali:
+      <a href="https://devdocs.io/php/functions.arguments">devdocs.io/php/functions.arguments</a>.
+      Rasmiy <code>php.net</code> bu tarmoqdan ochilmaydi.</li>
+      <li id="fn3">Barcha natijalar — shu jumladan <code>TypeError</code> xabari va
+      uch bosqichli stack trace — PHP <b>8.3.32</b> da jonli chiqarilgan va
+      shundayligicha ko'chirilgan.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>
