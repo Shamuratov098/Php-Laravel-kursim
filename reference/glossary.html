@@ -18,7 +18,7 @@
   izoh esa o'zbekcha.</p>
 
   <p class="lesson-meta">
-    <span>Atamalar: <b>142 ta</b></span>
+    <span>Atamalar: <b>145 ta</b></span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>📱 O'qishga mos</span>
   </p>
@@ -26,7 +26,7 @@
   <div class="callout note">
     <span class="label">Bu hujjat o'sib boradi</span>
     <p>Atama faqat <b>o'z darsi yozilganda</b> qo'shiladi — oldindan emas. Hozir:
-    Modul A–D (1–34-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
+    Modul A–D (1–35-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
     bosqichida qat'iy belgilangan va 73 dars bo'ylab o'zgarmaydi).</p>
   </div>
 
@@ -1301,6 +1301,41 @@
       <code>@can('create', App\Models\Vakansiya::class)</code> — Blade'da
       <code>use</code> yo'q, to'liq yo'l yoziladi.
       <span class="eg">@can('delete', $v) &lt;button&gt;O'chirish&lt;/button&gt; @endcan</span></dd>
+    </div>
+
+    <div class="term" id="form-request">
+      <dt>Form Request <span class="uz">— validatsiyaning alohida klassi</span></dt>
+      <dd><code>make:request VakansiyaRequest</code> →
+      <code>app/Http/Requests/</code>. Ichida <code>rules()</code>,
+      <code>messages()</code>, <code>attributes()</code>,
+      <code>authorize()</code>, <code>prepareForValidation()</code>.
+      Controllerga <b>type-hint</b> orqali ulanadi — ro'yxatdan o'tkazish shart
+      emas. ⚠️ Yasalgan <code>authorize()</code> <b><code>false</code></b>
+      qaytaradi: ruxsati bor odam ham 403 oladi.
+      <span class="eg">public function store(VakansiyaRequest $request)</span></dd>
+    </div>
+
+    <div class="term" id="validated">
+      <dt>validated() <span class="uz">— faqat tekshirilgan maydonlar</span></dt>
+      <dd>🔒 <code>rules()</code> da <b>nomi bor</b> maydonlarnigina qaytaradi;
+      formaga qo'lda qo'shilgan <code>user_id</code> kabi maydonlar
+      <b>tashlanadi</b>. <code>all()</code> esa hammasini beradi — shuning uchun
+      <code>create($request-&gt;all())</code> xavfli.
+      <a href="#mass-assignment">$fillable</a> bu yerda qutqarmaydi: <code>user_id</code>
+      unda bo'lishi mumkin. Yaqinlari: <code>safe()-&gt;only([...])</code>,
+      <code>safe()-&gt;except([...])</code>.
+      ⚠️ Validatsiya <b>tipni o'zgartirmaydi</b> — <code>integer</code>
+      qoidasidan o'tgan qiymat baribir <code>string</code>.
+      <span class="eg">Vakansiya::create($request-&gt;validated());</span></dd>
+    </div>
+
+    <div class="term" id="prepare-for-validation">
+      <dt>prepareForValidation() <span class="uz">— tekshiruvdan oldin tozalash</span></dt>
+      <dd><code>protected</code> metod, uni Laravel <code>rules()</code> dan
+      <b>oldin</b> chaqiradi. <code>$this-&gt;merge([...])</code> bilan so'rov
+      ma'lumotini o'zgartiradi: probel kesish, format to'g'rilash, bo'sh matnni
+      <code>null</code> qilish.
+      <span class="eg">$this-&gt;merge(['nom' =&gt; trim((string) $this-&gt;input('nom'))]);</span></dd>
     </div>
 
     <div class="term" id="enum">

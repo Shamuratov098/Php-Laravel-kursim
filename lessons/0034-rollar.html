@@ -368,7 +368,7 @@ delete:  Ali (egasi + ish beruvchi)    true
         Vakansiya::create($tekshirilgan + ['user_id' =&gt; $request-&gt;user()-&gt;id]);
 
         return redirect()-&gt;route('vakansiyalar.index')
-            -&gt;with('xabar', 'Qo\'shildi: ' . $tekshirilgan['sarlavha']);
+            -&gt;with('xabar', 'Qo\'shildi: ' . $tekshirilgan['nom']);
     }</code>
   </div>
 
@@ -908,13 +908,13 @@ rolni tanlamasdan yuborsangiz  →  «Rolni tanlang.»</div>
   method: 'POST',
   body: new URLSearchParams({
     _token: document.querySelector('input[name=_token]').value,
-    sarlavha: 'Qochib ketgan', tavsif: 'test', maosh: '1'
+    nom: 'Qochib ketgan vakansiya', maosh: '1000'
   })
 }).then(r =&gt; console.log('status:', r.status))">fetch('/vakansiyalar', {
   method: 'POST',
   body: new URLSearchParams({
     _token: document.querySelector('input[name=_token]').value,
-    sarlavha: 'Qochib ketgan', tavsif: 'test', maosh: '1'
+    nom: 'Qochib ketgan vakansiya', maosh: '1000'
   })
 }).then(r =&gt; console.log('status:', r.status))
 <span class="out">status: 403</span></div>

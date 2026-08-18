@@ -17,7 +17,7 @@
   muhit ma'lumotlari. Har dars yangi buyruq o'rgatilsa, shu yerga qo'shiladi.</p>
 
   <p class="lesson-meta">
-    <span>Qamrov: <b>1&ndash;34-darslar</b> — muhitdan rollargacha</span>
+    <span>Qamrov: <b>1&ndash;35-darslar</b> — muhitdan Form Request'gacha</span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>💻 Amaliyotga mos</span>
   </p>
@@ -713,6 +713,40 @@
     <code>make:enum Enums/Rol</code> emas — ikkinchisi
     <code>app/Enums/Enums/Rol.php</code> yasaydi. Chiqishdagi <b>yo'lga
     qarang</b>.</p>
+  </div>
+
+  <h2>Form Request (35-darsdan)</h2>
+  <table class="sheet">
+    <tr><th>Kod</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>make:request VakansiyaRequest</code></td><td class="note-cell"><code>app/Http/Requests/</code> ga klass. ⚠️ <code>authorize()</code> <b><code>false</code></b> qaytaradi</td></tr>
+    <tr><td><code>store(VakansiyaRequest $request)</code></td><td class="note-cell">Ulash — <b>type-hint</b>, boshqa hech nima kerak emas</td></tr>
+    <tr><td><code>rules()</code></td><td class="note-cell"><code>['required', 'string', 'min:5']</code> — massiv shakli afzal</td></tr>
+    <tr><td><code>messages()</code></td><td class="note-cell">To'liq xabar: <code>'nom.required' =&gt; '...'</code></td></tr>
+    <tr><td><code>attributes()</code></td><td class="note-cell">Faqat maydon nomi. <b>Zaxira</b> — o'z xabari bor qoidaga ta'sir qilmaydi</td></tr>
+    <tr><td><code>authorize()</code></td><td class="note-cell">Policy'ni chaqiring: <code>$user-&gt;can('create', X::class)</code></td></tr>
+    <tr><td><code>$this-&gt;route('vakansiya')</code></td><td class="note-cell">Bor → <code>update</code>, yo'q → <code>create</code>. Bitta klass ikkala amalga</td></tr>
+    <tr><td><code>$this-&gt;user()</code></td><td class="note-cell">⚠️ Mehmon uchun <code>null</code> — tekshiring, aks holda <b>500</b></td></tr>
+    <tr><td><code>failedAuthorization()</code></td><td class="note-cell">403 sahifasida o'z sababingiz (<code>AuthorizationException</code>)</td></tr>
+    <tr><td><code>prepareForValidation()</code></td><td class="note-cell"><code>protected</code>. <code>rules()</code> dan oldin <code>$this-&gt;merge([...])</code></td></tr>
+    <tr><td><code>$request-&gt;validated()</code></td><td class="note-cell">🔒 Faqat <code>rules()</code> dagi maydonlar</td></tr>
+    <tr><td><code>$request-&gt;safe()-&gt;only([...])</code></td><td class="note-cell">Tekshirilganlaridan tanlab olish (<code>except</code>, <code>collect</code> ham bor)</td></tr>
+    <tr><td><code>@method('PUT')</code></td><td class="note-cell">Formada. Unutilsa <b>405</b> <code>MethodNotAllowedHttpException</code></td></tr>
+    <tr><td><code>old('nom', $v-&gt;nom)</code></td><td class="note-cell">Ikkinchi argument — standart qiymat (tahrirlash formasi)</td></tr>
+  </table>
+  <div class="callout note">
+    <p>🔑 <b>To'siqlar tartibi:</b> <b>419</b> CSRF → <b>302</b> auth →
+    <b>403</b> <code>authorize()</code> → <b>302</b> <code>rules()</code> →
+    controller tanasi. Huquqi yo'q odam <b>bo'sh</b> forma yuborsa ham
+    <b>403</b> oladi, validatsiya xatosi emas.</p>
+    <p>🔒 <b><code>all()</code> ishlatmang.</b> <code>user_id=999</code>
+    yuborilsa <code>validated()</code> uni tashlaydi, <code>all()</code> esa
+    o'tkazadi — PHP'da <code>+</code> chap tomonni ustun qo'yadi.
+    <code>$fillable</code> qutqarmaydi: <code>user_id</code> unda <b>bor</b>.</p>
+    <p>⚠️ Validatsiya <b>tipni o'zgartirmaydi</b>: <code>integer</code>
+    qoidasidan o'tgan qiymat baribir <code>string</code>. Tip kerak bo'lsa —
+    <code>casts()</code>.</p>
+    <p>Bitta klass yoki ikkita: <b>qoidalar bir xil bo'lsa birlashtiring,
+    ajrasa bo'ling</b> (<code>StoreXRequest</code> + <code>UpdateXRequest</code>).</p>
   </div>
 
   <h2>Xatoni o'qish</h2>

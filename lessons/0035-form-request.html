@@ -1,0 +1,1249 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 35 — Form Request: validatsiya o'z uyiga ko'chdi</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 35 · MODUL D — FOYDALANUVCHI VA HUQUQLAR</p>
+  <h1>Form Request: validatsiya o'z uyiga ko'chdi</h1>
+  <p class="lead"><code>store()</code> metodiga qarang: huquq tekshiruvi, qoidalar
+  ro'yxati, xato xabarlari va saqlash — <b>hammasi bitta joyda</b>. Bugun ularni
+  alohida klassga ko'chiramiz, controller <b>uch qatorga</b> tushadi. Va darhol
+  foydasini ko'ramiz: <b>tahrirlash</b> amalini qo'shamiz —
+  <b>bitta ham yangi validatsiya qatorisiz</b>.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 16 daqiqa</span>
+    <span>💻 Amaliyot ≈ 25 daqiqa</span>
+    <span>Kerak: <a href="0034-rollar.html">Dars 34</a></span>
+  </p>
+
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b>Nega controller shishib ketadi</b>
+        <span class="nima">Bitta metodda to'rt xil ish. Ikkinchi amal
+        qo'shilganda ro'yxat <b>ko'chiriladi</b> — va ikkitasi asta ajralib
+        ketadi.</span></li>
+      <li><b><code>make:request</code></b>
+        <span class="nima">Yasalgan skelet: <code>authorize()</code> va
+        <code>rules()</code>. ⚠️ <code>authorize()</code> <b>false</b>
+        qaytaradi — birinchi tuzoq shu.</span></li>
+      <li><b>Type-hint — ulash usuli</b>
+        <span class="nima">Controllerda <code>Request</code> o'rniga
+        <code>VakansiyaRequest</code> yozish kifoya. <b>Sehr yo'q:</b> Laravel
+        argument tipini ko'rib, metod tanasidan <b>oldin</b> tekshiradi.</span></li>
+      <li><b><code>rules()</code> massiv shaklida</b>
+        <span class="nima"><code>'required|string'</code> emas,
+        <code>['required', 'string']</code> — nega shu ko'proq
+        ishlatiladi.</span></li>
+      <li><b><code>messages()</code> va <code>attributes()</code></b>
+        <span class="nima">To'liq xabar yozish yoki faqat <b>maydon nomini</b>
+        o'zbekchalash. Ikkinchisi ancha kam yozuv.</span></li>
+      <li><b>To'siqlar tartibi — o'lchangan</b>
+        <span class="nima">CSRF <b>419</b> → auth <b>302</b> →
+        <code>authorize()</code> <b>403</b> → <code>rules()</code> <b>302</b> →
+        controller. Har biri alohida sinaldi.</span></li>
+      <li><b><code>authorize()</code> policy'ni chaqiradi</b>
+        <span class="nima">33- va 34-darsdagi qoidalar shu yerdan ishlatiladi:
+        yaratishda <code>create</code>, tahrirlashda
+        <code>update</code>.</span></li>
+      <li><b>⚠️ Mehmon holati</b>
+        <span class="nima"><code>$this-&gt;user()</code> <code>null</code>
+        bo'lishi mumkin. Tekshirmasangiz <b>403</b> emas, <b>500</b>
+        olasiz.</span></li>
+      <li><b><code>validated()</code> va <code>all()</code></b>
+        <span class="nima">🔒 Xavfsizlik farqi <b>o'lchandi</b>:
+        <code>user_id=999</code> yuborilganda e'lon boshqa odamga
+        yozilib qolishi mumkin edi.</span></li>
+      <li><b><code>prepareForValidation()</code></b>
+        <span class="nima">Tekshiruvdan <b>oldin</b> ma'lumotni tozalash —
+        probellarni kesish, formatni to'g'rilash.</span></li>
+      <li><b>Foydasi: tahrirlash amali</b>
+        <span class="nima">Yangi route, metod va forma qo'shiladi —
+        validatsiya kodi <b>umuman yozilmaydi</b>. Xabarlar o'zi
+        chiqadi.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima">Stub <code>false</code> · <code>all()</code>
+        xavfi · <code>failedAuthorization</code> · <code>attributes</code>
+        qachon ishlaydi · mehmon · <code>@method</code> unutilishi ·
+        bitta yoki ikkita klass.</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Nega controller shishib ketadi</span>
+    <p>34-darsdan keyin <code>store()</code> shunday ko'rinadi:</p>
+    <div class="natija">public function store(Request $request): RedirectResponse
+{
+    $this-&gt;authorize('create', Vakansiya::class);        ← 1) huquq
+
+    $tekshirilgan = $request-&gt;validate([                 ← 2) qoidalar
+        'nom' =&gt; 'required|string|min:5|max:100',
+        'maosh' =&gt; 'required|integer|min:1',
+    ], [
+        'nom.required' =&gt; 'Vakansiya nomi kiritilishi shart.',    ← 3) xabarlar
+        'nom.min' =&gt; 'Vakansiya nomi kamida :min belgidan iborat bo\'lsin.',
+        'maosh.required' =&gt; 'Maosh kiritilishi shart.',
+        'maosh.integer' =&gt; 'Maosh butun son bo\'lishi kerak.',
+    ]);
+
+    Vakansiya::create(...);                             ← 4) asl ish
+    return redirect()...;
+}</div>
+    <p>To'rt xil ish bitta metodda, va <b>asl ish</b> — saqlash — eng oxirida,
+    ko'rinmay qolgan. Lekin haqiqiy muammo bugun emas, <b>ertaga</b>
+    boshlanadi.</p>
+    <p>Ertaga <b>tahrirlash</b> amali kerak bo'ladi. Qoidalar bir xil. Nima
+    qilasiz? Ro'yxatni <b>ko'chirasiz</b>. Keyin bir kun kelib
+    <code>max:100</code> ni <code>max:150</code> ga o'zgartirasiz — <b>bitta
+    joyda</b>. Ikkinchisi eski holida qoladi va hech kim sezmaydi.</p>
+    <div class="natija">bir xil qoida ikki joyda  →  bir kun ajraladi  →  xato tug'iladi</div>
+  </div>
+
+  <!-- ═══════════════ 2) MAKE:REQUEST ═══════════════ -->
+  <h2>Form Request — validatsiyaning uyi</h2>
+
+  <p>Laravel'da bu ish uchun alohida klass turi bor:<sup><a href="#fn1">1</a></sup></p>
+
+  <div class="cmd" data-cmd="php artisan make:request VakansiyaRequest">php artisan make:request VakansiyaRequest
+<span class="out"> INFO  Request [app/Http/Requests/VakansiyaRequest.php] created successfully.</span></div>
+
+  <p>Yasalgan skeletda <b>ikkita</b> metod bor:</p>
+
+  <div class="codefile">
+    <span class="fname">app/Http/Requests/VakansiyaRequest.php — yasalgan holicha</span>
+    <code class="cmd">class VakansiyaRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return false;          // ← ⚠️ DIQQAT
+    }
+
+    public function rules(): array
+    {
+        return [
+            //
+        ];
+    }
+}</code>
+  </div>
+
+  <div class="callout warning">
+    <span class="label">⚠️ Birinchi tuzoq: <code>return false</code></span>
+    <p>Skelet <b>hammaga taqiq</b> qo'yib turadi. Agar buni o'zgartirmasdan
+    controllerga ulasangiz, <b>ruxsati bor odam ham</b> 403 oladi.</p>
+    <p>O'lchandi: Ali — <b>ish beruvchi</b> va policy unga ruxsat beradi.
+    Baribir:</p>
+    <div class="natija">Ali (ish beruvchi) vakansiya qo'shmoqchi  →  403</div>
+    <p>Va sahifada hech qanday tushuntirish yo'q. Siz policy'ni, rolni, hatto
+    bazani tekshirib chiqasiz — muammo esa <b>yangi faylning ikkinchi
+    qatorida</b>.</p>
+    <p>🔑 <b>Yodda tuting:</b> <code>make:request</code> dan keyin birinchi ish —
+    <code>authorize()</code> ga qarash.</p>
+  </div>
+
+  <!-- ═══════════════ 3) TO'LDIRISH ═══════════════ -->
+  <h2>Klassni to'ldiramiz</h2>
+
+  <div class="codefile">
+    <span class="fname">app/Http/Requests/VakansiyaRequest.php</span>
+    <code class="cmd">use App\Models\Vakansiya;
+use Illuminate\Foundation\Http\FormRequest;
+
+class VakansiyaRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        $user = $this-&gt;user();
+
+        if ($user === null) {          // ← mehmon holati, pastda tushuntiriladi
+            return false;
+        }
+
+        $vakansiya = $this-&gt;route('vakansiya');
+
+        return $vakansiya
+            ? $user-&gt;can('update', $vakansiya)          // tahrirlash
+            : $user-&gt;can('create', Vakansiya::class);   // yaratish
+    }
+
+    public function rules(): array
+    {
+        return [
+            'nom' =&gt; ['required', 'string', 'min:5', 'max:100'],
+            'maosh' =&gt; ['required', 'integer', 'min:1'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'nom.required' =&gt; 'Vakansiya nomi kiritilishi shart.',
+            'nom.min' =&gt; 'Vakansiya nomi kamida :min belgidan iborat bo\'lsin.',
+            'maosh.required' =&gt; 'Maosh kiritilishi shart.',
+            'maosh.integer' =&gt; 'Maosh butun son bo\'lishi kerak.',
+        ];
+    }
+}</code>
+  </div>
+
+  <p>Uchta narsaga alohida to'xtalamiz.</p>
+
+  <h3>1. <code>rules()</code> — massiv shakli</h3>
+
+  <div class="natija">'nom' =&gt; 'required|string|min:5|max:100'          // vertikal chiziq bilan
+'nom' =&gt; ['required', 'string', 'min:5', 'max:100']   // massiv bilan  ✅</div>
+
+  <p>Ikkalasi bir xil ishlaydi. Lekin massiv shakli afzal, chunki qoidalar orasida
+  <b>obyektlar</b> ham bo'lishi mumkin — 34-darsdagi
+  <code>Rule::enum(Rol::class)</code> ni vertikal chiziq bilan yozib
+  bo'lmaydi.</p>
+
+  <h3>2. <code>authorize()</code> policy'ni chaqiradi</h3>
+
+  <p>Bu yerda yangi qoida <b>yozilmadi</b> — 33- va 34-darsda yozilgan policy
+  ishlatildi. <code>$this-&gt;route('vakansiya')</code> — route'dagi
+  <code>{vakansiya}</code> parametri:</p>
+
+  <div class="natija">POST /vakansiyalar              →  {vakansiya} yo'q  →  create tekshiriladi
+PUT  /vakansiyalar/27           →  {vakansiya} bor  →  update tekshiriladi</div>
+
+  <p>Shu bir metod ikkala amalga ham xizmat qiladi.</p>
+
+  <h3>3. <code>attributes()</code> — arzon o'zbekchalashtirish</h3>
+
+  <p>Har bir qoidaga xabar yozish uzoq. Ko'pincha faqat <b>maydon nomi</b>
+  o'zbekcha bo'lsa yetadi:</p>
+
+  <div class="codefile">
+    <span class="fname">app/Http/Requests/VakansiyaRequest.php</span>
+    <code class="cmd">    public function attributes(): array
+    {
+        return [
+            'nom' =&gt; 'vakansiya nomi',
+            'maosh' =&gt; 'maosh',
+        ];
+    }</code>
+  </div>
+
+  <p>Natija — <code>max:100</code> qoidasining o'z xabari yo'q, shuning uchun
+  Laravel standart xabarni ishlatadi, lekin <b>bizning nom</b> bilan:</p>
+
+  <div class="natija">The vakansiya nomi field must not be greater than 100 characters.</div>
+
+  <p class="expect">🔍 E'tibor bering: <code>messages()</code> da xabari
+  <b>bor</b> qoidalarga <code>attributes()</code> ta'sir qilmaydi — u yerda
+  butun jumla siznikida.</p>
+
+  <!-- ═══════════════ 4) ULASH ═══════════════ -->
+  <h2>Controllerga ulash — bitta so'z</h2>
+
+  <p>Ulash uchun hech qanday ro'yxatdan o'tkazish kerak emas. Argument
+  <b>tipini</b> almashtirasiz, xolos:</p>
+
+  <div class="codefile">
+    <span class="fname">app/Http/Controllers/VakansiyaController.php</span>
+    <code class="cmd">    public function store(VakansiyaRequest $request): RedirectResponse
+    {
+        $tekshirilgan = $request-&gt;validated();
+
+        Vakansiya::create($tekshirilgan + ['user_id' =&gt; $request-&gt;user()-&gt;id]);
+
+        return redirect()-&gt;route('vakansiyalar.index')
+            -&gt;with('xabar', "Qo'shildi: {$tekshirilgan['nom']}");
+    }</code>
+  </div>
+
+  <p>17 qator edi — 8 qator bo'ldi. Va qolgan qatorlarning hammasi
+  <b>asl ish</b> haqida.</p>
+
+  <div class="callout tip">
+    <span class="label">Sehr yo'q — mexanizm shu</span>
+    <p>15-darsdagi <b>service container</b> yodingizdami? Laravel controller
+    metodini chaqirishdan oldin uning argumentlarini ko'radi va har birini
+    <b>tipiga qarab</b> yasab beradi.</p>
+    <p><code>VakansiyaRequest</code> — <code>FormRequest</code> avlodi.
+    Container uni yasab bo'lgach, <b>tanani chaqirishdan oldin</b> ikki ishni
+    bajaradi:</p>
+    <div class="natija">1) authorize()  →  false bo'lsa   →  403, metod ISHLAMAYDI
+2) rules()      →  xato bo'lsa    →  302 orqaga, metod ISHLAMAYDI
+3) metod tanasi ishga tushadi</div>
+    <p>Shuning uchun controller ichida «tekshirdimmi?» deb o'ylash shart emas:
+    u yerga <b>faqat tekshiruvdan o'tgan</b> so'rov yetib keladi.</p>
+  </div>
+
+  <h3>To'siqlar tartibi — o'lchangan</h3>
+
+  <p>Bitta so'rov yo'lda to'rtta to'siqdan o'tadi. Har birini alohida
+  sinadik:<sup><a href="#fn4">4</a></sup></p>
+
+  <div class="natija">1) CSRF          _token yo'q                     →  419
+2) auth          mehmon (kirmagan)               →  302 → /kirish
+3) authorize()   nomzod qo'shmoqchi              →  403
+4) rules()       nom qisqa, maosh matn           →  302 orqaga + xatolar
+5) controller    hammasi joyida                  →  302 → /vakansiyalar</div>
+
+  <p class="expect">🔑 Muhim natija: nomzod <b>bo'sh formani</b> yuborganda ham
+  <b>403</b> keladi, validatsiya xatosi emas. Chunki <code>authorize()</code>
+  <code>rules()</code> dan <b>oldin</b> ishlaydi — huquqi yo'q odamga
+  «maosh kiritilishi shart» deb javob berish mantiqsiz bo'lardi.</p>
+
+  <!-- ═══════════════ 5) VALIDATED ═══════════════ -->
+  <h2><code>validated()</code> — nega <code>all()</code> emas</h2>
+
+  <p>Controllerda <code>$request-&gt;validated()</code> yozildi.
+  <code>$request-&gt;all()</code> ham bor. Farqi katta.</p>
+
+  <p>Formaga qo'shimcha maydon <b>qo'lda</b> qo'shib yuboramiz —
+  brauzer konsolidan buni qilish oson:</p>
+
+  <div class="natija">yuborilgan:  nom · maosh · user_id=999 · shahar=Buxoro · _token
+
+all()        →  nom · maosh · user_id · shahar · _token     ← HAMMASI
+validated()  →  {"nom": "...", "maosh": "5000000"}          ← faqat rules() dagilar</div>
+
+  <p>Endi nima bo'lishini ko'ring. Controller shunday yozilgan:</p>
+
+  <div class="natija">Vakansiya::create($tekshirilgan + ['user_id' =&gt; $request-&gt;user()-&gt;id]);</div>
+
+  <p>PHP'dagi <code>+</code> massivlar uchun — <b>chap tomon ustun</b>. Agar
+  <code>$tekshirilgan</code> ichida allaqachon <code>user_id</code> bo'lsa,
+  o'ngdagi haqiqiy egasi <b>e'tiborga olinmaydi</b>.</p>
+
+  <div class="natija">validated() bilan:   user_id = 2       (kirgan odam)      ✅
+                     shahar  = NULL
+
+all() bilan:         user_id = 999     ← hujumchi yuborgan   💥
+                     shahar  = 'Buxoro'</div>
+
+  <p class="expect"><b>O'lchangan:</b> <code>user_id=999</code> mavjud emas,
+  shuning uchun baza to'sib qoldi:
+  <code>SQLSTATE[23000]: Integrity constraint violation: 19 FOREIGN KEY
+  constraint failed</code> — ya'ni <b>500</b>.
+  <br>⚠️ Lekin <b>mavjud</b> odamning raqamini yuborsa (masalan 3), xato
+  chiqmaydi — e'lon jimgina <b>boshqa odamga</b> yozib qo'yiladi. Buni ham
+  sinab ko'rdik.</p>
+
+  <div class="callout warning">
+    <span class="label">🔒 <code>$fillable</code> yetarli emas edi</span>
+    <p>«Menda <code>$fillable</code> bor-ku» degan javob bu yerda ishlamaydi:
+    <code>Vakansiya</code> modelining <code>$fillable</code> ro'yxatida
+    <code>user_id</code> va <code>shahar</code> <b>bor</b> — ular haqiqatan ham
+    to'ldirilishi kerak bo'lgan maydonlar.</p>
+    <div class="natija">$fillable: nom · maosh · shahar · faol · kompaniya_id · user_id</div>
+    <p><code>validated()</code> boshqa savolga javob beradi: «bu so'rovda
+    <b>qaysi maydonlar kutilgan edi?</b>» Javob — <code>rules()</code> da
+    yozilganlari. Qolgani tashlanadi.</p>
+    <p>🔑 Bu qatlamli himoya: <code>$fillable</code> — model darajasida,
+    <code>validated()</code> — so'rov darajasida.</p>
+  </div>
+
+  <h3>Yaqin qarindoshlari</h3>
+
+  <div class="natija">$request-&gt;validated()                  →  hammasi (tekshirilganlari)
+$request-&gt;safe()-&gt;only(['nom'])        →  {"nom": "..."}
+$request-&gt;safe()-&gt;except(['maosh'])    →  {"nom": "..."}
+$request-&gt;safe()-&gt;collect()            →  Illuminate\Support\Collection</div>
+
+  <p class="expect">⚠️ <b>Bir narsani kutmang:</b> validatsiya <b>tipni
+  o'zgartirmaydi</b>. <code>'maosh' =&gt; ['integer']</code> qoidasidan o'tgandan
+  keyin ham qiymat <code>string</code> bo'lib qoladi —
+  <code>"5000000"</code>. Tekshiruv «bu son bo'la oladimi?» deb so'raydi,
+  «uni songa aylantir» demaydi. Tip kerak bo'lsa model
+  <code>casts()</code> ida ayting — 34-darsdagi kabi.</p>
+
+  <!-- ═══════════════ 6) PREPARE ═══════════════ -->
+  <h2><code>prepareForValidation()</code> — tekshiruvdan oldin tozalash</h2>
+
+  <p>Odam formaga <code>"   Devops muhandis   "</code> deb yozdi — boshida va
+  oxirida probel. Qoidalar buni o'tkazadi (uzunligi yetarli), va bazaga
+  probellari bilan tushadi.</p>
+
+  <div class="codefile">
+    <span class="fname">app/Http/Requests/VakansiyaRequest.php</span>
+    <code class="cmd">    protected function prepareForValidation(): void
+    {
+        $this-&gt;merge([
+            'nom' =&gt; trim((string) $this-&gt;input('nom')),
+        ]);
+    }</code>
+  </div>
+
+  <p class="expect"><b>O'lchangan:</b> <code>"   Devops muhandis   "</code>
+  yuborilgandan keyin bazada <code>[Devops muhandis]</code>, uzunligi
+  <b>15</b> — probellar yo'q.</p>
+
+  <p>Bu metod <code>rules()</code> dan <b>oldin</b> ishlaydi, shuning uchun
+  qoidalar allaqachon tozalangan qiymatni ko'radi. Foydali holatlar: probel
+  kesish, telefon raqamdan chiziqcha olib tashlash, bo'sh matnni
+  <code>null</code> ga aylantirish.</p>
+
+  <p><code>protected</code> ekaniga e'tibor bering — bu metod tashqaridan
+  chaqirilmaydi, uni faqat Laravel'ning o'zi chaqiradi.</p>
+
+  <!-- ═══════════════ 7) FOYDASI ═══════════════ -->
+  <h2>Foydasi: tahrirlash amali</h2>
+
+  <p>Bu darsning haqiqiy javobi shu yerda. Endi IshTop'ga <b>tahrirlash</b>
+  qo'shamiz va nechta qator validatsiya yozishimizga qarang.</p>
+
+  <div class="codefile">
+    <span class="fname">routes/web.php</span>
+    <code class="cmd">Route::get('/vakansiyalar/{vakansiya}/tahrirlash', [VakansiyaController::class, 'tahrirlash'])
+    -&gt;name('vakansiyalar.tahrirlash')-&gt;middleware('auth');
+
+Route::put('/vakansiyalar/{vakansiya}', [VakansiyaController::class, 'yangilash'])
+    -&gt;name('vakansiyalar.yangilash')-&gt;middleware('auth');</code>
+  </div>
+
+  <div class="codefile">
+    <span class="fname">app/Http/Controllers/VakansiyaController.php</span>
+    <code class="cmd">    public function tahrirlash(Vakansiya $vakansiya): View
+    {
+        $this-&gt;authorize('update', $vakansiya);
+
+        return view('vakansiyalar.tahrirlash', ['v' =&gt; $vakansiya]);
+    }
+
+    public function yangilash(VakansiyaRequest $request, Vakansiya $vakansiya): RedirectResponse
+    {
+        $vakansiya-&gt;update($request-&gt;validated());
+
+        return redirect()-&gt;route('vakansiyalar.index')
+            -&gt;with('xabar', "Yangilandi: {$vakansiya-&gt;nom}");
+    }</code>
+  </div>
+
+  <p><code>yangilash()</code> — <b>uch qator</b>. Validatsiya yo'q, xabarlar
+  yo'q, huquq tekshiruvi yo'q. Hammasi <code>VakansiyaRequest</code> ichida
+  turibdi va o'zi ishlaydi.</p>
+
+  <p class="expect"><b>O'lchangan — xato ma'lumot yuborilganda:</b></p>
+  <div class="natija">Vakansiya nomi kamida 5 belgidan iborat bo'lsin.
+Maosh butun son bo'lishi kerak.</div>
+
+  <p>Bu — <b>store</b> uchun yozilgan xabarlar. <b>Update</b> da o'zi chiqdi.
+  Bitta ham yangi qator yozilmadi.</p>
+
+  <h3>Huquq — ikkala amalda ham</h3>
+
+  <p><code>authorize()</code> ichidagi <code>$this-&gt;route('vakansiya')</code>
+  o'z ishini qildi. Uchta odam bilan sinaldi:</p>
+
+  <div class="natija">                                    tahrirlash sahifasi   PUT
+Ali    (egasi, ish beruvchi)              200            302   ✅
+Sardor (ish beruvchi, EGASI EMAS)         403            403   🔒
+Vali   (nomzod)                           403            403   🔒
+Mehmon (kirmagan)                         302 → /kirish</div>
+
+  <p>34-darsdagi «rol va egalik — ikki xil savol» qoidasi shu yerda ish berdi:
+  Sardor <b>ish beruvchi</b>, lekin <b>egasi emas</b> — va to'sildi.</p>
+
+  <div class="codefile">
+    <span class="fname">resources/views/vakansiyalar/tahrirlash.blade.php</span>
+    <code class="cmd">@extends('layouts.asosiy')
+
+@section('mazmun')
+    &lt;h1&gt;Vakansiyani tahrirlash&lt;/h1&gt;
+
+    @if ($errors-&gt;any())
+        &lt;ul style="color:crimson"&gt;
+            @foreach ($errors-&gt;all() as $xato)
+                &lt;li&gt;{{ $xato }}&lt;/li&gt;
+            @endforeach
+        &lt;/ul&gt;
+    @endif
+
+    &lt;form method="POST" action="{{ route('vakansiyalar.yangilash', $v) }}"&gt;
+        @csrf
+        @method('PUT')
+        &lt;p&gt;&lt;input type="text" name="nom" value="{{ old('nom', $v-&gt;nom) }}"&gt;&lt;/p&gt;
+        &lt;p&gt;&lt;input type="number" name="maosh" value="{{ old('maosh', $v-&gt;maosh) }}"&gt;&lt;/p&gt;
+        &lt;button type="submit"&gt;Saqlash&lt;/button&gt;
+    &lt;/form&gt;
+@endsection</code>
+  </div>
+
+  <p><code>old('nom', $v-&gt;nom)</code> — ikkinchi argument <b>standart qiymat</b>:
+  sahifa birinchi ochilganda bazadagi qiymat, validatsiya xatosidan keyin esa
+  odam yozgan qiymat. 20-darsdagi <code>old()</code> shu yerda to'liq shaklda
+  ko'rinadi.</p>
+
+  <p><code>@method('PUT')</code> — brauzer formalari faqat GET va POST biladi.
+  Bu direktiva yashirin <code>_method</code> maydonini qo'shadi, Laravel esa
+  uni ko'rib so'rovni PUT deb hisoblaydi.</p>
+
+  <!-- ═══════════════ 8) HAR XIL HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir bir marta o'qib chiqing,
+  keyin kerak bo'lganda qaytib qarang.</p>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 1</span>
+    <h4>Stub'dagi <code>return false</code> qolib ketsa</h4>
+    <div class="natija">Ali (ish beruvchi, policy ruxsat beradi)  →  403</div>
+    <p>Eng ko'p vaqt yeydigan xato, chunki qidiruv <b>noto'g'ri joyda</b>
+    boshlanadi: policy, rol, baza. Yangi fayl esa hech kimga shubhali
+    tuyulmaydi.</p>
+    <p>✅ <b>Tashxis:</b> 403 chiqdi-yu, policy to'g'ri ishlayotganiga
+    ishonchingiz komil bo'lsa — Form Request'ning
+    <code>authorize()</code> iga qarang. Vaqtincha <code>return true;</code>
+    qilib ko'ring: xato yo'qolsa, sabab topildi.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 2</span>
+    <h4><code>all()</code> ishlatish</h4>
+    <div class="natija">Vakansiya::create($request-&gt;all() + ['user_id' =&gt; $user-&gt;id]);</div>
+    <p>Ishlaydi — sinovda hammasi joyida ko'rinadi. Chunki <b>oddiy forma</b>
+    ortiqcha maydon yubormaydi. Hujumchi esa yuboradi.</p>
+    <p>PHP'da <code>+</code> chap tomonni ustun qo'yadi, shuning uchun
+    <code>all()</code> ichidagi <code>user_id</code> haqiqiy egasini
+    <b>bosib ketadi</b>.</p>
+    <p>✅ Qoida: controllerga faqat <code>validated()</code> yoki
+    <code>safe()-&gt;only([...])</code> kirsin. <code>all()</code> — faqat
+    tuzatish (debug) paytida.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 3</span>
+    <h4>Taqiq sababini aytish</h4>
+    <div class="natija">use Illuminate\Auth\Access\AuthorizationException;
+
+protected function failedAuthorization(): void
+{
+    throw new AuthorizationException(
+        'Vakansiya joylash uchun ish beruvchi bo\'lishingiz kerak.'
+    );
+}</div>
+    <p>O'lchandi: 403 sahifasida standart matn o'rniga <b>shu jumla</b>
+    chiqdi.</p>
+    <p>33-darsdagi <code>Response::deny('sabab')</code> bilan bir maqsad, faqat
+    boshqa joyda: u policy ichida, bu Form Request ichida. Qaysi biri
+    ishlashi <b>qaysi biri taqiqlaganiga</b> bog'liq.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 4</span>
+    <h4><code>attributes()</code> qachon ko'rinadi</h4>
+    <div class="natija">nom.min  → messages() da BOR  → 'Vakansiya nomi kamida 5 belgidan...'
+nom.max  → messages() da YO'Q → 'The vakansiya nomi field must not be...'</div>
+    <p>Ya'ni <code>attributes()</code> — <b>zaxira</b> mexanizm. U faqat
+    standart xabar ishlatilganda ko'rinadi.</p>
+    <p>Amalda foydali strategiya: eng muhim ikki-uch qoidaga
+    <code>messages()</code> yozing, qolganiga <code>attributes()</code> yetadi.
+    Butun ilovani o'zbekchalash uchun esa boshqa yo'l bor —
+    <code>lang/</code> papkasidagi til fayllari. U yerda barcha standart
+    xabarlar bir joyda turadi va bu Form Request mavzusidan alohida ish.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 5</span>
+    <h4>Mehmon: <code>$this-&gt;user()</code> — <code>null</code></h4>
+    <div class="natija">// null tekshiruvisiz:
+return $this-&gt;user()-&gt;can('create', Vakansiya::class);
+
+mehmon so'rov yuborsa  →  500
+   Call to a member function can() on null</div>
+    <p>Hozir bu ko'rinmaydi, chunki route'da <code>middleware('auth')</code>
+    turibdi va mehmonni <b>oldinroq</b> to'sib qoladi (302 → /kirish).</p>
+    <p>⚠️ Lekin bir kun route ko'chiriladi yoki middleware tushib qoladi — va
+    403 o'rniga <b>500</b> olasiz. O'lchab ko'rdik: middleware olib
+    tashlanganda aynan shunday bo'ldi.</p>
+    <p>✅ <code>$user === null</code> tekshiruvi qo'shilgach, xuddi shu holat
+    <b>403</b> berdi. Har bir qatlam <b>o'zicha</b> to'g'ri ishlashi kerak —
+    qo'shnisiga ishonib qolmasin.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 6</span>
+    <h4><code>@method('PUT')</code> unutilsa</h4>
+    <div class="natija">405  MethodNotAllowedHttpException
+     The POST method is not supported for route vakansiyalar/27</div>
+    <p>Forma POST yuboradi, route esa PUT kutadi — mos kelmadi. <b>405</b> —
+    «bu manzil bor, lekin bu usul bilan emas».</p>
+    <p>✅ Xato xabarini oxirigacha o'qing: u <b>qaysi usul</b> kelganini va
+    <b>qaysi route</b> haqida gap ketayotganini aniq aytadi. Ko'pincha yechim
+    — formaga <code>@method('PUT')</code> qo'shish yoki route'ni
+    <code>Route::post</code> qilish.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>Bitta klass yoki ikkita</h4>
+    <div class="natija">VakansiyaRequest                     ← bitta, ikkala amalga
+StoreVakansiyaRequest + UpdateVakansiyaRequest   ← ikkita</div>
+    <p>Biz bittasini tanladik, chunki qoidalar <b>aynan bir xil</b> — va
+    takrorlamaslik bugungi darsning butun maqsadi.</p>
+    <p>Qoidalar <b>ajrala boshlaganda</b> ikkitaga bo'ling. Odatiy misol:
+    yaratishda <code>'email' =&gt; 'unique:users'</code>, tahrirlashda esa
+    <b>o'zining</b> emailiga ruxsat berish kerak. O'shanda bitta klassdagi
+    <code>if</code> lar ko'payib ketadi — bu bo'lish vaqti kelganining
+    belgisi.</p>
+    <p>🔑 Qoida: <b>bir xil bo'lsa — birlashtiring, ajrasa — bo'ling.</b>
+    Oldindan bo'lib qo'yish ham, oxirigacha birga saqlash ham xato.</p>
+  </div>
+
+  <!-- ═══════════════ 9) AMALIYOT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    <span class="mode-hint-title">💻 Amaliy qism kompyuterda</span>
+    <p>Amaliyotda <code>VakansiyaRequest</code> yasaysiz, controllerni
+    ingichkalashtirasiz va <b>tahrirlash</b> amalini qo'shasiz. Yo'lda
+    stub'dagi <code>return false</code> tuzog'ini <b>ataylab</b> ko'rasiz va
+    <code>all()</code> nima uchun xavfli ekanini o'z ko'zingiz bilan
+    tekshirasiz.</p>
+    <button type="button" class="modebtn" data-set-mode="do">💻 Amaliyot rejimini ko'rish</button>
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <p>Form Request yasang</p>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+php artisan cache:clear
+php artisan make:request VakansiyaRequest">cd ~/Projects/Learn/ishtop
+php artisan cache:clear
+php artisan make:request VakansiyaRequest
+<span class="out"> INFO  Request [app/Http/Requests/VakansiyaRequest.php] created successfully.</span></div>
+      </li>
+
+      <li>
+        <p>⚠️ Avval tuzoqni ko'ring — hech nima o'zgartirmang</p>
+        <p>Faqat controllerdagi tipni almashtiring:</p>
+        <div class="cmd" data-cmd="# app/Http/Controllers/VakansiyaController.php
+
+use App\Http\Requests\VakansiyaRequest;
+
+# store() imzosini o'zgartiring:
+    public function store(VakansiyaRequest $request): RedirectResponse"># app/Http/Controllers/VakansiyaController.php
+
+use App\Http\Requests\VakansiyaRequest;
+
+# store() imzosini o'zgartiring:
+    public function store(VakansiyaRequest $request): RedirectResponse</div>
+        <div class="cmd" data-cmd="php artisan serve">php artisan serve</div>
+        <p><b>Ish beruvchi</b> sifatida kirib, vakansiya qo'shib ko'ring.</p>
+        <p class="expect"><b>Kutilgan natija:</b> <b>403</b> — ruxsatingiz
+        bo'lsa ham. Sabab: stub'dagi <code>authorize()</code>
+        <code>false</code> qaytaryapti. Bu xatoni <b>bir marta o'zingiz
+        ko'rsangiz</b>, keyin uni bir zumda tanib olasiz.</p>
+      </li>
+
+      <li>
+        <p>Endi klassni to'ldiring</p>
+        <div class="cmd" data-cmd="# app/Http/Requests/VakansiyaRequest.php — to'liq fayl
+
+&lt;?php
+
+namespace App\Http\Requests;
+
+use App\Models\Vakansiya;
+use Illuminate\Foundation\Http\FormRequest;
+
+class VakansiyaRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        $user = $this-&gt;user();
+
+        if ($user === null) {
+            return false;
+        }
+
+        $vakansiya = $this-&gt;route('vakansiya');
+
+        return $vakansiya
+            ? $user-&gt;can('update', $vakansiya)
+            : $user-&gt;can('create', Vakansiya::class);
+    }
+
+    public function rules(): array
+    {
+        return [
+            'nom' =&gt; ['required', 'string', 'min:5', 'max:100'],
+            'maosh' =&gt; ['required', 'integer', 'min:1'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'nom.required' =&gt; 'Vakansiya nomi kiritilishi shart.',
+            'nom.min' =&gt; 'Vakansiya nomi kamida :min belgidan iborat bo\'lsin.',
+            'maosh.required' =&gt; 'Maosh kiritilishi shart.',
+            'maosh.integer' =&gt; 'Maosh butun son bo\'lishi kerak.',
+        ];
+    }
+
+    public function attributes(): array
+    {
+        return [
+            'nom' =&gt; 'vakansiya nomi',
+            'maosh' =&gt; 'maosh',
+        ];
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $this-&gt;merge([
+            'nom' =&gt; trim((string) $this-&gt;input('nom')),
+        ]);
+    }
+}"># app/Http/Requests/VakansiyaRequest.php — to'liq fayl
+
+&lt;?php
+
+namespace App\Http\Requests;
+
+use App\Models\Vakansiya;
+use Illuminate\Foundation\Http\FormRequest;
+
+class VakansiyaRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        $user = $this-&gt;user();
+
+        if ($user === null) {
+            return false;
+        }
+
+        $vakansiya = $this-&gt;route('vakansiya');
+
+        return $vakansiya
+            ? $user-&gt;can('update', $vakansiya)
+            : $user-&gt;can('create', Vakansiya::class);
+    }
+
+    public function rules(): array
+    {
+        return [
+            'nom' =&gt; ['required', 'string', 'min:5', 'max:100'],
+            'maosh' =&gt; ['required', 'integer', 'min:1'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'nom.required' =&gt; 'Vakansiya nomi kiritilishi shart.',
+            'nom.min' =&gt; 'Vakansiya nomi kamida :min belgidan iborat bo\'lsin.',
+            'maosh.required' =&gt; 'Maosh kiritilishi shart.',
+            'maosh.integer' =&gt; 'Maosh butun son bo\'lishi kerak.',
+        ];
+    }
+
+    public function attributes(): array
+    {
+        return [
+            'nom' =&gt; 'vakansiya nomi',
+            'maosh' =&gt; 'maosh',
+        ];
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $this-&gt;merge([
+            'nom' =&gt; trim((string) $this-&gt;input('nom')),
+        ]);
+    }
+}</div>
+        <div class="cmd" data-cmd="php -l app/Http/Requests/VakansiyaRequest.php">php -l app/Http/Requests/VakansiyaRequest.php
+<span class="out">No syntax errors detected in app/Http/Requests/VakansiyaRequest.php</span></div>
+      </li>
+
+      <li>
+        <p>Controllerni ingichkalashtiring</p>
+        <div class="cmd" data-cmd="# store() ichidan authorize() va validate() ni O'CHIRING,
+# o'rniga bitta qator:
+
+        $tekshirilgan = $request-&gt;validated();"># store() ichidan authorize() va validate() ni O'CHIRING,
+# o'rniga bitta qator:
+
+        $tekshirilgan = $request-&gt;validated();</div>
+        <p>Ish beruvchi sifatida qayta sinang.</p>
+        <p class="expect"><b>Kutilgan natija:</b> qo'shildi.
+        Xato ma'lumot yuborsangiz — <b>xuddi oldingi</b> xabarlar chiqadi.
+        Foydalanuvchi uchun hech nima o'zgarmadi, kod esa ikki barobar
+        qisqardi.</p>
+      </li>
+
+      <li>
+        <p>🔒 <code>all()</code> nega xavfli — o'zingiz ko'ring</p>
+        <p>Ish beruvchi sifatida kirgan holda, brauzer konsolida:</p>
+        <div class="cmd" data-cmd="fetch('/vakansiyalar', {
+  method: 'POST',
+  body: new URLSearchParams({
+    _token: document.querySelector('input[name=_token]').value,
+    nom: 'Ortiqcha maydon sinovi', maosh: '5000000',
+    user_id: '999', shahar: 'Buxoro'
+  })
+}).then(r =&gt; console.log('status:', r.status))">fetch('/vakansiyalar', {
+  method: 'POST',
+  body: new URLSearchParams({
+    _token: document.querySelector('input[name=_token]').value,
+    nom: 'Ortiqcha maydon sinovi', maosh: '5000000',
+    user_id: '999', shahar: 'Buxoro'
+  })
+}).then(r =&gt; console.log('status:', r.status))
+<span class="out">status: 302</span></div>
+        <div class="cmd" data-cmd="php artisan tinker --execute=&quot;dump(App\Models\Vakansiya::latest('id')->first()->only(['nom','user_id','shahar']));&quot;">php artisan tinker --execute=&quot;dump(App\Models\Vakansiya::latest('id')-&gt;first()-&gt;only(['nom','user_id','shahar']));&quot;
+<span class="out">array:3 [</span>
+<span class="out">  "nom" =&gt; "Ortiqcha maydon sinovi"</span>
+<span class="out">  "user_id" =&gt; 2</span>
+<span class="out">  "shahar" =&gt; null</span>
+<span class="out">]</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> <code>user_id</code> —
+        <b>sizniki</b>, 999 emas. <code>shahar</code> — <code>null</code>.
+        <code>validated()</code> ikkalasini ham tashladi.
+        <br>🔍 Endi vaqtincha <code>validated()</code> ni <code>all()</code>
+        ga almashtirib, xuddi shu so'rovni takrorlang — <b>500</b> olasiz
+        (<code>FOREIGN KEY constraint failed</code>, chunki 999-odam yo'q).
+        Ko'rgach, <code>validated()</code> ni qaytaring.</p>
+      </li>
+
+      <li>
+        <p>Tahrirlash uchun route qo'shing</p>
+        <div class="cmd" data-cmd="# routes/web.php
+
+Route::get('/vakansiyalar/{vakansiya}/tahrirlash', [VakansiyaController::class, 'tahrirlash'])
+    -&gt;name('vakansiyalar.tahrirlash')-&gt;middleware('auth');
+
+Route::put('/vakansiyalar/{vakansiya}', [VakansiyaController::class, 'yangilash'])
+    -&gt;name('vakansiyalar.yangilash')-&gt;middleware('auth');"># routes/web.php
+
+Route::get('/vakansiyalar/{vakansiya}/tahrirlash', [VakansiyaController::class, 'tahrirlash'])
+    -&gt;name('vakansiyalar.tahrirlash')-&gt;middleware('auth');
+
+Route::put('/vakansiyalar/{vakansiya}', [VakansiyaController::class, 'yangilash'])
+    -&gt;name('vakansiyalar.yangilash')-&gt;middleware('auth');</div>
+        <div class="cmd" data-cmd="php artisan route:list --path=vakansiyalar">php artisan route:list --path=vakansiyalar
+<span class="out">PUT       vakansiyalar/{vakansiya}  vakansiyalar.yangilash › VakansiyaContro…</span>
+<span class="out">GET|HEAD  vakansiyalar/{vakansiya}/tahrirlash  vakansiyalar.tahrirlash › Vak…</span></div>
+        <p class="why-step">🔍 Chiqish terminal kengligiga qarab
+        <b>qisqartiriladi</b> (<code>…</code> belgisi shundan). Muhimi —
+        ikkala route ham ro'yxatda bor.</p>
+      </li>
+
+      <li>
+        <p>Controllerga ikkita metod qo'shing</p>
+        <div class="cmd" data-cmd="# app/Http/Controllers/VakansiyaController.php
+
+    public function tahrirlash(Vakansiya $vakansiya): View
+    {
+        $this-&gt;authorize('update', $vakansiya);
+
+        return view('vakansiyalar.tahrirlash', ['v' =&gt; $vakansiya]);
+    }
+
+    public function yangilash(VakansiyaRequest $request, Vakansiya $vakansiya): RedirectResponse
+    {
+        $vakansiya-&gt;update($request-&gt;validated());
+
+        return redirect()-&gt;route('vakansiyalar.index')
+            -&gt;with('xabar', &quot;Yangilandi: {$vakansiya-&gt;nom}&quot;);
+    }"># app/Http/Controllers/VakansiyaController.php
+
+    public function tahrirlash(Vakansiya $vakansiya): View
+    {
+        $this-&gt;authorize('update', $vakansiya);
+
+        return view('vakansiyalar.tahrirlash', ['v' =&gt; $vakansiya]);
+    }
+
+    public function yangilash(VakansiyaRequest $request, Vakansiya $vakansiya): RedirectResponse
+    {
+        $vakansiya-&gt;update($request-&gt;validated());
+
+        return redirect()-&gt;route('vakansiyalar.index')
+            -&gt;with('xabar', "Yangilandi: {$vakansiya-&gt;nom}");
+    }</div>
+        <p class="why-step">🔍 <code>tahrirlash()</code> da
+        <code>$this-&gt;authorize()</code> qoldi — u <b>oddiy</b> metod, Form
+        Request olmaydi (GET so'rovda tekshiriladigan ma'lumot yo'q).</p>
+      </li>
+
+      <li>
+        <p>Tahrirlash formasini yasang</p>
+        <div class="cmd" data-cmd="# resources/views/vakansiyalar/tahrirlash.blade.php
+
+@extends('layouts.asosiy')
+
+@section('mazmun')
+    &lt;h1&gt;Vakansiyani tahrirlash&lt;/h1&gt;
+
+    @if ($errors-&gt;any())
+        &lt;ul style=&quot;color:crimson&quot;&gt;
+            @foreach ($errors-&gt;all() as $xato)
+                &lt;li&gt;{{ $xato }}&lt;/li&gt;
+            @endforeach
+        &lt;/ul&gt;
+    @endif
+
+    &lt;form method=&quot;POST&quot; action=&quot;{{ route('vakansiyalar.yangilash', $v) }}&quot;&gt;
+        @csrf
+        @method('PUT')
+        &lt;p&gt;&lt;input type=&quot;text&quot; name=&quot;nom&quot; value=&quot;{{ old('nom', $v-&gt;nom) }}&quot;&gt;&lt;/p&gt;
+        &lt;p&gt;&lt;input type=&quot;number&quot; name=&quot;maosh&quot; value=&quot;{{ old('maosh', $v-&gt;maosh) }}&quot;&gt;&lt;/p&gt;
+        &lt;button type=&quot;submit&quot;&gt;Saqlash&lt;/button&gt;
+    &lt;/form&gt;
+@endsection"># resources/views/vakansiyalar/tahrirlash.blade.php
+
+@extends('layouts.asosiy')
+
+@section('mazmun')
+    &lt;h1&gt;Vakansiyani tahrirlash&lt;/h1&gt;
+
+    @if ($errors-&gt;any())
+        &lt;ul style=&quot;color:crimson&quot;&gt;
+            @foreach ($errors-&gt;all() as $xato)
+                &lt;li&gt;{{ $xato }}&lt;/li&gt;
+            @endforeach
+        &lt;/ul&gt;
+    @endif
+
+    &lt;form method=&quot;POST&quot; action=&quot;{{ route('vakansiyalar.yangilash', $v) }}&quot;&gt;
+        @csrf
+        @method('PUT')
+        &lt;p&gt;&lt;input type=&quot;text&quot; name=&quot;nom&quot; value=&quot;{{ old('nom', $v-&gt;nom) }}&quot;&gt;&lt;/p&gt;
+        &lt;p&gt;&lt;input type=&quot;number&quot; name=&quot;maosh&quot; value=&quot;{{ old('maosh', $v-&gt;maosh) }}&quot;&gt;&lt;/p&gt;
+        &lt;button type=&quot;submit&quot;&gt;Saqlash&lt;/button&gt;
+    &lt;/form&gt;
+@endsection</div>
+      </li>
+
+      <li>
+        <p>Uch xil odam bilan sinang</p>
+        <p>Egasi bo'lgan vakansiyaning <code>id</code> sini bilib,
+        <code>/vakansiyalar/&lt;id&gt;/tahrirlash</code> ni oching:</p>
+        <div class="natija">                                    tahrirlash sahifasi   saqlash
+egasi (ish beruvchi)                      200            302
+boshqa ish beruvchi                       403            403
+nomzod                                    403            403
+mehmon                                    302 → /kirish</div>
+        <p class="expect"><b>Kutilgan natija:</b> yuqoridagidek. Endi xato
+        ma'lumot yuboring — <b>store</b> uchun yozgan xabarlaringiz
+        <b>tahrirlashda ham</b> chiqadi. Bugungi darsning butun maqsadi shu
+        bitta kuzatuvda.</p>
+      </li>
+
+      <li>
+        <p>Ishni saqlang</p>
+        <div class="cmd" data-cmd="git add -A
+git commit -m &quot;35-dars: Form Request va tahrirlash amali&quot;">git add -A
+git commit -m &quot;35-dars: Form Request va tahrirlash amali&quot;</div>
+        <p class="expect"><b>Kutilgan natija:</b> commit haqida xabar.</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><input type="checkbox" id="d35c1"><label for="d35c1"><code>VakansiyaRequest</code> yasadim</label></li>
+      <li><input type="checkbox" id="d35c2"><label for="d35c2"><b>Stub'dagi <code>return false</code> tuzog'ini ko'rdim</b> ⚠️</label></li>
+      <li><input type="checkbox" id="d35c3"><label for="d35c3"><code>rules()</code>, <code>messages()</code>, <code>attributes()</code> ni to'ldirdim</label></li>
+      <li><input type="checkbox" id="d35c4"><label for="d35c4"><code>authorize()</code> da policy'ni chaqirdim va mehmonni tekshirdim</label></li>
+      <li><input type="checkbox" id="d35c5"><label for="d35c5">Controllerda type-hint qildim, <code>validated()</code> ishlatdim</label></li>
+      <li><input type="checkbox" id="d35c6"><label for="d35c6"><b><code>user_id=999</code> yuborib, tashlanishini ko'rdim</b> 🔒</label></li>
+      <li><input type="checkbox" id="d35c7"><label for="d35c7"><code>all()</code> bilan 500 chiqishini sinab, keyin qaytardim</label></li>
+      <li><input type="checkbox" id="d35c8"><label for="d35c8">Tahrirlash route, metod va formasini qo'shdim</label></li>
+      <li><input type="checkbox" id="d35c9"><label for="d35c9"><b>Xabarlar tahrirlashda o'zi chiqqanini ko'rdim</b> — bitta qator yozmasdan</label></li>
+      <li><input type="checkbox" id="d35c10"><label for="d35c10">Begona ish beruvchi <b>403</b> olishini tasdiqladim</label></li>
+      <li><input type="checkbox" id="d35c11"><label for="d35c11">Ishni commit qildim</label></li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 10) SINAB KO'RAMIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p><b>Vali</b> — nomzod. U vakansiya qo'sha olmaydi (34-darsdagi policy).
+    Vali formani <b>butunlay bo'sh</b> yuboradi: <code>nom</code> ham,
+    <code>maosh</code> ham yo'q.</p>
+    <div class="codefile">
+      <div class="fname">app/Http/Requests/VakansiyaRequest.php</div>
+      <code class="cmd" data-cmd="    public function authorize(): bool
+    {
+        return $this-&gt;user()-&gt;can('create', Vakansiya::class);
+    }
+
+    public function rules(): array
+    {
+        return [
+            'nom' =&gt; ['required', 'string', 'min:5'],
+            'maosh' =&gt; ['required', 'integer'],
+        ];
+    }">    public function authorize(): bool
+    {
+        return $this-&gt;user()-&gt;can('create', Vakansiya::class);
+    }
+
+    public function rules(): array
+    {
+        return [
+            'nom' =&gt; ['required', 'string', 'min:5'],
+            'maosh' =&gt; ['required', 'integer'],
+        ];
+    }</code>
+    </div>
+    <p>Vali nima ko'radi — «Vakansiya nomi kiritilishi shart» degan xato
+    ro'yxatimi, yoki boshqa narsami?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <div class="natija">status: 403
+
+Xato ro'yxati YO'Q.  «nom kiritilishi shart» xabari CHIQMAYDI.</div>
+        <p>Chunki tartib qat'iy: <code>authorize()</code> avval ishlaydi.
+        <code>false</code> qaytardi — va <code>rules()</code> ga <b>umuman
+        yetib borilmadi</b>.</p>
+        <p class="expect">🔑 Bu <b>to'g'ri</b> xatti-harakat. Huquqi yo'q odamga
+        «maosh maydonini to'ldiring» deb aytish — unga formaning tuzilishi
+        haqida <b>keraksiz ma'lumot</b> berish demak. 30-darsdagi
+        <i>user enumeration</i> mavzusi bilan bir oiladan.</p>
+        <p><b>Endi qiyinrog'i:</b> aynan shu kod bilan <b>mehmon</b> (umuman
+        kirmagan odam) so'rov yuborsa-chi?</p>
+        <div class="natija">middleware('auth') BOR    →  302 → /kirish     (bu yergacha yetmaydi)
+middleware('auth') YO'Q  →  500
+                            Call to a member function can() on null</div>
+        <p>Mehmon uchun <code>$this-&gt;user()</code> — <code>null</code>.
+        Yuqoridagi kodda tekshiruv yo'q, shuning uchun 403 emas,
+        <b>500</b> keladi. O'lchab ko'rdik.</p>
+        <p>🔑 <b>Qoida:</b> har bir qatlam <b>o'zicha</b> to'g'ri ishlashi kerak.
+        «Middleware baribir to'sadi-ku» deb hisoblash — bir kun kelib
+        middleware ko'chirilganda ochiladigan qarz.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span> <code>make:request</code>
+    yasagan <code>authorize()</code> boshida nima qaytaradi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">false demak hamma 403 oladi</button></li>
+      <li><button class="quiz-option">true demak hamma ruxsat oladi</button></li>
+      <li><button class="quiz-option">null demak policy tekshirib beradi</button></li>
+    </ul>
+    <div class="quiz-explain">Skelet <b>hammaga taqiq</b> qo'yib turadi — bu
+    xavfsiz standart, lekin kutilmagan. Ruxsati bor odam ham <b>403</b> oladi va
+    sahifada hech qanday tushuntirish bo'lmaydi.
+    🔑 <code>make:request</code> dan keyin birinchi ish — <code>authorize()</code>
+    ga qarash.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span> <code>validated()</code>
+    metodi nimani qaytaradi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">validated faqat rules dagi maydonlarni beradi</button></li>
+      <li><button class="quiz-option">all formadan kelgan hamma narsani beradi</button></li>
+      <li><button class="quiz-option">ikkalasi ham bir xil natija beradi</button></li>
+    </ul>
+    <div class="quiz-explain"><code>user_id=999</code> yuborilganda
+    <code>validated()</code> uni <b>tashladi</b> — e'lon kirgan odamga yozildi.
+    <code>all()</code> bilan esa hujumchining raqami o'tib ketardi.
+    🔒 <code>$fillable</code> bu yerda qutqarmaydi: <code>user_id</code> unda
+    <b>bor</b> — u haqiqatan to'ldiriladigan maydon.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span> Huquqi yo'q odam
+    <b>xato</b> ma'lumot yuborsa nima bo'ladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">authorize birinchi ishlaydi va 403 qaytadi</button></li>
+      <li><button class="quiz-option">rules birinchi ishlaydi va 302 qaytadi</button></li>
+      <li><button class="quiz-option">ikkalasi birga ishlab xato royxatini beradi</button></li>
+    </ul>
+    <div class="quiz-explain">Tartib qat'iy: <code>authorize()</code> →
+    <code>rules()</code> → controller tanasi. Nomzod <b>bo'sh</b> forma
+    yuborganda ham <b>403</b> oldi — validatsiya xatosi emas. Bu to'g'ri:
+    huquqi yo'q odamga forma tuzilishi haqida ma'lumot berilmaydi.</div>
+  </div>
+
+  <!-- ═══════════════ 11) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+    <p class="recall-intro">Avval o'zingiz javob bering, keyin ochib tekshiring.
+    Oxirgi ikkitasi — <a href="0034-rollar.html">34-darsni</a> takrorlash.</p>
+
+    <details class="recall">
+      <summary>Form Request controllerga qanday ulanadi?</summary>
+      <div class="answer"><p>Argument <b>tipi</b> orqali:
+      <code>store(VakansiyaRequest $request)</code>. Ro'yxatdan o'tkazish shart
+      emas — container tipni ko'rib obyektni yasaydi va metod tanasidan
+      <b>oldin</b> <code>authorize()</code> hamda <code>rules()</code> ni
+      ishlatadi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary><code>validated()</code> nega <code>all()</code> dan xavfsiz?</summary>
+      <div class="answer"><p>U faqat <code>rules()</code> da <b>nomi
+      yozilgan</b> maydonlarni qaytaradi. Formaga qo'lda qo'shilgan
+      <code>user_id</code> yoki <code>shahar</code> tashlanadi.
+      <code>$fillable</code> bu yerda yordam bermaydi — ular unda
+      <b>bor</b>.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Bitta Form Request ikkala amalni qanday ajratadi?</summary>
+      <div class="answer"><p><code>$this-&gt;route('vakansiya')</code> orqali:
+      route'da <code>{vakansiya}</code> bo'lsa — tahrirlash
+      (<code>update</code>), bo'lmasa — yaratish
+      (<code>create</code>).</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: enum cast bazada nimani saqlaydi?</summary>
+      <div class="answer"><p>Oddiy <b>matn</b> — backing value
+      (<code>'ish_beruvchi'</code>). PHP tomonda obyekt, o'rtada
+      <code>from()</code> va <code>-&gt;value</code>. Sehr yo'q.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: rol va egalik farqi nimada?</summary>
+      <div class="answer"><p>Rol — <b>toifa</b> savoli («umuman shunday ish qila
+      olasanmi?»), egalik — <b>yozuv</b> savoli («bu aynan seningmi?»). Yozuv
+      ustidagi amallarda ikkalasi ham kerak. Bugun buni Sardor misolida
+      ko'rdik: ish beruvchi, lekin egasi emas — <b>403</b>.</p></div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 12) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Cho'ntak xulosasi</span>
+    <ul>
+      <li><code>php artisan make:request VakansiyaRequest</code> →
+      <code>app/Http/Requests/</code>.</li>
+      <li>⚠️ <b>Birinchi tuzoq:</b> yasalgan <code>authorize()</code>
+      <code>false</code> qaytaradi — ruxsati bor odam ham <b>403</b> oladi.</li>
+      <li>Ulash — <b>type-hint</b>: <code>store(VakansiyaRequest $request)</code>.
+      Boshqa hech nima kerak emas.</li>
+      <li><b>Sehr yo'q:</b> container obyektni yasaydi, keyin metod tanasidan
+      <b>oldin</b> <code>authorize()</code> → <code>rules()</code> ishlaydi.</li>
+      <li>To'siqlar tartibi: <b>419</b> CSRF → <b>302</b> auth → <b>403</b>
+      <code>authorize()</code> → <b>302</b> <code>rules()</code> →
+      controller.</li>
+      <li><code>rules()</code> da massiv shakli afzal:
+      <code>['required', 'string']</code> — ichiga <code>Rule::enum(...)</code>
+      kabi obyektlar ham sig'adi.</li>
+      <li><code>messages()</code> — to'liq jumla. <code>attributes()</code> —
+      faqat maydon nomi, va u <b>zaxira</b>: o'z xabari bor qoidaga ta'sir
+      qilmaydi.</li>
+      <li><code>authorize()</code> policy'ni chaqiradi:
+      <code>$this-&gt;route('vakansiya')</code> bor bo'lsa <code>update</code>,
+      yo'q bo'lsa <code>create</code>.</li>
+      <li>⚠️ <code>$this-&gt;user()</code> mehmon uchun <code>null</code> —
+      tekshirmasangiz <b>403</b> emas, <b>500</b>. Har qatlam o'zicha to'g'ri
+      ishlasin.</li>
+      <li>🔒 <code>validated()</code> ishlating, <code>all()</code> emas:
+      <code>user_id=999</code> yuborilganda birinchisi tashladi, ikkinchisi
+      o'tkazib yubordi. <code>$fillable</code> bu yerda qutqarmaydi.</li>
+      <li>Yaqinlari: <code>safe()-&gt;only([...])</code>,
+      <code>safe()-&gt;except([...])</code>,
+      <code>safe()-&gt;collect()</code>.</li>
+      <li>⚠️ Validatsiya <b>tipni o'zgartirmaydi</b>: <code>integer</code>
+      qoidasidan o'tgan qiymat baribir <code>string</code>. Tip kerak bo'lsa —
+      <code>casts()</code>.</li>
+      <li><code>prepareForValidation()</code> — tekshiruvdan <b>oldin</b>
+      tozalash (<code>trim</code>, format). <code>protected</code>, uni Laravel
+      chaqiradi.</li>
+      <li><code>failedAuthorization()</code> — 403 sahifasida o'z sababingiz.</li>
+      <li><b>Foydasi o'lchandi:</b> tahrirlash amali qo'shildi —
+      validatsiyadan <b>bitta ham qator</b> yozilmadi, xabarlar o'zi
+      chiqdi.</li>
+      <li>Bitta klass yoki ikkita: <b>qoidalar bir xil bo'lsa birlashtiring,
+      ajrasa bo'ling.</b></li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p>IshTop'da endi ish beruvchi e'lon joylaydi va tahrirlaydi. Lekin
+    <b>nomzod</b> hali hech nima qila olmaydi — u faqat qaraydi.</p>
+    <p>36-darsda nomzodga ovoz beramiz: <b>rezyume yuklash</b>. Bu yangi
+    mavzuni ochadi — <b>fayllar</b>. Ular bazaga emas, diskka saqlanadi:
+    <code>Storage</code>, <code>store()</code>, <code>mimes</code>
+    validatsiyasi va <code>storage:link</code>. Va yangi xavfsizlik savoli:
+    yuklangan faylni <b>kim</b> ko'ra oladi?</p>
+    <p>Bugungi <code>VakansiyaRequest</code> naqshi o'sha yerda ham ish beradi —
+    fayl qoidalari ham <code>rules()</code> ichiga tushadi.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel — Form Request Validation</b>:
+    <a href="https://laravel.com/docs/13.x/validation#form-request-validation">laravel.com/docs/13.x/validation</a>
+    — <code>make:request</code>, <code>rules</code>, <code>authorize</code>,
+    <code>messages</code>, <code>attributes</code>,
+    <code>prepareForValidation</code>.<sup><a href="#fn1">1</a></sup><br>
+    <b>Working With Validated Input</b>:
+    <a href="https://laravel.com/docs/13.x/validation#working-with-validated-input">validated()
+    va safe()</a>.<sup><a href="#fn2">2</a></sup><br>
+    <b>HTTP 405</b>:
+    <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/405">MDN —
+    405 Method Not Allowed</a>.<sup><a href="#fn3">3</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b> «bir nechta Form Request
+    bir-birini meros qilib olsa bo'ladimi?», «API uchun ham shu ishlaydimi —
+    JSON javob qaytadimi?», «rules() ichida bazaga so'rov yozsam bo'ladimi?»,
+    «Form Request'ni testda qanday tekshiraman?» — har qanday savol yaxshi.
+    Ikkinchisi ayniqsa qiziq: <b>ha</b>, lekin javob shakli boshqa —
+    so'rov JSON kutsa Laravel 302 emas, <b>422</b> va xatolar ro'yxatini
+    JSON'da qaytaradi. Bu <b>Modul F</b> — API mavzusida ochiladi.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0034-rollar.html">Oldingi: Rollar</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel 13 — <a href="https://laravel.com/docs/13.x/validation#form-request-validation">Form Request Validation</a>.</li>
+      <li id="fn2">Laravel 13 — <a href="https://laravel.com/docs/13.x/validation#working-with-validated-input">Working With Validated Input</a>.</li>
+      <li id="fn3">MDN — <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/405">405 Method Not Allowed</a>.</li>
+      <li id="fn4">Barchasi jonli o'lchangan (PHP 8.3.32, Laravel 13.25.0, SQLite):
+      <code>make:request</code> stub'ida <code>authorize()</code>
+      <code>return false</code> → ish beruvchi Ali ham <b>403</b> ·
+      to'ldirilgandan keyin Ali <b>302</b> + «Qo'shildi» ·
+      xato ma'lumot → <b>302</b> + o'z xabarlarimiz ·
+      <code>attributes()</code> faqat <code>max:100</code> kabi xabari yo'q
+      qoidalarda ko'rindi («The vakansiya nomi field must not be greater than
+      100 characters») · <code>prepareForValidation</code> probellarni kesdi
+      (<code>[Devops muhandis]</code>, uzunlik <b>15</b>) ·
+      <code>all()</code> → <code>nom · maosh · user_id · shahar · _token</code>,
+      <code>validated()</code> → faqat <code>nom</code> va <code>maosh</code> ·
+      <code>user_id=999</code> bilan <code>all()</code> ishlatilganda
+      <code>SQLSTATE[23000] ... FOREIGN KEY constraint failed</code> (<b>500</b>),
+      mavjud id bilan esa e'lon <b>begonaga</b> yozildi ·
+      <code>maosh</code> <code>integer</code> qoidasidan keyin ham
+      <code>string</code> · tahrirlash: egasi <b>200/302</b>, begona ish beruvchi
+      <b>403/403</b>, nomzod <b>403/403</b>, mehmon <b>302</b> → /kirish ·
+      <code>@method</code> unutilganda <b>405</b>
+      <code>MethodNotAllowedHttpException</code> ·
+      <code>failedAuthorization()</code> xabari 403 sahifasida chiqdi ·
+      <code>middleware('auth')</code> olib tashlanganda mehmon
+      <b>500</b> (<code>can() on null</code>), null tekshiruvi qo'shilgach
+      <b>403</b>.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>
