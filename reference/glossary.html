@@ -18,7 +18,7 @@
   izoh esa o'zbekcha.</p>
 
   <p class="lesson-meta">
-    <span>Atamalar: <b>145 ta</b></span>
+    <span>Atamalar: <b>149 ta</b></span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>📱 O'qishga mos</span>
   </p>
@@ -26,7 +26,7 @@
   <div class="callout note">
     <span class="label">Bu hujjat o'sib boradi</span>
     <p>Atama faqat <b>o'z darsi yozilganda</b> qo'shiladi — oldindan emas. Hozir:
-    Modul A–D (1–35-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
+    Modul A–D (1–36-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
     bosqichida qat'iy belgilangan va 73 dars bo'ylab o'zgarmaydi).</p>
   </div>
 
@@ -1301,6 +1301,54 @@
       <code>@can('create', App\Models\Vakansiya::class)</code> — Blade'da
       <code>use</code> yo'q, to'liq yo'l yoziladi.
       <span class="eg">@can('delete', $v) &lt;button&gt;O'chirish&lt;/button&gt; @endcan</span></dd>
+    </div>
+
+    <div class="term" id="disk">
+      <dt>disk <span class="uz">— fayllar saqlanadigan joy</span></dt>
+      <dd><code>config/filesystems.php</code> da e'lon qilinadi. 🔒 Ikkitasi
+      asosiy: <code>'local'</code> → <code>storage/app/<b>private</b></code>
+      (Laravel 11+ dan; URL <b>yo'q</b>, faylni faqat kod beradi) va
+      <code>'public'</code> → <code>storage/app/public</code>
+      (<a href="#storage-link">storage:link</a> orqali URL bilan ochiladi,
+      <b>hech qanday tekshiruvsiz</b>).
+      ⚠️ Fayl himoyasi <b>disk tanlovi</b> bilan hal bo'ladi, controller kodi
+      bilan emas.
+      <span class="eg">$request-&gt;file('rezyume')-&gt;store('rezyumelar', 'local')</span></dd>
+    </div>
+
+    <div class="term" id="storage-link">
+      <dt>storage:link <span class="uz">— ochiq fayllarga ramziy havola</span></dt>
+      <dd><code>php artisan storage:link</code> →
+      <code>public/storage</code> dan <code>storage/app/public</code> ga
+      symlink. Web-server faqat <code>public/</code> ni ko'rgani uchun kerak
+      (<a href="#front-controller">front controller</a>).
+      ⚠️ Faqat <b>hamma ko'rishi mumkin</b> bo'lgan fayllar uchun: bu yo'l bilan
+      berilgan so'rov Laravel'gacha <b>yetib bormaydi</b>, demak middleware ham,
+      policy ham chaqirilmaydi.
+      <span class="eg">public/storage → storage/app/public</span></dd>
+    </div>
+
+    <div class="term" id="uploaded-file">
+      <dt>UploadedFile <span class="uz">— kelgan faylning obyekti</span></dt>
+      <dd><code>$request-&gt;file('rezyume')</code> shuni qaytaradi.
+      🔒 <b>Ishonchsiz:</b> <code>getClientOriginalName()</code>,
+      <code>getClientOriginalExtension()</code> — foydalanuvchi yuborgan nomdan.
+      <b>Ishonchli:</b> <code>extension()</code>, <code>getMimeType()</code> —
+      faylning ichidan. <code>store()</code> tasodifiy nom beradi
+      (<code>hashName()</code>) va kengaytmani mazmundan oladi; asl nom bilan
+      saqlash bir xil nomli fayllarni <b>bosib ketadi</b>.
+      <span class="eg">$fayl-&gt;store('rezyumelar', 'local')  →  'rezyumelar/xxx.pdf'</span></dd>
+    </div>
+
+    <div class="term" id="mimes">
+      <dt>mimes <span class="uz">— fayl turini mazmundan tekshirish</span></dt>
+      <dd><code>'rezyume' =&gt; ['required', 'file', 'mimes:pdf', 'max:2048']</code>.
+      <code>mimes</code> faylning <b>ichiga</b> qaraydi — nomini
+      <code>.pdf</code> qilib qo'yish yordam bermaydi. ⚠️ <code>max</code> —
+      <b>kilobayt</b>. Va u <code>upload_max_filesize</code> dan kichik bo'lsin:
+      PHP chegarasidan oshgan fayl Laravel'gacha bormaydi va
+      <code>The ... failed to upload.</code> chiqadi.
+      <span class="eg">['required', 'file', 'mimes:pdf', 'max:2048']</span></dd>
     </div>
 
     <div class="term" id="form-request">

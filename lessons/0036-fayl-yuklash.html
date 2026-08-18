@@ -1,0 +1,1209 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 36 — Fayl yuklash: rezyume</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 36 · MODUL D — FOYDALANUVCHI VA HUQUQLAR</p>
+  <h1>Fayl yuklash: rezyume</h1>
+  <p class="lead">IshTop'da ish beruvchi e'lon joylaydi va tahrirlaydi. Nomzod esa
+  faqat qaraydi. Bugun unga ovoz beramiz: <b>PDF rezyume yuklash</b>. Fayllar —
+  matndan boshqacha: ular bazaga tushmaydi, <b>diskka</b> tushadi. Va shu bilan
+  yangi savol tug'iladi: yuklangan faylni <b>kim</b> ko'ra oladi?</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 17 daqiqa</span>
+    <span>💻 Amaliyot ≈ 26 daqiqa</span>
+    <span>Kerak: <a href="0035-form-request.html">Dars 35</a></span>
+  </p>
+
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b>Fayl bazaga tushmaydi</b>
+        <span class="nima">Diskda — fayl, bazada — unga <b>yo'l</b> (matn).
+        Nega shunday, va bazaga solish nega yomon fikr.</span></li>
+      <li><b>⚠️ <code>enctype="multipart/form-data"</code></b>
+        <span class="nima">Unutilsa fayl <b>matn</b> bo'lib keladi. O'lchangan
+        xato xabari bilan ko'rsatiladi.</span></li>
+      <li><b><code>UploadedFile</code> obyekti</b>
+        <span class="nima"><code>getClientOriginalName()</code> ·
+        <code>getMimeType()</code> · <code>getSize()</code> ·
+        <code>hashName()</code> — nima ishonchli, nima yo'q.</span></li>
+      <li><b><code>store()</code> — qayerga tushadi</b>
+        <span class="nima">Laravel 11+ da <code>local</code> diskning ildizi —
+        <code>storage/app/<b>private</b></code>. Bu <b>web'dan
+        ko'rinmaydi</b>.</span></li>
+      <li><b><code>hashName()</code> — tasodifiy nom</b>
+        <span class="nima">Asl nom saqlanmaydi. Nega — ikki odam
+        <code>rezyume.pdf</code> yuborganda nima bo'lishi
+        <b>o'lchangan</b>.</span></li>
+      <li><b>Qoidalar: <code>file</code>, <code>mimes</code>, <code>max</code></b>
+        <span class="nima"><code>max:2048</code> — <b>kilobayt</b>, bayt ham
+        emas, megabayt ham emas.</span></li>
+      <li><b><code>mimes</code> mazmunni tekshiradi</b>
+        <span class="nima">Nomini <code>.pdf</code> qilib qo'yish yetmaydi —
+        matn fayl <b>tutildi</b>. Sinab ko'rasiz.</span></li>
+      <li><b>⚠️ PHP chegarasi Laravel'dan oldin</b>
+        <span class="nima"><code>upload_max_filesize</code> oshsa,
+        <code>max:</code> xabaringiz emas, tushunarsiz
+        <b>«failed to upload»</b> chiqadi.</span></li>
+      <li><b>🔒 Ochiq va yopiq disk</b>
+        <span class="nima">Darsning yuragi. Mehmon ochiq diskdagi faylni
+        <b>200</b> bilan oldi, yopiqdagini <b>403</b>. Ikkalasi ham
+        o'lchandi.</span></li>
+      <li><b><code>storage:link</code></b>
+        <span class="nima">Nima qiladi, qachon kerak — va nega rezyume
+        <b>u yerga tushmasligi</b> kerak.</span></li>
+      <li><b>Controller orqali berish</b>
+        <span class="nima"><code>Storage::download()</code>, huquq tekshiruvi
+        va eski faylni o'chirish.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima"><code>enctype</code> · PHP chegarasi · yolg'on
+        kengaytma · <code>storeAs</code> bosib ketishi · ochiq diskka qo'yish ·
+        <code>url()</code> tuzog'i · yetim fayllar.</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Fayl — matn emas</span>
+    <p>Shu paytgacha formadan <b>matn</b> keldi: nom, maosh, email. Ular bazaga
+    tushdi. Fayl esa boshqacha — u <b>katta</b> va <b>ikkilik</b> (binar).</p>
+    <p>Uni ham bazaga solish mumkin, lekin qilinmaydi:</p>
+    <div class="natija">bazaga solsangiz:   har so'rovda baza yuklanadi · zaxira nusxa og'irlashadi
+                    · fayl uzatish sekinlashadi
+
+diskka solsangiz:   baza yengil qoladi · fayl to'g'ridan uzatiladi
+                    · bazada faqat YO'L saqlanadi (oddiy matn)</div>
+    <p>Demak vazifa ikkiga bo'linadi: <b>faylni diskka</b> yozish va
+    <b>yo'lini bazaga</b> yozish. Bugun ikkalasini ham qilamiz.</p>
+    <p>Va uchinchi savol paydo bo'ladi, u eng muhimi: rezyume — <b>shaxsiy
+    hujjat</b>. Uni faqat egasi (va kelajakda ariza yuborilgan ish beruvchi)
+    ko'rishi kerak. Fayl diskda yotgani <b>o'z-o'zidan</b> uni himoya
+    qilmaydi.</p>
+  </div>
+
+  <!-- ═══════════════ 2) FORMA ═══════════════ -->
+  <h2>Forma: bitta atribut hamma narsani hal qiladi</h2>
+
+  <div class="codefile">
+    <span class="fname">resources/views/rezyume/forma.blade.php</span>
+    <code class="cmd">&lt;form method="POST" action="{{ route('rezyume.saqlash') }}"
+      enctype="multipart/form-data"&gt;          {{-- ← shusiz ishlamaydi --}}
+    @csrf
+    &lt;p&gt;&lt;input type="file" name="rezyume" accept="application/pdf"&gt;&lt;/p&gt;
+    &lt;button type="submit"&gt;Yuklash&lt;/button&gt;
+&lt;/form&gt;</code>
+  </div>
+
+  <div class="callout warning">
+    <span class="label">⚠️ <code>enctype</code> unutilsa</span>
+    <p>Odatiy formada brauzer ma'lumotni <code>nom=Ali&amp;maosh=100</code>
+    ko'rinishida yuboradi. Bunday shaklga <b>fayl sig'maydi</b> — shuning uchun
+    brauzer faqat <b>fayl nomini</b> yuboradi, matn sifatida.</p>
+    <p>O'lchandi — <code>enctype</code> siz yuborilganda:</p>
+    <div class="natija">The rezyume field must be a file.
+Rezyume faqat PDF bo'lishi kerak.</div>
+    <p>Xato xabari to'g'ri, lekin <b>chalg'itadi</b>: siz PDF tanlagansiz-ku!
+    Muammo faylda emas, <b>formaning bitta atributida</b>.</p>
+    <p>🔑 Fayl qabul qiladigan har bir formaga <code>enctype</code> qo'yishni
+    odat qiling. <code>accept="application/pdf"</code> esa — faqat
+    <b>qulaylik</b>: brauzer fayl tanlash oynasida PDF larni ko'rsatadi. Bu
+    <b>himoya emas</b>, uni chetlab o'tish oson.</p>
+  </div>
+
+  <!-- ═══════════════ 3) UPLOADEDFILE ═══════════════ -->
+  <h2>Kelgan fayl — <code>UploadedFile</code> obyekti</h2>
+
+  <p><code>$request-&gt;file('rezyume')</code> matn emas, <b>obyekt</b> qaytaradi.
+  Undan nima so'rash mumkin — va qaysi javobga <b>ishonib bo'ladi</b>:</p>
+
+  <div class="natija">── Haqiqiy PDF (rezyume.pdf)
+   getClientOriginalName()      : rezyume.pdf
+   getClientOriginalExtension() : pdf        ← FOYDALANUVCHIDAN kelgan
+   extension()                  : pdf        ← MAZMUNDAN topilgan
+   getMimeType()                : application/pdf
+   getSize()                    : 193 bayt
+
+── Matn fayl, nomi .pdf qilib qo'yilgan (soxta.pdf)
+   getClientOriginalName()      : soxta.pdf
+   getClientOriginalExtension() : pdf        ← YOLG'ON
+   extension()                  : txt        ← HAQIQAT
+   getMimeType()                : text/plain</div>
+
+  <div class="callout warning">
+    <span class="label">🔒 Ikki savol, ikki javob</span>
+    <p><code>getClientOriginalExtension()</code> — <b>foydalanuvchi yuborgan</b>
+    nomdan olinadi. Uni istalgan qilib yozish mumkin: faylni
+    <code>virus.exe</code> dan <code>rezyume.pdf</code> ga qayta nomlash — bir
+    soniyalik ish.</p>
+    <p><code>extension()</code> va <code>getMimeType()</code> — faylning
+    <b>ichiga</b> qarab aniqlanadi. Yuqorida ko'ryapsiz: nomi
+    <code>.pdf</code>, ichi esa <code>text/plain</code>.</p>
+    <p>🔑 <b>Qoida:</b> qaror qabul qilishda hech qachon
+    <code>getClientOriginal*</code> ga tayanmang. Bu 20-darsdagi «tashqaridan
+    kelgan hamma narsa shubhali» qoidasining fayllardagi ko'rinishi.</p>
+  </div>
+
+  <!-- ═══════════════ 4) STORE ═══════════════ -->
+  <h2><code>store()</code> — fayl qayerga tushadi</h2>
+
+  <div class="codefile">
+    <span class="fname">app/Http/Controllers/RezyumeController.php</span>
+    <code class="cmd">$yol = $request-&gt;file('rezyume')-&gt;store('rezyumelar', 'local');
+
+// $yol  →  'rezyumelar/M36NcvRwR1kvjjl6YHEu9eefiKw3J6IW3EptWLQh.pdf'</code>
+  </div>
+
+  <p>Ikkita argument: <b>papka</b> va <b>disk</b>. Qaytgan qiymat — bazaga
+  yoziladigan <b>nisbiy yo'l</b>. Diskdagi haqiqiy joyi esa:</p>
+
+  <div class="natija">bazadagi qiymat : rezyumelar/M36Ncv...WLQh.pdf
+diskdagi joyi   : storage/app/private/rezyumelar/M36Ncv...WLQh.pdf
+                  └────────────────┘
+                  'local' diskning ildizi</div>
+
+  <div class="callout tip">
+    <span class="label">Laravel 11+ da muhim o'zgarish</span>
+    <p><code>config/filesystems.php</code> ga qarang:</p>
+    <div class="natija">'local'  =&gt; ['root' =&gt; storage_path('app/private')]   ← YOPIQ
+'public' =&gt; ['root' =&gt; storage_path('app/public'),
+             'url'  =&gt; '.../storage']                  ← OCHIQ</div>
+    <p>Eski Laravel'da <code>local</code> ildizi <code>storage/app</code> edi.
+    Endi <code>app/private</code> — ya'ni <b>standart holat xavfsiz</b>.
+    Eski qo'llanmalarni o'qiyotganda shu farqni yodda tuting.</p>
+    <p>Nisbiy yo'lni bazaga yozish (to'liq yo'lni emas) — <b>ataylab</b>:
+    loyihani boshqa serverga ko'chirsangiz yoki diskni almashtirsangiz,
+    bazadagi qiymatlar <b>o'zgarmaydi</b>.</p>
+  </div>
+
+  <h3>Nega asl nom saqlanmaydi</h3>
+
+  <p><code>store()</code> faylga <b>tasodifiy</b> nom beradi
+  (<code>hashName()</code>). Bu bezak emas. Ikki odam bir xil nomdagi fayl
+  yuborsa nima bo'lishini o'lchab ko'rdik:</p>
+
+  <div class="natija">── storeAs() bilan, asl nom saqlanganda
+   birinchi: sinov/rezyume.pdf
+   ikkinchi: sinov/rezyume.pdf
+   papkada nechta fayl: 1     ← ikkinchisi birinchisini BOSIB KETDI
+
+── store() bilan (hashName)
+   birinchi: sinov2/m5evpiexTtwnT2qUd57xckoKPOOdfuaMP0SIKpfv.pdf
+   ikkinchi: sinov2/TLj1b0YA64Lx4Jsw042hjliFmC9BQogvR45MM3pT.pdf
+   papkada nechta fayl: 2     ← ikkalasi ham saqlandi</div>
+
+  <p>Birinchi holatda bir odamning rezyumesi <b>jimgina</b> yo'q bo'ldi. Hech
+  qanday xato chiqmadi.</p>
+
+  <p>Yana bir foyda: <code>hashName()</code> kengaytmani <b>mazmundan</b> oladi.
+  Soxta fayl uchun u <code>...txt</code> nomini berdi — nomi
+  <code>.pdf</code> bo'lsa ham.</p>
+
+  <p class="expect">🔍 Asl nomni ko'rsatish kerak bo'lsa, uni <b>bazaga alohida
+  ustunga</b> yozing (masalan <code>rezyume_nomi</code>) va diskda tasodifiy nom
+  qoldiring. Ekranda bittasi, diskda boshqasi — bu normal.</p>
+
+  <!-- ═══════════════ 5) VALIDATSIYA ═══════════════ -->
+  <h2>Qoidalar — 35-darsdagi Form Request ichida</h2>
+
+  <div class="codefile">
+    <span class="fname">app/Http/Requests/RezyumeRequest.php</span>
+    <code class="cmd">use App\Enums\Rol;
+
+class RezyumeRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return $this-&gt;user()?-&gt;rol === Rol::Nomzod;
+    }
+
+    public function rules(): array
+    {
+        return [
+            'rezyume' =&gt; ['required', 'file', 'mimes:pdf', 'max:2048'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'rezyume.required' =&gt; 'Rezyume faylini tanlang.',
+            'rezyume.mimes' =&gt; 'Rezyume faqat PDF bo\'lishi kerak.',
+            'rezyume.max' =&gt; 'Rezyume hajmi :max KB dan oshmasin.',
+        ];
+    }
+}</code>
+  </div>
+
+  <p>To'rtta qoida, har biri boshqa savolga javob beradi:</p>
+
+  <div class="natija">required   →  fayl umuman tanlanganmi?
+file       →  bu haqiqatan fayl-mi (matn emas)?
+mimes:pdf  →  ICHI PDF-mi?
+max:2048   →  hajmi chegaradan oshmadimi?</div>
+
+  <div class="callout warning">
+    <span class="label">⚠️ <code>max:2048</code> — kilobayt</span>
+    <p>Bayt ham emas, megabayt ham emas. <b>2048 KB = 2 MB</b>.</p>
+    <div class="natija">max:2       →  2 KB      (deyarli hech nima)
+max:2048    →  2 MB      ✅
+max:2048000 →  ~2 GB     (adashib yozilgan)</div>
+    <p>Xato xabaringizda <code>:max</code> o'rniga o'sha son qo'yiladi, shuning
+    uchun <b>«2048 KB»</b> deb yozgan ma'qul — foydalanuvchi tushunadi.</p>
+  </div>
+
+  <p class="expect"><b>O'lchangan natijalar</b> (nomzod sifatida kirilgan
+  holda):<sup><a href="#fn4">4</a></sup></p>
+
+  <div class="natija">haqiqiy PDF yuborildi        →  302, «Rezyume yuklandi.»
+fayl tanlanmadi              →  «Rezyume faylini tanlang.»
+matn fayl, nomi .pdf         →  «Rezyume faqat PDF bo'lishi kerak.»
+ish beruvchi yuklamoqchi     →  403</div>
+
+  <p>Ikkinchi qatorga alohida qarang: fayl nomi <code>soxta.pdf</code> edi,
+  kengaytmasi to'g'ri. <code>mimes</code> uni <b>ichiga qarab</b> tutdi.</p>
+
+  <h3>⚠️ PHP chegarasi Laravel'dan oldin turadi</h3>
+
+  <p>Endi eng chalg'ituvchi holat. 3 MB li faylni yubordik —
+  <code>max:2048</code> xabarini kutgan edik. Kelgani:</p>
+
+  <div class="natija">The rezyume failed to upload.</div>
+
+  <p>Bu <b>bizning</b> xabarimiz emas, hatto o'zbekcha ham emas. Sababi:</p>
+
+  <div class="natija">php.ini:  upload_max_filesize = 2M
+          post_max_size       = 8M
+
+3 MB fayl  →  PHP uni QABUL QILMAYDI  →  Laravel'gacha yetib bormaydi
+           →  Laravel bo'sh faylni ko'radi va «failed to upload» deydi</div>
+
+  <p>Ya'ni <code>max:2048</code> ni <code>max:5120</code> ga o'zgartirsangiz ham
+  <b>hech nima o'zgarmaydi</b> — chegarani PHP qo'yyapti, Laravel emas.</p>
+
+  <div class="cmd" data-cmd="php -i | grep -E 'upload_max_filesize|post_max_size'">php -i | grep -E 'upload_max_filesize|post_max_size'
+<span class="out">upload_max_filesize =&gt; 2M =&gt; 2M</span>
+<span class="out">post_max_size =&gt; 8M =&gt; 8M</span></div>
+
+  <p class="expect">🔑 <b>Qoida:</b> Laravel'dagi <code>max:</code> qiymati
+  <code>upload_max_filesize</code> dan <b>kichik</b> bo'lsin. Aks holda katta
+  fayllar sizning chiroyli xabaringizni emas, tushunarsiz inglizcha xatoni
+  beradi. <code>post_max_size</code> esa <b>butun forma</b> uchun — bir necha
+  fayl birga yuborilsa shu chegara ishlaydi.</p>
+
+  <!-- ═══════════════ 6) XAVFSIZLIK ═══════════════ -->
+  <h2>🔒 Ochiq disk va yopiq disk</h2>
+
+  <p>Bu darsning eng muhim qismi. Ikkita disk bor va ular <b>butunlay
+  boshqacha</b> ishlaydi.</p>
+
+  <div class="natija">'public'  →  storage/app/public    →  storage:link  →  URL bilan ochiladi
+'local'   →  storage/app/private   →  URL YO'Q       →  faqat kod orqali</div>
+
+  <p>Farqni o'lchab ko'rdik. Bir xil PDF ikkala diskka qo'yildi, keyin
+  <b>umuman kirmagan mehmon</b> ularni olishga urindi:</p>
+
+  <div class="natija">── ochiq disk: /storage/sinov/ochiq-rezyume.pdf
+   status: 200   hajm: 193 bayt
+   fayl turi: PDF document, version 1.4, 1 page(s)      ← FAYLNI OLDI
+
+── yopiq disk: controller orqali (/rezyume/korish)
+   status: 302 → /kirish                                 ← login so'raldi
+
+── yopiq disk: to'g'ridan-to'g'ri URL bilan
+   /storage/rezyumelar/fbVrf2...vf.pdf     → 403
+   /storage/app/private/rezyumelar/...     → 403          ← YETIB BO'LMAYDI</div>
+
+  <div class="callout warning">
+    <span class="label">🔒 Nima bo'ldi</span>
+    <p>Ochiq diskda <b>hech qanday tekshiruv yo'q</b>. Login yo'q, policy yo'q,
+    middleware yo'q — faqat URL. Kim uni bilsa, faylni oladi.</p>
+    <p>«URL ni hech kim bilmaydi-ku» degan o'y — himoya emas. URL brauzer
+    tarixida, server jurnalida, havola ulashilganda tashqariga chiqadi. Bu
+    <b>xavfsizlik yashirish orqali</b> deb ataladi va ishonchsiz hisoblanadi.</p>
+    <p>🔑 Qoida sodda:</p>
+    <div class="natija">hamma ko'rishi mumkin (logotip, avatar, rasm)   →  'public'
+faqat ba'zilar ko'rishi kerak (rezyume, hujjat) →  'local' + controller</div>
+    <p>Rezyume — ikkinchi turdagi fayl. Shuning uchun biz
+    <code>'local'</code> ni tanladik.</p>
+  </div>
+
+  <h3><code>storage:link</code> — nima qiladi</h3>
+
+  <div class="cmd" data-cmd="php artisan storage:link">php artisan storage:link
+<span class="out"> INFO  The [public/storage] link has been connected to [storage/app/public].</span></div>
+
+  <p>Bu buyruq <b>ramziy havola</b> (symlink) yasaydi:</p>
+
+  <div class="natija">public/storage  →  storage/app/public</div>
+
+  <p>Nega kerak? Chunki web-server faqat <code>public/</code> papkasini
+  ko'radi (17-darsdagi <b>front controller</b> mavzusi). Havola tufayli
+  <code>storage/app/public</code> dagi fayllar
+  <code>/storage/...</code> manzilida ochiladi.</p>
+
+  <p class="expect">⚠️ Bu buyruq <b>rezyume uchun kerak emas</b>. Biz uni
+  amaliyotda bir marta bajaramiz — <b>farqni ko'rish</b> uchun. Rezyume
+  <code>app/private</code> da qoladi va havola unga umuman tegmaydi.</p>
+
+  <!-- ═══════════════ 7) BERISH ═══════════════ -->
+  <h2>Faylni controller orqali berish</h2>
+
+  <p>Yopiq diskdagi faylning URL i yo'q. Demak uni <b>kod</b> berishi kerak — va
+  kod berayotganda huquqni tekshira oladi:</p>
+
+  <div class="codefile">
+    <span class="fname">app/Http/Controllers/RezyumeController.php</span>
+    <code class="cmd">use Illuminate\Support\Facades\Storage;
+
+    public function saqlash(RezyumeRequest $request): RedirectResponse
+    {
+        $user = $request-&gt;user();
+
+        if ($user-&gt;rezyume !== null) {
+            Storage::disk('local')-&gt;delete($user-&gt;rezyume);   // eskisini o'chirish
+        }
+
+        $yol = $request-&gt;file('rezyume')-&gt;store('rezyumelar', 'local');
+
+        $user-&gt;update(['rezyume' =&gt; $yol]);
+
+        return redirect()-&gt;route('rezyume.forma')
+            -&gt;with('xabar', 'Rezyume yuklandi.');
+    }
+
+    public function korish(Request $request): StreamedResponse
+    {
+        $user = $request-&gt;user();
+
+        abort_if($user-&gt;rezyume === null, 404);
+
+        return Storage::disk('local')-&gt;download($user-&gt;rezyume, 'rezyume.pdf');
+    }</code>
+  </div>
+
+  <p><code>download()</code> ikkita argument oladi: <b>diskdagi yo'l</b> va
+  foydalanuvchi ko'radigan <b>nom</b>. Diskda tasodifiy nom, brauzerda
+  chiroyli nom.</p>
+
+  <p class="expect"><b>O'lchangan javob sarlavhalari:</b></p>
+  <div class="natija">status: 200   hajm: 193 bayt
+Content-Type: application/pdf
+Content-Disposition: attachment; filename=rezyume.pdf</div>
+
+  <p><code>attachment</code> — brauzer faylni <b>yuklab oladi</b>. Sahifada
+  ochilishini xohlasangiz <code>Storage::response(...)</code> ishlatiladi.
+  Ikkala metodning sarlavhalari o'lchandi:</p>
+
+  <div class="natija">Storage::download(...)  →  Content-Disposition: attachment; filename=rezyume.pdf
+Storage::response(...)  →  Content-Disposition: inline; filename=rezyume.pdf</div>
+
+  <p>Farq faqat shu bitta so'zda: <code>attachment</code> — yuklab olish,
+  <code>inline</code> — brauzerda ochish. Ikkalasi ham <b>controller
+  orqali</b> o'tadi, demak huquq tekshiruvi ikkalasida ham saqlanadi.</p>
+
+  <h3>Eski faylni o'chirish</h3>
+
+  <p>Yuqoridagi <code>if</code> muhim. Usiz har yuklashda diskda yangi fayl
+  qoladi, bazadagi yo'l esa faqat oxirgisiga ishora qiladi — qolganlari
+  <b>yetim</b> bo'lib yotaveradi.</p>
+
+  <p class="expect"><b>O'lchangan:</b> ikkinchi marta yuklangandan keyin
+  papkada <b>bitta</b> fayl qoldi va nomi yangisiniki.</p>
+
+  <div class="natija">yuklashdan oldin : M36NcvRwR1kvjjl6YHEu9eefiKw3J6IW3EptWLQh.pdf
+yuklashdan keyin : fbVrf2Qy5ZYskTanesJYeK1gCwQ2tIIxCA6cr4vf.pdf
+                   (eskisi o'chdi)</div>
+
+  <!-- ═══════════════ 8) HAR XIL HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir bir marta o'qib chiqing,
+  keyin kerak bo'lganda qaytib qarang.</p>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 1</span>
+    <h4><code>enctype</code> unutilsa</h4>
+    <div class="natija">The rezyume field must be a file.</div>
+    <p>Eng ko'p uchraydigan fayl xatosi. Chalg'ituvchi tomoni shundaki, siz
+    haqiqiy PDF tanlagansiz — muammo <b>faylda emas</b>, formada.</p>
+    <p>✅ <b>Tashxis:</b> <code>dd($request-&gt;all())</code> yozing. Agar
+    <code>rezyume</code> qiymati oddiy <b>matn</b> (fayl nomi) bo'lsa — sabab
+    topildi. Fayl kelganda u yerda <code>UploadedFile</code> obyekti turadi.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 2</span>
+    <h4>PHP chegarasidan katta fayl</h4>
+    <div class="natija">The rezyume failed to upload.        ← max: xabaringiz EMAS</div>
+    <p>PHP faylni <code>upload_max_filesize</code> da to'sdi, Laravel esa bo'sh
+    faylni ko'rdi. <code>max:</code> qiymatini oshirish <b>yordam
+    bermaydi</b>.</p>
+    <p>✅ Yechim ikki tomonlama: <code>php.ini</code> da chegarani oshiring
+    <b>va</b> Laravel'dagi <code>max:</code> ni undan kichik qiling. Shunda
+    chegaraga yetgan fayl <b>sizning</b> o'zbekcha xabaringizni oladi.</p>
+    <p>🔍 Serverda <code>php.ini</code> ni topish:
+    <code>php --ini</code>. O'zgartirgandan keyin PHP qayta
+    ishga tushirilishi kerak.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 3</span>
+    <h4>Kengaytmaga ishonish</h4>
+    <div class="natija">// ⚠️ shunday YOZMANG
+if ($fayl-&gt;getClientOriginalExtension() === 'pdf') { ... }
+
+soxta.pdf (ichi matn):
+   getClientOriginalExtension() → 'pdf'   ← yolg'on
+   extension()                  → 'txt'   ← haqiqat</div>
+    <p>Fayl nomini o'zgartirish — sichqonchaning ikki bosishi. Nomga qarab
+    qaror qabul qilsangiz, ichida nima borligini bilmay qolasiz.</p>
+    <p>✅ <code>mimes:pdf</code> qoidasi <b>ichiga</b> qaraydi — biz sinab
+    ko'rdik, soxta fayl tutildi. Qo'lda tekshirish kerak bo'lsa
+    <code>extension()</code> yoki <code>getMimeType()</code> ishlating.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 4</span>
+    <h4>Asl nom bilan saqlash</h4>
+    <div class="natija">$fayl-&gt;storeAs('rezyumelar', $fayl-&gt;getClientOriginalName());
+
+ikki odam ham 'rezyume.pdf' yubordi  →  papkada 1 ta fayl
+                                        biri jimgina YO'Q BO'LDI</div>
+    <p>Xato chiqmaydi, jurnalga hech nima yozilmaydi. Odam rezyumesini
+    yukladim deb o'ylaydi, aslida u boshqasiniki bilan almashib ketgan.</p>
+    <p>🔍 <b>Bir narsadan xavotir olmang:</b> yo'l bilan chiqib ketish
+    (<code>../../../ochiq.pdf</code>) bu yerda ishlamaydi — Laravel
+    (aniqrog'i Symfony) papka qismini <b>kesib tashlaydi</b>. O'lchandi:</p>
+    <div class="natija">yuborilgan nom          : ../../../ochiq.pdf
+getClientOriginalName() : ochiq.pdf          ← yo'l kesildi</div>
+    <p>Ya'ni bu yerdagi haqiqiy xavf — <b>chiqib ketish emas, bosib
+    ketish</b>. Va u yuqorida o'lchangan.</p>
+    <p>✅ Asl nom kerak bo'lsa — bazaga alohida ustunga yozing, diskda
+    tasodifiy nom qoldiring.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 5</span>
+    <h4>Rezyumeni ochiq diskka qo'yish</h4>
+    <div class="natija">$fayl-&gt;store('rezyumelar', 'public');    // ⚠️
+
+mehmon: GET /storage/rezyumelar/xxx.pdf  →  200, fayl qo'lida</div>
+    <p>Ishlaydi, tez, qulay — va shaxsiy hujjatlarni butun internetga ochib
+    qo'yadi. Login ham, policy ham, middleware ham <b>umuman
+    chaqirilmaydi</b>: web-server faylni Laravel'gacha bormay beradi.</p>
+    <p>✅ Savolni har safar bering: <b>«bu faylni tanimagan odam ko'rsa
+    bo'ladimi?»</b> Ha bo'lsa — <code>public</code>. Yo'q bo'lsa —
+    <code>local</code> va controller.</p>
+    <p>🔍 Bu 33-darsdagi «yashirish — himoya emas» qoidasining eng qattiq
+    ko'rinishi: bu yerda yashirishga hatto <b>imkon</b> ham yo'q.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 6</span>
+    <h4><code>url()</code> tuzog'i</h4>
+    <div class="natija">Storage::disk('public')-&gt;url('sinov/fayl.pdf')
+   →  http://localhost:8000/storage/sinov/fayl.pdf     ← ishlaydi
+
+Storage::disk('local')-&gt;url('rezyumelar/x.pdf')
+   →  /storage/rezyumelar/x.pdf                        ← XATO BERMAYDI
+                                                          lekin ochilmaydi (403)</div>
+    <p>Yopiq diskda <code>url()</code> chaqirsangiz Laravel <b>xato
+    otmaydi</b> — u sizga ishlamaydigan manzil qaytaradi. Sahifada havola
+    chiroyli ko'rinadi, bosilganda esa <b>403</b>.</p>
+    <p>✅ Yopiq disk uchun <code>url()</code> ishlatmang. Manzil sifatida
+    <b>route</b> bering: <code>route('rezyume.korish')</code> — u controllerga
+    olib boradi va huquq tekshiriladi.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>Yetim fayllar</h4>
+    <p>Bazadagi yo'l o'chirilsa yoki almashtirilsa, diskdagi fayl <b>o'zi
+    o'chmaydi</b>. Vaqt o'tib disk keraksiz fayllarga to'ladi.</p>
+    <div class="natija">// almashtirishdan oldin
+if ($user-&gt;rezyume !== null) {
+    Storage::disk('local')-&gt;delete($user-&gt;rezyume);
+}
+
+// foydalanuvchi o'chirilganda ham xuddi shunday kerak</div>
+    <p>✅ Qoida: fayl yo'lini <b>o'zgartirayotgan</b> yoki <b>o'chirayotgan</b>
+    har bir joyda eski faylni ham o'chiring.</p>
+    <p>🔍 <code>Storage::delete()</code> mavjud bo'lmagan faylda ham <b>xato
+    bermaydi</b> — shuning uchun uni bemalol chaqirish mumkin.</p>
+  </div>
+
+  <!-- ═══════════════ 9) AMALIYOT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    <span class="mode-hint-title">💻 Amaliy qism kompyuterda</span>
+    <p>Amaliyotda nomzod uchun rezyume yuklashni yasaysiz va uchta narsani
+    <b>o'z ko'zingiz bilan</b> ko'rasiz: matn faylni <code>.pdf</code> deb
+    nomlab yuborganingizda tutilishini, <code>enctype</code> unutilganda
+    chiqadigan xatoni, va eng muhimi — <b>ochiq diskdagi faylni mehmon
+    bemalol olishini</b>.</p>
+    <button type="button" class="modebtn" data-set-mode="do">💻 Amaliyot rejimini ko'rish</button>
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <p>Muhitni tekshiring</p>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+php artisan cache:clear
+php -i | grep -E 'upload_max_filesize|post_max_size|^fileinfo'">cd ~/Projects/Learn/ishtop
+php artisan cache:clear
+php -i | grep -E 'upload_max_filesize|post_max_size|^fileinfo'
+<span class="out">post_max_size =&gt; 8M =&gt; 8M</span>
+<span class="out">upload_max_filesize =&gt; 2M =&gt; 2M</span>
+<span class="out">fileinfo</span>
+<span class="out">fileinfo support =&gt; enabled</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> <code>fileinfo</code>
+        ro'yxatda bo'lsin — <code>mimes:</code> qoidasi shunga tayanadi.
+        Sizdagi chegara boshqacha bo'lishi mumkin, uni <b>yozib qo'ying</b>.</p>
+      </li>
+
+      <li>
+        <p><code>rezyume</code> ustunini qo'shing</p>
+        <div class="cmd" data-cmd="php artisan make:migration add_rezyume_to_users_table">php artisan make:migration add_rezyume_to_users_table</div>
+        <div class="cmd" data-cmd="    public function up(): void
+    {
+        Schema::table('users', function (Blueprint $table) {
+            $table-&gt;string('rezyume')-&gt;nullable();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('users', function (Blueprint $table) {
+            $table-&gt;dropColumn('rezyume');
+        });
+    }">    public function up(): void
+    {
+        Schema::table('users', function (Blueprint $table) {
+            $table-&gt;string('rezyume')-&gt;nullable();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('users', function (Blueprint $table) {
+            $table-&gt;dropColumn('rezyume');
+        });
+    }</div>
+        <div class="cmd" data-cmd="php artisan migrate">php artisan migrate</div>
+        <p class="why-step">🔍 Bu safar <code>nullable()</code>, 34-darsdagi
+        <code>default()</code> emas — chunki «rezyume yo'q» <b>haqiqiy</b>
+        holat. Standart qiymat berish mantiqsiz bo'lardi.</p>
+      </li>
+
+      <li>
+        <p>Modelga <code>rezyume</code> ni qo'shing</p>
+        <div class="cmd" data-cmd="# app/Models/User.php
+# Laravel 13 da User modelida Fillable ATRIBUTI ishlatiladi:
+
+#[Fillable(['name', 'email', 'password', 'rol', 'rezyume'])]"># app/Models/User.php
+# Laravel 13 da User modelida Fillable ATRIBUTI ishlatiladi:
+
+#[Fillable(['name', 'email', 'password', 'rol', 'rezyume'])]</div>
+        <p class="why-step">🔍 <code>Vakansiya</code> modelida esa odatdagi
+        <code>protected $fillable = [...]</code> turibdi. Ikkalasi ham
+        <b>to'g'ri</b> — Laravel 13 ikkala shaklni ham qabul qiladi.</p>
+      </li>
+
+      <li>
+        <p>Form Request yasang</p>
+        <div class="cmd" data-cmd="php artisan make:request RezyumeRequest">php artisan make:request RezyumeRequest</div>
+        <div class="cmd" data-cmd="# app/Http/Requests/RezyumeRequest.php
+
+use App\Enums\Rol;
+
+    public function authorize(): bool
+    {
+        return $this-&gt;user()?-&gt;rol === Rol::Nomzod;
+    }
+
+    public function rules(): array
+    {
+        return [
+            'rezyume' =&gt; ['required', 'file', 'mimes:pdf', 'max:2048'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'rezyume.required' =&gt; 'Rezyume faylini tanlang.',
+            'rezyume.mimes' =&gt; 'Rezyume faqat PDF bo\'lishi kerak.',
+            'rezyume.max' =&gt; 'Rezyume hajmi :max KB dan oshmasin.',
+        ];
+    }"># app/Http/Requests/RezyumeRequest.php
+
+use App\Enums\Rol;
+
+    public function authorize(): bool
+    {
+        return $this-&gt;user()?-&gt;rol === Rol::Nomzod;
+    }
+
+    public function rules(): array
+    {
+        return [
+            'rezyume' =&gt; ['required', 'file', 'mimes:pdf', 'max:2048'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'rezyume.required' =&gt; 'Rezyume faylini tanlang.',
+            'rezyume.mimes' =&gt; 'Rezyume faqat PDF bo\'lishi kerak.',
+            'rezyume.max' =&gt; 'Rezyume hajmi :max KB dan oshmasin.',
+        ];
+    }</div>
+        <p class="why-step">⚠️ 35-darsdagi tuzoqni unutmang: yasalgan
+        <code>authorize()</code> <code>false</code> qaytaradi — uni
+        <b>almashtirdingiz</b>. Va <code>?-&gt;</code> ishlatilgani ham o'sha
+        darsdan: mehmon uchun <code>user()</code> <code>null</code>.</p>
+      </li>
+
+      <li>
+        <p>Controller va route</p>
+        <div class="cmd" data-cmd="php artisan make:controller RezyumeController">php artisan make:controller RezyumeController</div>
+        <div class="cmd" data-cmd="# app/Http/Controllers/RezyumeController.php
+
+use App\Http\Requests\RezyumeRequest;
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\StreamedResponse;
+
+    public function forma(Request $request): View
+    {
+        return view('rezyume.forma', ['user' =&gt; $request-&gt;user()]);
+    }
+
+    public function saqlash(RezyumeRequest $request): RedirectResponse
+    {
+        $user = $request-&gt;user();
+
+        if ($user-&gt;rezyume !== null) {
+            Storage::disk('local')-&gt;delete($user-&gt;rezyume);
+        }
+
+        $yol = $request-&gt;file('rezyume')-&gt;store('rezyumelar', 'local');
+
+        $user-&gt;update(['rezyume' =&gt; $yol]);
+
+        return redirect()-&gt;route('rezyume.forma')
+            -&gt;with('xabar', 'Rezyume yuklandi.');
+    }
+
+    public function korish(Request $request): StreamedResponse
+    {
+        $user = $request-&gt;user();
+
+        abort_if($user-&gt;rezyume === null, 404);
+
+        return Storage::disk('local')-&gt;download($user-&gt;rezyume, 'rezyume.pdf');
+    }"># app/Http/Controllers/RezyumeController.php
+
+use App\Http\Requests\RezyumeRequest;
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\StreamedResponse;
+
+    public function forma(Request $request): View
+    {
+        return view('rezyume.forma', ['user' =&gt; $request-&gt;user()]);
+    }
+
+    public function saqlash(RezyumeRequest $request): RedirectResponse
+    {
+        $user = $request-&gt;user();
+
+        if ($user-&gt;rezyume !== null) {
+            Storage::disk('local')-&gt;delete($user-&gt;rezyume);
+        }
+
+        $yol = $request-&gt;file('rezyume')-&gt;store('rezyumelar', 'local');
+
+        $user-&gt;update(['rezyume' =&gt; $yol]);
+
+        return redirect()-&gt;route('rezyume.forma')
+            -&gt;with('xabar', 'Rezyume yuklandi.');
+    }
+
+    public function korish(Request $request): StreamedResponse
+    {
+        $user = $request-&gt;user();
+
+        abort_if($user-&gt;rezyume === null, 404);
+
+        return Storage::disk('local')-&gt;download($user-&gt;rezyume, 'rezyume.pdf');
+    }</div>
+        <div class="cmd" data-cmd="# routes/web.php
+
+use App\Http\Controllers\RezyumeController;
+
+Route::get('/rezyume', [RezyumeController::class, 'forma'])-&gt;name('rezyume.forma')-&gt;middleware('auth');
+Route::post('/rezyume', [RezyumeController::class, 'saqlash'])-&gt;name('rezyume.saqlash')-&gt;middleware('auth');
+Route::get('/rezyume/korish', [RezyumeController::class, 'korish'])-&gt;name('rezyume.korish')-&gt;middleware('auth');"># routes/web.php
+
+use App\Http\Controllers\RezyumeController;
+
+Route::get('/rezyume', [RezyumeController::class, 'forma'])-&gt;name('rezyume.forma')-&gt;middleware('auth');
+Route::post('/rezyume', [RezyumeController::class, 'saqlash'])-&gt;name('rezyume.saqlash')-&gt;middleware('auth');
+Route::get('/rezyume/korish', [RezyumeController::class, 'korish'])-&gt;name('rezyume.korish')-&gt;middleware('auth');</div>
+        <div class="cmd" data-cmd="php artisan route:list --path=rezyume">php artisan route:list --path=rezyume</div>
+      </li>
+
+      <li>
+        <p>Formani yasang</p>
+        <div class="cmd" data-cmd="# resources/views/rezyume/forma.blade.php
+
+@extends('layouts.asosiy')
+
+@section('mazmun')
+    &lt;h1&gt;Rezyume&lt;/h1&gt;
+
+    @if (session('xabar'))
+        &lt;p style=&quot;color:green&quot;&gt;{{ session('xabar') }}&lt;/p&gt;
+    @endif
+
+    @if ($errors-&gt;any())
+        &lt;ul style=&quot;color:crimson&quot;&gt;
+            @foreach ($errors-&gt;all() as $xato)
+                &lt;li&gt;{{ $xato }}&lt;/li&gt;
+            @endforeach
+        &lt;/ul&gt;
+    @endif
+
+    @if ($user-&gt;rezyume)
+        &lt;p&gt;Yuklangan: &lt;a href=&quot;{{ route('rezyume.korish') }}&quot;&gt;rezyumeni yuklab olish&lt;/a&gt;&lt;/p&gt;
+    @else
+        &lt;p&gt;Hali rezyume yuklanmagan.&lt;/p&gt;
+    @endif
+
+    &lt;form method=&quot;POST&quot; action=&quot;{{ route('rezyume.saqlash') }}&quot; enctype=&quot;multipart/form-data&quot;&gt;
+        @csrf
+        &lt;p&gt;&lt;input type=&quot;file&quot; name=&quot;rezyume&quot; accept=&quot;application/pdf&quot;&gt;&lt;/p&gt;
+        &lt;button type=&quot;submit&quot;&gt;Yuklash&lt;/button&gt;
+    &lt;/form&gt;
+@endsection"># resources/views/rezyume/forma.blade.php
+
+@extends('layouts.asosiy')
+
+@section('mazmun')
+    &lt;h1&gt;Rezyume&lt;/h1&gt;
+
+    @if (session('xabar'))
+        &lt;p style=&quot;color:green&quot;&gt;{{ session('xabar') }}&lt;/p&gt;
+    @endif
+
+    @if ($errors-&gt;any())
+        &lt;ul style=&quot;color:crimson&quot;&gt;
+            @foreach ($errors-&gt;all() as $xato)
+                &lt;li&gt;{{ $xato }}&lt;/li&gt;
+            @endforeach
+        &lt;/ul&gt;
+    @endif
+
+    @if ($user-&gt;rezyume)
+        &lt;p&gt;Yuklangan: &lt;a href=&quot;{{ route('rezyume.korish') }}&quot;&gt;rezyumeni yuklab olish&lt;/a&gt;&lt;/p&gt;
+    @else
+        &lt;p&gt;Hali rezyume yuklanmagan.&lt;/p&gt;
+    @endif
+
+    &lt;form method=&quot;POST&quot; action=&quot;{{ route('rezyume.saqlash') }}&quot; enctype=&quot;multipart/form-data&quot;&gt;
+        @csrf
+        &lt;p&gt;&lt;input type=&quot;file&quot; name=&quot;rezyume&quot; accept=&quot;application/pdf&quot;&gt;&lt;/p&gt;
+        &lt;button type=&quot;submit&quot;&gt;Yuklash&lt;/button&gt;
+    &lt;/form&gt;
+@endsection</div>
+      </li>
+
+      <li>
+        <p>Sinov fayllarini yasang</p>
+        <div class="cmd" data-cmd="mkdir -p ~/sinov-fayllar
+printf '%%PDF-1.4\n1 0 obj&lt;&lt;/Type/Catalog/Pages 2 0 R&gt;&gt;endobj\ntrailer&lt;&lt;/Root 1 0 R&gt;&gt;\n%%%%EOF\n' &gt; ~/sinov-fayllar/rezyume.pdf
+printf 'Bu aslida oddiy matn fayli, PDF emas.\n' &gt; ~/sinov-fayllar/soxta.pdf
+file -b ~/sinov-fayllar/rezyume.pdf ~/sinov-fayllar/soxta.pdf">mkdir -p ~/sinov-fayllar
+printf '%%PDF-1.4\n1 0 obj&lt;&lt;/Type/Catalog/Pages 2 0 R&gt;&gt;endobj\ntrailer&lt;&lt;/Root 1 0 R&gt;&gt;\n%%%%EOF\n' &gt; ~/sinov-fayllar/rezyume.pdf
+printf 'Bu aslida oddiy matn fayli, PDF emas.\n' &gt; ~/sinov-fayllar/soxta.pdf
+file -b ~/sinov-fayllar/rezyume.pdf ~/sinov-fayllar/soxta.pdf
+<span class="out">PDF document, version 1.4</span>
+<span class="out">ASCII text</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> ikkinchisi
+        <code>ASCII text</code> — nomi <code>.pdf</code> bo'lsa ham.
+        <code>file</code> buyrug'i ham xuddi Laravel kabi <b>ichiga</b>
+        qaraydi.</p>
+        <p class="why-step">🔍 <code>printf</code> da <code>%%</code> yozilgani
+        tasodif emas: <code>%</code> — <code>printf</code> uchun <b>maxsus
+        belgi</b>. Bittasini yozsangiz
+        <code>printf: `P': invalid format character</code> chiqadi va fayl
+        <b>bo'sh</b> qoladi. Ikkitasi bitta <code>%</code> beradi.</p>
+      </li>
+
+      <li>
+        <p>Uch xil fayl bilan sinang</p>
+        <div class="cmd" data-cmd="php artisan serve">php artisan serve</div>
+        <p><b>Nomzod</b> sifatida kirib <code>/rezyume</code> ni oching va
+        ketma-ket sinang:</p>
+        <div class="natija">1) hech nima tanlamasdan «Yuklash»  →  Rezyume faylini tanlang.
+2) soxta.pdf                        →  Rezyume faqat PDF bo'lishi kerak.
+3) rezyume.pdf                      →  Rezyume yuklandi.  + yuklab olish havolasi</div>
+        <p class="expect"><b>Kutilgan natija:</b> uchalasi ham yuqoridagidek.
+        Ikkinchisiga alohida e'tibor bering — fayl nomi to'g'ri edi.</p>
+      </li>
+
+      <li>
+        <p>Fayl qayerga tushganini ko'ring</p>
+        <div class="cmd" data-cmd="find storage/app -type f
+php artisan tinker --execute=&quot;dump(App\Models\User::where('email','nodira@example.uz')->first()->rezyume);&quot;">find storage/app -type f
+php artisan tinker --execute=&quot;dump(App\Models\User::where('email','nodira@example.uz')-&gt;first()-&gt;rezyume);&quot;
+<span class="out">storage/app/private/.gitignore</span>
+<span class="out">storage/app/private/rezyumelar/M36Ncv...WLQh.pdf</span>
+<span class="out">storage/app/.gitignore</span>
+<span class="out">storage/app/public/.gitignore</span>
+<span class="out">"rezyumelar/M36Ncv...WLQh.pdf"</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> diskda —
+        <code>app/<b>private</b>/...</code>, bazada — <b>nisbiy</b> yo'l.
+        Fayl nomi tasodifiy.
+        <br>🔍 Endi yana bir marta yuklang va <code>find</code> ni takrorlang:
+        papkada baribir <b>bitta</b> fayl bo'lishi kerak — eskisi
+        o'chirilgan.</p>
+      </li>
+
+      <li>
+        <p>🔒 Ochiq va yopiq diskni taqqoslang</p>
+        <div class="cmd" data-cmd="php artisan storage:link
+mkdir -p storage/app/public/sinov
+cp ~/sinov-fayllar/rezyume.pdf storage/app/public/sinov/ochiq.pdf">php artisan storage:link
+mkdir -p storage/app/public/sinov
+cp ~/sinov-fayllar/rezyume.pdf storage/app/public/sinov/ochiq.pdf</div>
+        <p>Endi brauzerda <b>maxfiy oyna</b> oching (u yerda siz kirmagansiz)
+        va ikkala manzilni sinang:</p>
+        <div class="natija">/storage/sinov/ochiq.pdf        →  200, PDF ochiladi    ⚠️
+/rezyume/korish                 →  302 → /kirish</div>
+        <p class="expect"><b>Kutilgan natija:</b> birinchisi <b>hech qanday
+        login so'ramasdan</b> ochiladi. Bu darsning eng muhim kuzatuvi: ochiq
+        diskda Laravel'ning himoya mexanizmlari <b>umuman
+        chaqirilmaydi</b>.</p>
+        <div class="cmd" data-cmd="rm -rf storage/app/public/sinov">rm -rf storage/app/public/sinov</div>
+      </li>
+
+      <li>
+        <p>Ishni saqlang</p>
+        <div class="cmd" data-cmd="git add -A
+git commit -m &quot;36-dars: rezyume yuklash va yopiq disk&quot;">git add -A
+git commit -m &quot;36-dars: rezyume yuklash va yopiq disk&quot;</div>
+        <p class="expect"><b>Kutilgan natija:</b> commit haqida xabar.
+        <br>🔍 <code>git status</code> da yuklangan rezyume
+        <b>ko'rinmaydi</b>. Sababi — Laravel'ning o'zi qo'ygan fayl:</p>
+        <div class="cmd" data-cmd="cat storage/app/private/.gitignore">cat storage/app/private/.gitignore
+<span class="out">*</span>
+<span class="out">!.gitignore</span></div>
+        <p class="expect">«Bu papkadagi <b>hammasini</b> e'tiborsiz qoldir,
+        <code>.gitignore</code> ning o'zidan tashqari». Shuning uchun papka
+        git'da <b>bor</b>, ichidagi fayllar esa <b>yo'q</b> — aynan kerakli
+        holat. <code>public/storage</code> havolasi ham loyiha
+        <code>.gitignore</code> sida.</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><input type="checkbox" id="d36c1"><label for="d36c1"><code>upload_max_filesize</code> qiymatini bilib oldim</label></li>
+      <li><input type="checkbox" id="d36c2"><label for="d36c2"><code>rezyume</code> ustunini <code>nullable()</code> bilan qo'shdim</label></li>
+      <li><input type="checkbox" id="d36c3"><label for="d36c3"><code>RezyumeRequest</code> yasadim va <code>authorize()</code> ni almashtirdim</label></li>
+      <li><input type="checkbox" id="d36c4"><label for="d36c4">Formaga <code>enctype="multipart/form-data"</code> qo'ydim</label></li>
+      <li><input type="checkbox" id="d36c5"><label for="d36c5"><b>Soxta PDF tutilishini ko'rdim</b> — nomi to'g'ri edi ⚠️</label></li>
+      <li><input type="checkbox" id="d36c6"><label for="d36c6">Fayl <code>app/private</code> ga tushganini tasdiqladim</label></li>
+      <li><input type="checkbox" id="d36c7"><label for="d36c7">Bazada <b>nisbiy yo'l</b> saqlanganini ko'rdim</label></li>
+      <li><input type="checkbox" id="d36c8"><label for="d36c8">Ikkinchi marta yuklab, eski fayl o'chganini tekshirdim</label></li>
+      <li><input type="checkbox" id="d36c9"><label for="d36c9"><b>Maxfiy oynada ochiq diskdagi faylni login'siz oldim</b> 🔒</label></li>
+      <li><input type="checkbox" id="d36c10"><label for="d36c10">Yopiq diskdagi rezyume login so'raganini tasdiqladim</label></li>
+      <li><input type="checkbox" id="d36c11"><label for="d36c11">Ishni commit qildim</label></li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 10) SINAB KO'RAMIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Dasturchi rezyumeni <b>ochiq</b> diskka saqlashga qaror qildi — «shunda
+    havola berish oson bo'ladi» deb. Qolgan hamma narsa joyida: route'da
+    <code>middleware('auth')</code> bor, Form Request <code>authorize()</code>
+    faqat nomzodga ruxsat beradi, policy ham yozilgan.</p>
+    <div class="codefile">
+      <div class="fname">app/Http/Controllers/RezyumeController.php</div>
+      <code class="cmd" data-cmd="$yol = $request-&gt;file('rezyume')-&gt;store('rezyumelar', 'public');
+
+$user-&gt;update(['rezyume' =&gt; $yol]);
+
+// ko'rsatishda:
+&lt;a href=&quot;{{ Storage::disk('public')-&gt;url($user-&gt;rezyume) }}&quot;&gt;Rezyume&lt;/a&gt;">$yol = $request-&gt;file('rezyume')-&gt;store('rezyumelar', 'public');
+
+$user-&gt;update(['rezyume' =&gt; $yol]);
+
+// ko'rsatishda:
+&lt;a href="{{ Storage::disk('public')-&gt;url($user-&gt;rezyume) }}"&gt;Rezyume&lt;/a&gt;</code>
+    </div>
+    <p>Endi <b>umuman kirmagan</b> mehmon o'sha havolani biror joydan topib
+    ochdi. Nima bo'ladi — login so'raladimi, 403 chiqadimi, yoki?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <div class="natija">status: 200
+hajm: 193 bayt
+fayl turi: PDF document, version 1.4, 1 page(s)
+
+Mehmon rezyumeni QO'LIGA OLDI.</div>
+        <p>Na <code>middleware('auth')</code>, na <code>authorize()</code>, na
+        policy chaqirildi. Ularning <b>hech biri</b> ishga tushmadi.</p>
+        <p class="expect">🔑 Sababi: <code>public/storage</code> — ramziy
+        havola, va u orqali fayl <b>web-server tomonidan</b> beriladi. So'rov
+        Laravel'gacha <b>umuman yetib bormaydi</b>. Himoya mexanizmlarimiz
+        PHP ichida yashaydi, bu so'rov esa PHP ga kirmaydi.</p>
+        <p>Taqqoslang — o'sha mehmon yopiq diskdagi rezyumeni olmoqchi
+        bo'lganda:</p>
+        <div class="natija">controller orqali (/rezyume/korish)      →  302 → /kirish
+to'g'ridan-to'g'ri URL bilan             →  403</div>
+        <p>🔑 <b>Qoida:</b> fayl himoyasi <b>qaysi diskda</b> saqlashingiz bilan
+        hal bo'ladi, controller kodi bilan emas. Noto'g'ri diskni tanlasangiz,
+        keyin yozgan hech qanday tekshiruv yordam bermaydi.</p>
+        <p>🔍 Va yana bir nozik joy: agar bu dasturchi
+        <code>'local'</code> diskni ishlatib, lekin havolani baribir
+        <code>Storage::url()</code> bilan yasaganda edi — kod
+        <b>xato bermasdi</b>, havola chiroyli ko'rinardi, bosilganda esa
+        <b>403</b> chiqardi (HOLAT 6).</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span> Formada
+    <code>enctype="multipart/form-data"</code> unutilsa nima bo'ladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Fayl o'rniga oddiy matn keladi</button></li>
+      <li><button class="quiz-option">Fayl baribir to'g'ri holda yuboriladi</button></li>
+      <li><button class="quiz-option">Forma umuman yuborilmasdan bo'sh qoladi</button></li>
+    </ul>
+    <div class="quiz-explain">Odatiy forma <code>nom=Ali&amp;maosh=100</code>
+    shaklida yuboradi — unga fayl sig'maydi, shuning uchun faqat <b>fayl nomi</b>
+    matn sifatida boradi. Xato: <code>The rezyume field must be a file.</code>
+    Chalg'ituvchi, chunki siz haqiqiy PDF tanlagansiz.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span> Qoidadagi
+    <code>max:2048</code> nimani anglatadi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">2048 kilobayt yani taxminan 2MB</button></li>
+      <li><button class="quiz-option">2048 bayt yani juda kichik</button></li>
+      <li><button class="quiz-option">2048 megabayt yani juda katta</button></li>
+    </ul>
+    <div class="quiz-explain">Fayl qoidalarida o'lchov birligi — <b>kilobayt</b>.
+    ⚠️ Lekin bu qiymat <code>upload_max_filesize</code> dan kichik bo'lsin: PHP
+    chegarasidan oshgan fayl Laravel'gacha yetib bormaydi va sizning xabaringiz
+    emas, <code>The rezyume failed to upload.</code> chiqadi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span> Rezyume kabi shaxsiy
+    hujjat qayerda saqlanishi kerak?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Yopiq diskka va controller orqali</button></li>
+      <li><button class="quiz-option">Ochiq diskka va storage link</button></li>
+      <li><button class="quiz-option">Bazaga to'g'ridan matn ustuni sifatida</button></li>
+    </ul>
+    <div class="quiz-explain">Ochiq diskdagi faylni mehmon <b>200</b> bilan oldi —
+    login ham, policy ham chaqirilmadi, chunki so'rov Laravel'gacha bormaydi.
+    Yopiq disk (<code>storage/app/private</code>) da URL <b>yo'q</b>: faylni
+    faqat kod bera oladi, va kod berayotganda huquqni tekshiradi.</div>
+  </div>
+
+  <!-- ═══════════════ 11) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+    <p class="recall-intro">Avval o'zingiz javob bering, keyin ochib tekshiring.
+    Oxirgi ikkitasi — <a href="0035-form-request.html">35-darsni</a> takrorlash.</p>
+
+    <details class="recall">
+      <summary>Bazada nima saqlanadi — faylmi, yo'lmi?</summary>
+      <div class="answer"><p><b>Nisbiy yo'l</b>, oddiy matn sifatida:
+      <code>rezyumelar/M36Ncv...pdf</code>. Fayl esa diskda —
+      <code>storage/app/private/</code> ichida. To'liq yo'l saqlanmaydi,
+      shunda loyihani ko'chirish oson.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Nega asl fayl nomi saqlanmaydi?</summary>
+      <div class="answer"><p>Ikki odam <code>rezyume.pdf</code> yuborsa,
+      ikkinchisi birinchisini <b>jimgina bosib ketadi</b> — o'lchab ko'rdik,
+      papkada bitta fayl qoldi. <code>hashName()</code> tasodifiy nom beradi va
+      kengaytmani <b>mazmundan</b> oladi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Ochiq va yopiq disk farqi nimada?</summary>
+      <div class="answer"><p><code>public</code> — <code>storage:link</code>
+      orqali URL bilan ochiladi, <b>hech qanday tekshiruvsiz</b>.
+      <code>local</code> (<code>app/private</code>) — URL yo'q, faylni faqat kod
+      beradi. Shaxsiy hujjat har doim ikkinchisiga.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: Form Request qanday ulanadi?</summary>
+      <div class="answer"><p>Argument <b>tipi</b> orqali:
+      <code>saqlash(RezyumeRequest $request)</code>. Va yasalgan
+      <code>authorize()</code> <code>false</code> qaytarishini
+      unutmang.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: <code>validated()</code> nega kerak?</summary>
+      <div class="answer"><p>U faqat <code>rules()</code> da nomi yozilgan
+      maydonlarni beradi. Formaga qo'lda qo'shilgan maydonlar tashlanadi —
+      <code>all()</code> esa ularni o'tkazib yuboradi.</p></div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 12) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Cho'ntak xulosasi</span>
+    <ul>
+      <li>Fayl <b>diskka</b>, uning <b>yo'li</b> bazaga. Bazaga faylning o'zini
+      solmaydilar.</li>
+      <li>⚠️ Formaga <code>enctype="multipart/form-data"</code> —
+      unutilsa fayl <b>matn</b> bo'lib keladi:
+      <code>The rezyume field must be a file.</code></li>
+      <li><code>accept="application/pdf"</code> — faqat qulaylik,
+      <b>himoya emas</b>.</li>
+      <li><code>$request-&gt;file('rezyume')</code> → <code>UploadedFile</code>.
+      🔒 <code>getClientOriginal*</code> — <b>foydalanuvchidan</b> (ishonchsiz),
+      <code>extension()</code> va <code>getMimeType()</code> —
+      <b>mazmundan</b>.</li>
+      <li><code>store('papka', 'local')</code> → nisbiy yo'l qaytaradi, fayl
+      <code>storage/app/<b>private</b>/papka/</code> ga tushadi (Laravel 11+
+      da <code>local</code> ildizi shu).</li>
+      <li><code>hashName()</code> — tasodifiy nom, kengaytma <b>mazmundan</b>.
+      Asl nom bilan saqlansa ikki odamning fayli <b>bosib ketadi</b>
+      (o'lchandi). Asl nom kerak bo'lsa — bazaga alohida ustunga.</li>
+      <li>Qoidalar: <code>['required', 'file', 'mimes:pdf', 'max:2048']</code>.
+      <code>max</code> — <b>kilobayt</b>.</li>
+      <li><code>mimes</code> faylning <b>ichiga</b> qaraydi — nomi
+      <code>.pdf</code> bo'lgan matn fayl <b>tutildi</b>.</li>
+      <li>⚠️ <code>upload_max_filesize</code> Laravel'dan <b>oldin</b> ishlaydi:
+      oshsa <code>The rezyume failed to upload.</code> chiqadi va
+      <code>max:</code> ni oshirish <b>yordam bermaydi</b>.</li>
+      <li>🔒 <b>Disk tanlovi = himoya tanlovi.</b> Mehmon ochiq diskdagi faylni
+      <b>200</b> bilan oldi (login yo'q, policy yo'q), yopiqdagini
+      <b>403</b>.</li>
+      <li><code>storage:link</code> → <code>public/storage</code> →
+      <code>storage/app/public</code>. Faqat <b>hamma ko'rishi mumkin</b>
+      bo'lgan fayllar uchun.</li>
+      <li><code>Storage::download($yol, 'nom.pdf')</code> —
+      <code>attachment</code>; <code>Storage::response(...)</code> —
+      <code>inline</code>. Ikkalasi ham controller orqali, demak huquq
+      tekshiriladi.</li>
+      <li>⚠️ Yopiq diskda <code>url()</code> <b>xato bermaydi</b>, lekin manzil
+      ishlamaydi. Havola sifatida <code>route(...)</code> bering.</li>
+      <li>Almashtirish va o'chirishda eski faylni
+      <code>Storage::delete()</code> bilan tozalang — u mavjud bo'lmagan
+      faylda ham xato bermaydi.</li>
+      <li>Yuklangan fayllar git'ga tushmaydi:
+      <code>storage/app/private/.gitignore</code> ichida <code>*</code>.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p>Modul D tugadi. IshTop'da endi ro'yxatdan o'tish, kirish, rollar,
+    huquqlar, validatsiya va fayl yuklash bor. Kod ancha o'sdi — va shu bilan
+    yangi savol tug'ildi: <b>qanday qilib ishonch hosil qilamiz?</b></p>
+    <p>Bugun har o'zgarishdan keyin siz brauzerni ochib, kirib, forma
+    to'ldirib, uch xil odam bilan sinab chiqdingiz. Bu <b>har safar</b>
+    takrorlanadi va vaqt o'tgani sari uzayadi. Bir kun kelib biror joyni
+    sinashni unutasiz.</p>
+    <p>37-darsda <b>testlar</b> boshlanadi: <code>php artisan test</code> —
+    bitta buyruq butun loyihani tekshiradi. Boshida <b>nega</b> kerakligini
+    ko'rsatamiz, keyin birinchi testni yozamiz: <code>pest</code>,
+    <code>it()</code>, <code>expect()</code>.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel — File Storage</b>:
+    <a href="https://laravel.com/docs/13.x/filesystem">laravel.com/docs/13.x/filesystem</a>
+    — disklar, <code>store()</code>, <code>download()</code>,
+    <code>storage:link</code>.<sup><a href="#fn1">1</a></sup><br>
+    <b>File Uploads (validatsiya)</b>:
+    <a href="https://laravel.com/docs/13.x/validation#rule-mimetypes">mimes va
+    max qoidalari</a>.<sup><a href="#fn2">2</a></sup><br>
+    <b>PHP — Handling file uploads</b>:
+    <a href="https://devdocs.io/php/features.file-upload">devdocs.io/php/features.file-upload</a>
+    — <code>upload_max_filesize</code>, <code>post_max_size</code> va yuklash
+    xatolari.<sup><a href="#fn3">3</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b> «bir nechta fayl birdan
+    yuklasam-chi?», «rasmni kichraytirish (thumbnail) qanday qilinadi?»,
+    «fayllarni S3 ga qanday ko'chiraman?», «ish beruvchi nomzodning rezyumesini
+    ko'rishi kerak — buni qanday qilaman?» — har qanday savol yaxshi.
+    Oxirgisi ayniqsa muhim va u <b>ataylab</b> ochiq qoldirildi: buning uchun
+    avval <b>ariza</b> tushunchasi kerak (kim qaysi vakansiyaga ariza berdi), va
+    o'shanda <code>korish()</code> metodiga policy qo'shiladi — 33-darsdagi
+    naqsh bo'yicha.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0035-form-request.html">Oldingi: Form Request</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel 13 — <a href="https://laravel.com/docs/13.x/filesystem">File Storage</a>.</li>
+      <li id="fn2">Laravel 13 — <a href="https://laravel.com/docs/13.x/validation#rule-mimetypes">Validation: mimes / max</a>.</li>
+      <li id="fn3">PHP — <a href="https://devdocs.io/php/features.file-upload">Handling file uploads</a>.</li>
+      <li id="fn4">Barchasi jonli o'lchangan (PHP 8.3.32, Laravel 13.25.0, SQLite;
+      <code>upload_max_filesize=2M</code>, <code>post_max_size=8M</code>,
+      <code>fileinfo</code> yoqilgan): haqiqiy PDF → <b>302</b> «Rezyume
+      yuklandi.» · fayl tanlanmadi → «Rezyume faylini tanlang.» ·
+      matn fayl <code>.pdf</code> nomi bilan → «Rezyume faqat PDF bo'lishi
+      kerak.» · 3 MB fayl → <code>The rezyume failed to upload.</code>
+      (PHP chegarasi) · <code>enctype</code> siz → <code>The rezyume field must
+      be a file.</code> · ish beruvchi → <b>403</b> ·
+      diskda <code>storage/app/private/rezyumelar/&lt;40 belgi&gt;.pdf</code>,
+      bazada nisbiy yo'l · <code>getClientOriginalExtension()</code> soxta fayl
+      uchun <code>pdf</code>, <code>extension()</code> esa <code>txt</code> ·
+      <code>getClientOriginalName()</code> <code>../../../ochiq.pdf</code> dan
+      <code>ochiq.pdf</code> qildi · <code>storeAs</code> asl nom bilan →
+      papkada <b>1</b> fayl, <code>store</code> bilan → <b>2</b> ·
+      qayta yuklashdan keyin eski fayl o'chdi · <code>download()</code> →
+      <code>attachment</code>, <code>response()</code> → <code>inline</code>,
+      ikkalasi <code>application/pdf</code> · mehmon: ochiq disk
+      <b>200</b> (193 bayt, haqiqiy PDF), controller <b>302</b> → /kirish,
+      yopiq diskka to'g'ridan URL <b>403</b> ·
+      <code>Storage::delete()</code> mavjud bo'lmagan faylda <code>true</code> ·
+      <code>Storage::disk('local')-&gt;url()</code> xato bermay
+      <code>/storage/...</code> qaytardi.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

@@ -17,7 +17,7 @@
   muhit ma'lumotlari. Har dars yangi buyruq o'rgatilsa, shu yerga qo'shiladi.</p>
 
   <p class="lesson-meta">
-    <span>Qamrov: <b>1&ndash;35-darslar</b> — muhitdan Form Request'gacha</span>
+    <span>Qamrov: <b>1&ndash;36-darslar</b> — muhitdan fayl yuklashgacha</span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>💻 Amaliyotga mos</span>
   </p>
@@ -747,6 +747,44 @@
     <code>casts()</code>.</p>
     <p>Bitta klass yoki ikkita: <b>qoidalar bir xil bo'lsa birlashtiring,
     ajrasa bo'ling</b> (<code>StoreXRequest</code> + <code>UpdateXRequest</code>).</p>
+  </div>
+
+  <h2>Fayl yuklash (36-darsdan)</h2>
+  <table class="sheet">
+    <tr><th>Kod</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>enctype="multipart/form-data"</code></td><td class="note-cell">⚠️ Formada. Unutilsa fayl <b>matn</b> bo'lib keladi</td></tr>
+    <tr><td><code>&lt;input type="file" name="rezyume"&gt;</code></td><td class="note-cell"><code>accept="..."</code> — qulaylik, <b>himoya emas</b></td></tr>
+    <tr><td><code>$request-&gt;file('rezyume')</code></td><td class="note-cell"><code>UploadedFile</code> obyekti</td></tr>
+    <tr><td><code>-&gt;store('papka', 'local')</code></td><td class="note-cell"><code>storage/app/private/papka/</code> ga. <b>Nisbiy yo'l</b> qaytaradi</td></tr>
+    <tr><td><code>-&gt;storeAs('papka', $nom)</code></td><td class="note-cell">⚠️ Bir xil nom eskisini <b>bosib ketadi</b></td></tr>
+    <tr><td><code>-&gt;hashName()</code></td><td class="note-cell">Tasodifiy nom, kengaytma <b>mazmundan</b></td></tr>
+    <tr><td><code>-&gt;getClientOriginalName()</code></td><td class="note-cell">🔒 Foydalanuvchidan — <b>ishonmang</b> (yo'l qismi kesiladi)</td></tr>
+    <tr><td><code>-&gt;extension()</code> · <code>getMimeType()</code></td><td class="note-cell">Faylning <b>ichidan</b> — ishonchli</td></tr>
+    <tr><td><code>['file', 'mimes:pdf', 'max:2048']</code></td><td class="note-cell"><code>max</code> — <b>kilobayt</b>. <code>mimes</code> mazmunni tekshiradi</td></tr>
+    <tr><td><code>Storage::disk('local')-&gt;delete($yol)</code></td><td class="note-cell">Eski faylni tozalash. Yo'q faylda ham xato bermaydi</td></tr>
+    <tr><td><code>Storage::disk('local')-&gt;download($yol, 'nom.pdf')</code></td><td class="note-cell"><code>attachment</code> — yuklab olish</td></tr>
+    <tr><td><code>Storage::disk('local')-&gt;response($yol, 'nom.pdf')</code></td><td class="note-cell"><code>inline</code> — brauzerda ochish</td></tr>
+    <tr><td><code>Storage::disk('local')-&gt;path($yol)</code></td><td class="note-cell">Diskdagi to'liq yo'l (<code>exists</code>, <code>size</code>, <code>mimeType</code> ham bor)</td></tr>
+    <tr><td><code>php artisan storage:link</code></td><td class="note-cell"><code>public/storage</code> → <code>storage/app/public</code>. Faqat <b>ochiq</b> fayllar uchun</td></tr>
+    <tr><td><code>php -i | grep upload_max_filesize</code></td><td class="note-cell">🔍 PHP chegarasi — Laravel'dan <b>oldin</b> ishlaydi</td></tr>
+  </table>
+  <div class="callout note">
+    <p>🔒 <b>Disk tanlovi = himoya tanlovi.</b> Mehmon ochiq diskdagi faylni
+    <b>200</b> bilan oldi (login yo'q, policy yo'q — so'rov Laravel'gacha
+    bormaydi), yopiq diskdagini <b>403</b>. Savol: «bu faylni tanimagan odam
+    ko'rsa bo'ladimi?» Ha → <code>public</code>. Yo'q → <code>local</code> +
+    controller.</p>
+    <p>⚠️ <b>Xato xabarlarini ajrating:</b>
+    <code>The ... field must be a file.</code> → <code>enctype</code> yo'q ·
+    <code>The ... failed to upload.</code> → PHP chegarasidan oshdi
+    (<code>max:</code> ni oshirish yordam bermaydi) ·
+    <code>... must not be greater than 2048 kilobytes.</code> → Laravel qoidasi
+    ishladi.</p>
+    <p>⚠️ Yopiq diskda <code>Storage::url()</code> <b>xato bermaydi</b>, lekin
+    manzil ochilmaydi (403). Havola sifatida <code>route(...)</code> bering.</p>
+    <p>Yuklangan fayllar git'ga tushmaydi:
+    <code>storage/app/private/.gitignore</code> ichida <code>*</code> va
+    <code>!.gitignore</code>.</p>
   </div>
 
   <h2>Xatoni o'qish</h2>
