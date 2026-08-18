@@ -1,0 +1,1386 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 30 — Auth qo'lda: ro'yxatdan o'tish, kirish, chiqish</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 30 · MODUL D — FOYDALANUVCHI VA HUQUQLAR</p>
+  <h1>Auth qo'lda: parol, sessiya va kirish</h1>
+  <p class="lead">Modul D boshlandi. 29-darsda vakansiya qo'shish formasini vaqtincha
+  olib qo'ygandik — chunki uni <b>istalgan odam</b> ishlatishi mumkin edi. Bugun uni
+  <b>kirish talab qiladigan</b> holda qaytaramiz. Va parolning bazada aslida qanday
+  saqlanishini <b>o'z ko'zingiz bilan</b> ko'rasiz.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 16 daqiqa</span>
+    <span>💻 Amaliyot ≈ 26 daqiqa</span>
+    <span>Kerak: <a href="0029-sahifalash-filtr-va-scope.html">Dars 29</a></span>
+  </p>
+
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b>Parol hech qachon ochiq saqlanmaydi</b>
+        <span class="nima"><code>Hash::make</code> · <code>Hash::check</code> · bcrypt
+        va uning <code>$2y$12$…</code> shakli.</span></li>
+      <li><b>🔍 Sehr yo'q: bu oddiy PHP funksiyasi</b>
+        <span class="nima"><code>password_verify()</code> Laravel yasagan xeshni
+        taniydi, <code>Hash::check</code> esa PHP yasaganini — <b>bir xil narsa</b>.</span></li>
+      <li><b>Ro'yxatdan o'tish</b>
+        <span class="nima"><code>unique:users,email</code> · <code>confirmed</code>
+        qoidasi · <code>User::create</code> · <code>Auth::login</code>.</span></li>
+      <li><b>Kirish — <code>Auth::attempt()</code></b>
+        <span class="nima">Bitta chaqiruv: foydalanuvchini topadi, parolni tekshiradi,
+        sessiyaga yozadi. Xato bo'lsa — <code>withErrors</code> va
+        <code>onlyInput</code>.</span></li>
+      <li><b>🔍 Sehr yo'q: <code>sessions</code> jadvali</b>
+        <span class="nima">Kim kirganini baza saqlaydi. Kirishdan keyin sessiya
+        <code>id</code> si <b>o'zgaradi</b> va <code>user_id</code> paydo bo'ladi —
+        o'lchandi.</span></li>
+      <li><b>Sessiya almashtirilishi (session fixation)</b>
+        <span class="nima"><code>session()-&gt;regenerate()</code> nima uchun
+        <b>majburiy</b> va qanday hujumdan himoya qiladi.</span></li>
+      <li><b>Chiqish</b>
+        <span class="nima"><code>Auth::logout()</code> +
+        <code>invalidate()</code> + <code>regenerateToken()</code> — uchtasi ham
+        kerak.</span></li>
+      <li><b>Blade: <code>@auth</code> va <code>@guest</code></b>
+        <span class="nima">Menyuda ism va «Chiqish», mehmonga esa «Kirish» —
+        <code>auth()-&gt;user()</code>, <code>auth()-&gt;id()</code>,
+        <code>auth()-&gt;check()</code>.</span></li>
+      <li><b>Route'ni himoyalash</b>
+        <span class="nima"><code>-&gt;middleware('auth')</code> → mehmon
+        <b>302</b> bilan kirish sahifasiga. ⚠️ Route nomi <b>aynan</b>
+        <code>login</code> bo'lishi kerak.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima">Xesh uzunligi va ustun · <code>confirmed</code> qoidasi ·
+        xato xabarini umumiy qoldirish · <code>login</code> nomi · CLI'da auth ·
+        <code>User</code> modeli nima uchun inglizcha · parol qoidalari.</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Nega bu muhim</span>
+    <p>Ikki sabab, va ikkalasi ham jiddiy:</p>
+    <ol>
+      <li><b>Ilova ishlashi uchun.</b> Ish beruvchi o'z vakansiyasini boshqara olishi,
+      nomzod ariza bera olishi kerak. Bularning hammasi «bu kim?» degan savolga javob
+      bo'lishini talab qiladi.</li>
+      <li><b>Bu — eng xavfli kod.</b> Auth'da qilingan xato «sahifa chiroyli emas»
+      degani emas: u <b>hisoblar o'g'irlanishi</b> degani. Shuning uchun bugun
+      mexanizmni <b>ichidan</b> ko'ramiz — nima uchun parol xeshlanadi, nima uchun
+      sessiya almashtiriladi.</li>
+    </ol>
+    <p>31-darsda Laravel'ning <b>tayyor</b> yechimi (starter kit) bilan tanishamiz.
+    Lekin uni <b>bugundan keyin</b> ko'rish muhim: aks holda u yana bir «sehrli
+    quti» bo'lib qolardi. Bu Modul A dagi mini-framework naqshining aynan o'zi.</p>
+  </div>
+
+  <!-- ═══════════════ 2) TUSHUNCHA ═══════════════ -->
+  <h2>Parol: nima uchun ochiq saqlanmaydi</h2>
+
+  <p>Tasavvur qiling, baza o'g'irlandi (bu ko'p bo'ladigan hodisa). Agar parollar ochiq
+  bo'lsa, hujumchi <b>hamma</b> foydalanuvchining parolini biladi — va odamlar
+  parolni boshqa saytlarda ham takrorlagani uchun zarar sizning saytingiz bilan
+  tugamaydi.</p>
+
+  <p>Yechim — <b>xesh</b> (hash): paroldan <b>orqaga qaytarib bo'lmaydigan</b> qiymat
+  hisoblanadi. Bazada faqat shu qiymat turadi.</p>
+
+  <div class="codefile">
+    <div class="fname">tekshirish</div>
+    <code class="cmd" data-cmd="Hash::make('parol123')   // saqlaymiz
+Hash::check('parol123', $xesh)   // tekshiramiz">Hash::make('parol123')   // saqlaymiz
+Hash::check('parol123', $xesh)   // tekshiramiz</code>
+  </div>
+
+  <div class="natija">$2y$12$nxzQa/mLwZPZQIjHbyoiOehsuJ8dRjmeBiyQEqb56bHehOzRHDB56
+$2y$12$CJc3VgIXag752Vbp2KCmrulayHEOKUwZqLJ51qYmCoaXAsYhkEjMC
+   ↑ bir xil parol, lekin natija HAR SAFAR BOSHQA
+
+Hash::check('parol123', $xesh)  →  true    ← ikkalasi ham
+Hash::check('boshqa',   $xesh)  →  false</div>
+
+  <p>Bir xil paroldan har safar boshqa xesh chiqishiga qaramay, tekshirish
+  ishlaydi. Sababi — <b>tuz</b> (salt): tasodifiy qiymat xeshning <b>ichiga</b>
+  yoziladi.</p>
+
+  <div class="natija">$2y$ 12 $ nxzQa/mLwZPZQIjHbyoiOe hsuJ8dRjmeBiyQEqb56bHehOzRHDB56
+ ↑    ↑         ↑                        ↑
+ |    |         tuz (22 belgi)           xeshning o'zi
+ |    murakkablik (cost = 12)
+ algoritm (bcrypt)</div>
+
+  <p><code>Hash::check</code> xeshdan tuzni <b>o'qib oladi</b>, kiritilgan parolni
+  <b>o'sha tuz bilan</b> qaytadan hisoblaydi va natijani solishtiradi. Shuning uchun
+  parolni «ochib» olish shart emas — va mumkin ham emas.</p>
+
+  <div class="callout tip">
+    <span class="label">🔍 Sehr yo'q: bu oddiy PHP funksiyasi</span>
+    <p>Laravel bu yerda hech narsa ixtiro qilmagan — u PHP'ning
+    <code>password_hash</code> / <code>password_verify</code> funksiyalarini
+    o'raydi. Isbot: ular <b>bir-birining natijasini taniydi</b>:</p>
+    <div class="natija">password_verify('parol123', Hash::make('parol123'))        →  true
+Hash::check('parol123', password_hash('parol123', PASSWORD_BCRYPT))  →  true</div>
+    <p>Sozlamalari <code>config/hashing.php</code> da:
+    <code>driver = bcrypt</code>, <code>rounds = 12</code>. «Rounds» — murakkablik:
+    har birlik qo'shilganda hisoblash <b>ikki barobar</b> sekinlashadi. Bu ataylab:
+    sekin xesh — hujumchining millionlab parolni sinab ko'rishini qiyinlashtiradi.</p>
+    <p>Xesh uzunligi <b>60 belgi</b> — shuning uchun migration'dagi
+    <code>password</code> ustuni <code>string</code> (255) bo'lishi kifoya.</p>
+  </div>
+
+  <h2>Ro'yxatdan o'tish</h2>
+
+  <div class="codefile">
+    <div class="fname">app/Http/Controllers/AuthController.php</div>
+    <code class="cmd" data-cmd="public function royxat(Request $request): RedirectResponse
+{
+    $tekshirilgan = $request-&gt;validate([
+        'name' =&gt; 'required|string|max:100',
+        'email' =&gt; 'required|email|unique:users,email',
+        'password' =&gt; 'required|string|min:8|confirmed',
+    ]);
+
+    $user = User::create([
+        'name' =&gt; $tekshirilgan['name'],
+        'email' =&gt; $tekshirilgan['email'],
+        'password' =&gt; Hash::make($tekshirilgan['password']),
+    ]);
+
+    Auth::login($user);
+    $request-&gt;session()-&gt;regenerate();
+
+    return redirect()-&gt;route('vakansiyalar.index');
+}">public function royxat(Request $request): RedirectResponse
+{
+    $tekshirilgan = $request-&gt;validate([
+        'name' =&gt; 'required|string|max:100',
+        'email' =&gt; 'required|email|<span class="add">unique:users,email</span>',
+        'password' =&gt; 'required|string|min:8|<span class="add">confirmed</span>',
+    ]);
+
+    $user = User::create([
+        'name' =&gt; $tekshirilgan['name'],
+        'email' =&gt; $tekshirilgan['email'],
+        'password' =&gt; <span class="add">Hash::make($tekshirilgan['password'])</span>,
+    ]);
+
+    <span class="add">Auth::login($user);
+    $request-&gt;session()-&gt;regenerate();</span>
+
+    return redirect()-&gt;route('vakansiyalar.index');
+}</code>
+  </div>
+
+  <table class="sheet">
+    <tr><th>Qism</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>unique:users,email</code></td><td class="note-cell">Bu email bazada <b>yo'qligini</b> tekshiradi (20-darsda ro'yxatda ko'rgandik, endi ishlatyapmiz)</td></tr>
+    <tr><td><code>confirmed</code></td><td class="note-cell"><code>password_confirmation</code> maydoni bilan <b>bir xilligini</b> talab qiladi</td></tr>
+    <tr><td><code>Hash::make(...)</code></td><td class="note-cell">Xesh. ⚠️ Buni <b>unutmaslik</b> kerak — aks holda parol ochiq saqlanadi</td></tr>
+    <tr><td><code>Auth::login($user)</code></td><td class="note-cell">Ro'yxatdan o'tgan odam darhol kirgan bo'ladi</td></tr>
+    <tr><td><code>session()-&gt;regenerate()</code></td><td class="note-cell">Sessiya <code>id</code> sini almashtiradi — pastda sababi</td></tr>
+  </table>
+
+  <h2>Kirish — <code>Auth::attempt()</code></h2>
+
+  <div class="codefile">
+    <div class="fname">AuthController</div>
+    <code class="cmd" data-cmd="public function kirish(Request $request): RedirectResponse
+{
+    $malumot = $request-&gt;validate([
+        'email' =&gt; 'required|email',
+        'password' =&gt; 'required',
+    ]);
+
+    if (! Auth::attempt($malumot)) {
+        return back()
+            -&gt;withErrors(['email' =&gt; 'Email yoki parol xato.'])
+            -&gt;onlyInput('email');
+    }
+
+    $request-&gt;session()-&gt;regenerate();
+
+    return redirect()-&gt;route('vakansiyalar.index');
+}">public function kirish(Request $request): RedirectResponse
+{
+    $malumot = $request-&gt;validate([
+        'email' =&gt; 'required|email',
+        'password' =&gt; 'required',
+    ]);
+
+    if (! <span class="add">Auth::attempt($malumot)</span>) {
+        return back()
+            -&gt;<span class="add">withErrors(['email' =&gt; 'Email yoki parol xato.'])</span>
+            -&gt;<span class="add">onlyInput('email')</span>;
+    }
+
+    $request-&gt;session()-&gt;regenerate();
+
+    return redirect()-&gt;route('vakansiyalar.index');
+}</code>
+  </div>
+
+  <p><code>Auth::attempt(['email' =&gt; ..., 'password' =&gt; ...])</code> — bitta chaqiruvda
+  <b>uch ish</b>:</p>
+
+  <div class="areas wide">
+    <div class="area">
+      <h4>1 · Topadi</h4>
+      <span class="en">SELECT</span>
+      <div class="desc"><code>email</code> bo'yicha foydalanuvchini qidiradi</div>
+    </div>
+    <div class="area">
+      <h4>2 · Tekshiradi</h4>
+      <span class="en">Hash::check</span>
+      <div class="desc">Parolni <b>xesh bilan</b> solishtiradi</div>
+    </div>
+    <div class="area">
+      <h4>3 · Yozadi</h4>
+      <span class="en">session</span>
+      <div class="desc">Muvaffaqiyatli bo'lsa sessiyaga <b>kim</b> ekanini yozadi</div>
+    </div>
+  </div>
+
+  <p><code>password</code> kaliti <b>maxsus</b>: Laravel uni bazadagi ustun bilan
+  to'g'ridan-to'g'ri solishtirmaydi, <code>Hash::check</code> ga uzatadi. Qolgan
+  kalitlar esa oddiy <code>where</code> shartiga aylanadi — masalan
+  <code>Auth::attempt(['email' =&gt; ..., 'password' =&gt; ..., 'faol' =&gt; 1])</code>.</p>
+
+  <div class="callout note">
+    <span class="label">Xato xabari nima uchun «umumiy»</span>
+    <p>Biz «Email topilmadi» yoki «Parol xato» demaymiz — ikkalasiga ham
+    <b>bitta</b> xabar: «Email yoki parol xato».</p>
+    <p>Sababi: aniq xabar hujumchiga <b>qaysi email ro'yxatdan o'tganini</b> aytib
+    qo'yadi. U shu bilan sizning saytingizda kimlar borligini ro'yxatlab olishi
+    mumkin. Umumiy xabar bu imkoniyatni yopadi.</p>
+    <p><code>onlyInput('email')</code> — formaga qaytganda faqat <b>email</b> saqlanadi.
+    Parol <b>hech qachon</b> qaytarilmaydi (20-darsdagi <code>old()</code> ni eslang —
+    parol uchun u ishlatilmaydi).</p>
+  </div>
+
+  <h2>🔍 Sehr yo'q: kim kirganini baza saqlaydi</h2>
+
+  <p>«Sayt meni qanday eslab qoladi?» — 13-darsda javob bergandik: <b>sessiya</b>.
+  Laravel'da esa u <code>SESSION_DRIVER=database</code> bo'lgani uchun oddiy
+  <b>jadval</b>da yashaydi. Kirishdan oldin va keyin o'sha jadvalga qaraymiz:</p>
+
+  <div class="natija">═══ kirishdan OLDIN ═══
+   id=bHF1XoZAiYIbYiBC…  user_id=NULL
+
+═══ kirishdan KEYIN ═══
+   id=bh0dOZ0xsyb8kVEp…  user_id=1
+      ↑ boshqa id!            ↑ endi kim ekani ma'lum</div>
+
+  <p>Ikki narsa o'zgardi, va ikkalasi ham muhim:</p>
+
+  <ol>
+    <li><b><code>user_id</code> paydo bo'ldi.</b> «Kirgan» bo'lish shu — bazadagi
+    qatorga sizning <code>id</code> ingiz yozilishi. Hech qanday sehr yo'q.</li>
+    <li><b><code>id</code> o'zgardi.</b> Bu <code>session()-&gt;regenerate()</code>
+    ning ishi.</li>
+  </ol>
+
+  <div class="callout warning">
+    <span class="label">⚠️ Nima uchun sessiya <code>id</code> si almashtiriladi</span>
+    <p>Hujum <b>session fixation</b> deb ataladi va shunday ishlaydi:</p>
+    <div class="natija">1. Hujumchi saytga kiradi va sessiya id sini oladi:  abc123
+2. Sizga havola yuboradi: «bu yerga bosing» — havolada o'sha abc123
+3. Siz o'sha sessiya bilan saytga KIRASIZ
+4. Hujumchi ham abc123 ni biladi — demak endi u ham SIZ bo'lib qoladi</div>
+    <p><code>session()-&gt;regenerate()</code> 3-qadamda <code>id</code> ni
+    <b>almashtiradi</b>, ya'ni hujumchidagi eski <code>id</code> foydasiz bo'lib
+    qoladi.</p>
+    <p>Shuning uchun u <b>har</b> kirishdan keyin chaqiriladi. Bu bir qatorlik kod,
+    lekin uni unutish jiddiy zaiflik.</p>
+  </div>
+
+  <h2>Chiqish</h2>
+
+  <div class="codefile">
+    <div class="fname">AuthController</div>
+    <code class="cmd" data-cmd="public function chiqish(Request $request): RedirectResponse
+{
+    Auth::logout();
+    $request-&gt;session()-&gt;invalidate();
+    $request-&gt;session()-&gt;regenerateToken();
+
+    return redirect()-&gt;route('vakansiyalar.index');
+}">public function chiqish(Request $request): RedirectResponse
+{
+    Auth::logout();
+    $request-&gt;session()-&gt;invalidate();
+    $request-&gt;session()-&gt;regenerateToken();
+
+    return redirect()-&gt;route('vakansiyalar.index');
+}</code>
+  </div>
+
+  <table class="sheet">
+    <tr><th>Qator</th><th class="note-cell">Nima uchun</th></tr>
+    <tr><td><code>Auth::logout()</code></td><td class="note-cell">Sessiyadan <code>user_id</code> ni olib tashlaydi</td></tr>
+    <tr><td><code>session()-&gt;invalidate()</code></td><td class="note-cell">Butun sessiyani <b>yo'q qiladi</b> — savatchada qolgan ma'lumot ham ketadi</td></tr>
+    <tr><td><code>session()-&gt;regenerateToken()</code></td><td class="note-cell">Yangi CSRF token (19-dars) — eski token bilan so'rov yuborib bo'lmasin</td></tr>
+  </table>
+
+  <p>Va chiqish <b>formasi</b> bo'lishi kerak, havola emas — chunki u holatni
+  <b>o'zgartiradi</b> (13-dars: GET o'zgartirmaydi, POST o'zgartiradi). Havola bo'lsa,
+  boshqa saytdagi <code>&lt;img src="/chiqish"&gt;</code> sizni tizimdan chiqarib
+  yuborardi.</p>
+
+  <h2>Blade va route himoyasi</h2>
+
+  <div class="codefile">
+    <div class="fname">resources/views/layouts/asosiy.blade.php</div>
+    <code class="cmd" data-cmd="@auth
+    &lt;span&gt;{{ auth()-&gt;user()-&gt;name }}&lt;/span&gt;
+    &lt;form method=&quot;POST&quot; action=&quot;{{ route('chiqish') }}&quot; style=&quot;display:inline&quot;&gt;
+        @csrf
+        &lt;button type=&quot;submit&quot;&gt;Chiqish&lt;/button&gt;
+    &lt;/form&gt;
+@else
+    &lt;a href=&quot;{{ route('login') }}&quot;&gt;Kirish&lt;/a&gt;
+    &lt;a href=&quot;{{ route('royxat.forma') }}&quot;&gt;Ro'yxatdan o'tish&lt;/a&gt;
+@endauth">@auth
+    &lt;span&gt;{{ auth()-&gt;user()-&gt;name }}&lt;/span&gt;
+    &lt;form method="POST" action="{{ route('chiqish') }}" style="display:inline"&gt;
+        @csrf
+        &lt;button type="submit"&gt;Chiqish&lt;/button&gt;
+    &lt;/form&gt;
+@else
+    &lt;a href="{{ route('login') }}"&gt;Kirish&lt;/a&gt;
+    &lt;a href="{{ route('royxat.forma') }}"&gt;Ro'yxatdan o'tish&lt;/a&gt;
+@endauth</code>
+  </div>
+
+  <table class="sheet">
+    <tr><th>Kod</th><th class="note-cell">Ma'nosi</th></tr>
+    <tr><td><code>@auth ... @else ... @endauth</code></td><td class="note-cell">Kirgan / kirmagan</td></tr>
+    <tr><td><code>@guest ... @endguest</code></td><td class="note-cell">Faqat mehmon uchun (teskarisi)</td></tr>
+    <tr><td><code>auth()-&gt;user()</code></td><td class="note-cell"><code>User</code> obyekti (yoki <code>null</code>)</td></tr>
+    <tr><td><code>auth()-&gt;id()</code> · <code>auth()-&gt;check()</code></td><td class="note-cell">Faqat <code>id</code> · «kirganmi?»</td></tr>
+  </table>
+
+  <p>Lekin <b>menyuni yashirish — himoya emas</b>. Forma ko'rinmasa ham, so'rovni
+  qo'lda yuborish mumkin. Haqiqiy himoya — <b>route darajasida</b>:</p>
+
+  <div class="codefile">
+    <div class="fname">routes/web.php</div>
+    <code class="cmd" data-cmd="Route::post('/vakansiyalar', [VakansiyaController::class, 'store'])
+    -&gt;name('vakansiyalar.store')
+    -&gt;middleware('auth');">Route::post('/vakansiyalar', [VakansiyaController::class, 'store'])
+    -&gt;name('vakansiyalar.store')
+    -&gt;<span class="add">middleware('auth')</span>;</code>
+  </div>
+
+  <div class="natija">Mehmon POST yuborsa   →  302  →  http://localhost:8000/kirish
+Kirgan odam yuborsa   →  302  →  vakansiyalar (qo'shildi)</div>
+
+  <p>17-darsdagi <b>middleware</b> shu yerda ish berdi: so'rov controllerga
+  <b>umuman yetib bormaydi</b>.</p>
+
+  <!-- ═══════════════ 3) HAR XIL HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir bir marta o'qib chiqing, keyin
+  kerak bo'lganda qaytib qarang.</p>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 1</span>
+    <h4><code>Hash::make</code> ni unutish</h4>
+    <div class="natija">❌ 'password' =&gt; $tekshirilgan['password'],
+
+Bazada:  parol1234        ← OCHIQ MATN
+Kirish:  ishlamaydi       ← Auth::attempt xeshni kutadi</div>
+    <p>Ikki tomonlama muammo: ham xavfsizlik teshigi, ham kirish <b>ishlamaydi</b>.
+    Ikkinchisi tufayli xato tez topiladi — lekin agar kimdir «tuzatish» uchun
+    <code>Auth::attempt</code> o'rniga oddiy solishtirish yozib qo'ysa, teshik
+    qoladi.</p>
+    <p>✅ Tekshirish oson: bazaga qarang. Parol <code>$2y$12$</code> bilan
+    boshlanishi <b>shart</b>.</p>
+    <p><i>Eslatma: Laravel'ning <code>User</code> modelida <code>password</code>
+    uchun <code>hashed</code> cast bo'lishi mumkin — u holda <code>Hash::make</code>
+    avtomatik qo'llanadi. Biz uni <b>ochiq</b> yozamiz: mexanizm ko'rinib tursin.</i></p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 2</span>
+    <h4><code>confirmed</code> qoidasi qanday ishlaydi</h4>
+    <p><code>'password' =&gt; 'confirmed'</code> deb yozsangiz, Laravel
+    <code><b>password_confirmation</b></code> nomli maydonni qidiradi:</p>
+    <div class="natija">&lt;input type="password" name="password"&gt;
+&lt;input type="password" name="password_confirmation"&gt;    ← nom AYNAN shunday</div>
+    <p>Nom noto'g'ri bo'lsa, qoida <b>har doim</b> xato beradi va sabab ko'rinmaydi.
+    Xato xabari esa <code>password</code> maydoniga tegishli bo'ladi
+    (<code>@error('password')</code>).</p>
+    <p>Qolip umumiy: <code>&lt;maydon&gt;_confirmation</code> — masalan
+    <code>email</code> uchun <code>email_confirmation</code>.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 3</span>
+    <h4>Xato xabarini <b>umumiy</b> qoldirish</h4>
+    <div class="natija">❌ if (! $user) return back()-&gt;withErrors(['email' =&gt; 'Bunday email yo\'q.']);
+   if (! Hash::check(...)) return back()-&gt;withErrors(['password' =&gt; 'Parol xato.']);
+
+✅ if (! Auth::attempt($malumot)) {
+       return back()-&gt;withErrors(['email' =&gt; 'Email yoki parol xato.']);
+   }</div>
+    <p>Birinchi variant «foydalanuvchiga yordam beryapman» degan niyat bilan
+    yoziladi, lekin u hujumchiga <b>qaysi emaillar ro'yxatdan o'tganini</b> aytib
+    beradi (<i>user enumeration</i>).</p>
+    <p>Xuddi shu sababdan «parolni tiklash» sahifasi ham email topilmaganda <b>bir xil
+    xabar</b> ko'rsatadi.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 4</span>
+    <h4>Route nomi <code>login</code> bo'lmasa</h4>
+    <p><code>auth</code> middleware kirmagan foydalanuvchini <b>qayerga</b> yuborishni
+    qanday biladi? U <code>login</code> <b>nomli</b> route'ni qidiradi. Nom boshqacha
+    bo'lsa:</p>
+    <div class="natija">Route::get('/kirish', ...)-&gt;name('kirish.forma');   ← 'login' emas
+
+Mehmon himoyalangan sahifaga kirsa:
+   500  Symfony\Component\Routing\Exception\RouteNotFoundException
+        Route [login] not defined.</div>
+    <p>✅ Manzil o'zbekcha bo'lishi mumkin, lekin <b>nom</b> — <code>login</code>:</p>
+    <div class="natija">Route::get('/kirish', [AuthController::class, 'kirishForma'])-&gt;name('login');</div>
+    <p>Bu Laravel'ning kelishuvi. Xohlasangiz uni o'zgartirish ham mumkin
+    (<code>bootstrap/app.php</code> dagi <code>redirectGuestsTo</code>), lekin
+    boshida kelishuvga rioya qilish osonroq.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 5</span>
+    <h4>Terminalda (CLI) auth</h4>
+    <p>Skriptda yoki <code>tinker</code> da <b>hech kim kirmagan</b> bo'ladi —
+    sessiya yo'q:</p>
+    <div class="natija">auth()-&gt;check()   →  false
+auth()-&gt;user()    →  NULL</div>
+    <p>Sinash uchun qo'lda kirish mumkin:</p>
+    <div class="natija">Auth::login(User::first());
+auth()-&gt;check()      →  true
+auth()-&gt;id()         →  1
+auth()-&gt;user()-&gt;name →  "Dostonbek"</div>
+    <p>Bu Modul E dagi testlarda juda ko'p ishlatiladi (u yerda
+    <code>actingAs($user)</code> shakli bor).</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 6</span>
+    <h4>Nima uchun <code>User</code> modeli inglizcha</h4>
+    <p>Bizning modellarimiz o'zbekcha: <code>Vakansiya</code>, <code>Kompaniya</code>,
+    <code>Konikma</code>. <code>User</code> esa <b>inglizcha</b> — va bu qasddan:</p>
+    <div class="natija">app/Models/User.php        ← Laravel BERGAN (Authenticatable dan meros)
+app/Models/Vakansiya.php   ← BIZ yozgan</div>
+    <p>Sababi amaliy: <code>config/auth.php</code>, starter kit (31-dars), Sanctum
+    (Modul F), parol tiklash va bildirishnomalar — hammasi <code>User</code> nomini
+    kutadi. Uni o'zgartirish har qadamda qo'shimcha sozlash talab qilardi.</p>
+    <p>🔑 <b>Qoida:</b> framework bergan model — inglizcha, biz yozgan domen modeli —
+    o'zbekcha. Matnda esa u har doim <b>«foydalanuvchi»</b>.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>Parol qoidalarini kuchaytirish</h4>
+    <p>Biz <code>min:8</code> bilan cheklandik. Laravel'da tayyor, kuchliroq qoida
+    bor:</p>
+    <div class="natija">use Illuminate\Validation\Rules\Password;
+
+'password' =&gt; ['required', 'confirmed', Password::defaults()],
+
+// yoki aniq talablar bilan:
+Password::min(8)-&gt;letters()-&gt;numbers()-&gt;uncompromised()</div>
+    <p><code>uncompromised()</code> qiziq: u parolni <b>ommaviy sizib chiqqan
+    parollar</b> ro'yxati bilan solishtiradi (haveibeenpwned xizmati orqali, parolning
+    o'zini yubormasdan).</p>
+    <p>⚠️ Lekin u <b>internet</b> talab qiladi — offline ishlayotganda testlar
+    sekinlashadi yoki yiqiladi. Shuning uchun kursda oddiy <code>min:8</code>
+    qoldiramiz.</p>
+  </div>
+
+  <!-- ═══════════════ 4) AMALIYOT / MODE-HINT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    <span class="mode-hint-title">💻 Amaliy qism kompyuterda</span>
+    <p>Amaliyotda ro'yxatdan o'tish, kirish va chiqishni <b>o'z qo'lingiz bilan</b>
+    yozasiz. Keyin bazaga qarab parol qanday saqlanganini, va <code>sessions</code>
+    jadvaliga qarab «kirgan» bo'lish nima ekanini ko'rasiz. Oxirida 29-darsda olib
+    qo'yilgan forma <b>kirish talab qilgan holda</b> qaytadi.</p>
+    <button type="button" class="modebtn" data-set-mode="do">💻 Amaliyot rejimini ko'rish</button>
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <p>Toza bazadan boshlang</p>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+php artisan migrate:fresh --seed">cd ~/Projects/Learn/ishtop
+php artisan migrate:fresh --seed
+<span class="out">Solindi: 5 kompaniya, 20 vakansiya, 8 ko'nikma.</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> tasdiq xabari.
+        <code>users</code> jadvali 16-darsdan beri mavjud — Laravel uni skeletonda
+        bergan.</p>
+      </li>
+
+      <li>
+        <p>🔍 Parol xeshini o'z ko'zingiz bilan ko'ring</p>
+        <p class="why-step">Kod yozishdan oldin mexanizmni ko'rish.</p>
+        <div class="cmd" data-cmd="cat &gt; sql/16-parol.php &lt;&lt;'EOF'
+&lt;?php
+
+use Illuminate\Support\Facades\Hash;
+
+require __DIR__ . '/../vendor/autoload.php';
+$app = require_once __DIR__ . '/../bootstrap/app.php';
+$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+
+echo '── bir xil parol, ikki marta', PHP_EOL;
+for ($i = 0; $i &lt; 2; $i++) {
+    echo '   ', Hash::make('parol123'), PHP_EOL;
+}
+
+$xesh = Hash::make('parol123');
+
+echo PHP_EOL, '── tekshirish', PHP_EOL;
+echo '   to\'g\'ri  : ', var_export(Hash::check('parol123', $xesh), true), PHP_EOL;
+echo '   noto\'g\'ri: ', var_export(Hash::check('boshqa', $xesh), true), PHP_EOL;
+
+echo PHP_EOL, '── SEHR YO\'Q: oddiy PHP funksiyasi', PHP_EOL;
+echo '   password_verify(Laravel xeshini): ', var_export(password_verify('parol123', $xesh), true), PHP_EOL;
+$php_xesh = password_hash('parol123', PASSWORD_BCRYPT);
+echo '   Hash::check(PHP xeshini)        : ', var_export(Hash::check('parol123', $php_xesh), true), PHP_EOL;
+
+echo PHP_EOL, '── xeshning tuzilishi', PHP_EOL;
+echo '   ', $xesh, PHP_EOL;
+echo '   uzunligi : ', strlen($xesh), ' belgi', PHP_EOL;
+$info = password_get_info($xesh);
+echo '   algoritm : ', $info['algoName'], PHP_EOL;
+echo '   cost     : ', $info['options']['cost'], PHP_EOL;
+EOF
+php sql/16-parol.php">cat &gt; sql/16-parol.php &lt;&lt;'EOF'
+&lt;?php
+
+use Illuminate\Support\Facades\Hash;
+
+require __DIR__ . '/../vendor/autoload.php';
+$app = require_once __DIR__ . '/../bootstrap/app.php';
+$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+
+echo '── bir xil parol, ikki marta', PHP_EOL;
+for ($i = 0; $i &lt; 2; $i++) {
+    echo '   ', Hash::make('parol123'), PHP_EOL;
+}
+
+$xesh = Hash::make('parol123');
+
+echo PHP_EOL, '── tekshirish', PHP_EOL;
+echo '   to\'g\'ri  : ', var_export(Hash::check('parol123', $xesh), true), PHP_EOL;
+echo '   noto\'g\'ri: ', var_export(Hash::check('boshqa', $xesh), true), PHP_EOL;
+
+echo PHP_EOL, '── SEHR YO\'Q: oddiy PHP funksiyasi', PHP_EOL;
+echo '   password_verify(Laravel xeshini): ', var_export(password_verify('parol123', $xesh), true), PHP_EOL;
+$php_xesh = password_hash('parol123', PASSWORD_BCRYPT);
+echo '   Hash::check(PHP xeshini)        : ', var_export(Hash::check('parol123', $php_xesh), true), PHP_EOL;
+
+echo PHP_EOL, '── xeshning tuzilishi', PHP_EOL;
+echo '   ', $xesh, PHP_EOL;
+echo '   uzunligi : ', strlen($xesh), ' belgi', PHP_EOL;
+$info = password_get_info($xesh);
+echo '   algoritm : ', $info['algoName'], PHP_EOL;
+echo '   cost     : ', $info['options']['cost'], PHP_EOL;
+EOF
+php sql/16-parol.php
+<span class="out">   $2y$12$nxzQa/mLwZPZQIjHbyoiOehsuJ8dRjmeBiyQEqb56bHehOzRHDB56</span>
+<span class="out">   $2y$12$CJc3VgIXag752Vbp2KCmrulayHEOKUwZqLJ51qYmCoaXAsYhkEjMC</span>
+<span class="out">   to'g'ri  : true</span>
+<span class="out">   password_verify(Laravel xeshini): true</span>
+<span class="out">   Hash::check(PHP xeshini)        : true</span>
+<span class="out">   uzunligi : 60 belgi</span>
+<span class="out">   algoritm : bcrypt   cost: 12</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> to'rt bo'lim.
+        <br>🔑 <b>Eng muhimi:</b> bir xil parolga <b>ikki xil xesh</b>, lekin
+        tekshirish ikkalasida ham ishlaydi — tuz xeshning ichida.
+        <br>🔍 Va Laravel bilan PHP <b>bir-birining xeshini taniydi</b> — demak bu
+        Laravel ixtiro qilgan narsa emas.
+        <br><i>Xesh qiymatlari sizda boshqacha bo'ladi (har safar tasodifiy).</i></p>
+      </li>
+
+      <li>
+        <p>Auth controllerini yarating</p>
+        <div class="cmd" data-cmd="php artisan make:controller AuthController
+cat &gt; app/Http/Controllers/AuthController.php &lt;&lt;'EOF'
+&lt;?php
+
+namespace App\Http\Controllers;
+
+use App\Models\User;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\View\View;
+
+class AuthController extends Controller
+{
+    public function royxatForma(): View
+    {
+        return view('auth.royxat');
+    }
+
+    public function royxat(Request $request): RedirectResponse
+    {
+        $tekshirilgan = $request-&gt;validate([
+            'name' =&gt; 'required|string|max:100',
+            'email' =&gt; 'required|email|unique:users,email',
+            'password' =&gt; 'required|string|min:8|confirmed',
+        ], [
+            'name.required' =&gt; 'Ism kiritilishi shart.',
+            'email.required' =&gt; 'Email kiritilishi shart.',
+            'email.email' =&gt; 'Email shakli noto\'g\'ri.',
+            'email.unique' =&gt; 'Bu email allaqachon ro\'yxatdan o\'tgan.',
+            'password.required' =&gt; 'Parol kiritilishi shart.',
+            'password.min' =&gt; 'Parol kamida :min belgidan iborat bo\'lsin.',
+            'password.confirmed' =&gt; 'Parollar mos kelmadi.',
+        ]);
+
+        $user = User::create([
+            'name' =&gt; $tekshirilgan['name'],
+            'email' =&gt; $tekshirilgan['email'],
+            'password' =&gt; Hash::make($tekshirilgan['password']),
+        ]);
+
+        Auth::login($user);
+        $request-&gt;session()-&gt;regenerate();
+
+        return redirect()-&gt;route('vakansiyalar.index')
+            -&gt;with('xabar', &quot;Xush kelibsiz, {$user-&gt;name}!&quot;);
+    }
+
+    public function kirishForma(): View
+    {
+        return view('auth.kirish');
+    }
+
+    public function kirish(Request $request): RedirectResponse
+    {
+        $malumot = $request-&gt;validate([
+            'email' =&gt; 'required|email',
+            'password' =&gt; 'required',
+        ]);
+
+        if (! Auth::attempt($malumot)) {
+            return back()
+                -&gt;withErrors(['email' =&gt; 'Email yoki parol xato.'])
+                -&gt;onlyInput('email');
+        }
+
+        $request-&gt;session()-&gt;regenerate();
+
+        return redirect()-&gt;route('vakansiyalar.index')-&gt;with('xabar', 'Kirdingiz.');
+    }
+
+    public function chiqish(Request $request): RedirectResponse
+    {
+        Auth::logout();
+        $request-&gt;session()-&gt;invalidate();
+        $request-&gt;session()-&gt;regenerateToken();
+
+        return redirect()-&gt;route('vakansiyalar.index')-&gt;with('xabar', 'Chiqdingiz.');
+    }
+}
+EOF
+php -l app/Http/Controllers/AuthController.php">php artisan make:controller AuthController
+cat &gt; app/Http/Controllers/AuthController.php &lt;&lt;'EOF'
+&lt;?php
+
+namespace App\Http\Controllers;
+
+use App\Models\User;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\View\View;
+
+class AuthController extends Controller
+{
+    public function royxatForma(): View
+    {
+        return view('auth.royxat');
+    }
+
+    public function royxat(Request $request): RedirectResponse
+    {
+        $tekshirilgan = $request-&gt;validate([
+            'name' =&gt; 'required|string|max:100',
+            'email' =&gt; 'required|email|unique:users,email',
+            'password' =&gt; 'required|string|min:8|confirmed',
+        ], [
+            'name.required' =&gt; 'Ism kiritilishi shart.',
+            'email.required' =&gt; 'Email kiritilishi shart.',
+            'email.email' =&gt; 'Email shakli noto\'g\'ri.',
+            'email.unique' =&gt; 'Bu email allaqachon ro\'yxatdan o\'tgan.',
+            'password.required' =&gt; 'Parol kiritilishi shart.',
+            'password.min' =&gt; 'Parol kamida :min belgidan iborat bo\'lsin.',
+            'password.confirmed' =&gt; 'Parollar mos kelmadi.',
+        ]);
+
+        $user = User::create([
+            'name' =&gt; $tekshirilgan['name'],
+            'email' =&gt; $tekshirilgan['email'],
+            'password' =&gt; Hash::make($tekshirilgan['password']),
+        ]);
+
+        Auth::login($user);
+        $request-&gt;session()-&gt;regenerate();
+
+        return redirect()-&gt;route('vakansiyalar.index')
+            -&gt;with('xabar', "Xush kelibsiz, {$user-&gt;name}!");
+    }
+
+    public function kirishForma(): View
+    {
+        return view('auth.kirish');
+    }
+
+    public function kirish(Request $request): RedirectResponse
+    {
+        $malumot = $request-&gt;validate([
+            'email' =&gt; 'required|email',
+            'password' =&gt; 'required',
+        ]);
+
+        if (! Auth::attempt($malumot)) {
+            return back()
+                -&gt;withErrors(['email' =&gt; 'Email yoki parol xato.'])
+                -&gt;onlyInput('email');
+        }
+
+        $request-&gt;session()-&gt;regenerate();
+
+        return redirect()-&gt;route('vakansiyalar.index')-&gt;with('xabar', 'Kirdingiz.');
+    }
+
+    public function chiqish(Request $request): RedirectResponse
+    {
+        Auth::logout();
+        $request-&gt;session()-&gt;invalidate();
+        $request-&gt;session()-&gt;regenerateToken();
+
+        return redirect()-&gt;route('vakansiyalar.index')-&gt;with('xabar', 'Chiqdingiz.');
+    }
+}
+EOF
+php -l app/Http/Controllers/AuthController.php
+<span class="out">No syntax errors detected</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> «No syntax errors detected».</p>
+      </li>
+
+      <li>
+        <p>Route'larni qo'shing</p>
+        <p class="why-step">Diqqat: kirish sahifasining <b>nomi</b> —
+        <code>login</code>. Manzil o'zbekcha bo'lishi mumkin, nom esa Laravel'ning
+        kelishuvi.</p>
+        <div class="cmd" data-cmd="cat &gt;&gt; routes/web.php &lt;&lt;'EOF'
+
+Route::get('/royxatdan-otish', [AuthController::class, 'royxatForma'])-&gt;name('royxat.forma');
+Route::post('/royxatdan-otish', [AuthController::class, 'royxat'])-&gt;name('royxat');
+Route::get('/kirish', [AuthController::class, 'kirishForma'])-&gt;name('login');
+Route::post('/kirish', [AuthController::class, 'kirish']);
+Route::post('/chiqish', [AuthController::class, 'chiqish'])-&gt;name('chiqish');
+EOF
+php artisan route:list --path=kirish">cat &gt;&gt; routes/web.php &lt;&lt;'EOF'
+
+Route::get('/royxatdan-otish', [AuthController::class, 'royxatForma'])-&gt;name('royxat.forma');
+Route::post('/royxatdan-otish', [AuthController::class, 'royxat'])-&gt;name('royxat');
+Route::get('/kirish', [AuthController::class, 'kirishForma'])-&gt;<span class="add">name('login')</span>;
+Route::post('/kirish', [AuthController::class, 'kirish']);
+Route::post('/chiqish', [AuthController::class, 'chiqish'])-&gt;name('chiqish');
+EOF
+php artisan route:list --path=kirish
+<span class="out">GET|HEAD  kirish   login › AuthController@kirishForma</span>
+<span class="out">POST      kirish           AuthController@kirish</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> ikkita route, birinchisining nomi —
+        <code>login</code>.
+        <br>⚠️ Faylning yuqorisiga <code>use App\Http\Controllers\AuthController;</code>
+        qatorini ham qo'shing (12-dars), aks holda «Class not found».</p>
+      </li>
+
+      <li>
+        <p>Ikkita forma sahifasini yasang</p>
+        <div class="cmd" data-cmd="mkdir -p resources/views/auth
+
+cat &gt; resources/views/auth/royxat.blade.php &lt;&lt;'EOF'
+@extends('layouts.asosiy')
+
+@section('mazmun')
+    &lt;h1&gt;Ro'yxatdan o'tish&lt;/h1&gt;
+
+    @if ($errors-&gt;any())
+        &lt;ul style=&quot;color:red&quot;&gt;
+            @foreach ($errors-&gt;all() as $xato)&lt;li&gt;{{ $xato }}&lt;/li&gt;@endforeach
+        &lt;/ul&gt;
+    @endif
+
+    &lt;form method=&quot;POST&quot; action=&quot;{{ route('royxat') }}&quot;&gt;
+        @csrf
+        &lt;p&gt;&lt;input type=&quot;text&quot; name=&quot;name&quot; placeholder=&quot;Ism&quot; value=&quot;{{ old('name') }}&quot;&gt;&lt;/p&gt;
+        &lt;p&gt;&lt;input type=&quot;email&quot; name=&quot;email&quot; placeholder=&quot;Email&quot; value=&quot;{{ old('email') }}&quot;&gt;&lt;/p&gt;
+        &lt;p&gt;&lt;input type=&quot;password&quot; name=&quot;password&quot; placeholder=&quot;Parol&quot;&gt;&lt;/p&gt;
+        &lt;p&gt;&lt;input type=&quot;password&quot; name=&quot;password_confirmation&quot; placeholder=&quot;Parolni takrorlang&quot;&gt;&lt;/p&gt;
+        &lt;button type=&quot;submit&quot;&gt;Ro'yxatdan o'tish&lt;/button&gt;
+    &lt;/form&gt;
+@endsection
+EOF
+
+cat &gt; resources/views/auth/kirish.blade.php &lt;&lt;'EOF'
+@extends('layouts.asosiy')
+
+@section('mazmun')
+    &lt;h1&gt;Kirish&lt;/h1&gt;
+
+    @if ($errors-&gt;any())
+        &lt;ul style=&quot;color:red&quot;&gt;
+            @foreach ($errors-&gt;all() as $xato)&lt;li&gt;{{ $xato }}&lt;/li&gt;@endforeach
+        &lt;/ul&gt;
+    @endif
+
+    &lt;form method=&quot;POST&quot; action=&quot;{{ route('login') }}&quot;&gt;
+        @csrf
+        &lt;p&gt;&lt;input type=&quot;email&quot; name=&quot;email&quot; placeholder=&quot;Email&quot; value=&quot;{{ old('email') }}&quot;&gt;&lt;/p&gt;
+        &lt;p&gt;&lt;input type=&quot;password&quot; name=&quot;password&quot; placeholder=&quot;Parol&quot;&gt;&lt;/p&gt;
+        &lt;button type=&quot;submit&quot;&gt;Kirish&lt;/button&gt;
+    &lt;/form&gt;
+@endsection
+EOF">mkdir -p resources/views/auth
+
+cat &gt; resources/views/auth/royxat.blade.php &lt;&lt;'EOF'
+@extends('layouts.asosiy')
+
+@section('mazmun')
+    &lt;h1&gt;Ro'yxatdan o'tish&lt;/h1&gt;
+
+    @if ($errors-&gt;any())
+        &lt;ul style="color:red"&gt;
+            @foreach ($errors-&gt;all() as $xato)&lt;li&gt;{{ $xato }}&lt;/li&gt;@endforeach
+        &lt;/ul&gt;
+    @endif
+
+    &lt;form method="POST" action="{{ route('royxat') }}"&gt;
+        @csrf
+        &lt;p&gt;&lt;input type="text" name="name" placeholder="Ism" value="{{ old('name') }}"&gt;&lt;/p&gt;
+        &lt;p&gt;&lt;input type="email" name="email" placeholder="Email" value="{{ old('email') }}"&gt;&lt;/p&gt;
+        &lt;p&gt;&lt;input type="password" name="password" placeholder="Parol"&gt;&lt;/p&gt;
+        &lt;p&gt;&lt;input type="password" name="<span class="add">password_confirmation</span>" placeholder="Parolni takrorlang"&gt;&lt;/p&gt;
+        &lt;button type="submit"&gt;Ro'yxatdan o'tish&lt;/button&gt;
+    &lt;/form&gt;
+@endsection
+EOF
+
+cat &gt; resources/views/auth/kirish.blade.php &lt;&lt;'EOF'
+@extends('layouts.asosiy')
+
+@section('mazmun')
+    &lt;h1&gt;Kirish&lt;/h1&gt;
+
+    @if ($errors-&gt;any())
+        &lt;ul style="color:red"&gt;
+            @foreach ($errors-&gt;all() as $xato)&lt;li&gt;{{ $xato }}&lt;/li&gt;@endforeach
+        &lt;/ul&gt;
+    @endif
+
+    &lt;form method="POST" action="{{ route('login') }}"&gt;
+        @csrf
+        &lt;p&gt;&lt;input type="email" name="email" placeholder="Email" value="{{ old('email') }}"&gt;&lt;/p&gt;
+        &lt;p&gt;&lt;input type="password" name="password" placeholder="Parol"&gt;&lt;/p&gt;
+        &lt;button type="submit"&gt;Kirish&lt;/button&gt;
+    &lt;/form&gt;
+@endsection
+EOF</div>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik. Diqqat:
+        <code>password_confirmation</code> nomi <b>aynan</b> shunday bo'lishi kerak
+        (HOLAT 2), va parol maydonlarida <code>old()</code> <b>ishlatilmaydi</b>.</p>
+      </li>
+
+      <li>
+        <p>Layoutga menyu qo'shing</p>
+        <div class="cmd" data-cmd="cat &gt; resources/views/layouts/asosiy.blade.php &lt;&lt;'EOF'
+&lt;!doctype html&gt;
+&lt;html lang=&quot;uz&quot;&gt;
+&lt;head&gt;
+    &lt;meta charset=&quot;utf-8&quot;&gt;
+    &lt;title&gt;@yield('sarlavha', 'IshTop')&lt;/title&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;nav&gt;
+        &lt;a href=&quot;{{ route('vakansiyalar.index') }}&quot;&gt;Vakansiyalar&lt;/a&gt;
+
+        @auth
+            &lt;span&gt;{{ auth()-&gt;user()-&gt;name }}&lt;/span&gt;
+            &lt;form method=&quot;POST&quot; action=&quot;{{ route('chiqish') }}&quot; style=&quot;display:inline&quot;&gt;
+                @csrf
+                &lt;button type=&quot;submit&quot;&gt;Chiqish&lt;/button&gt;
+            &lt;/form&gt;
+        @else
+            &lt;a href=&quot;{{ route('login') }}&quot;&gt;Kirish&lt;/a&gt;
+            &lt;a href=&quot;{{ route('royxat.forma') }}&quot;&gt;Ro'yxatdan o'tish&lt;/a&gt;
+        @endauth
+    &lt;/nav&gt;
+
+    &lt;main&gt;
+        @yield('mazmun')
+    &lt;/main&gt;
+
+    &lt;footer&gt;IshTop &amp;copy; 2026&lt;/footer&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+EOF">cat &gt; resources/views/layouts/asosiy.blade.php &lt;&lt;'EOF'
+&lt;!doctype html&gt;
+&lt;html lang="uz"&gt;
+&lt;head&gt;
+    &lt;meta charset="utf-8"&gt;
+    &lt;title&gt;@yield('sarlavha', 'IshTop')&lt;/title&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;nav&gt;
+        &lt;a href="{{ route('vakansiyalar.index') }}"&gt;Vakansiyalar&lt;/a&gt;
+
+        <span class="add">@auth
+            &lt;span&gt;{{ auth()-&gt;user()-&gt;name }}&lt;/span&gt;
+            &lt;form method="POST" action="{{ route('chiqish') }}" style="display:inline"&gt;
+                @csrf
+                &lt;button type="submit"&gt;Chiqish&lt;/button&gt;
+            &lt;/form&gt;
+        @else
+            &lt;a href="{{ route('login') }}"&gt;Kirish&lt;/a&gt;
+            &lt;a href="{{ route('royxat.forma') }}"&gt;Ro'yxatdan o'tish&lt;/a&gt;
+        @endauth</span>
+    &lt;/nav&gt;
+
+    &lt;main&gt;
+        @yield('mazmun')
+    &lt;/main&gt;
+
+    &lt;footer&gt;IshTop &amp;copy; 2026&lt;/footer&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+EOF</div>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik. Chiqish — <b>forma</b>,
+        havola emas (sababi yuqorida).</p>
+      </li>
+
+      <li>
+        <p>🎉 Brauzerda ro'yxatdan o'ting</p>
+        <div class="cmd" data-cmd="php artisan serve">php artisan serve</div>
+        <p class="expect"><b>Kutilgan natija:</b> menyuda «Kirish» va «Ro'yxatdan
+        o'tish» ko'rinadi. <code>/royxatdan-otish</code> ga o'ting va to'ldiring
+        (masalan <code>Dostonbek</code> / <code>dost@example.uz</code> /
+        <code>parol1234</code>).
+        <br>Yuborgandan keyin: vakansiyalar sahifasiga qaytasiz, yashil
+        <code>Xush kelibsiz, Dostonbek!</code> chiqadi va menyuda endi
+        <b>ismingiz va «Chiqish»</b> turadi.
+        <br><b>Xatolarni ham sinang:</b> parollarni har xil yozing
+        («Parollar mos kelmadi»), o'sha emailni qayta yuboring («Bu email allaqachon
+        ro'yxatdan o'tgan»).</p>
+      </li>
+
+      <li>
+        <p>🔍 Bazaga qarang — parol qanday saqlangan</p>
+        <div class="cmd" data-cmd="cat &gt; sql/17-user.php &lt;&lt;'EOF'
+&lt;?php
+
+use App\Models\User;
+use Illuminate\Support\Facades\DB;
+
+require __DIR__ . '/../vendor/autoload.php';
+$app = require_once __DIR__ . '/../bootstrap/app.php';
+$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+
+$u = User::first();
+echo '── users jadvali', PHP_EOL;
+echo '   name  : ', $u-&gt;name, PHP_EOL;
+echo '   email : ', $u-&gt;email, PHP_EOL;
+echo '   parol : ', $u-&gt;password, PHP_EOL;
+echo '   ochiq parol bormi: ', str_contains($u-&gt;password, 'parol1234') ? 'BOR (yomon!)' : 'YO\'Q ✅', PHP_EOL;
+
+echo PHP_EOL, '── sessions jadvali', PHP_EOL;
+foreach (DB::select('SELECT id, user_id FROM sessions ORDER BY last_activity DESC LIMIT 3') as $r) {
+    echo '   id=', substr($r-&gt;id, 0, 16), '…  user_id=', var_export($r-&gt;user_id, true), PHP_EOL;
+}
+EOF
+php sql/17-user.php">cat &gt; sql/17-user.php &lt;&lt;'EOF'
+&lt;?php
+
+use App\Models\User;
+use Illuminate\Support\Facades\DB;
+
+require __DIR__ . '/../vendor/autoload.php';
+$app = require_once __DIR__ . '/../bootstrap/app.php';
+$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+
+$u = User::first();
+echo '── users jadvali', PHP_EOL;
+echo '   name  : ', $u-&gt;name, PHP_EOL;
+echo '   email : ', $u-&gt;email, PHP_EOL;
+echo '   parol : ', $u-&gt;password, PHP_EOL;
+echo '   ochiq parol bormi: ', str_contains($u-&gt;password, 'parol1234') ? 'BOR (yomon!)' : 'YO\'Q ✅', PHP_EOL;
+
+echo PHP_EOL, '── sessions jadvali', PHP_EOL;
+foreach (DB::select('SELECT id, user_id FROM sessions ORDER BY last_activity DESC LIMIT 3') as $r) {
+    echo '   id=', substr($r-&gt;id, 0, 16), '…  user_id=', var_export($r-&gt;user_id, true), PHP_EOL;
+}
+EOF
+php sql/17-user.php
+<span class="out">   parol : $2y$12$nQBdLmZOQnmaqrbdOjs9putQOROliY.Ki6mcXaFxOMr7zS0FmCGwq</span>
+<span class="out">   ochiq parol bormi: YO'Q ✅</span>
+<span class="out">   id=bh0dOZ0xsyb8kVEp…  user_id=1</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> parol <code>$2y$12$</code> bilan
+        boshlanadi — ochiq matn <b>yo'q</b>.
+        <br>🔍 <code>sessions</code> jadvalida <code>user_id=1</code> — «kirgan»
+        bo'lish shu. Hech qanday sehr yo'q, oddiy jadval.</p>
+      </li>
+
+      <li>
+        <p>🔍 Chiqing va sessiya <code>id</code> si o'zgarishini ko'ring</p>
+        <p class="why-step">Session fixation himoyasini o'z ko'zingiz bilan
+        ko'rish.</p>
+        <p>Brauzerda <b>«Chiqish»</b> ni bosing, keyin <b>qaytadan kiring</b>. Har
+        qadamda skriptni qayta ishga tushiring:</p>
+        <div class="cmd" data-cmd="php sql/17-user.php | tail -4">php sql/17-user.php | tail -4</div>
+        <p class="expect"><b>Kutilgan natija:</b> har kirishdan keyin sessiya
+        <code>id</code> si <b>boshqa</b> bo'ladi, va <code>user_id</code>
+        kirganda to'ladi, chiqqanda <code>NULL</code> bo'ladi (yoki qator butunlay
+        yo'qoladi — <code>invalidate()</code> tufayli).</p>
+        <div class="natija">kirishdan OLDIN:  id=bHF1XoZAiYIbYiBC…  user_id=NULL
+kirishdan KEYIN:  id=bh0dOZ0xsyb8kVEp…  user_id=1
+                     ↑ boshqa id — session fixation himoyasi</div>
+      </li>
+
+      <li>
+        <p>🔒 Formani qaytaring — endi <b>kirish talab qilgan holda</b></p>
+        <p class="why-step">29-darsda uni ataylab olib qo'ygandik. Endi qaytadi.</p>
+        <p>Avval route'ni himoyalang:</p>
+        <div class="cmd" data-cmd="Route::post('/vakansiyalar', [VakansiyaController::class, 'store'])
+    -&gt;name('vakansiyalar.store')
+    -&gt;middleware('auth');">Route::post('/vakansiyalar', [VakansiyaController::class, 'store'])
+    -&gt;name('vakansiyalar.store')
+    -&gt;middleware('auth');</div>
+        <p>Keyin <code>index.blade.php</code> oxiriga (sahifalashdan <b>keyin</b>):</p>
+        <div class="cmd" data-cmd="    @auth
+        &lt;h2&gt;Yangi vakansiya qo'shish&lt;/h2&gt;
+
+        @if ($errors-&gt;any())
+            &lt;ul style=&quot;color:red&quot;&gt;
+                @foreach ($errors-&gt;all() as $xato)&lt;li&gt;{{ $xato }}&lt;/li&gt;@endforeach
+            &lt;/ul&gt;
+        @endif
+
+        &lt;form method=&quot;POST&quot; action=&quot;{{ route('vakansiyalar.store') }}&quot;&gt;
+            @csrf
+            &lt;p&gt;&lt;input type=&quot;text&quot; name=&quot;nom&quot; placeholder=&quot;Nom&quot; value=&quot;{{ old('nom') }}&quot;&gt;&lt;/p&gt;
+            &lt;p&gt;&lt;input type=&quot;text&quot; name=&quot;maosh&quot; placeholder=&quot;Maosh&quot; value=&quot;{{ old('maosh') }}&quot;&gt;&lt;/p&gt;
+            &lt;button type=&quot;submit&quot;&gt;Saqlash&lt;/button&gt;
+        &lt;/form&gt;
+    @else
+        &lt;p&gt;&lt;a href=&quot;{{ route('login') }}&quot;&gt;Kiring&lt;/a&gt;, vakansiya qo'shish uchun.&lt;/p&gt;
+    @endauth">    @auth
+        &lt;h2&gt;Yangi vakansiya qo'shish&lt;/h2&gt;
+
+        @if ($errors-&gt;any())
+            &lt;ul style="color:red"&gt;
+                @foreach ($errors-&gt;all() as $xato)&lt;li&gt;{{ $xato }}&lt;/li&gt;@endforeach
+            &lt;/ul&gt;
+        @endif
+
+        &lt;form method="POST" action="{{ route('vakansiyalar.store') }}"&gt;
+            @csrf
+            &lt;p&gt;&lt;input type="text" name="nom" placeholder="Nom" value="{{ old('nom') }}"&gt;&lt;/p&gt;
+            &lt;p&gt;&lt;input type="text" name="maosh" placeholder="Maosh" value="{{ old('maosh') }}"&gt;&lt;/p&gt;
+            &lt;button type="submit"&gt;Saqlash&lt;/button&gt;
+        &lt;/form&gt;
+    @else
+        &lt;p&gt;&lt;a href="{{ route('login') }}"&gt;Kiring&lt;/a&gt;, vakansiya qo'shish uchun.&lt;/p&gt;
+    @endauth</div>
+        <p class="expect"><b>Kutilgan natija:</b> mehmon sifatida —
+        «Kiring, vakansiya qo'shish uchun»; kirgan holda — forma. Va forma ishlaydi:
+        <code>Qo'shildi: ...</code>
+        <br>🔒 <b>Eng muhim tekshiruv:</b> chiqing va formani <b>qo'lda</b> yuborishga
+        urinib ko'ring (masalan brauzer konsolidan) — <code>auth</code> middleware
+        sizni <b>302</b> bilan <code>/kirish</code> ga yuboradi. Menyu yashirilgani
+        emas, <b>route himoyasi</b> ishlaydi.</p>
+      </li>
+
+      <li>
+        <p>Ishni saqlang</p>
+        <div class="cmd" data-cmd="git add -A
+git commit -m &quot;30-dars: auth qo'lda — ro'yxatdan o'tish, kirish, chiqish&quot;">git add -A
+git commit -m "30-dars: auth qo'lda — ro'yxatdan o'tish, kirish, chiqish"</div>
+        <p class="expect"><b>Kutilgan natija:</b> commit haqida xabar.</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><input type="checkbox" id="d30c1"><label for="d30c1"><b>Bir xil parolga ikki xil xesh chiqishini ko'rdim</b> 🔑</label></li>
+      <li><input type="checkbox" id="d30c2"><label for="d30c2"><code>password_verify</code> Laravel xeshini taniganini ko'rdim 🔍</label></li>
+      <li><input type="checkbox" id="d30c3"><label for="d30c3">AuthController va uchta route yozdim</label></li>
+      <li><input type="checkbox" id="d30c4"><label for="d30c4">Kirish route'ini <code>login</code> deb <b>nomladim</b></label></li>
+      <li><input type="checkbox" id="d30c5"><label for="d30c5"><b>Ro'yxatdan o'tdim va menyuda ismimni ko'rdim</b> 🎉</label></li>
+      <li><input type="checkbox" id="d30c6"><label for="d30c6"><b>Bazada parol xesh holida saqlanganini tekshirdim</b></label></li>
+      <li><input type="checkbox" id="d30c7"><label for="d30c7"><code>sessions</code> jadvalida <code>user_id</code> ni ko'rdim 🔍</label></li>
+      <li><input type="checkbox" id="d30c8"><label for="d30c8">Kirishdan keyin sessiya <code>id</code> si o'zgarishini ko'rdim</label></li>
+      <li><input type="checkbox" id="d30c9"><label for="d30c9"><b>Formani <code>@auth</code> va <code>middleware('auth')</code> bilan himoyaladim</b> 🔒</label></li>
+      <li><input type="checkbox" id="d30c10"><label for="d30c10">Ishni commit qildim</label></li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 5) TAXMIN + QUIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Ikki foydalanuvchi <b>bir xil</b> parol tanladi — ikkalasi ham
+    <code>parol1234</code>:</p>
+    <div class="codefile">
+      <div class="fname">kod</div>
+      <code class="cmd" data-cmd="$a = Hash::make('parol1234');
+$b = Hash::make('parol1234');
+
+var_dump($a === $b);
+var_dump(Hash::check('parol1234', $a));
+var_dump(Hash::check('parol1234', $b));">$a = Hash::make('parol1234');
+$b = Hash::make('parol1234');
+
+var_dump($a === $b);
+var_dump(Hash::check('parol1234', $a));
+var_dump(Hash::check('parol1234', $b));</code>
+    </div>
+    <p>Uch savol: <b>(a)</b> <code>$a === $b</code> rostmi? <b>(b)</b> ikkala
+    tekshiruv ham ishlaydimi? <b>(c)</b> agar rost bo'lmasa, tekshirish
+    <b>qanday</b> ishlaydi?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <div class="natija">(a) bool(false)   ← xeshlar BOSHQA
+(b) bool(true)
+    bool(true)    ← ikkalasi ham ishlaydi</div>
+        <p>Bir xil paroldan har safar <b>boshqa</b> xesh chiqadi. Sababi —
+        <b>tuz</b> (salt): <code>Hash::make</code> har chaqiruvda tasodifiy qiymat
+        yasaydi va uni xeshning <b>ichiga</b> yozadi.</p>
+        <div class="natija">$2y$ 12 $ nxzQa/mLwZPZQIjHbyoiOe hsuJ8dRjmeBiyQEqb56bHehOzRHDB56
+                    ↑ tuz shu yerda</div>
+        <p><b>(c)</b> <code>Hash::check</code> quyidagicha ishlaydi:
+        xeshdan tuzni <b>o'qib oladi</b> → kiritilgan parolni <b>o'sha tuz bilan</b>
+        qaytadan hisoblaydi → natijani solishtiradi.</p>
+        <p class="expect">🔑 <b>Nima uchun tuz kerak?</b> Tuzsiz bo'lsa, bir xil parol
+        har doim bir xil xesh berardi. Unda hujumchi:</p>
+        <ul>
+          <li>bazaga qarab <b>kimlar bir xil parol ishlatganini</b> ko'rardi;</li>
+          <li>oldindan tayyorlangan jadval (<i>rainbow table</i>) bilan millionlab
+          xeshni <b>bir vaqtda</b> ochardi.</li>
+        </ul>
+        <p>Tuz bilan esa har xesh <b>alohida</b> hisoblanishi kerak — va
+        <code>cost = 12</code> tufayli har biri ataylab sekin.</p>
+        <p><b>Amaliy xulosa:</b> parolni <code>===</code> bilan solishtirmang.
+        Faqat <code>Hash::check</code> yoki <code>Auth::attempt</code>.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span> Nega parol bazada ochiq
+    saqlanmaydi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Baza o'g'irlansa ham parollar ochilib qolmasin</button></li>
+      <li><button class="quiz-option">Ochiq parol juda ko'p joy egallaydi</button></li>
+      <li><button class="quiz-option">Laravel ochiq matnni umuman qabul qilmaydi</button></li>
+    </ul>
+    <div class="quiz-explain">Odamlar parolni boshqa saytlarda ham takrorlaydi, shuning
+    uchun zarar sizning saytingiz bilan tugamaydi. Xesh esa <b>orqaga qaytarib
+    bo'lmaydigan</b> qiymat.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span> <code>Hash::make</code> bir
+    parolga ikki xil natija bersa, tekshirish qanday ishlaydi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Xeshning ichida tuz saqlanadi</button></li>
+      <li><button class="quiz-option">Ikkala xeshni bazadan solishtiradi</button></li>
+      <li><button class="quiz-option">Parolni ochiq matnga qaytaradi</button></li>
+    </ul>
+    <div class="quiz-explain"><code>Hash::check</code> xeshdan tuzni o'qib, parolni
+    <b>o'sha tuz bilan</b> qaytadan hisoblaydi. Xeshni «ochish» mumkin emas — bu
+    bir tomonlama amal.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span> <code>auth</code> middleware
+    kirmagan foydalanuvchini qayerga yuboradi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">login route ga yo'naltiradi</button></li>
+      <li><button class="quiz-option">Bosh sahifaga qaytarib yuboradi</button></li>
+      <li><button class="quiz-option">Darhol 403 xatosini qaytaradi</button></li>
+    </ul>
+    <div class="quiz-explain">Manzil o'zbekcha bo'lishi mumkin
+    (<code>/kirish</code>), lekin <b>nom</b> aynan <code>login</code> bo'lishi kerak —
+    aks holda <code>Route [login] not defined</code>.</div>
+  </div>
+
+  <!-- ═══════════════ 6) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+    <p class="recall-intro">Avval o'zingiz javob bering, keyin ochib tekshiring.
+    Oxirgi ikkitasi — <a href="0029-sahifalash-filtr-va-scope.html">29-darsni</a>
+    takrorlash.</p>
+
+    <details class="recall">
+      <summary><code>Auth::attempt()</code> uchta nima ish qiladi?</summary>
+      <div class="answer"><p><b>1)</b> email bo'yicha foydalanuvchini topadi;
+      <b>2)</b> parolni <code>Hash::check</code> bilan tekshiradi; <b>3)</b>
+      muvaffaqiyatli bo'lsa sessiyaga kim ekanini yozadi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>«Kirgan» bo'lish aslida nima?</summary>
+      <div class="answer"><p>Bazadagi <code>sessions</code> jadvalining qatoriga
+      sizning <code>user_id</code> ingiz yozilgan bo'lishi. Hech qanday sehr yo'q —
+      oddiy jadval.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary><code>session()-&gt;regenerate()</code> nimadan himoya qiladi?</summary>
+      <div class="answer"><p><b>Session fixation</b> dan: hujumchi sizga o'z sessiya
+      <code>id</code> sini «yuqtirsa», siz kirganingizdan keyin u ham siz bo'lib
+      qolardi. <code>regenerate()</code> <code>id</code> ni almashtiradi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: <code>withQueryString()</code> nima uchun kerak?</summary>
+      <div class="answer"><p>Sahifa almashganda filtr saqlanib qolishi uchun — bo'lmasa
+      «Keyingi» havolasi faqat <code>?page=2</code> bo'ladi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: <code>preventLazyLoading</code> nima qiladi?</summary>
+      <div class="answer"><p>N+1 ni <b>500 xatosiga</b> aylantiradi va qaysi
+      bog'lanish, qaysi qator ekanini aytadi. Real serverda o'chirilgan
+      bo'ladi.</p></div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 7) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Cho'ntak xulosasi</span>
+    <ul>
+      <li>Parol <b>hech qachon</b> ochiq saqlanmaydi: <code>Hash::make</code> —
+      saqlashda, <code>Hash::check</code> — tekshirishda.</li>
+      <li>🔑 Bir xil parolga har safar <b>boshqa xesh</b> — chunki <b>tuz</b>
+      xeshning ichida. Shuning uchun parolni <code>===</code> bilan solishtirib
+      bo'lmaydi.</li>
+      <li>🔍 <b>Sehr yo'q:</b> <code>password_verify</code> Laravel xeshini taniydi,
+      <code>Hash::check</code> esa PHP yasaganini. Xesh: <code>$2y$12$…</code>,
+      <b>60 belgi</b>, bcrypt, <code>cost=12</code>.</li>
+      <li>Ro'yxatdan o'tish: <code>unique:users,email</code> ·
+      <code>confirmed</code> (<code>password_confirmation</code> maydonini kutadi) ·
+      <code>Hash::make</code> · <code>Auth::login</code>.</li>
+      <li><code>Auth::attempt($malumot)</code> — topadi, tekshiradi, sessiyaga yozadi.
+      Xato bo'lsa <b>umumiy</b> xabar (<i>user enumeration</i> ga qarshi) va
+      <code>onlyInput('email')</code>.</li>
+      <li>🔍 «Kirgan» bo'lish = <code>sessions</code> jadvalidagi qatorda
+      <code>user_id</code> turishi. O'lchandi: kirishdan keyin <code>id</code>
+      <b>o'zgaradi</b>, <code>user_id</code> to'ladi.</li>
+      <li>⚠️ <code>session()-&gt;regenerate()</code> — <b>session fixation</b>
+      himoyasi, har kirishdan keyin majburiy.</li>
+      <li>Chiqish: <code>Auth::logout()</code> +
+      <code>session()-&gt;invalidate()</code> +
+      <code>session()-&gt;regenerateToken()</code>, va u <b>POST forma</b> bo'lishi
+      kerak.</li>
+      <li>Blade: <code>@auth</code>/<code>@guest</code> ·
+      <code>auth()-&gt;user()</code> · <code>auth()-&gt;id()</code> ·
+      <code>auth()-&gt;check()</code>.</li>
+      <li>🔒 <b>Menyuni yashirish — himoya emas.</b> Haqiqiy himoya —
+      <code>-&gt;middleware('auth')</code>. ⚠️ Route nomi aynan
+      <code>login</code> bo'lishi kerak.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p>Siz hozir yozgan narsa — Laravel'da <b>tayyor</b> bor. Ro'yxatdan o'tish,
+    kirish, chiqish, parolni tiklash, emailni tasdiqlash — bularning hammasini
+    <b>starter kit</b> bitta buyruq bilan yasab beradi.</p>
+    <p>31-darsda aynan shuni qilamiz — <b>lekin bugungi darsdan keyin</b>. Endi
+    starter kit yasagan har faylni ochib, «bu nima qilyapti?» degan savolga javob
+    bera olasiz: <code>Hash::make</code>, <code>Auth::attempt</code>,
+    <code>regenerate()</code>, <code>middleware('auth')</code> — hammasi tanish.</p>
+    <p>Bu Modul A dagi mini-framework naqshining takrori: avval qo'lda, keyin
+    tayyor. Shunda tayyor yechim <b>sehr emas, qulaylik</b> bo'lib ko'rinadi.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel — Authentication</b>:
+    <a href="https://laravel.com/docs/13.x/authentication">laravel.com/docs/13.x/authentication</a>
+    — «Manually Authenticating Users» bo'limi aynan bugungi mavzu.<sup><a href="#fn1">1</a></sup><br>
+    <b>Hashing</b>:
+    <a href="https://laravel.com/docs/13.x/hashing">laravel.com/docs/13.x/hashing</a>
+    — <code>Hash::make</code>, <code>check</code>, <code>needsRehash</code>.<sup><a href="#fn2">2</a></sup><br>
+    <b>PHP — parol xeshlash</b>:
+    <a href="https://devdocs.io/php/function.password-hash">devdocs.io/php — password_hash</a>
+    (php.net ko'zgusi).<sup><a href="#fn3">3</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b> «meni eslab qol (remember me)
+    qanday ishlaydi?», «parolni tiklash-chi?», «emailni tasdiqlash kerakmi?»,
+    «bir foydalanuvchi ikki qurilmadan kirsa nima bo'ladi?» — har qanday savol
+    yaxshi. Birinchisi <code>Auth::attempt($malumot, true)</code> bilan yoqiladi va
+    u <code>remember_token</code> ustunidan foydalanadi (u migration'da
+    <b>allaqachon bor</b> — ochib ko'ring). Qolganlari 31-darsdagi starter kit
+    bilan keladi.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0029-sahifalash-filtr-va-scope.html">Oldingi: Sahifalash va filtr</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel 13 — <a href="https://laravel.com/docs/13.x/authentication">Authentication</a>.</li>
+      <li id="fn2">Laravel 13 — <a href="https://laravel.com/docs/13.x/hashing">Hashing</a>.</li>
+      <li id="fn3">PHP — <a href="https://devdocs.io/php/function.password-hash">password_hash</a>.</li>
+      <li id="fn4">Barchasi jonli o'lchangan (Laravel 13.25.0, PHP 8.3.32, SQLite):
+      bir xil parolga ikki xil xesh · <code>password_verify</code> ↔
+      <code>Hash::check</code> o'zaro ishlaydi · xesh <b>60 belgi</b>,
+      <code>bcrypt</code>, <code>cost=12</code> · ro'yxatdan o'tish → <b>302</b> +
+      «Xush kelibsiz» · bazada <code>$2y$12$…</code>, ochiq parol <b>yo'q</b> ·
+      noto'g'ri parol → 302 + «Email yoki parol xato» + email saqlangan ·
+      to'g'ri parol → 302 + «Kirdingiz» · <code>sessions</code> jadvali:
+      kirishdan oldin <code>user_id=NULL</code>, keyin <code>user_id=1</code> va
+      <code>id</code> <b>o'zgargan</b> · chiqish → 302 + «Chiqdingiz» + menyu
+      mehmon holatiga qaytdi · mehmon POST → <b>302 → /kirish</b>, kirgan holda →
+      302 + «Qo'shildi» · route nomi <code>login</code> bo'lmasa → <b>500</b>
+      <code>Route [login] not defined</code> · CLI'da
+      <code>auth()-&gt;check()</code> → <code>false</code>,
+      <code>Auth::login</code> dan keyin → <code>true</code>,
+      <code>auth()-&gt;id()</code> → <code>1</code>.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

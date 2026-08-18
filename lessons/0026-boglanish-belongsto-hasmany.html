@@ -1,0 +1,1201 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 26 — Bog'lanish 1: belongsTo va hasMany</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 26 · MODUL C — MA'LUMOTLAR</p>
+  <h1>Bog'lanish: <code>$v-&gt;kompaniya-&gt;nom</code></h1>
+  <p class="lead">25-darsda kod qisqardi, lekin bitta narsa yo'qoldi: ro'yxatdagi
+  kompaniya nomi. Bugun uni <b>qaytaramiz</b> — va shu bilan birga 22-darsdagi
+  <code>JOIN</code> ni <b>kodga aylantiramiz</b>. Modelga bir marta ikki qator
+  yozasiz, keyin butun ilovada <code>$v-&gt;kompaniya-&gt;nom</code> deb yozish
+  kifoya.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 16 daqiqa</span>
+    <span>💻 Amaliyot ≈ 24 daqiqa</span>
+    <span>Kerak: <a href="0025-eloquent-crud.html">Dars 25</a></span>
+  </p>
+
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b><code>belongsTo</code> — «kimga tegishli»</b>
+        <span class="nima">Vakansiya → kompaniya. Tashqi kalitni ushlab turgan tomon.
+        <code>$v-&gt;kompaniya</code> bitta obyekt qaytaradi.</span></li>
+      <li><b><code>hasMany</code> — «kimlarga ega»</b>
+        <span class="nima">Kompaniya → vakansiyalar. Teskari tomon.
+        <code>$k-&gt;vakansiyalar</code> to'plam (Collection) qaytaradi.</span></li>
+      <li><b>Laravel ustun nomini qanday taxmin qiladi</b>
+        <span class="nima"><code>belongsTo</code> — <b>metod nomidan</b>,
+        <code>hasMany</code> — <b>klass nomidan</b>. Ikkalasi ham <code>_id</code>
+        qo'shadi.</span></li>
+      <li><b>Xossa va metod farqi</b>
+        <span class="nima"><code>$k-&gt;vakansiyalar</code> — tayyor natija;
+        <code>$k-&gt;vakansiyalar()</code> — <b>so'rov</b>, ustiga
+        <code>where</code>/<code>orderBy</code> qo'shish mumkin.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima">Nom mos kelmaganda · bog'lanish <code>NULL</code> bo'lganda
+        (3 xil yozish) · bog'lanish orqali yaratish · filtrlash
+        (<code>whereHas</code>) · sanash (<code>withCount</code>) · keyin biriktirish
+        (<code>associate</code>) · uzoq bog'lanish.</span></li>
+      <li><b>N+1 muammosi va <code>with()</code></b>
+        <span class="nima">So'rovlar sonini <b>o'lchab</b> ko'rasiz: <b>5 → 2 → 1</b>.
+        Bu Modul H dagi tezlik darsining poydevori.</span></li>
+      <li><b>IshTop'da natija</b>
+        <span class="nima">Ro'yxatga kompaniya ustuni qaytadi; vakansiya sahifasida
+        «shu kompaniyaning boshqa vakansiyalari» bo'limi paydo bo'ladi.</span></li>
+      <li><b>Nullsafe operator <code>?-&gt;</code></b>
+        <span class="nima">Bo'sh bog'lanishni xatosiz o'qish usuli — va u
+        <code>??</code> bilan qanday birga ishlatiladi.</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Nega bu muhim</span>
+    <p>Real ilovada <b>hech bir ma'lumot yolg'iz turmaydi</b>. Vakansiya kompaniyaga
+    tegishli, ariza nomzodga, izoh maqolaga. IshTop'ning qolgan qismi (ariza, ko'nikma,
+    ish beruvchi) butunlay shu tushunchaga tayanadi.</p>
+    <p>22-darsda buni <code>JOIN</code> bilan yechgandik — lekin har safar
+    <code>SELECT ... LEFT JOIN ... ON ...</code> yozish kerak edi. Eloquent bog'lanishi
+    esa <b>bir marta</b> e'lon qilinadi va butun ilovada ishlaydi. Ya'ni bilim
+    <b>modelda</b> saqlanadi, controllerlarda takrorlanmaydi.</p>
+    <p>Bu intervyuning ham asosiy savoli: «<code>hasMany</code> va
+    <code>belongsTo</code> ni tushuntirib bering», «N+1 nima?» Ikkinchi savolga
+    javobni bugun <b>o'lchab</b> olasiz — taxmin qilib emas.</p>
+  </div>
+
+  <!-- ═══════════════ 2) TUSHUNCHA ═══════════════ -->
+  <h2>Ikki tomon: <code>belongsTo</code> va <code>hasMany</code></h2>
+
+  <p>Bazada bog'lanishni <b>bitta ustun</b> ushlab turadi —
+  <code>vakansiyalar.kompaniya_id</code> (22-dars). Lekin unga <b>ikki tomondan</b>
+  qarash mumkin, va Eloquent'da har tomon o'z metodiga ega:</p>
+
+  <div class="natija">kompaniyalar                          vakansiyalar
+┌────┬─────────────┐                ┌────┬────────────────────┬──────────────┐
+│ id │ nom         │                │ id │ nom                │ kompaniya_id │
+├────┼─────────────┤                ├────┼────────────────────┼──────────────┤
+│  1 │ Uzum        │◄───────────────│  1 │ Backend dasturchi  │      1       │
+│    │             │◄───────────────│  2 │ Frontend dasturchi │      1       │
+└────┴─────────────┘                └────┴────────────────────┴──────────────┘
+
+     hasMany  ─────────────────────►  «Uzum'ning vakansiyalari»  (ko'plik)
+     belongsTo ◄─────────────────────  «bu vakansiya kimga tegishli»  (birlik)</div>
+
+  <table class="sheet">
+    <tr><th>Tomoni</th><th>Metod</th><th class="note-cell">Qaytaradi</th></tr>
+    <tr><td>Tashqi kalit <b>uning ichida</b> (vakansiya)</td><td><code>belongsTo</code></td><td class="note-cell"><b>Bitta</b> obyekt yoki <code>NULL</code></td></tr>
+    <tr><td>Tashqi kalit <b>boshqada</b> (kompaniya)</td><td><code>hasMany</code></td><td class="note-cell"><b>Collection</b> (bo'sh bo'lishi mumkin)</td></tr>
+  </table>
+
+  <p><b>Qaysi birini qo'yishni qanday bilish?</b> Savol bitta:
+  <b>«<code>_id</code> ustuni qaysi jadvalda?»</b> Qaysi jadvalda bo'lsa, o'sha
+  modelda <code>belongsTo</code>, ikkinchisida <code>hasMany</code>.</p>
+
+  <div class="codefile">
+    <div class="fname">app/Models/Vakansiya.php</div>
+    <code class="cmd" data-cmd="use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class Vakansiya extends Model
+{
+    protected $table = 'vakansiyalar';
+
+    public function kompaniya(): BelongsTo
+    {
+        return $this-&gt;belongsTo(Kompaniya::class);
+    }
+}">use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class Vakansiya extends Model
+{
+    protected $table = 'vakansiyalar';
+
+    <span class="add">public function kompaniya(): BelongsTo
+    {
+        return $this-&gt;belongsTo(Kompaniya::class);
+    }</span>
+}</code>
+  </div>
+
+  <div class="codefile">
+    <div class="fname">app/Models/Kompaniya.php</div>
+    <code class="cmd" data-cmd="use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Kompaniya extends Model
+{
+    protected $table = 'kompaniyalar';
+
+    public function vakansiyalar(): HasMany
+    {
+        return $this-&gt;hasMany(Vakansiya::class);
+    }
+}">use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Kompaniya extends Model
+{
+    protected $table = 'kompaniyalar';
+
+    <span class="add">public function vakansiyalar(): HasMany
+    {
+        return $this-&gt;hasMany(Vakansiya::class);
+    }</span>
+}</code>
+  </div>
+
+  <p>Shundan keyin ishlatish — <b>xossa kabi</b>, qavssiz:</p>
+
+  <div class="natija">$v = Vakansiya::find(3);
+$v-&gt;kompaniya-&gt;nom            → "Startup XYZ"
+get_class($v-&gt;kompaniya)      → App\Models\Kompaniya
+
+$k = Kompaniya::find(1);
+$k-&gt;vakansiyalar-&gt;count()     → 2
+$k-&gt;vakansiyalar-&gt;pluck('nom')-&gt;implode(', ')
+                              → "Backend dasturchi, Frontend dasturchi"</div>
+
+  <p>E'tibor bering — <code>kompaniya()</code> <b>metod</b> deb e'lon qilindi, lekin
+  <code>$v-&gt;kompaniya</code> deb <b>qavssiz</b> ishlatildi. Bu tasodif emas va
+  keyingi bo'limning mavzusi.</p>
+
+  <h3>Laravel ustun nomini qanday taxmin qiladi</h3>
+
+  <p>Biz hech qayerda <code>kompaniya_id</code> deb yozmadik. Laravel uni o'zi topdi —
+  lekin <b>ikki metod ikki xil joydan</b> taxmin qiladi:</p>
+
+  <table class="sheet">
+    <tr><th>Metod</th><th>Nimadan taxmin qiladi</th><th class="note-cell">Natija</th></tr>
+    <tr><td><code>belongsTo</code></td><td><b>Metod nomidan</b>: <code>kompaniya()</code></td><td class="note-cell"><code>kompaniya</code> + <code>_id</code> = <code>kompaniya_id</code> ✅</td></tr>
+    <tr><td><code>hasMany</code></td><td><b>Klass nomidan</b>: <code>Kompaniya</code></td><td class="note-cell"><code>kompaniya</code> + <code>_id</code> = <code>kompaniya_id</code> ✅</td></tr>
+  </table>
+
+  <div class="callout note">
+    <span class="label">Nega bu safar o'zbekcha nom muammo bermadi</span>
+    <p>25-darsda <code>$table</code> ni qo'lda yozishga majbur bo'ldik, chunki Laravel
+    <b>ko'plik</b> yasashga urinadi (<code>Vakansiya</code> → <code>vakansiyas</code>).
+    Bog'lanishda esa u ko'plik yasamaydi — shunchaki <code>_id</code> qo'shadi. Bizning
+    ustun aynan <code>kompaniya_id</code> bo'lgani uchun taxmin <b>to'g'ri</b> chiqdi.</p>
+    <p>🔑 Xulosa: <b>ustunni model nomiga qarab nomlash</b> —
+    <code>Kompaniya</code> modeli → <code>kompaniya_id</code> ustuni — Laravel bilan
+    urishmaslikning eng oson yo'li. Nom mos kelmasa nima bo'lishini pastda
+    <b>HOLAT 2</b> da ko'rasiz.</p>
+    <p>Tekshirish usuli (25-darsdagi <code>getTable()</code> ning ukasi):</p>
+    <div class="natija">(new Vakansiya)-&gt;kompaniya()-&gt;getForeignKeyName()      → kompaniya_id
+(new Kompaniya)-&gt;vakansiyalar()-&gt;getForeignKeyName()   → kompaniya_id</div>
+  </div>
+
+  <h2>Xossa va metod: <code>$k-&gt;vakansiyalar</code> va <code>$k-&gt;vakansiyalar()</code></h2>
+
+  <p>Bu darsning eng ko'p chalkashtiradigan joyi, lekin qoida <b>bitta</b>:</p>
+
+  <table class="sheet">
+    <tr><th>Yozilishi</th><th class="note-cell">Nima bo'ladi</th></tr>
+    <tr><td><code>$k-&gt;vakansiyalar</code> <b>(qavssiz)</b></td><td class="note-cell">So'rov <b>bajariladi</b> → <b>Collection</b>. Tayyor natija</td></tr>
+    <tr><td><code>$k-&gt;vakansiyalar()</code> <b>(qavs bilan)</b></td><td class="note-cell">So'rov <b>bajarilmaydi</b> → <code>HasMany</code>. Ustiga qo'shish mumkin</td></tr>
+  </table>
+
+  <div class="codefile">
+    <div class="fname">farqi amalda</div>
+    <code class="cmd" data-cmd="// Tayyor natija — hammasi
+$k-&gt;vakansiyalar;
+
+// So'rov — ustiga shart qo'shamiz
+$k-&gt;vakansiyalar()
+    -&gt;where('faol', 1)
+    -&gt;orderBy('maosh', 'desc')
+    -&gt;get();">// Tayyor natija — hammasi
+$k-&gt;vakansiyalar;
+
+// So'rov — ustiga shart qo'shamiz
+$k-&gt;vakansiyalar()
+    -&gt;where('faol', 1)
+    -&gt;orderBy('maosh', 'desc')
+    -&gt;get();</code>
+  </div>
+
+  <p>Va bu yerda ham <b>sehr yo'q</b> — 25-darsdagi <code>toSql()</code> ishlaydi:</p>
+
+  <div class="natija">$k-&gt;vakansiyalar()-&gt;toSql()
+
+select * from "vakansiyalar"
+where "vakansiyalar"."kompaniya_id" = ?
+  and "vakansiyalar"."kompaniya_id" is not null</div>
+
+  <p>Ikki narsaga qarang: <code>?</code> — parametr (21-dars), va
+  <code>is not null</code> — 21-darsdagi <code>NULL</code> qoidasi Eloquent'ning
+  <b>o'z</b> SQL'ida. Ya'ni siz o'rgangan narsa Laravel ichida ham xuddi shunday
+  ishlaydi.</p>
+
+  <!-- ═══════════════ 3) HAR XIL HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Bog'lanish yozilishining yetti holati. Bu bo'lim <b>ma'lumotnoma</b> —
+  hozir bir marta o'qib chiqing, keyin kerak bo'lganda qaytib qarang.</p>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 1</span>
+    <h4>Nomlar mos kelganda — hech narsa yozmaymiz</h4>
+    <p>Ustun <code>kompaniya_id</code>, metod <code>kompaniya()</code>, model
+    <code>Kompaniya</code>. Taxmin to'g'ri, ikkinchi argument <b>shart emas</b>.</p>
+    <div class="natija">public function kompaniya(): BelongsTo
+{
+    return $this-&gt;belongsTo(Kompaniya::class);
+}</div>
+    <p>Bu <b>eng ko'p uchraydigan</b> holat — loyihani shunday nomlashga harakat
+    qiling.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 2</span>
+    <h4>Metod nomi ustunga mos kelmaganda — ⚠️ jimgina buziladi</h4>
+    <p>Aytaylik metodni o'zbekcha ma'noliroq nomlamoqchi bo'ldik:</p>
+    <div class="natija">public function ishBeruvchi(): BelongsTo
+{
+    return $this-&gt;belongsTo(Kompaniya::class);
+}</div>
+    <p>Laravel <b>metod nomidan</b> taxmin qiladi:
+    <code>ishBeruvchi</code> → <code>ish_beruvchi_id</code>. Bunday ustun yo'q. Va
+    endi eng xatarli qismi:</p>
+    <div class="natija">$v-&gt;ishBeruvchi   →   NULL
+
+Xato:              yo'q
+Bazaga so'rov:     yuborilmaydi ham</div>
+    <p>❌ <b>Hech qanday xato yo'q.</b> Sahifada shunchaki bo'sh joy chiqadi va siz
+    «ma'lumot yo'q shekilli» deb o'ylaysiz. Bu ish joyida soatlab vaqt yeydigan
+    bug'.</p>
+    <p>✅ <b>Yechim — ikkinchi argument:</b></p>
+    <div class="natija">return $this-&gt;belongsTo(Kompaniya::class, 'kompaniya_id');
+                                    ↑ tashqi kalit aniq ko'rsatildi
+
+$v-&gt;ishBeruvchi-&gt;nom   →   "Startup XYZ"  ✅</div>
+    <p>🔑 <b>Qoida:</b> bog'lanish <code>NULL</code> qaytarsa, birinchi tekshiradigan
+    narsa — <code>getForeignKeyName()</code>. U sizga Laravel <b>qaysi</b> ustunni
+    izlayotganini aytadi.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 3</span>
+    <h4>Bog'lanish bo'sh bo'lganda — uch xil yozish</h4>
+    <p>«DevOps injener» ning <code>kompaniya_id</code> si <code>NULL</code>, demak
+    <code>$v-&gt;kompaniya</code> ham <code>NULL</code>. To'g'ridan-to'g'ri
+    <code>$v-&gt;kompaniya-&gt;nom</code> yozsangiz — xato:</p>
+    <div class="natija">Attempt to read property "nom" on null</div>
+    <p>Uchta to'g'ri yechim bor, uchalasi ham ishlaydi:</p>
+    <div class="natija">1) @if — eng ko'rinadigan, ichida boshqa narsa ham bo'lsa qulay
+   @if ($v-&gt;kompaniya)
+       {{ $v-&gt;kompaniya-&gt;nom }}
+   @else
+       —
+   @endif
+
+2) ?-&gt; (nullsafe) + ?? — eng qisqasi, bitta qiymat uchun
+   {{ $v-&gt;kompaniya?-&gt;nom ?? '—' }}
+
+3) optional() yordamchisi — eski kodlarda uchraydi
+   {{ optional($v-&gt;kompaniya)-&gt;nom ?? '—' }}</div>
+    <p><code>?-&gt;</code> — <b>nullsafe operator</b> (PHP 8): «chapdagisi
+    <code>null</code> bo'lsa, davom etma, <code>null</code> qaytar». Ya'ni
+    <code>$v-&gt;kompaniya?-&gt;nom</code> xato bermaydi, <code>null</code> beradi —
+    keyin <code>??</code> uni <code>—</code> ga almashtiradi.</p>
+    <p>Biz <b>2-shaklni</b> ishlatamiz: bitta qiymat chiqarish uchun eng toza.
+    Bir necha qator kerak bo'lsa — <code>@if</code>.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 4</span>
+    <h4>Bog'lanish orqali yaratish — <code>kompaniya_id</code> ni yozmaymiz</h4>
+    <p>Yangi vakansiyani <b>kompaniyadan</b> boshlab yaratsangiz, Laravel tashqi
+    kalitni o'zi to'ldiradi:</p>
+    <div class="natija">$k = Kompaniya::where('nom', 'EPAM')-&gt;first();
+
+$yangi = $k-&gt;vakansiyalar()-&gt;create([
+    'nom' =&gt; 'Scala dasturchi',
+    'maosh' =&gt; 1700,
+]);
+
+$yangi-&gt;kompaniya_id   →   2      ← qo'lda yozmadik!</div>
+    <p>Diqqat: <code>vakansiyalar<b>()</b></code> — qavs <b>bilan</b>, chunki bu
+    so'rov (yuqoridagi qoida). Va <code>create</code> ishlashi uchun
+    <code>$fillable</code> da <code>nom</code>, <code>maosh</code> bo'lishi kerak
+    (25-dars).</p>
+    <p>Nima uchun bu yaxshi: <code>kompaniya_id</code> ni qo'lda yozganda <b>xato
+    raqam</b> yozish mumkin. Bunday yozganda mumkin emas.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 5</span>
+    <h4>Bog'lanish bo'yicha filtrlash — <code>whereHas</code></h4>
+    <p>«Toshkentdagi <b>kompaniyalarning</b> vakansiyalari» kerak. Shart
+    vakansiyada emas, <b>bog'langan</b> jadvalda:</p>
+    <div class="natija">Vakansiya::whereHas('kompaniya', function ($q) {
+    $q-&gt;where('shahar', 'Toshkent');
+})-&gt;count()          →   4
+
+Vakansiya::doesntHave('kompaniya')-&gt;count()   →   1
+Vakansiya::has('kompaniya')-&gt;count()          →   4</div>
+    <p><code>whereHas</code> — «bog'langan yozuvi bor <b>va</b> u shu shartga mos»;
+    <code>has</code> — «bog'langan yozuvi bor»; <code>doesntHave</code> — «yo'q».
+    Ichidagi <code>function ($q)</code> — 16-darsdagi closure.</p>
+    <p>Bu 22-darsdagi <code>JOIN ... WHERE</code> ning o'rnini bosadi, lekin
+    <b>takroriy qatorlar</b> muammosi yo'q.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 6</span>
+    <h4>Sanash — <code>withCount</code> va nega <code>-&gt;count()</code> yetmaydi</h4>
+    <p>«Har kompaniyada nechta vakansiya bor?» — 22-darsda bu <code>GROUP BY</code>
+    edi. Eloquent'da ikki yo'l bor, lekin <b>bir xil emas</b>:</p>
+    <div class="natija">❌ Kompaniya::all() ichida $k-&gt;vakansiyalar-&gt;count()
+   → 4 so'rov (har kompaniya uchun BARCHA qatorlarni tortadi, keyin sanaydi)
+
+✅ Kompaniya::withCount('vakansiyalar')
+   → 1 so'rov, natija $k-&gt;vakansiyalar_count da</div>
+    <p><code>withCount</code> yasagan SQL:</p>
+    <div class="natija">select "kompaniyalar".*,
+  (select count(*) from "vakansiyalar"
+   where "kompaniyalar"."id" = "vakansiyalar"."kompaniya_id") as "vakansiyalar_count"
+from "kompaniyalar"</div>
+    <p>Ustun nomi qolipi — <code>&lt;bog'lanish&gt;_count</code>. Ya'ni
+    <code>vakansiyalar</code> → <code>vakansiyalar_count</code>.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>Keyin biriktirish va ajratish — <code>associate</code></h4>
+    <p>Vakansiya avval kompaniyasiz yaratilgan, keyin biriktirish kerak:</p>
+    <div class="natija">$v = Vakansiya::find(5);
+$v-&gt;kompaniya            →  NULL
+
+$v-&gt;kompaniya()-&gt;associate($k);
+$v-&gt;save();
+
+$v-&gt;fresh()-&gt;kompaniya-&gt;nom   →  "EPAM"</div>
+    <p><code>associate()</code> — obyektni bog'laydi (aslida
+    <code>kompaniya_id</code> ni qo'yadi), <code>dissociate()</code> — ajratadi
+    (<code>NULL</code> qiladi). <code>save()</code> <b>shart</b> — bo'lmasa bazaga
+    yozilmaydi.</p>
+    <p><code>fresh()</code> — obyektni bazadan <b>qaytadan o'qish</b>. Bog'lanish bir
+    marta o'qilgach xotirada saqlanadi, shuning uchun o'zgarishdan keyin yangilash
+    kerak.</p>
+    <p>Muqobil yo'l — <code>$v-&gt;kompaniya_id = $k-&gt;id;</code> keyin
+    <code>save()</code>. Natija bir xil; <code>associate</code> esa niyatni
+    ko'rsatadi.</p>
+  </div>
+
+  <!-- ═══════════════ N+1 ═══════════════ -->
+  <h2>⚡ N+1 muammosi — o'lchab ko'ramiz</h2>
+
+  <p>Bog'lanish shunchalik oson ishlaydiki, ortida nima bo'layotgani ko'rinmaydi.
+  Ro'yxat sahifasini eslang: 5 vakansiya, har biri uchun
+  <code>$v-&gt;kompaniya-&gt;nom</code>.</p>
+
+  <div class="natija">── with() SIZ
+   SO'ROVLAR SONI: 5
+     select * from "vakansiyalar"
+     select * from "kompaniyalar" where "kompaniyalar"."id" = ? limit 1
+     select * from "kompaniyalar" where "kompaniyalar"."id" = ? limit 1
+     select * from "kompaniyalar" where "kompaniyalar"."id" = ? limit 1
+     ... (yana 1 ta)</div>
+
+  <p>Bitta so'rov ro'yxat uchun, keyin <b>har qator uchun bittadan</b>. Nomi shundan:
+  <b>1 + N</b>. 5 vakansiyada bu sezilmaydi. 500 vakansiyada — <b>501 so'rov</b>, va
+  sahifa sekinlashadi.</p>
+
+  <p>Yechim — <code>with()</code>: «bularni <b>oldindan</b> yuklab qo'y».</p>
+
+  <div class="natija">── with() BILAN
+   SO'ROVLAR SONI: 2
+     select * from "vakansiyalar"
+     select * from "kompaniyalar" where "kompaniyalar"."id" in (1, 2, 3)</div>
+
+  <p>Ikkinchi so'rovga qarang: <code>in (1, 2, 3)</code> — Laravel kerakli
+  <code>id</code> larni <b>yig'ib</b>, hammasini <b>bitta</b> so'rovda oldi.
+  Va u <b>3 ta</b>, chunki takrorlanganlarini tashlab yubordi. Ro'yxat 500 qator
+  bo'lsa ham — <b>2 so'rov</b>.</p>
+
+  <div class="codefile">
+    <div class="fname">controller</div>
+    <code class="cmd" data-cmd="Vakansiya::with('kompaniya')
+    -&gt;orderBy('maosh', 'desc')
+    -&gt;get();">Vakansiya::<span class="add">with('kompaniya')</span>
+    -&gt;orderBy('maosh', 'desc')
+    -&gt;get();</code>
+  </div>
+
+  <div class="callout tip">
+    <span class="label">Atamalar: lazy va eager</span>
+    <p><b>Lazy loading</b> («dangasa yuklash») — bog'lanish <b>kerak bo'lganda</b>
+    o'qiladi. Standart holat, va aynan u N+1 ni keltiradi.</p>
+    <p><b>Eager loading</b> («intiluvchan yuklash») — <code>with()</code> bilan
+    <b>oldindan</b> o'qiladi. Bu ikki atama intervyuda ham, hujjatlarda ham shu nomda
+    uchraydi.</p>
+    <p>Qoida oddiy: <b>sikl ichida bog'lanishga murojaat qilsangiz —
+    <code>with()</code> yozing</b>. Bitta yozuv uchun (masalan
+    <code>show</code> sahifasi) kerak emas.</p>
+    <p>Bu mavzuning chuqur qismi — o'lchash asboblari, indekslar, Telescope —
+    <b>Modul H</b> da. Bugungi maqsad: muammoni <b>tanib olish</b>.</p>
+  </div>
+
+  <!-- ═══════════════ 4) AMALIYOT / MODE-HINT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    <span class="mode-hint-title">💻 Amaliy qism kompyuterda</span>
+    <p>Amaliyotda modellarga ikki metod qo'shasiz, keyin barcha holatlarni skriptda
+    sinab ko'rasiz — shu qatorda <b>so'rovlar sonini o'lchaydigan</b> skript ham
+    bo'ladi (5 → 2 → 1). Oxirida ro'yxatga kompaniya ustuni qaytadi va vakansiya
+    sahifasida «shu kompaniyaning boshqa vakansiyalari» bo'limi paydo bo'ladi.</p>
+    <button type="button" class="modebtn" data-set-mode="do">💻 Amaliyot rejimini ko'rish</button>
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <p>Toza holatdan boshlang</p>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+php artisan migrate:fresh &amp;&amp; php sql/05-malumot.php">cd ~/Projects/Learn/ishtop
+php artisan migrate:fresh &amp;&amp; php sql/05-malumot.php
+<span class="out">Ma'lumot solindi: 3 kompaniya, 5 vakansiya.</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> tasdiq xabari.</p>
+      </li>
+
+      <li>
+        <p>Modellarga bog'lanish qo'shing</p>
+        <p class="why-step">Ikki metod — butun ilova uchun. Diqqat: qaytish tipi
+        (<code>BelongsTo</code>, <code>HasMany</code>) uchun <code>use</code> qatori
+        ham kerak (12-dars).</p>
+        <div class="cmd" data-cmd="cat &gt; app/Models/Vakansiya.php &lt;&lt;'EOF'
+&lt;?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class Vakansiya extends Model
+{
+    protected $table = 'vakansiyalar';
+
+    protected $fillable = ['nom', 'maosh', 'shahar', 'faol', 'kompaniya_id'];
+
+    public function kompaniya(): BelongsTo
+    {
+        return $this-&gt;belongsTo(Kompaniya::class);
+    }
+}
+EOF
+
+cat &gt; app/Models/Kompaniya.php &lt;&lt;'EOF'
+&lt;?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Kompaniya extends Model
+{
+    protected $table = 'kompaniyalar';
+
+    protected $fillable = ['nom', 'shahar'];
+
+    public function vakansiyalar(): HasMany
+    {
+        return $this-&gt;hasMany(Vakansiya::class);
+    }
+}
+EOF
+php -l app/Models/Vakansiya.php">cat &gt; app/Models/Vakansiya.php &lt;&lt;'EOF'
+&lt;?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+<span class="add">use Illuminate\Database\Eloquent\Relations\BelongsTo;</span>
+
+class Vakansiya extends Model
+{
+    protected $table = 'vakansiyalar';
+
+    protected $fillable = ['nom', 'maosh', 'shahar', 'faol', 'kompaniya_id'];
+
+    <span class="add">public function kompaniya(): BelongsTo
+    {
+        return $this-&gt;belongsTo(Kompaniya::class);
+    }</span>
+}
+EOF
+
+cat &gt; app/Models/Kompaniya.php &lt;&lt;'EOF'
+&lt;?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+<span class="add">use Illuminate\Database\Eloquent\Relations\HasMany;</span>
+
+class Kompaniya extends Model
+{
+    protected $table = 'kompaniyalar';
+
+    protected $fillable = ['nom', 'shahar'];
+
+    <span class="add">public function vakansiyalar(): HasMany
+    {
+        return $this-&gt;hasMany(Vakansiya::class);
+    }</span>
+}
+EOF
+php -l app/Models/Vakansiya.php
+<span class="out">No syntax errors detected</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> «No syntax errors detected».</p>
+      </li>
+
+      <li>
+        <p>Ikki tomonni ham sinab ko'ring</p>
+        <p class="why-step">Bog'lanish ishlayotganini <b>ko'rish</b> — va yo'lda
+        taxmin qilingan ustun nomini tekshirish.</p>
+        <div class="cmd" data-cmd="cat &gt; sql/07-boglanish.php &lt;&lt;'EOF'
+&lt;?php
+
+use App\Models\Kompaniya;
+use App\Models\Vakansiya;
+
+require __DIR__ . '/../vendor/autoload.php';
+$app = require_once __DIR__ . '/../bootstrap/app.php';
+$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+
+echo '── Taxmin qilingan ustunlar', PHP_EOL;
+echo '   belongsTo (metod nomidan): ', (new Vakansiya)-&gt;kompaniya()-&gt;getForeignKeyName(), PHP_EOL;
+echo '   hasMany  (klass nomidan): ', (new Kompaniya)-&gt;vakansiyalar()-&gt;getForeignKeyName(), PHP_EOL;
+
+echo PHP_EOL, '── belongsTo: $v-&gt;kompaniya', PHP_EOL;
+$v = Vakansiya::find(3);
+echo '   ', $v-&gt;nom, ' → ', $v-&gt;kompaniya-&gt;nom, ' (', get_class($v-&gt;kompaniya), ')', PHP_EOL;
+
+echo PHP_EOL, '── bo\'sh bog\'lanish (id 5)', PHP_EOL;
+$b = Vakansiya::find(5);
+echo '   ', $b-&gt;nom, ' → ', var_export($b-&gt;kompaniya, true), PHP_EOL;
+echo '   ?-&gt; bilan: ', var_export($b-&gt;kompaniya?-&gt;nom ?? '—', true), PHP_EOL;
+
+echo PHP_EOL, '── hasMany: $k-&gt;vakansiyalar', PHP_EOL;
+$k = Kompaniya::where('nom', 'Uzum')-&gt;first();
+echo '   ', $k-&gt;nom, ' → ', $k-&gt;vakansiyalar-&gt;count(), ' ta: ';
+echo $k-&gt;vakansiyalar-&gt;pluck('nom')-&gt;implode(', '), PHP_EOL;
+
+echo PHP_EOL, '── xossa va metod farqi', PHP_EOL;
+echo '   $k-&gt;vakansiyalar   → ', get_class($k-&gt;vakansiyalar), PHP_EOL;
+echo '   $k-&gt;vakansiyalar() → ', get_class($k-&gt;vakansiyalar()), PHP_EOL;
+echo '   toSql(): ', $k-&gt;vakansiyalar()-&gt;toSql(), PHP_EOL;
+EOF
+php sql/07-boglanish.php">cat &gt; sql/07-boglanish.php &lt;&lt;'EOF'
+&lt;?php
+
+use App\Models\Kompaniya;
+use App\Models\Vakansiya;
+
+require __DIR__ . '/../vendor/autoload.php';
+$app = require_once __DIR__ . '/../bootstrap/app.php';
+$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+
+echo '── Taxmin qilingan ustunlar', PHP_EOL;
+echo '   belongsTo (metod nomidan): ', (new Vakansiya)-&gt;kompaniya()-&gt;getForeignKeyName(), PHP_EOL;
+echo '   hasMany  (klass nomidan): ', (new Kompaniya)-&gt;vakansiyalar()-&gt;getForeignKeyName(), PHP_EOL;
+
+echo PHP_EOL, '── belongsTo: $v-&gt;kompaniya', PHP_EOL;
+$v = Vakansiya::find(3);
+echo '   ', $v-&gt;nom, ' → ', $v-&gt;kompaniya-&gt;nom, ' (', get_class($v-&gt;kompaniya), ')', PHP_EOL;
+
+echo PHP_EOL, '── bo\'sh bog\'lanish (id 5)', PHP_EOL;
+$b = Vakansiya::find(5);
+echo '   ', $b-&gt;nom, ' → ', var_export($b-&gt;kompaniya, true), PHP_EOL;
+echo '   ?-&gt; bilan: ', var_export($b-&gt;kompaniya?-&gt;nom ?? '—', true), PHP_EOL;
+
+echo PHP_EOL, '── hasMany: $k-&gt;vakansiyalar', PHP_EOL;
+$k = Kompaniya::where('nom', 'Uzum')-&gt;first();
+echo '   ', $k-&gt;nom, ' → ', $k-&gt;vakansiyalar-&gt;count(), ' ta: ';
+echo $k-&gt;vakansiyalar-&gt;pluck('nom')-&gt;implode(', '), PHP_EOL;
+
+echo PHP_EOL, '── xossa va metod farqi', PHP_EOL;
+echo '   $k-&gt;vakansiyalar   → ', get_class($k-&gt;vakansiyalar), PHP_EOL;
+echo '   $k-&gt;vakansiyalar() → ', get_class($k-&gt;vakansiyalar()), PHP_EOL;
+echo '   toSql(): ', $k-&gt;vakansiyalar()-&gt;toSql(), PHP_EOL;
+EOF
+php sql/07-boglanish.php
+<span class="out">   belongsTo (metod nomidan): kompaniya_id</span>
+<span class="out">   hasMany  (klass nomidan): kompaniya_id</span>
+<span class="out">   Laravel dasturchi → Startup XYZ (App\Models\Kompaniya)</span>
+<span class="out">   Uzum → 2 ta: Backend dasturchi, Frontend dasturchi</span>
+<span class="out">   $k-&gt;vakansiyalar   → Illuminate\Database\Eloquent\Collection</span>
+<span class="out">   $k-&gt;vakansiyalar() → Illuminate\Database\Eloquent\Relations\HasMany</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> besh bo'lim.
+        <br>1) Ikki metod ham <code>kompaniya_id</code> ni topdi — biz yozmagan holda.
+        <br>2) <code>$v-&gt;kompaniya</code> — <code>Kompaniya</code> <b>obyekti</b>.
+        <br>3) Bo'sh bog'lanish → <code>NULL</code>, <code>?-&gt;</code> bilan
+        <code>'—'</code>.
+        <br>4) Teskari tomon 2 ta vakansiya berdi.
+        <br>5) 🔑 Qavssiz — <b>Collection</b>, qavs bilan — <b>HasMany</b>.
+        Va <code>toSql()</code> da <code>is not null</code> borligiga qarang.</p>
+      </li>
+
+      <li>
+        <p>⚡ So'rovlar sonini <b>o'lchang</b> — N+1</p>
+        <p class="why-step">Darsning eng qimmatli qadami. Bu skript «sekin sahifa»ni
+        raqamga aylantiradi.</p>
+        <div class="cmd" data-cmd="cat &gt; sql/08-n1.php &lt;&lt;'EOF'
+&lt;?php
+
+use App\Models\Kompaniya;
+use App\Models\Vakansiya;
+use Illuminate\Support\Facades\DB;
+
+require __DIR__ . '/../vendor/autoload.php';
+$app = require_once __DIR__ . '/../bootstrap/app.php';
+$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+
+function sanab(string $sarlavha, callable $ish): void
+{
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+    $ish();
+    $log = DB::getQueryLog();
+    echo PHP_EOL, '── ', $sarlavha, PHP_EOL;
+    echo '   SO\'ROVLAR SONI: ', count($log), PHP_EOL;
+    foreach ($log as $i =&gt; $q) {
+        if ($i &lt; 3) { echo '     ', $q['query'], PHP_EOL; }
+    }
+    if (count($log) &gt; 3) { echo '     ... (yana ', count($log) - 3, ' ta)', PHP_EOL; }
+    DB::disableQueryLog();
+}
+
+sanab('with() SIZ — N+1', function () {
+    foreach (Vakansiya::all() as $v) {
+        $x = $v-&gt;kompaniya?-&gt;nom;
+    }
+});
+
+sanab('with() BILAN — eager loading', function () {
+    foreach (Vakansiya::with('kompaniya')-&gt;get() as $v) {
+        $x = $v-&gt;kompaniya?-&gt;nom;
+    }
+});
+
+sanab('withCount() — sanash', function () {
+    foreach (Kompaniya::withCount('vakansiyalar')-&gt;get() as $k) {
+        $x = $k-&gt;vakansiyalar_count;
+    }
+});
+EOF
+php sql/08-n1.php">cat &gt; sql/08-n1.php &lt;&lt;'EOF'
+&lt;?php
+
+use App\Models\Kompaniya;
+use App\Models\Vakansiya;
+use Illuminate\Support\Facades\DB;
+
+require __DIR__ . '/../vendor/autoload.php';
+$app = require_once __DIR__ . '/../bootstrap/app.php';
+$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+
+function sanab(string $sarlavha, callable $ish): void
+{
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+    $ish();
+    $log = DB::getQueryLog();
+    echo PHP_EOL, '── ', $sarlavha, PHP_EOL;
+    echo '   SO\'ROVLAR SONI: ', count($log), PHP_EOL;
+    foreach ($log as $i =&gt; $q) {
+        if ($i &lt; 3) { echo '     ', $q['query'], PHP_EOL; }
+    }
+    if (count($log) &gt; 3) { echo '     ... (yana ', count($log) - 3, ' ta)', PHP_EOL; }
+    DB::disableQueryLog();
+}
+
+sanab('with() SIZ — N+1', function () {
+    foreach (Vakansiya::all() as $v) {
+        $x = $v-&gt;kompaniya?-&gt;nom;
+    }
+});
+
+sanab('with() BILAN — eager loading', function () {
+    foreach (Vakansiya::with('kompaniya')-&gt;get() as $v) {
+        $x = $v-&gt;kompaniya?-&gt;nom;
+    }
+});
+
+sanab('withCount() — sanash', function () {
+    foreach (Kompaniya::withCount('vakansiyalar')-&gt;get() as $k) {
+        $x = $k-&gt;vakansiyalar_count;
+    }
+});
+EOF
+php sql/08-n1.php
+<span class="out">── with() SIZ — N+1</span>
+<span class="out">   SO'ROVLAR SONI: 5</span>
+<span class="out">── with() BILAN — eager loading</span>
+<span class="out">   SO'ROVLAR SONI: 2</span>
+<span class="out">     select * from "kompaniyalar" where "kompaniyalar"."id" in (1, 2, 3)</span>
+<span class="out">── withCount() — sanash</span>
+<span class="out">   SO'ROVLAR SONI: 1</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> <b>5 → 2 → 1</b>.
+        <br>🎉 Bu darsning eng muhim raqami. <code>with()</code> siz — 1 + 4;
+        <code>with()</code> bilan — 2, va ikkinchi so'rovda
+        <code>in (1, 2, 3)</code>.
+        <br><code>function () { ... }</code> — closure (16-dars):
+        <code>sanab()</code> ga «bajarilishi kerak bo'lgan ish»ni uzatyapmiz.</p>
+      </li>
+
+      <li>
+        <p>Controllerga <code>with()</code> qo'shing va «boshqa vakansiyalar»ni
+        yasang</p>
+        <div class="cmd" data-cmd="cat &gt; app/Http/Controllers/VakansiyaController.php &lt;&lt;'EOF'
+&lt;?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Vakansiya;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\View\View;
+
+class VakansiyaController extends Controller
+{
+    public function index(): View
+    {
+        return view('vakansiyalar.index', [
+            'vakansiyalar' =&gt; Vakansiya::with('kompaniya')
+                -&gt;orderBy('maosh', 'desc')
+                -&gt;get(),
+        ]);
+    }
+
+    public function show(string $id): View
+    {
+        $v = Vakansiya::with('kompaniya')-&gt;findOrFail($id);
+
+        $boshqalar = [];
+        if ($v-&gt;kompaniya !== null) {
+            $boshqalar = $v-&gt;kompaniya-&gt;vakansiyalar()
+                -&gt;where('id', '!=', $v-&gt;id)
+                -&gt;get();
+        }
+
+        return view('vakansiyalar.show', ['v' =&gt; $v, 'boshqalar' =&gt; $boshqalar]);
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        $tekshirilgan = $request-&gt;validate([
+            'nom' =&gt; 'required|string|min:5|max:100',
+            'maosh' =&gt; 'required|integer|min:1',
+        ], [
+            'nom.required' =&gt; 'Vakansiya nomi kiritilishi shart.',
+            'nom.min' =&gt; 'Vakansiya nomi kamida :min belgidan iborat bo\'lsin.',
+            'maosh.required' =&gt; 'Maosh kiritilishi shart.',
+            'maosh.integer' =&gt; 'Maosh butun son bo\'lishi kerak.',
+        ]);
+
+        Vakansiya::create($tekshirilgan);
+
+        return redirect()-&gt;route('vakansiyalar.index')
+            -&gt;with('xabar', &quot;Qo'shildi: {$tekshirilgan['nom']}&quot;);
+    }
+}
+EOF
+php -l app/Http/Controllers/VakansiyaController.php">cat &gt; app/Http/Controllers/VakansiyaController.php &lt;&lt;'EOF'
+&lt;?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Vakansiya;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\View\View;
+
+class VakansiyaController extends Controller
+{
+    public function index(): View
+    {
+        return view('vakansiyalar.index', [
+            'vakansiyalar' =&gt; Vakansiya::<span class="add">with('kompaniya')</span>
+                -&gt;orderBy('maosh', 'desc')
+                -&gt;get(),
+        ]);
+    }
+
+    public function show(string $id): View
+    {
+        $v = Vakansiya::<span class="add">with('kompaniya')</span>-&gt;findOrFail($id);
+
+        <span class="add">$boshqalar = [];
+        if ($v-&gt;kompaniya !== null) {
+            $boshqalar = $v-&gt;kompaniya-&gt;vakansiyalar()
+                -&gt;where('id', '!=', $v-&gt;id)
+                -&gt;get();
+        }</span>
+
+        return view('vakansiyalar.show', ['v' =&gt; $v, 'boshqalar' =&gt; $boshqalar]);
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        $tekshirilgan = $request-&gt;validate([
+            'nom' =&gt; 'required|string|min:5|max:100',
+            'maosh' =&gt; 'required|integer|min:1',
+        ], [
+            'nom.required' =&gt; 'Vakansiya nomi kiritilishi shart.',
+            'nom.min' =&gt; 'Vakansiya nomi kamida :min belgidan iborat bo\'lsin.',
+            'maosh.required' =&gt; 'Maosh kiritilishi shart.',
+            'maosh.integer' =&gt; 'Maosh butun son bo\'lishi kerak.',
+        ]);
+
+        Vakansiya::create($tekshirilgan);
+
+        return redirect()-&gt;route('vakansiyalar.index')
+            -&gt;with('xabar', "Qo'shildi: {$tekshirilgan['nom']}");
+    }
+}
+EOF
+php -l app/Http/Controllers/VakansiyaController.php
+<span class="out">No syntax errors detected</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> «No syntax errors detected».
+        <br>🔑 <code>$v-&gt;kompaniya-&gt;vakansiyalar<b>()</b>-&gt;where(...)</code> —
+        qavs <b>bor</b>, chunki ustiga shart qo'shyapmiz. Bu «xossa yoki metod?»
+        qoidasining amaliy ishlatilishi: joriy vakansiyani ro'yxatdan chiqarib
+        tashlaymiz.</p>
+      </li>
+
+      <li>
+        <p>View'larni yangilang — kompaniya ustuni <b>qaytadi</b></p>
+        <div class="cmd" data-cmd="# index.blade.php — havoladan keyingi qatorni shunday qiling:
+                — {{ $v-&gt;maosh }} · {{ $v-&gt;kompaniya?-&gt;nom ?? 'kompaniya ko\'rsatilmagan' }}
+
+# show.blade.php — Kompaniya qatorini shunday qiling:
+        &lt;li&gt;Kompaniya: {{ $v-&gt;kompaniya?-&gt;nom ?? '—' }}&lt;/li&gt;"># index.blade.php — havoladan keyingi qatorni shunday qiling:
+                — {{ $v-&gt;maosh }} · {{ $v-&gt;kompaniya?-&gt;nom ?? 'kompaniya ko\'rsatilmagan' }}
+
+# show.blade.php — Kompaniya qatorini shunday qiling:
+        &lt;li&gt;Kompaniya: {{ $v-&gt;kompaniya?-&gt;nom ?? '—' }}&lt;/li&gt;</div>
+        <p class="expect"><b>Kutilgan natija:</b> 25-darsda olib qo'ygan kompaniya
+        ustuni qaytdi — endi <code>JOIN</code> siz, faqat bog'lanish orqali.</p>
+      </li>
+
+      <li>
+        <p>«Boshqa vakansiyalar» bo'limini qo'shing</p>
+        <p class="why-step"><code>hasMany</code> ni ekranda ko'rish.</p>
+        <p><code>show.blade.php</code> da <code>&lt;/ul&gt;</code> dan <b>keyin</b>,
+        <code>@endsection</code> dan <b>oldin</b>:</p>
+        <div class="cmd" data-cmd="    @if ($v-&gt;kompaniya)
+        &lt;h2&gt;{{ $v-&gt;kompaniya-&gt;nom }} ning boshqa vakansiyalari&lt;/h2&gt;
+        &lt;ul&gt;
+            @forelse ($boshqalar as $b)
+                &lt;li&gt;&lt;a href=&quot;{{ route('vakansiyalar.show', $b-&gt;id) }}&quot;&gt;{{ $b-&gt;nom }}&lt;/a&gt;
+                    — {{ $b-&gt;maosh }}&lt;/li&gt;
+            @empty
+                &lt;li&gt;Boshqa vakansiyasi yo'q.&lt;/li&gt;
+            @endforelse
+        &lt;/ul&gt;
+    @endif">    @if ($v-&gt;kompaniya)
+        &lt;h2&gt;{{ $v-&gt;kompaniya-&gt;nom }} ning boshqa vakansiyalari&lt;/h2&gt;
+        &lt;ul&gt;
+            @forelse ($boshqalar as $b)
+                &lt;li&gt;&lt;a href="{{ route('vakansiyalar.show', $b-&gt;id) }}"&gt;{{ $b-&gt;nom }}&lt;/a&gt;
+                    — {{ $b-&gt;maosh }}&lt;/li&gt;
+            @empty
+                &lt;li&gt;Boshqa vakansiyasi yo'q.&lt;/li&gt;
+            @endforelse
+        &lt;/ul&gt;
+    @endif</div>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik. Bu yerda
+        <code>@if</code> ishlatildi (nafaqat <code>?-&gt;</code>), chunki
+        <b>butun bo'lim</b> kompaniya bor-yo'qligiga bog'liq — HOLAT 3 dagi
+        birinchi shakl.</p>
+      </li>
+
+      <li>
+        <p>🎉 Brauzerda uch holatni sinang</p>
+        <div class="cmd" data-cmd="php artisan serve">php artisan serve</div>
+        <p class="expect"><b>Kutilgan natija:</b>
+        <br><b>1)</b> <code>/vakansiyalar</code> — kompaniya nomlari qaytdi,
+        kompaniyasizda «kompaniya ko'rsatilmagan».
+        <br><b>2)</b> <code>/vakansiyalar/1</code> (Uzum) — pastda
+        <code>Uzum ning boshqa vakansiyalari</code> va unda <b>Frontend dasturchi</b>
+        havolasi. Bosib ko'ring — u yerda esa <b>Backend dasturchi</b> chiqadi.</p>
+        <div class="natija">Kompaniya: Uzum
+
+Uzum ning boshqa vakansiyalari
+  • Frontend dasturchi — 700</div>
+        <p class="expect"><b>3)</b> <code>/vakansiyalar/3</code> (Startup XYZ —
+        yolg'iz) — sarlavha bor, lekin <code>Boshqa vakansiyasi yo'q.</code>
+        (<code>@forelse</code> ning <code>@empty</code> qismi, 18-dars).
+        <br><b>4)</b> <code>/vakansiyalar/5</code> (kompaniyasiz) —
+        <code>Kompaniya: —</code>, va «boshqa vakansiyalar» bo'limi
+        <b>umuman yo'q</b>.</p>
+      </li>
+
+      <li>
+        <p>Ishni saqlang</p>
+        <div class="cmd" data-cmd="git add -A
+git commit -m &quot;26-dars: belongsTo va hasMany bog'lanishlari, with() bilan N+1&quot;">git add -A
+git commit -m "26-dars: belongsTo va hasMany bog'lanishlari, with() bilan N+1"</div>
+        <p class="expect"><b>Kutilgan natija:</b> commit haqida xabar.</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><input type="checkbox" id="d26c1"><label for="d26c1"><code>belongsTo</code> va <code>hasMany</code> metodlarini yozdim</label></li>
+      <li><input type="checkbox" id="d26c2"><label for="d26c2"><code>getForeignKeyName()</code> bilan taxmin qilingan ustunni tekshirdim</label></li>
+      <li><input type="checkbox" id="d26c3"><label for="d26c3"><b><code>$v-&gt;kompaniya-&gt;nom</code> ishlaganini ko'rdim</b> 🎉</label></li>
+      <li><input type="checkbox" id="d26c4"><label for="d26c4">Bo'sh bog'lanish <code>NULL</code> qaytarishini va <code>?-&gt;</code> yechimini sinadim</label></li>
+      <li><input type="checkbox" id="d26c5"><label for="d26c5"><b>Xossa (Collection) va metod (HasMany) farqini o'z ko'zim bilan ko'rdim</b></label></li>
+      <li><input type="checkbox" id="d26c6"><label for="d26c6"><b>N+1 ni o'lchadim: 5 → 2 → 1</b> ⚡</label></li>
+      <li><input type="checkbox" id="d26c7"><label for="d26c7">Ro'yxatga kompaniya ustunini qaytardim</label></li>
+      <li><input type="checkbox" id="d26c8"><label for="d26c8">«Boshqa vakansiyalar» bo'limini yasadim va 4 holatni sinadim</label></li>
+      <li><input type="checkbox" id="d26c9"><label for="d26c9">Ishni commit qildim</label></li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 5) TAXMIN + QUIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Hamkasbingiz bog'lanish metodini ma'noliroq nomlamoqchi bo'ldi va shunday
+    yozdi (ustun nomi esa o'zgarmagan — <code>kompaniya_id</code>):</p>
+    <div class="codefile">
+      <div class="fname">app/Models/Vakansiya.php</div>
+      <code class="cmd" data-cmd="public function ishBeruvchi(): BelongsTo
+{
+    return $this-&gt;belongsTo(Kompaniya::class);
+}">public function <span class="add">ishBeruvchi</span>(): BelongsTo
+{
+    return $this-&gt;belongsTo(Kompaniya::class);
+}</code>
+    </div>
+    <p>Keyin viewda <code>{{ $v-&gt;ishBeruvchi-&gt;nom }}</code> yozdi. Uch savol:
+    <b>(a)</b> nima chiqadi? <b>(b)</b> xato xabari bo'ladimi? <b>(c)</b> bazaga
+    nechta so'rov ketadi?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <div class="natija">(a) Sahifa buziladi: Attempt to read property "nom" on null
+(b) Bog'lanishning o'zi xato BERMAYDI — u jimgina NULL qaytaradi
+(c) Kompaniyalar jadvaliga so'rov UMUMAN yuborilmaydi</div>
+        <p><b>Sabab:</b> <code>belongsTo</code> tashqi kalit nomini <b>metod
+        nomidan</b> taxmin qiladi — <code>ishBeruvchi</code> →
+        <code>ish_beruvchi_id</code>. Bunday ustun yo'q, demak modelda bunday
+        xossa ham yo'q → qiymat <code>null</code> → Laravel «bog'langan yozuv yo'q»
+        deb hisoblaydi va <b>so'rov yubormaydi</b>.</p>
+        <p>Jonli o'lchandi: <code>$v-&gt;ishBeruvchi</code> → <code>NULL</code>,
+        so'rovlar soni — faqat <b>1</b> (vakansiyaning o'zi uchun).</p>
+        <p class="expect">🔑 <b>Nega bu xatarli:</b> agar viewda
+        <code>?-&gt;</code> ishlatgan bo'lsangiz, sahifa <b>buzilmaydi</b> ham —
+        shunchaki <b>bo'sh joy</b> chiqadi. Siz esa «bazada kompaniya yo'q
+        shekilli» deb o'ylab, bazani tekshirib vaqt yo'qotasiz.</p>
+        <p><b>Ikkita yechim:</b></p>
+        <div class="natija">1) Metodni ustun nomiga moslash (afzal):
+   public function kompaniya()  → kompaniya_id ✅
+
+2) Tashqi kalitni aniq ko'rsatish:
+   return $this-&gt;belongsTo(Kompaniya::class, 'kompaniya_id');</div>
+        <p><b>Tashxis qo'yish usuli:</b> bog'lanish <code>NULL</code> qaytarsa —
+        <code>getForeignKeyName()</code> ni chaqirib, Laravel <b>qaysi</b> ustunni
+        izlayotganini so'rang. Taxmin qilib emas, o'lchab.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span>
+    <code>$k-&gt;vakansiyalar</code> va <code>$k-&gt;vakansiyalar()</code> farqi
+    nimada?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Qavssiz natija, qavs bilan so'rov</button></li>
+      <li><button class="quiz-option">Qavssiz tezroq, qavs bilan sekinroq</button></li>
+      <li><button class="quiz-option">Qavssiz massiv, qavs bilan obyekt</button></li>
+    </ul>
+    <div class="quiz-explain">Qavssiz — so'rov bajarilib <b>Collection</b> qaytadi.
+    Qavs bilan — <code>HasMany</code> so'rovi qaytadi, ustiga <code>where</code>,
+    <code>orderBy</code>, hatto <code>create</code> qo'shish mumkin.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span> <code>belongsTo</code>
+    metodining nomi ustun nomiga mos kelmasa nima bo'ladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Jimgina null qaytadi, xato yo'q</button></li>
+      <li><button class="quiz-option">Darhol aniq xato xabari chiqadi</button></li>
+      <li><button class="quiz-option">Laravel ustunni o'zi topib oladi</button></li>
+    </ul>
+    <div class="quiz-explain">Eng xatarli xato turi — <b>ovoz chiqarmaydigan</b>.
+    Tashxis: <code>getForeignKeyName()</code>. Yechim: metodni ustunga moslash yoki
+    ikkinchi argument bilan aniq ko'rsatish.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span> <code>with('kompaniya')</code>
+    nima uchun yoziladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">So'rovlar sonini keskin kamaytiradi</button></li>
+      <li><button class="quiz-option">Bog'lanishni majburiy qilib belgilaydi</button></li>
+      <li><button class="quiz-option">Bog'lanishni bazada tekshirib beradi</button></li>
+    </ul>
+    <div class="quiz-explain">Biz o'lchadik: <b>5 → 2</b>. 500 qatorli ro'yxatda bu
+    501 → 2 bo'ladi. Qoida: <b>sikl ichida bog'lanishga murojaat qilsangiz —
+    <code>with()</code></b>.</div>
+  </div>
+
+  <!-- ═══════════════ 6) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+    <p class="recall-intro">Avval o'zingiz javob bering, keyin ochib tekshiring.
+    Oxirgi ikkitasi — <a href="0025-eloquent-crud.html">25-darsni</a> takrorlash.</p>
+
+    <details class="recall">
+      <summary><code>belongsTo</code> ni qaysi modelga yozish kerak?</summary>
+      <div class="answer"><p>Tashqi kalit ustuni (<code>kompaniya_id</code>) <b>qaysi
+      jadvalda</b> bo'lsa, o'sha modelga. Ikkinchisiga —
+      <code>hasMany</code>.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Ikki metod tashqi kalit nomini qayerdan taxmin qiladi?</summary>
+      <div class="answer"><p><code>belongsTo</code> — <b>metod nomidan</b>
+      (<code>kompaniya()</code> → <code>kompaniya_id</code>);
+      <code>hasMany</code> — <b>klass nomidan</b> (<code>Kompaniya</code> →
+      <code>kompaniya_id</code>). Tekshirish —
+      <code>getForeignKeyName()</code>.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>N+1 nima va qanday yechiladi?</summary>
+      <div class="answer"><p>Ro'yxat uchun 1 so'rov + <b>har qator uchun bittadan</b>
+      (1 + N). Yechim — <code>with('bog\'lanish')</code>: Laravel kerakli
+      <code>id</code> larni yig'ib bitta <code>in (...)</code> so'rovi yuboradi.
+      Biz o'lchadik: <b>5 → 2</b>.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: <code>$table</code> nima uchun kerak edi?</summary>
+      <div class="answer"><p>Laravel klass nomini <b>inglizcha</b> ko'plikka
+      aylantiradi: <code>Vakansiya</code> → <code>vakansiyas</code>. O'zbekcha
+      nomlarda bu xato, shuning uchun jadval nomi qo'lda yoziladi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: <code>$fillable</code> da yo'q maydon nima bo'ladi?</summary>
+      <div class="answer"><p><b>Jimgina tashlanadi</b>, xato yo'q.
+      <code>$fillable</code> butunlay yo'q bo'lsa esa —
+      <code>MassAssignmentException</code>.</p></div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 7) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Cho'ntak xulosasi</span>
+    <ul>
+      <li><b>Tashqi kalit qaysi jadvalda</b> — o'sha modelda
+      <code>belongsTo</code>, ikkinchisida <code>hasMany</code>.</li>
+      <li><code>belongsTo</code> → <b>bitta obyekt yoki <code>NULL</code></b> ·
+      <code>hasMany</code> → <b>Collection</b>.</li>
+      <li>Taxmin: <code>belongsTo</code> <b>metod nomidan</b>, <code>hasMany</code>
+      <b>klass nomidan</b>, ikkalasi ham <code>_id</code> qo'shadi. Tekshirish —
+      <code>getForeignKeyName()</code>.</li>
+      <li>🔑 <b>Qavssiz — natija, qavs bilan — so'rov.</b>
+      <code>$k-&gt;vakansiyalar</code> vs
+      <code>$k-&gt;vakansiyalar()-&gt;where(...)-&gt;get()</code>.</li>
+      <li>⚠️ Metod nomi ustunga mos kelmasa — <b>jimgina <code>NULL</code></b>, xato
+      ham, so'rov ham yo'q. Yechim: nomni moslash yoki ikkinchi argument.</li>
+      <li>Bo'sh bog'lanish uchun uch shakl: <code>@if</code> ·
+      <code>?-&gt;</code> + <code>??</code> · <code>optional()</code>.</li>
+      <li>Bog'lanish orqali yaratish: <code>$k-&gt;vakansiyalar()-&gt;create([...])</code> —
+      <code>kompaniya_id</code> o'zi qo'yiladi.</li>
+      <li>Filtrlash: <code>whereHas</code> · <code>has</code> ·
+      <code>doesntHave</code>. Sanash: <code>withCount</code> →
+      <code>&lt;nom&gt;_count</code>.</li>
+      <li>Biriktirish: <code>associate()</code> / <code>dissociate()</code> +
+      <code>save()</code>; <code>fresh()</code> — bazadan qayta o'qish.</li>
+      <li>⚡ <b>N+1:</b> sikl ichida bog'lanish → 1 + N so'rov. Yechim
+      <code>with()</code>: <b>5 → 2</b>. Atamalar: <b>lazy</b> va <b>eager</b>
+      loading.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p>Bugungi bog'lanish <b>bir tomonlama ko'plik</b> edi: bitta kompaniyada ko'p
+    vakansiya, lekin bitta vakansiyada <b>bitta</b> kompaniya.</p>
+    <p>Lekin IshTop'da boshqa turi ham kerak: bitta vakansiya <b>bir necha
+    ko'nikma</b> talab qiladi (PHP, SQL, Git), va bitta ko'nikma <b>bir necha
+    vakansiyada</b> uchraydi. Bu — <b>ko'pdan-ko'pga</b>. Uni
+    <code>kompaniya_id</code> kabi bitta ustun bilan yechib bo'lmaydi:
+    <b>uchinchi jadval</b> kerak (<code>pivot</code>).</p>
+    <p>27-darsda <code>belongsToMany</code> va pivot jadvalini o'rganamiz —
+    va nomzod ariza bera oladigan bo'lishi uchun shu kerak.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel — Eloquent: Relationships</b>:
+    <a href="https://laravel.com/docs/13.x/eloquent-relationships">laravel.com/docs/13.x/eloquent-relationships</a>
+    — «One to Many» va «One to Many (Inverse)» bo'limlari.<sup><a href="#fn1">1</a></sup><br>
+    <b>Eager loading</b> (N+1 yechimi):
+    <a href="https://laravel.com/docs/13.x/eloquent-relationships#eager-loading">o'sha
+    sahifada</a> — <code>with</code>, <code>withCount</code>, <code>lazy</code>
+    farqi.<sup><a href="#fn2">2</a></sup><br>
+    <b>Nullsafe operator</b> (<code>?-&gt;</code>):
+    <a href="https://devdocs.io/php/language.oop5.basic#language.oop5.basic.nullsafe">devdocs.io/php
+    — nullsafe</a>.<sup><a href="#fn3">3</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b> «<code>hasOne</code> qachon
+    kerak?», «uchta jadval orqali bog'lansa-chi?»
+    (<code>hasManyThrough</code>), «kompaniya o'chirilsa vakansiyalari nima
+    bo'ladi?» (<code>onDelete</code> / <code>cascade</code>),
+    «<code>with()</code> ni har joyda yozmaslik uchun usul bormi?»
+    (<code>$with</code> xossasi) — har qanday savol yaxshi. Oxirgi ikkitasi IshTop
+    uchun tez orada kerak bo'ladi.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0025-eloquent-crud.html">Oldingi: Eloquent CRUD</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel 13 — <a href="https://laravel.com/docs/13.x/eloquent-relationships">Eloquent: Relationships</a>.</li>
+      <li id="fn2">Laravel 13 — <a href="https://laravel.com/docs/13.x/eloquent-relationships#eager-loading">Eager Loading</a>.</li>
+      <li id="fn3">PHP — <a href="https://devdocs.io/php/language.oop5.basic#language.oop5.basic.nullsafe">Nullsafe operator</a> (php.net ko'zgusi).</li>
+      <li id="fn4">Barchasi jonli o'lchangan (Laravel 13.25.0, SQLite 3.45.1):
+      <code>getForeignKeyName()</code> ikkalasida ham <b>kompaniya_id</b> ·
+      <code>$v-&gt;kompaniya</code> → <code>App\Models\Kompaniya</code> ·
+      bo'sh bog'lanish → <b>NULL</b> · <code>$k-&gt;vakansiyalar</code> → <b>2</b> ta ·
+      qavssiz <b>Collection</b>, qavs bilan <b>HasMany</b> ·
+      <code>toSql()</code> da <code>is not null</code> ·
+      so'rovlar soni <b>5 → 2 → 1</b> (<code>with</code>, <code>withCount</code>) ·
+      <code>in (1, 2, 3)</code> · <code>$k-&gt;vakansiyalar()-&gt;create()</code> →
+      <code>kompaniya_id=2</code> · <code>whereHas</code> → <b>4</b>,
+      <code>doesntHave</code> → <b>1</b> · <code>associate()</code> → <b>EPAM</b> ·
+      va taxmin mashqi: <code>ishBeruvchi</code> → <code>ish_beruvchi_id</code>,
+      natija <b>NULL</b>, so'rov <b>yuborilmadi</b>.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

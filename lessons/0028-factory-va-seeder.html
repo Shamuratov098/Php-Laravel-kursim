@@ -1,0 +1,1297 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 28 — Factory va Seeder: ma'lumotni Laravel yasab beradi</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 28 · MODUL C — MA'LUMOTLAR</p>
+  <h1>Factory va Seeder: <code>php artisan db:seed</code></h1>
+  <p class="lead">Hozir ma'lumot <b>uchta qo'lda yozilgan skriptda</b> yashaydi, va
+  ularda jami 5 ta vakansiya bor. Sahifalashni sinash uchun 50 ta, tezlikni o'lchash
+  uchun mingdan ortiq kerak bo'ladi — qo'lda yozib bo'lmaydi. Bugun ularni <b>Laravel
+  yasab beradi</b>: bitta buyruq, to'la baza.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 15 daqiqa</span>
+    <span>💻 Amaliyot ≈ 24 daqiqa</span>
+    <span>Kerak: <a href="0027-boglanish-belongstomany-va-pivot.html">Dars 27</a></span>
+  </p>
+
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b>Nega qo'lda yozilgan skript yetmaydi</b>
+        <span class="nima">Uchta skriptda takrorlanish, va 5 qator bilan sahifalash ham,
+        tezlik ham sinab bo'lmaydi.</span></li>
+      <li><b>Factory — bitta yozuvning «retsepti»</b>
+        <span class="nima"><code>make:factory</code> · <code>definition()</code> · va
+        <code>HasFactory</code> trait'i yo'q bo'lsa chiqadigan xato.</span></li>
+      <li><b><code>fake()</code> — soxta lekin realistik ma'lumot</b>
+        <span class="nima"><code>numberBetween</code> · <code>boolean</code> ·
+        <code>randomElement</code> · <code>unique</code> ·
+        <code>dateTimeBetween</code>.</span></li>
+      <li><b>⚠️ O'zbekcha ma'lumot muammosi</b>
+        <span class="nima"><code>fake('uz_UZ')</code> <b>jimgina</b> inglizchaga
+        qaytadi — Faker'da bunday til yo'q. Yechim: o'z ro'yxatingiz.</span></li>
+      <li><b><code>make()</code> va <code>create()</code></b>
+        <span class="nima">Biri bazaga <b>yozmaydi</b>, ikkinchisi yozadi.
+        <code>count()</code> va aniq qiymat berish.</span></li>
+      <li><b>Bog'lanishlar bilan yasash</b>
+        <span class="nima">Ichma-ich factory · <code>has()</code> · <code>for()</code> ·
+        <code>hasAttached()</code> (pivot). ⚠️ O'zbekcha nomda bog'lanish nomini
+        <b>aniq</b> berish shart.</span></li>
+      <li><b>State — «shu holatda» yozuv</b>
+        <span class="nima"><code>yopiq()</code>, <code>boy()</code> kabi metodlar va
+        ularni <b>zanjirlab</b> ishlatish.</span></li>
+      <li><b>Seeder — bazani to'ldirish rejasi</b>
+        <span class="nima"><code>DatabaseSeeder</code> · <code>db:seed</code> ·
+        <code>migrate:fresh --seed</code>. Factory <b>bitta</b> yozuv, seeder
+        <b>butun rasm</b>.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima">Belgilangan ma'lumot (factory emas!) · trait yo'q ·
+        nom taxmini · o'zbekcha <code>fake</code> · state · hajm va tezlik ·
+        qayta ishga tushirish.</span></li>
+      <li><b>Hajm va tezlik o'lchovi</b>
+        <span class="nima">200 vakansiya: ichma-ich factory bilan <b>400 so'rov</b>,
+        <code>for()</code> bilan <b>200</b> — uch barobar farq.</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Nega bu muhim</span>
+    <p>Hozirgi holatga qarang: <code>sql/05-malumot.php</code>,
+    <code>sql/09-konikma.php</code>, <code>sql/11-konikma-n1.php</code> — uchta skript
+    va ularda <b>bir xil</b> ish qayta-qayta yozilgan. Jadvalga yangi ustun qo'shsangiz,
+    uchalasini ham tuzatish kerak.</p>
+    <p>Ikkinchi va kattaroq muammo — <b>hajm</b>. 5 qator bilan:</p>
+    <ul>
+      <li><b>Sahifalash</b>ni sinab bo'lmaydi — bitta sahifaga hammasi sig'adi.</li>
+      <li><b>Tezlik</b>ni o'lchab bo'lmaydi — 26-darsdagi N+1 muammosi 5 qatorda
+      sezilmadi, 500 qatorda sezilardi.</li>
+      <li><b>Test</b>lar uchun har safar toza, ishonchli ma'lumot kerak (Modul E).</li>
+    </ul>
+    <p>Laravel'ning yechimi ikkita: <b>factory</b> — bitta yozuvni qanday yasashning
+    retsepti; <b>seeder</b> — bazani to'ldirishning butun rejasi. Bu ikkisi ish
+    joyidagi standart amaliyot: har Laravel loyihasida <code>database/factories/</code>
+    va <code>database/seeders/</code> papkalari bo'ladi.</p>
+  </div>
+
+  <!-- ═══════════════ 2) TUSHUNCHA ═══════════════ -->
+  <h2>Factory — bitta yozuvning retsepti</h2>
+
+  <div class="codefile">
+    <div class="fname">terminal</div>
+    <code class="cmd" data-cmd="php artisan make:factory KompaniyaFactory">php artisan make:factory KompaniyaFactory</code>
+  </div>
+
+  <div class="codefile">
+    <div class="fname">database/factories/KompaniyaFactory.php — yasalgani</div>
+    <code class="cmd" data-cmd="namespace Database\Factories;
+
+use App\Models\Kompaniya;
+use Illuminate\Database\Eloquent\Factories\Factory;
+
+class KompaniyaFactory extends Factory
+{
+    public function definition(): array
+    {
+        return [
+            //
+        ];
+    }
+}">namespace Database\Factories;
+
+use App\Models\Kompaniya;
+use Illuminate\Database\Eloquent\Factories\Factory;
+
+class KompaniyaFactory extends Factory
+{
+    public function definition(): array
+    {
+        return [
+            //
+        ];
+    }
+}</code>
+  </div>
+
+  <p>Laravel modelni <b>o'zi topdi</b> — <code><b>Kompaniya</b>Factory</code> nomidan.
+  Bizga faqat <code>definition()</code> ni to'ldirish qoldi: u <b>bitta</b> yozuvning
+  maydonlarini qaytaradi.</p>
+
+  <div class="callout warning">
+    <span class="label">⚠️ Birinchi to'siq: <code>HasFactory</code> trait'i</span>
+    <p>Factory yozilgan, lekin <code>Kompaniya::factory()</code> chaqirsangiz:</p>
+    <div class="natija">BadMethodCallException
+Call to undefined method App\Models\Kompaniya::factory()</div>
+    <p>Sababi: <code>factory()</code> metodi modelda <b>yo'q</b> — u <b>trait</b> orqali
+    keladi (10-dars!). Modelga bitta qator qo'shish kerak:</p>
+    <div class="natija">use Illuminate\Database\Eloquent\Factories\HasFactory;
+
+class Kompaniya extends Model
+{
+    use HasFactory;      // ← shu
+    ...
+}</div>
+    <p>Bu xato <b>ovoz chiqaradi</b> va xabari aniq, shuning uchun qo'rqmang — lekin
+    birinchi marta uchraganda chalkashtiradi. Laravel'ning <code>User</code> modelida
+    bu trait <b>allaqachon bor</b> (16-darsda ko'rgan skeletonda), shuning uchun ko'p
+    o'quvchi uni umuman sezmaydi.</p>
+  </div>
+
+  <h2><code>fake()</code> — soxta, lekin realistik ma'lumot</h2>
+
+  <p><code>fake()</code> — Laravel bilan birga keladigan <b>Faker</b> kutubxonasi.
+  U tasodifiy, lekin <b>ma'noli</b> qiymat beradi:</p>
+
+  <table class="sheet">
+    <tr><th>Chaqiruv</th><th class="note-cell">Natija (misol)</th></tr>
+    <tr><td><code>fake()-&gt;numberBetween(400, 3000)</code></td><td class="note-cell"><code>1265</code></td></tr>
+    <tr><td><code>fake()-&gt;boolean(80)</code></td><td class="note-cell"><code>true</code> — 80% ehtimol bilan</td></tr>
+    <tr><td><code>fake()-&gt;randomElement(['a', 'b'])</code></td><td class="note-cell">Ro'yxatdan bittasi</td></tr>
+    <tr><td><code>fake()-&gt;unique()-&gt;word()</code></td><td class="note-cell">Takrorlanmaydigan so'z</td></tr>
+    <tr><td><code>fake()-&gt;sentence(6)</code></td><td class="note-cell">6 so'zli gap (inglizcha)</td></tr>
+    <tr><td><code>fake()-&gt;dateTimeBetween('-1 year')</code></td><td class="note-cell">Oxirgi bir yildagi tasodifiy sana</td></tr>
+    <tr><td><code>fake()-&gt;company()</code> · <code>city()</code> · <code>name()</code></td><td class="note-cell"><code>Sawayn-Ritchie</code> · <code>Alexismouth</code> · <code>Vena Abernathy</code></td></tr>
+  </table>
+
+  <div class="callout warning">
+    <span class="label">⚠️ O'zbekcha ma'lumot: <code>fake('uz_UZ')</code> ishlamaydi</span>
+    <p>Faker turli tillarni biladi, lekin <b>o'zbek tili yo'q</b>. Va eng yomoni —
+    u <b>xato bermaydi</b>:</p>
+    <div class="natija">fake('uz_UZ')-&gt;company()   →  "Predovic Inc"     ← inglizcha!
+fake('uz_UZ')-&gt;city()      →  "Hahnfurt"         ← inglizcha!
+
+Xato:  yo'q. Jimgina standart tilga (en_US) qaytadi.</div>
+    <p>Mavjud tillarni <code>vendor/fakerphp/faker/src/Faker/Provider/</code> papkasida
+    ko'rish mumkin — <code>ru_RU</code>, <code>tr_TR</code> bor, <code>uz_UZ</code>
+    yo'q. <code>ru_RU</code> esa <b>kirill alifbosida</b>
+    yozadi (shahar nomlari kirill harflarida chiqadi) — bizga to'g'ri kelmaydi.</p>
+    <p>✅ <b>Yechim — o'z ro'yxatingizdan tanlash:</b></p>
+    <div class="natija">'shahar' =&gt; fake()-&gt;randomElement(['Toshkent', 'Samarqand', 'Buxoro', 'Namangan']),
+
+'nom' =&gt; fake()-&gt;randomElement(['Backend', 'Frontend', 'Mobil', 'DevOps'])
+    . ' ' . fake()-&gt;randomElement(['dasturchi', 'muhandis', 'mutaxassis']),</div>
+    <p>Ikki ro'yxatni <b>qo'shish</b> — oddiy hiyla: 6 × 3 = <b>18</b> xil nom beradi.
+    Ma'lumot realistik bo'ladi va o'zbekcha qoladi.</p>
+  </div>
+
+  <div class="codefile">
+    <div class="fname">database/factories/VakansiyaFactory.php</div>
+    <code class="cmd" data-cmd="public function definition(): array
+{
+    return [
+        'nom' =&gt; fake()-&gt;randomElement(['Backend', 'Frontend', 'Full-stack', 'Mobil', 'DevOps', 'QA'])
+            . ' ' . fake()-&gt;randomElement(['dasturchi', 'muhandis', 'mutaxassis']),
+        'maosh' =&gt; fake()-&gt;numberBetween(400, 3000),
+        'shahar' =&gt; fake()-&gt;randomElement(['Toshkent', 'Samarqand', 'Buxoro', 'Namangan']),
+        'faol' =&gt; fake()-&gt;boolean(80),
+        'kompaniya_id' =&gt; Kompaniya::factory(),
+    ];
+}">public function definition(): array
+{
+    return [
+        'nom' =&gt; fake()-&gt;randomElement(['Backend', 'Frontend', 'Full-stack', 'Mobil', 'DevOps', 'QA'])
+            . ' ' . fake()-&gt;randomElement(['dasturchi', 'muhandis', 'mutaxassis']),
+        'maosh' =&gt; fake()-&gt;numberBetween(400, 3000),
+        'shahar' =&gt; fake()-&gt;randomElement(['Toshkent', 'Samarqand', 'Buxoro', 'Namangan']),
+        'faol' =&gt; fake()-&gt;boolean(80),
+        <span class="add">'kompaniya_id' =&gt; Kompaniya::factory(),</span>
+    ];
+}</code>
+  </div>
+
+  <p>Oxirgi qatorga diqqat: <code>'kompaniya_id' =&gt; Kompaniya::factory()</code> —
+  <b>ichma-ich factory</b>. Vakansiya yasalganda Laravel <b>avval kompaniya yasaydi</b>,
+  keyin uning <code>id</code> sini qo'yadi. Ya'ni bog'lanish <b>o'zi</b> to'g'ri
+  bo'ladi (27-darsdagi tashqi kalit qoidasi buzilmaydi).</p>
+
+  <h2><code>make()</code> va <code>create()</code></h2>
+
+  <table class="sheet">
+    <tr><th>Chaqiruv</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>Kompaniya::factory()-&gt;make()</code></td><td class="note-cell">Obyekt yasaydi, <b>bazaga yozmaydi</b>. <code>id</code> — <code>NULL</code></td></tr>
+    <tr><td><code>Kompaniya::factory()-&gt;create()</code></td><td class="note-cell">Yasaydi <b>va bazaga yozadi</b>. <code>id</code> bor</td></tr>
+    <tr><td><code>Kompaniya::factory(3)-&gt;create()</code></td><td class="note-cell"><b>3 ta</b> yasaydi → Collection qaytaradi</td></tr>
+    <tr><td><code>-&gt;create(['nom' =&gt; 'Aniq nom'])</code></td><td class="note-cell">Aniq qiymat beradi, qolganini <code>fake()</code> to'ldiradi</td></tr>
+  </table>
+
+  <p><b>Qachon <code>make()</code>?</b> Bazaga yozish shart bo'lmaganda — masalan
+  testda faqat obyekt kerak bo'lsa, yoki formani to'ldirish uchun namuna ma'lumot
+  yasaganda. Aksariyat hollarda <code>create()</code> ishlatiladi.</p>
+
+  <h2>Bog'lanishlar bilan yasash</h2>
+
+  <table class="sheet">
+    <tr><th>Metod</th><th class="note-cell">Ma'nosi</th></tr>
+    <tr><td><code>-&gt;has(Vakansiya::factory(4), 'vakansiyalar')</code></td><td class="note-cell">«Bu kompaniyaning <b>4 vakansiyasi</b> bo'lsin» (<code>hasMany</code> tomoni)</td></tr>
+    <tr><td><code>-&gt;for($kompaniya, 'kompaniya')</code></td><td class="note-cell">«Bu vakansiya <b>shu kompaniyaga</b> tegishli» (<code>belongsTo</code> tomoni)</td></tr>
+    <tr><td><code>-&gt;hasAttached($konikmalar, ['daraja' =&gt; 'kuchli'], 'konikmalar')</code></td><td class="note-cell">Pivot juftliklarini yasaydi (27-dars), pivot ustuni bilan</td></tr>
+  </table>
+
+  <div class="callout warning">
+    <span class="label">⚠️ Bog'lanish nomini <b>aniq</b> berish — bizda majburiy</span>
+    <p>Uchala metod ham nomni <b>taxmin qilishga</b> urinadi, va taxmin
+    <b>inglizcha ko'plik</b> asosida yasaladi. 25-darsdagi muammo shu yerda
+    <b>qaytadi</b>:</p>
+    <div class="natija">Kompaniya::factory()-&gt;has(Vakansiya::factory(2))-&gt;create();
+
+BadMethodCallException
+Call to undefined method App\Models\Kompaniya::vakansiya()</div>
+    <p>Laravel avval <code>vakansiyas</code> deb sinaydi, topmaydi, keyin
+    <code>vakansiya</code> deb sinaydi — xato xabari <b>ikkinchi</b> urinishni
+    ko'rsatadi. Bizning metod esa <code>vakansiyalar</code>.</p>
+    <p>✅ <b>Yechim — ikkinchi (yoki uchinchi) argument:</b></p>
+    <div class="natija">-&gt;has(Vakansiya::factory(2), 'vakansiyalar')            ✅
+-&gt;for($kompaniya, 'kompaniya')                          ✅
+-&gt;hasAttached($konikmalar, ['daraja' =&gt; 'kuchli'], 'konikmalar')   ✅</div>
+    <p>🔑 <b>Qoida (bu kurs uchun):</b> factory'da bog'lanish nomini <b>har doim</b>
+    yozing. Inglizcha nomli loyihada (<code>Company</code> →
+    <code>vacancies</code>) taxmin ishlaydi, bizda esa — yo'q.</p>
+  </div>
+
+  <h2>State — «shu holatdagi» yozuv</h2>
+
+  <p>Ba'zan aynan <b>yopiq</b> yoki aynan <b>yuqori maoshli</b> vakansiya kerak bo'ladi.
+  Buni har joyda <code>create(['faol' =&gt; false])</code> deb yozish o'rniga,
+  factory'ga <b>nom berilgan holat</b> qo'shiladi:</p>
+
+  <div class="codefile">
+    <div class="fname">database/factories/VakansiyaFactory.php</div>
+    <code class="cmd" data-cmd="public function yopiq(): static
+{
+    return $this-&gt;state(['faol' =&gt; false]);
+}
+
+public function boy(): static
+{
+    return $this-&gt;state(fn (array $atr) =&gt; ['maosh' =&gt; fake()-&gt;numberBetween(3000, 8000)]);
+}">public function yopiq(): static
+{
+    return $this-&gt;state(['faol' =&gt; false]);
+}
+
+public function boy(): static
+{
+    return $this-&gt;state(fn (array $atr) =&gt; ['maosh' =&gt; fake()-&gt;numberBetween(3000, 8000)]);
+}</code>
+  </div>
+
+  <div class="natija">Vakansiya::factory()-&gt;yopiq()-&gt;create()            → faol=false
+Vakansiya::factory()-&gt;boy()-&gt;create()              → maosh=6589
+Vakansiya::factory()-&gt;yopiq()-&gt;boy()-&gt;create()      → faol=false, maosh=3081
+Vakansiya::factory(10)-&gt;yopiq()-&gt;create()           → 10 ta yopiq vakansiya</div>
+
+  <p>State'lar <b>zanjirlanadi</b> — xuddi 25-darsdagi <code>where</code> lar kabi.
+  Ikki shakl bor: oddiy massiv, yoki <code>fn (array $atr) =&gt; [...]</code> (closure —
+  har yozuv uchun <b>alohida</b> hisoblanadi).</p>
+
+  <h2>Seeder — bazani to'ldirishning rejasi</h2>
+
+  <p>Factory <b>bitta</b> yozuvni biladi. «Bazada nima bo'lishi kerak» degan
+  <b>butun rasm</b> esa seeder'da yoziladi:</p>
+
+  <div class="codefile">
+    <div class="fname">database/seeders/DatabaseSeeder.php</div>
+    <code class="cmd" data-cmd="public function run(): void
+{
+    // 1) Ko'nikmalar — belgilangan ro'yxat, tasodifiy emas
+    $konikmalar = collect(['PHP', 'Laravel', 'SQL', 'Git', 'Docker', 'JavaScript', 'Linux', 'Redis'])
+        -&gt;map(fn (string $nom) =&gt; Konikma::firstOrCreate(['nom' =&gt; $nom]));
+
+    // 2) 5 kompaniya, har birida 4 vakansiya
+    Kompaniya::factory(5)
+        -&gt;has(Vakansiya::factory(4), 'vakansiyalar')
+        -&gt;create();
+
+    // 3) Har vakansiyaga 1-3 tasodifiy ko'nikma
+    Vakansiya::all()-&gt;each(
+        fn (Vakansiya $v) =&gt; $v-&gt;konikmalar()-&gt;sync(
+            $konikmalar-&gt;random(fake()-&gt;numberBetween(1, 3))-&gt;pluck('id')-&gt;all()
+        )
+    );
+}">public function run(): void
+{
+    // 1) Ko'nikmalar — belgilangan ro'yxat, tasodifiy emas
+    $konikmalar = collect(['PHP', 'Laravel', 'SQL', 'Git', 'Docker', 'JavaScript', 'Linux', 'Redis'])
+        -&gt;map(fn (string $nom) =&gt; Konikma::firstOrCreate(['nom' =&gt; $nom]));
+
+    // 2) 5 kompaniya, har birida 4 vakansiya
+    Kompaniya::factory(5)
+        -&gt;has(Vakansiya::factory(4), 'vakansiyalar')
+        -&gt;create();
+
+    // 3) Har vakansiyaga 1-3 tasodifiy ko'nikma
+    Vakansiya::all()-&gt;each(
+        fn (Vakansiya $v) =&gt; $v-&gt;konikmalar()-&gt;sync(
+            $konikmalar-&gt;random(fake()-&gt;numberBetween(1, 3))-&gt;pluck('id')-&gt;all()
+        )
+    );
+}</code>
+  </div>
+
+  <p>Uch qadamning har biri <b>ongli qaror</b>:</p>
+  <ul>
+    <li><b>Ko'nikmalar — factory emas.</b> «PHP», «Laravel» — bular <b>belgilangan</b>
+    qiymatlar, tasodifiy so'z bo'lmasligi kerak. Shuning uchun oddiy ro'yxat va
+    <code>firstOrCreate</code> («bo'lsa top, bo'lmasa yarat»).</li>
+    <li><b>Kompaniya + vakansiya — birga.</b> <code>has()</code> ikkisini bir chaqiruvda
+    yasaydi va bog'lanishni to'g'ri qo'yadi.</li>
+    <li><b>Ko'nikmalar keyin biriktiriladi.</b> Chunki ular allaqachon mavjud —
+    27-darsdagi <code>sync()</code> shu yerda o'z joyida ishlatilgan.</li>
+  </ul>
+
+  <table class="sheet">
+    <tr><th>Buyruq</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>php artisan db:seed</code></td><td class="note-cell">Seeder'ni ishga tushiradi (mavjud ma'lumot <b>qoladi</b>)</td></tr>
+    <tr><td><code>php artisan migrate:fresh --seed</code></td><td class="note-cell">Jadvallarni qaytadan yasab, <b>keyin</b> to'ldiradi. Kunlik ish shakli</td></tr>
+    <tr><td><code>php artisan db:seed --class=KonikmaSeeder</code></td><td class="note-cell">Faqat bittasini (seeder'lar bir nechta bo'lishi mumkin)</td></tr>
+  </table>
+
+  <div class="natija">$ php artisan migrate:fresh --seed
+
+INFO  Seeding database.
+Solindi: 5 kompaniya, 20 vakansiya, 8 ko'nikma.</div>
+
+  <p>🎉 Endi <b>bitta buyruq</b> — va baza to'liq, bog'lanishlari joyida, realistik
+  ma'lumot bilan. Uchta qo'lda yozilgan skript kerak emas.</p>
+
+  <!-- ═══════════════ 3) HAR XIL HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir bir marta o'qib chiqing, keyin
+  kerak bo'lganda qaytib qarang.</p>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 1</span>
+    <h4>Belgilangan ma'lumot — factory <b>kerak emas</b></h4>
+    <p>Ko'nikma nomlari («PHP», «SQL»), viloyatlar ro'yxati, to'lov turlari —
+    bular <b>tasodifiy bo'lmasligi kerak</b>. Ularga factory yozish xato:</p>
+    <div class="natija">❌ Konikma::factory(8)-&gt;create();
+   → "laudantium", "voluptas" kabi ma'nosiz nomlar
+
+✅ foreach (['PHP', 'Laravel', 'SQL'] as $nom) {
+       Konikma::firstOrCreate(['nom' =&gt; $nom]);
+   }</div>
+    <p><code>firstOrCreate</code> — «bo'lsa top, bo'lmasa yarat». Shuning uchun seeder
+    <b>ikki marta</b> ishga tushsa ham takroriy qator paydo bo'lmaydi.</p>
+    <p>🔑 <b>Qoida:</b> factory — <b>hajm</b> uchun; belgilangan ma'lumot —
+    ro'yxat + <code>firstOrCreate</code>.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 2</span>
+    <h4><code>HasFactory</code> trait'i yo'q</h4>
+    <div class="natija">Call to undefined method App\Models\Kompaniya::factory()</div>
+    <p>Xato <b>aniq</b> va darhol chiqadi. Yechim — modelga
+    <code>use HasFactory;</code> qo'shish (va yuqoriga <code>use
+    Illuminate\Database\Eloquent\Factories\HasFactory;</code>).</p>
+    <p>Nima uchun bu chalkashtiradi: Laravel'ning <code>User</code> modelida bu trait
+    <b>allaqachon bor</b>, shuning uchun hujjatlardagi misollar «ishlaydi», o'z
+    modelingizda esa yo'q.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 3</span>
+    <h4>Bog'lanish nomi taxmin qilinmaydi</h4>
+    <div class="natija">Kompaniya::factory()-&gt;has(Vakansiya::factory(2))-&gt;create();
+→ Call to undefined method App\Models\Kompaniya::vakansiya()
+
+Vakansiya::factory()-&gt;hasAttached($konikmalar)-&gt;create();
+→ Call to undefined method App\Models\Vakansiya::konikmas()</div>
+    <p>Laravel <b>inglizcha ko'plik</b> yasashga urinadi
+    (<code>Konikma</code> → <code>konikmas</code>). Ikki xato ham
+    <b>ovoz chiqaradi</b>, ya'ni jimgina buzilish emas — bu yaxshi.</p>
+    <p>✅ Nomni <b>har doim</b> yozing:</p>
+    <div class="natija">-&gt;has(Vakansiya::factory(2), 'vakansiyalar')
+-&gt;hasAttached($konikmalar, [], 'konikmalar')
+-&gt;for($kompaniya, 'kompaniya')</div>
+    <p><code>hasAttached</code> da pivot ma'lumoti bo'lmasa ham <b>bo'sh massiv</b>
+    (<code>[]</code>) berish kerak — chunki nom <b>uchinchi</b> argument.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 4</span>
+    <h4>O'zbekcha <code>fake()</code> — jimgina inglizcha</h4>
+    <div class="natija">fake('uz_UZ')-&gt;city()   →  "Hahnfurt"     ← xato yo'q, lekin inglizcha</div>
+    <p>Faker'da o'zbek tili yo'q va u <b>jimgina</b> standart tilga qaytadi. Bu
+    26 va 27-darslardagi «jimgina buzilish»larning uchinchi ko'rinishi.</p>
+    <p>✅ Uch yechim, foydalilik tartibida:</p>
+    <div class="natija">1) O'z ro'yxatingiz (eng oddiy va ishonchli)
+   fake()-&gt;randomElement(['Toshkent', 'Samarqand', 'Buxoro'])
+
+2) Ikki ro'yxatni qo'shish (ko'p variant kerak bo'lsa)
+   randomElement([...]) . ' ' . randomElement([...])     → 6 × 3 = 18 xil
+
+3) Tuzilmasi muhim bo'lgan joyda inglizcha qoldirish
+   'email' =&gt; fake()-&gt;unique()-&gt;safeEmail()   ← email shakli tildan qat'i nazar bir xil</div>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 5</span>
+    <h4>State: massiv yoki closure</h4>
+    <div class="natija">// Massiv — qiymat har doim bir xil
+public function yopiq(): static
+{
+    return $this-&gt;state(['faol' =&gt; false]);
+}
+
+// Closure — har yozuv uchun ALOHIDA hisoblanadi
+public function boy(): static
+{
+    return $this-&gt;state(fn (array $atr) =&gt; ['maosh' =&gt; fake()-&gt;numberBetween(3000, 8000)]);
+}</div>
+    <p>Farqi muhim: <code>state(['maosh' =&gt; fake()-&gt;numberBetween(...)])</code> yozsangiz,
+    <code>fake()</code> <b>bir marta</b> chaqiriladi va 10 ta yozuvda <b>bir xil</b>
+    maosh bo'ladi. Closure ichida esa har yozuv uchun qaytadan chaqiriladi.</p>
+    <p><code>$atr</code> — shu yozuvning boshqa maydonlari, ya'ni bir maydonni
+    ikkinchisiga qarab hisoblash mumkin.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 6</span>
+    <h4>Hajm va tezlik — ichma-ich factory qimmat</h4>
+    <p>200 vakansiya yasashning ikki usuli <b>o'lchandi</b>:</p>
+    <div class="natija">factory(200)-&gt;create()                  1579 ms   400 so'rov
+   (har vakansiya O'ZIGA kompaniya yasadi)
+
+factory(200)-&gt;for($k, 'kompaniya')-&gt;create()   562 ms   200 so'rov
+   (hammasi bitta kompaniyaga)</div>
+    <p>Sababi aniq: <code>kompaniya_id =&gt; Kompaniya::factory()</code> qatori
+    har vakansiya uchun <b>yana bitta <code>INSERT</code></b> qiladi.</p>
+    <p>⚠️ <b>Raqamlarni qanday o'qish kerak:</b> so'rovlar soni <b>barqaror</b> —
+    har doim 400 va 200. Millisekundlar esa har ishga tushirishda o'zgaradi
+    (bizda 1579/562 va 1113/730 chiqdi) va kompyuterga bog'liq. Shuning uchun
+    tezlikni <b>so'rovlar soni</b> bilan o'lchash ishonchliroq.</p>
+    <p>🔑 <b>Qoida:</b> ko'p yozuv kerak bo'lsa, «ota» yozuvlarni <b>oldin</b> yasab,
+    keyin <code>for()</code> bilan ulang:</p>
+    <div class="natija">$kompaniyalar = Kompaniya::factory(10)-&gt;create();
+
+foreach ($kompaniyalar as $k) {
+    Vakansiya::factory(50)-&gt;for($k, 'kompaniya')-&gt;create();
+}
+// 10 kompaniya + 500 vakansiya = 510 INSERT, 5000 emas</div>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>Seeder'ni ikki marta ishga tushirish</h4>
+    <p><code>db:seed</code> mavjud ma'lumotni <b>o'chirmaydi</b> — qo'shadi. Ikki marta
+    chaqirsangiz ma'lumot <b>ikki barobar</b> bo'ladi:</p>
+    <div class="natija">php artisan db:seed        → 5 kompaniya
+php artisan db:seed        → 10 kompaniya  (yana 5 qo'shildi)</div>
+    <p>Ko'nikmalar esa takrorlanmaydi — <code>firstOrCreate</code> tufayli. Ya'ni
+    seeder'ning <b>bir qismi</b> idempotent, bir qismi yo'q.</p>
+    <p>✅ Ikki yo'l bor:</p>
+    <div class="natija">1) migrate:fresh --seed        ← toza holatdan (ishlab chiqishda odatiy yo'l)
+2) Seeder boshida tozalash:
+   Vakansiya::query()-&gt;delete();
+   Kompaniya::query()-&gt;delete();</div>
+    <p>⚠️ Real serverda <b>ikkalasi ham xavfli</b> — u yerda seeder faqat
+    <b>belgilangan</b> ma'lumot uchun ishlatiladi (viloyatlar ro'yxati kabi), tasodifiy
+    ma'lumot uchun emas.</p>
+  </div>
+
+  <!-- ═══════════════ 4) AMALIYOT / MODE-HINT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    <span class="mode-hint-title">💻 Amaliy qism kompyuterda</span>
+    <p>Amaliyotda ikkita factory va bitta seeder yozasiz, keyin <code>migrate:fresh
+    --seed</code> bilan bazani to'ldirasiz. Yo'lda <code>HasFactory</code> yo'qligidagi
+    xatoni, bog'lanish nomi taxminining ishlamasligini va ichma-ich factory'ning
+    tezlikka ta'sirini <b>o'z ko'zingiz bilan</b> ko'rasiz.</p>
+    <button type="button" class="modebtn" data-set-mode="do">💻 Amaliyot rejimini ko'rish</button>
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <p>Ikkita factory yarating</p>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+php artisan make:factory KompaniyaFactory
+php artisan make:factory VakansiyaFactory
+cat database/factories/KompaniyaFactory.php">cd ~/Projects/Learn/ishtop
+php artisan make:factory KompaniyaFactory
+php artisan make:factory VakansiyaFactory
+cat database/factories/KompaniyaFactory.php
+<span class="out">INFO  Factory [database/factories/KompaniyaFactory.php] created successfully.</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> ikki fayl. Ochib qarasangiz Laravel
+        modelni <b>o'zi topgan</b>: <code>use App\Models\Kompaniya;</code>.
+        <code>definition()</code> esa bo'sh.</p>
+      </li>
+
+      <li>
+        <p>⚠️ <code>HasFactory</code> siz sinab ko'ring</p>
+        <p class="why-step">Xatoni <b>oldin</b> ko'rish — keyin uni tanib olish uchun.</p>
+        <div class="cmd" data-cmd="php artisan tinker --execute=&quot;App\Models\Kompaniya::factory()&quot; 2&gt;&amp;1 | head -3">php artisan tinker --execute="App\Models\Kompaniya::factory()" 2&gt;&amp;1 | head -3
+<span class="out">BadMethodCallException Call to undefined method App\Models\Kompaniya::factory().</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> aniq xato. Sababi: <code>factory()</code>
+        metodi modelda yo'q — u <b>trait</b> orqali keladi (10-dars).</p>
+      </li>
+
+      <li>
+        <p>Uch modelga <code>HasFactory</code> qo'shing</p>
+        <p><code>Kompaniya.php</code>, <code>Vakansiya.php</code> va
+        <code>Konikma.php</code> ning har birida <b>ikki qator</b>:</p>
+        <div class="cmd" data-cmd="use Illuminate\Database\Eloquent\Factories\HasFactory;   // yuqoriga, boshqa use lar yoniga
+
+class Kompaniya extends Model
+{
+    use HasFactory;                                       // klass ichiga, birinchi qator">use Illuminate\Database\Eloquent\Factories\HasFactory;   // yuqoriga, boshqa use lar yoniga
+
+class Kompaniya extends Model
+{
+    use HasFactory;                                       // klass ichiga, birinchi qator</div>
+        <p class="expect"><b>Kutilgan natija:</b> uch fayl o'zgardi. Tekshirish:
+        <code>php -l app/Models/Kompaniya.php</code></p>
+      </li>
+
+      <li>
+        <p>Factory'larni to'ldiring</p>
+        <p class="why-step">O'zbekcha ma'lumot uchun o'z ro'yxatlarimizni ishlatamiz.</p>
+        <div class="cmd" data-cmd="cat &gt; database/factories/KompaniyaFactory.php &lt;&lt;'EOF'
+&lt;?php
+
+namespace Database\Factories;
+
+use App\Models\Kompaniya;
+use Illuminate\Database\Eloquent\Factories\Factory;
+
+/**
+ * @extends Factory&lt;Kompaniya&gt;
+ */
+class KompaniyaFactory extends Factory
+{
+    public function definition(): array
+    {
+        return [
+            'nom' =&gt; fake()-&gt;randomElement(['Uzum', 'EPAM', 'IT Park', 'Payme', 'Click', 'Alif', 'Softex'])
+                . ' ' . fake()-&gt;randomElement(['Tech', 'Soft', 'Group', 'Lab', 'Digital']),
+            'shahar' =&gt; fake()-&gt;randomElement(['Toshkent', 'Samarqand', 'Buxoro', 'Namangan', 'Andijon']),
+        ];
+    }
+}
+EOF
+
+cat &gt; database/factories/VakansiyaFactory.php &lt;&lt;'EOF'
+&lt;?php
+
+namespace Database\Factories;
+
+use App\Models\Kompaniya;
+use App\Models\Vakansiya;
+use Illuminate\Database\Eloquent\Factories\Factory;
+
+/**
+ * @extends Factory&lt;Vakansiya&gt;
+ */
+class VakansiyaFactory extends Factory
+{
+    public function definition(): array
+    {
+        return [
+            'nom' =&gt; fake()-&gt;randomElement(['Backend', 'Frontend', 'Full-stack', 'Mobil', 'DevOps', 'QA'])
+                . ' ' . fake()-&gt;randomElement(['dasturchi', 'muhandis', 'mutaxassis']),
+            'maosh' =&gt; fake()-&gt;numberBetween(400, 3000),
+            'shahar' =&gt; fake()-&gt;randomElement(['Toshkent', 'Samarqand', 'Buxoro', 'Namangan']),
+            'faol' =&gt; fake()-&gt;boolean(80),
+            'kompaniya_id' =&gt; Kompaniya::factory(),
+        ];
+    }
+
+    public function yopiq(): static
+    {
+        return $this-&gt;state(['faol' =&gt; false]);
+    }
+
+    public function boy(): static
+    {
+        return $this-&gt;state(fn (array $atr) =&gt; ['maosh' =&gt; fake()-&gt;numberBetween(3000, 8000)]);
+    }
+}
+EOF
+php -l database/factories/VakansiyaFactory.php">cat &gt; database/factories/KompaniyaFactory.php &lt;&lt;'EOF'
+&lt;?php
+
+namespace Database\Factories;
+
+use App\Models\Kompaniya;
+use Illuminate\Database\Eloquent\Factories\Factory;
+
+/**
+ * @extends Factory&lt;Kompaniya&gt;
+ */
+class KompaniyaFactory extends Factory
+{
+    public function definition(): array
+    {
+        return [
+            'nom' =&gt; fake()-&gt;randomElement(['Uzum', 'EPAM', 'IT Park', 'Payme', 'Click', 'Alif', 'Softex'])
+                . ' ' . fake()-&gt;randomElement(['Tech', 'Soft', 'Group', 'Lab', 'Digital']),
+            'shahar' =&gt; fake()-&gt;randomElement(['Toshkent', 'Samarqand', 'Buxoro', 'Namangan', 'Andijon']),
+        ];
+    }
+}
+EOF
+
+cat &gt; database/factories/VakansiyaFactory.php &lt;&lt;'EOF'
+&lt;?php
+
+namespace Database\Factories;
+
+use App\Models\Kompaniya;
+use App\Models\Vakansiya;
+use Illuminate\Database\Eloquent\Factories\Factory;
+
+/**
+ * @extends Factory&lt;Vakansiya&gt;
+ */
+class VakansiyaFactory extends Factory
+{
+    public function definition(): array
+    {
+        return [
+            'nom' =&gt; fake()-&gt;randomElement(['Backend', 'Frontend', 'Full-stack', 'Mobil', 'DevOps', 'QA'])
+                . ' ' . fake()-&gt;randomElement(['dasturchi', 'muhandis', 'mutaxassis']),
+            'maosh' =&gt; fake()-&gt;numberBetween(400, 3000),
+            'shahar' =&gt; fake()-&gt;randomElement(['Toshkent', 'Samarqand', 'Buxoro', 'Namangan']),
+            'faol' =&gt; fake()-&gt;boolean(80),
+            <span class="add">'kompaniya_id' =&gt; Kompaniya::factory(),</span>
+        ];
+    }
+
+    <span class="add">public function yopiq(): static
+    {
+        return $this-&gt;state(['faol' =&gt; false]);
+    }
+
+    public function boy(): static
+    {
+        return $this-&gt;state(fn (array $atr) =&gt; ['maosh' =&gt; fake()-&gt;numberBetween(3000, 8000)]);
+    }</span>
+}
+EOF
+php -l database/factories/VakansiyaFactory.php
+<span class="out">No syntax errors detected</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> «No syntax errors detected».</p>
+      </li>
+
+      <li>
+        <p>🎯 Factory'ni sinab ko'ring — barcha shakllarda</p>
+        <p class="why-step">Darsning yuragi. Har shaklning natijasini ko'rasiz, shu
+        qatorda ikkita xatoni ham.</p>
+        <div class="cmd" data-cmd="cat &gt; sql/12-factory.php &lt;&lt;'EOF'
+&lt;?php
+
+use App\Models\Kompaniya;
+use App\Models\Konikma;
+use App\Models\Vakansiya;
+
+require __DIR__ . '/../vendor/autoload.php';
+$app = require_once __DIR__ . '/../bootstrap/app.php';
+$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+
+echo '── make() — bazaga YOZMAYDI', PHP_EOL;
+$k = Kompaniya::factory()-&gt;make();
+echo '   ', $k-&gt;nom, ' | ', $k-&gt;shahar, ' | id=', var_export($k-&gt;id, true), PHP_EOL;
+
+echo PHP_EOL, '── create() — bazaga YOZADI', PHP_EOL;
+$k = Kompaniya::factory()-&gt;create();
+echo '   ', $k-&gt;nom, ' | id=', $k-&gt;id, PHP_EOL;
+
+echo PHP_EOL, '── count(3)', PHP_EOL;
+foreach (Kompaniya::factory(3)-&gt;create() as $x) { echo '   ', $x-&gt;nom, PHP_EOL; }
+
+echo PHP_EOL, '── ichma-ich factory', PHP_EOL;
+$oldin = Kompaniya::count();
+$v = Vakansiya::factory()-&gt;create();
+echo '   ', $v-&gt;nom, ' → ', $v-&gt;kompaniya-&gt;nom, PHP_EOL;
+echo '   kompaniyalar: ', $oldin, ' → ', Kompaniya::count(), ' (o\'zi yasadi)', PHP_EOL;
+
+echo PHP_EOL, '── has() nomsiz — XATO kutilyapti', PHP_EOL;
+try {
+    Kompaniya::factory()-&gt;has(Vakansiya::factory(2))-&gt;create();
+} catch (Throwable $e) {
+    echo '   ', explode(PHP_EOL, $e-&gt;getMessage())[0], PHP_EOL;
+}
+
+echo PHP_EOL, '── has() nom bilan', PHP_EOL;
+$k = Kompaniya::factory()-&gt;has(Vakansiya::factory(2), 'vakansiyalar')-&gt;create();
+echo '   ', $k-&gt;nom, ' → ', $k-&gt;vakansiyalar-&gt;count(), ' vakansiya', PHP_EOL;
+
+echo PHP_EOL, '── state: yopiq() va boy()', PHP_EOL;
+echo '   yopiq: faol=', var_export((bool) Vakansiya::factory()-&gt;yopiq()-&gt;create()-&gt;faol, true), PHP_EOL;
+echo '   boy  : maosh=', Vakansiya::factory()-&gt;boy()-&gt;create()-&gt;maosh, PHP_EOL;
+
+echo PHP_EOL, '── fake(\'uz_UZ\') — jimgina inglizcha', PHP_EOL;
+echo '   ', fake('uz_UZ')-&gt;city(), ' | ', fake('uz_UZ')-&gt;company(), PHP_EOL;
+EOF
+php sql/12-factory.php">cat &gt; sql/12-factory.php &lt;&lt;'EOF'
+&lt;?php
+
+use App\Models\Kompaniya;
+use App\Models\Konikma;
+use App\Models\Vakansiya;
+
+require __DIR__ . '/../vendor/autoload.php';
+$app = require_once __DIR__ . '/../bootstrap/app.php';
+$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+
+echo '── make() — bazaga YOZMAYDI', PHP_EOL;
+$k = Kompaniya::factory()-&gt;make();
+echo '   ', $k-&gt;nom, ' | ', $k-&gt;shahar, ' | id=', var_export($k-&gt;id, true), PHP_EOL;
+
+echo PHP_EOL, '── create() — bazaga YOZADI', PHP_EOL;
+$k = Kompaniya::factory()-&gt;create();
+echo '   ', $k-&gt;nom, ' | id=', $k-&gt;id, PHP_EOL;
+
+echo PHP_EOL, '── count(3)', PHP_EOL;
+foreach (Kompaniya::factory(3)-&gt;create() as $x) { echo '   ', $x-&gt;nom, PHP_EOL; }
+
+echo PHP_EOL, '── ichma-ich factory', PHP_EOL;
+$oldin = Kompaniya::count();
+$v = Vakansiya::factory()-&gt;create();
+echo '   ', $v-&gt;nom, ' → ', $v-&gt;kompaniya-&gt;nom, PHP_EOL;
+echo '   kompaniyalar: ', $oldin, ' → ', Kompaniya::count(), ' (o\'zi yasadi)', PHP_EOL;
+
+echo PHP_EOL, '── has() nomsiz — XATO kutilyapti', PHP_EOL;
+try {
+    Kompaniya::factory()-&gt;has(Vakansiya::factory(2))-&gt;create();
+} catch (Throwable $e) {
+    echo '   ', explode(PHP_EOL, $e-&gt;getMessage())[0], PHP_EOL;
+}
+
+echo PHP_EOL, '── has() nom bilan', PHP_EOL;
+$k = Kompaniya::factory()-&gt;has(Vakansiya::factory(2), 'vakansiyalar')-&gt;create();
+echo '   ', $k-&gt;nom, ' → ', $k-&gt;vakansiyalar-&gt;count(), ' vakansiya', PHP_EOL;
+
+echo PHP_EOL, '── state: yopiq() va boy()', PHP_EOL;
+echo '   yopiq: faol=', var_export((bool) Vakansiya::factory()-&gt;yopiq()-&gt;create()-&gt;faol, true), PHP_EOL;
+echo '   boy  : maosh=', Vakansiya::factory()-&gt;boy()-&gt;create()-&gt;maosh, PHP_EOL;
+
+echo PHP_EOL, '── fake(\'uz_UZ\') — jimgina inglizcha', PHP_EOL;
+echo '   ', fake('uz_UZ')-&gt;city(), ' | ', fake('uz_UZ')-&gt;company(), PHP_EOL;
+EOF
+php sql/12-factory.php
+<span class="out">   Click Tech | Samarqand | id=NULL</span>
+<span class="out">   kompaniyalar: 7 → 8 (o'zi yasadi)</span>
+<span class="out">   Call to undefined method App\Models\Kompaniya::vakansiya()</span>
+<span class="out">   Uzum Lab → 2 vakansiya</span>
+<span class="out">   yopiq: faol=false</span>
+<span class="out">   Hahnfurt | Predovic Inc</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> sakkiz bo'lim. To'rttasiga alohida
+        diqqat:
+        <br>1) <code>make()</code> da <code>id=NULL</code> — bazaga <b>yozilmagan</b>.
+        <br>2) Ichma-ich factory kompaniyalar sonini <b>oshirdi</b> — vakansiya o'ziga
+        kompaniya yasadi.
+        <br>3) <code>has()</code> nomsiz — <code>vakansiya()</code> metodini izladi va
+        <b>topmadi</b>. Nom bilan esa ishladi.
+        <br>4) <code>fake('uz_UZ')</code> — <b>inglizcha</b> chiqdi, xato bermadi.
+        <br><i>Nomlar va raqamlar sizda boshqacha bo'ladi — <code>fake()</code>
+        tasodifiy.</i></p>
+      </li>
+
+      <li>
+        <p>Seeder'ni yozing</p>
+        <p class="why-step">Factory — bitta yozuv, seeder — butun rasm.</p>
+        <div class="cmd" data-cmd="cat &gt; database/seeders/DatabaseSeeder.php &lt;&lt;'EOF'
+&lt;?php
+
+namespace Database\Seeders;
+
+use App\Models\Kompaniya;
+use App\Models\Konikma;
+use App\Models\Vakansiya;
+use Illuminate\Database\Seeder;
+
+class DatabaseSeeder extends Seeder
+{
+    public function run(): void
+    {
+        $konikmalar = collect(['PHP', 'Laravel', 'SQL', 'Git', 'Docker', 'JavaScript', 'Linux', 'Redis'])
+            -&gt;map(fn (string $nom) =&gt; Konikma::firstOrCreate(['nom' =&gt; $nom]));
+
+        Kompaniya::factory(5)
+            -&gt;has(Vakansiya::factory(4), 'vakansiyalar')
+            -&gt;create();
+
+        Vakansiya::all()-&gt;each(
+            fn (Vakansiya $v) =&gt; $v-&gt;konikmalar()-&gt;sync(
+                $konikmalar-&gt;random(fake()-&gt;numberBetween(1, 3))-&gt;pluck('id')-&gt;all()
+            )
+        );
+
+        $this-&gt;command-&gt;info('Solindi: ' . Kompaniya::count() . ' kompaniya, '
+            . Vakansiya::count() . ' vakansiya, ' . Konikma::count() . ' ko\'nikma.');
+    }
+}
+EOF
+php artisan migrate:fresh --seed">cat &gt; database/seeders/DatabaseSeeder.php &lt;&lt;'EOF'
+&lt;?php
+
+namespace Database\Seeders;
+
+use App\Models\Kompaniya;
+use App\Models\Konikma;
+use App\Models\Vakansiya;
+use Illuminate\Database\Seeder;
+
+class DatabaseSeeder extends Seeder
+{
+    public function run(): void
+    {
+        $konikmalar = collect(['PHP', 'Laravel', 'SQL', 'Git', 'Docker', 'JavaScript', 'Linux', 'Redis'])
+            -&gt;map(fn (string $nom) =&gt; Konikma::firstOrCreate(['nom' =&gt; $nom]));
+
+        Kompaniya::factory(5)
+            -&gt;has(Vakansiya::factory(4), 'vakansiyalar')
+            -&gt;create();
+
+        Vakansiya::all()-&gt;each(
+            fn (Vakansiya $v) =&gt; $v-&gt;konikmalar()-&gt;sync(
+                $konikmalar-&gt;random(fake()-&gt;numberBetween(1, 3))-&gt;pluck('id')-&gt;all()
+            )
+        );
+
+        $this-&gt;command-&gt;info('Solindi: ' . Kompaniya::count() . ' kompaniya, '
+            . Vakansiya::count() . ' vakansiya, ' . Konikma::count() . ' ko\'nikma.');
+    }
+}
+EOF
+php artisan migrate:fresh --seed
+<span class="out">INFO  Seeding database.</span>
+<span class="out">Solindi: 5 kompaniya, 20 vakansiya, 8 ko'nikma.</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> jadvallar qaytadan yasaladi, keyin
+        to'ldiriladi. 🎉 <b>Bitta buyruq</b> — to'liq baza.
+        <br><code>$this-&gt;command-&gt;info(...)</code> — seeder ichidan terminalga
+        xabar chiqarish usuli.</p>
+      </li>
+
+      <li>
+        <p>Natijani ko'ring</p>
+        <div class="cmd" data-cmd="cat &gt; sql/13-korish.php &lt;&lt;'EOF'
+&lt;?php
+
+use App\Models\Vakansiya;
+
+require __DIR__ . '/../vendor/autoload.php';
+$app = require_once __DIR__ . '/../bootstrap/app.php';
+$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+
+foreach (Vakansiya::with(['kompaniya', 'konikmalar'])-&gt;limit(5)-&gt;get() as $v) {
+    printf(&quot;   %-22s %-18s %5d  %s\n&quot;, $v-&gt;nom, $v-&gt;kompaniya-&gt;nom, $v-&gt;maosh,
+        $v-&gt;konikmalar-&gt;pluck('nom')-&gt;implode(', '));
+}
+EOF
+php sql/13-korish.php">cat &gt; sql/13-korish.php &lt;&lt;'EOF'
+&lt;?php
+
+use App\Models\Vakansiya;
+
+require __DIR__ . '/../vendor/autoload.php';
+$app = require_once __DIR__ . '/../bootstrap/app.php';
+$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+
+foreach (Vakansiya::with(['kompaniya', 'konikmalar'])-&gt;limit(5)-&gt;get() as $v) {
+    printf("   %-22s %-18s %5d  %s\n", $v-&gt;nom, $v-&gt;kompaniya-&gt;nom, $v-&gt;maosh,
+        $v-&gt;konikmalar-&gt;pluck('nom')-&gt;implode(', '));
+}
+EOF
+php sql/13-korish.php
+<span class="out">   Full-stack mutaxassis  IT Park Soft        2077  PHP, Git, Redis</span>
+<span class="out">   Backend dasturchi      IT Park Soft        2585  Laravel, Docker</span>
+<span class="out">   Frontend muhandis      IT Park Soft        2561  PHP, Laravel, Redis</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> 5 qator realistik ma'lumot —
+        kompaniyasi va ko'nikmalari bilan. Bularning hech birini siz yozmadingiz.</p>
+      </li>
+
+      <li>
+        <p>⚡ Hajm va tezlikni o'lchang</p>
+        <p class="why-step">Ichma-ich factory qanchalik qimmatligini raqamda ko'rasiz.</p>
+        <div class="cmd" data-cmd="cat &gt; sql/14-hajm.php &lt;&lt;'EOF'
+&lt;?php
+
+use App\Models\Kompaniya;
+use App\Models\Vakansiya;
+use Illuminate\Support\Facades\DB;
+
+require __DIR__ . '/../vendor/autoload.php';
+$app = require_once __DIR__ . '/../bootstrap/app.php';
+$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+
+function olch(string $s, callable $f): void
+{
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+    $t = microtime(true);
+    $f();
+    echo '   ', str_pad($s, 40), round((microtime(true) - $t) * 1000), ' ms   ',
+        count(DB::getQueryLog()), ' so\'rov', PHP_EOL;
+    DB::disableQueryLog();
+}
+
+echo '── 200 vakansiya, ikki xil usul', PHP_EOL;
+olch('factory(200)->create()', function () {
+    Vakansiya::factory(200)-&gt;create();
+});
+
+$k = Kompaniya::factory()-&gt;create();
+olch('factory(200)->for($k, ...)->create()', function () use ($k) {
+    Vakansiya::factory(200)-&gt;for($k, 'kompaniya')-&gt;create();
+});
+
+echo PHP_EOL, '   jami vakansiyalar: ', Vakansiya::count(), PHP_EOL;
+echo '   jami kompaniyalar: ', Kompaniya::count(), PHP_EOL;
+EOF
+php sql/14-hajm.php">cat &gt; sql/14-hajm.php &lt;&lt;'EOF'
+&lt;?php
+
+use App\Models\Kompaniya;
+use App\Models\Vakansiya;
+use Illuminate\Support\Facades\DB;
+
+require __DIR__ . '/../vendor/autoload.php';
+$app = require_once __DIR__ . '/../bootstrap/app.php';
+$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+
+function olch(string $s, callable $f): void
+{
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+    $t = microtime(true);
+    $f();
+    echo '   ', str_pad($s, 40), round((microtime(true) - $t) * 1000), ' ms   ',
+        count(DB::getQueryLog()), ' so\'rov', PHP_EOL;
+    DB::disableQueryLog();
+}
+
+echo '── 200 vakansiya, ikki xil usul', PHP_EOL;
+olch('factory(200)->create()', function () {
+    Vakansiya::factory(200)-&gt;create();
+});
+
+$k = Kompaniya::factory()-&gt;create();
+olch('factory(200)->for($k, ...)->create()', function () use ($k) {
+    Vakansiya::factory(200)-&gt;for($k, 'kompaniya')-&gt;create();
+});
+
+echo PHP_EOL, '   jami vakansiyalar: ', Vakansiya::count(), PHP_EOL;
+echo '   jami kompaniyalar: ', Kompaniya::count(), PHP_EOL;
+EOF
+php sql/14-hajm.php
+<span class="out">   factory(200)->create()                  1579 ms   400 so'rov</span>
+<span class="out">   factory(200)->for($k, ...)->create()     562 ms   200 so'rov</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> ikkinchi usul <b>sezilarli</b>
+        tezroq va so'rovlar soni <b>ikki barobar</b> kam.
+        <br>Sizdagi millisekundlar boshqacha bo'ladi (kompyuterga bog'liq), lekin
+        <b>so'rovlar soni</b> — aynan <b>400</b> va <b>200</b>.
+        <br>Endi bazada 400 dan ortiq vakansiya bor — keyingi darsdagi
+        <b>sahifalash</b> uchun aynan shu kerak.</p>
+      </li>
+
+      <li>
+        <p>Eski skriptlarni tozalang</p>
+        <p class="why-step">Ma'lumot yasashning <b>bitta</b> to'g'ri joyi bo'lishi
+        kerak — seeder.</p>
+        <div class="cmd" data-cmd="ls sql/
+# 05-malumot.php, 09-konikma.php, 11-konikma-n1.php endi kerak emas
+# ularni o'chirishingiz yoki tarix sifatida qoldirishingiz mumkin
+
+php artisan migrate:fresh --seed">ls sql/
+# 05-malumot.php, 09-konikma.php, 11-konikma-n1.php endi kerak emas
+# ularni o'chirishingiz yoki tarix sifatida qoldirishingiz mumkin
+
+php artisan migrate:fresh --seed
+<span class="out">Solindi: 5 kompaniya, 20 vakansiya, 8 ko'nikma.</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> baza toza holatga qaytadi.
+        <br>Bundan keyin ma'lumot kerak bo'lganda <b>faqat</b> shu buyruq.</p>
+      </li>
+
+      <li>
+        <p>Brauzerda ko'ring</p>
+        <div class="cmd" data-cmd="php artisan serve">php artisan serve</div>
+        <p class="expect"><b>Kutilgan natija:</b> <code>/vakansiyalar</code> — 20 ta
+        vakansiya, har birida kompaniya nomi va ko'nikma soni. Bittasini bosing:
+        ko'nikmalar ro'yxati va «shu kompaniyaning boshqa vakansiyalari» bo'limi
+        <b>to'la</b> ishlaydi — chunki ma'lumot yetarli.</p>
+      </li>
+
+      <li>
+        <p>Ishni saqlang</p>
+        <div class="cmd" data-cmd="git add -A
+git commit -m &quot;28-dars: factory va seeder — ma'lumotni Laravel yasaydi&quot;">git add -A
+git commit -m "28-dars: factory va seeder — ma'lumotni Laravel yasaydi"</div>
+        <p class="expect"><b>Kutilgan natija:</b> commit haqida xabar.</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><input type="checkbox" id="d28c1"><label for="d28c1">Ikkita factory yaratdim va to'ldirdim</label></li>
+      <li><input type="checkbox" id="d28c2"><label for="d28c2"><b><code>HasFactory</code> yo'qligidagi xatoni ko'rdim</b> va tuzatdim</label></li>
+      <li><input type="checkbox" id="d28c3"><label for="d28c3"><code>make()</code> va <code>create()</code> farqini <code>id=NULL</code> bilan ko'rdim</label></li>
+      <li><input type="checkbox" id="d28c4"><label for="d28c4"><b>Ichma-ich factory kompaniyani o'zi yasaganini ko'rdim</b></label></li>
+      <li><input type="checkbox" id="d28c5"><label for="d28c5"><b><code>has()</code> nomsiz xato berganini, nom bilan ishlaganini ko'rdim</b> ⚠️</label></li>
+      <li><input type="checkbox" id="d28c6"><label for="d28c6">State metodlarini (<code>yopiq</code>, <code>boy</code>) yozdim va sinadim</label></li>
+      <li><input type="checkbox" id="d28c7"><label for="d28c7"><code>fake('uz_UZ')</code> jimgina inglizcha qaytarganini ko'rdim</label></li>
+      <li><input type="checkbox" id="d28c8"><label for="d28c8"><b><code>migrate:fresh --seed</code> bilan bazani bir buyruqda to'ldirdim</b> 🎉</label></li>
+      <li><input type="checkbox" id="d28c9"><label for="d28c9"><b>Tezlikni o'lchadim: 400 va 200 so'rov</b> ⚡</label></li>
+      <li><input type="checkbox" id="d28c10"><label for="d28c10">Ishni commit qildim</label></li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 5) TAXMIN + QUIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p><code>VakansiyaFactory</code> da <code>'kompaniya_id' =&gt;
+    Kompaniya::factory()</code> qatori bor. Baza <b>bo'sh</b>. Endi:</p>
+    <div class="codefile">
+      <div class="fname">kod</div>
+      <code class="cmd" data-cmd="Vakansiya::factory(200)-&gt;create();
+
+echo Vakansiya::count(), ' vakansiya', PHP_EOL;
+echo Kompaniya::count(), ' kompaniya', PHP_EOL;">Vakansiya::factory(200)-&gt;create();
+
+echo Vakansiya::count(), ' vakansiya', PHP_EOL;
+echo Kompaniya::count(), ' kompaniya', PHP_EOL;</code>
+    </div>
+    <p>Ikki savol: <b>(a)</b> <code>kompaniyalar</code> jadvalida nechta qator bo'ladi?
+    <b>(b)</b> bazaga nechta <code>INSERT</code> yuboriladi?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <div class="natija">(a) 200 kompaniya
+(b) 400 so'rov (1579 ms)</div>
+        <p>Ko'pchilik <b>1 kompaniya</b> deb o'ylaydi — «hammasi bir kompaniyaga
+        tegishli bo'lsa kerak». Aslida <code>Kompaniya::factory()</code> qatori
+        <b>har vakansiya uchun qaytadan</b> bajariladi, ya'ni har biriga <b>o'z
+        kompaniyasi</b> yasaladi.</p>
+        <p>Bu ba'zan aynan kerak (testda «har birining o'z kompaniyasi bo'lsin»),
+        lekin katta hajmda <b>ikki muammo</b> beradi:</p>
+        <ul>
+          <li><b>Tezlik:</b> 400 <code>INSERT</code> o'rniga 200 bo'lardi.
+          Ikki o'lchovda 1579/562 ms va 1113/730 ms chiqdi — vaqt o'zgaradi, lekin
+          <b>so'rovlar soni har doim ikki barobar</b> kam.</li>
+          <li><b>Realistik emas:</b> haqiqiy bozorda 200 kompaniyada bittadan
+          vakansiya bo'lmaydi. Sahifalash yoki hisobotni sinaganda ma'lumot
+          g'alati chiqadi.</li>
+        </ul>
+        <p class="expect">✅ <b>To'g'ri yo'l — «ota»larni oldin yasash:</b></p>
+        <div class="natija">$kompaniyalar = Kompaniya::factory(10)-&gt;create();
+
+foreach ($kompaniyalar as $k) {
+    Vakansiya::factory(20)-&gt;for($k, 'kompaniya')-&gt;create();
+}
+// 10 + 200 = 210 INSERT, va ma'lumot realistik</div>
+        <p>Yoki <code>has()</code> bilan bitta chaqiruvda:
+        <code>Kompaniya::factory(10)-&gt;has(Vakansiya::factory(20),
+        'vakansiyalar')-&gt;create()</code>.</p>
+        <p>🔑 <b>Umumiy qoida:</b> ichma-ich factory <b>qulay</b>, lekin u
+        «yashirin <code>INSERT</code>»: bitta yozuv so'rasangiz ikkitasi yasaladi.
+        Hajm oshganda buni eslash kerak.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span> <code>make()</code> va
+    <code>create()</code> farqi nimada?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">create bazaga yozadi, make yo'q</button></li>
+      <li><button class="quiz-option">create tezroq, make esa sekinroq</button></li>
+      <li><button class="quiz-option">create massiv, make obyekt qaytaradi</button></li>
+    </ul>
+    <div class="quiz-explain"><code>make()</code> faqat obyekt yasaydi —
+    <code>id</code> si <code>NULL</code> bo'ladi. Testda yoki namuna ma'lumot
+    kerak bo'lganda qulay; qolgan hollarda <code>create()</code>.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span> <code>fake('uz_UZ')</code> nima
+    qiladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Jimgina inglizcha ma'lumot qaytaradi</button></li>
+      <li><button class="quiz-option">Aniq xato xabari beradi</button></li>
+      <li><button class="quiz-option">O'zbekcha shahar nomlarini beradi</button></li>
+    </ul>
+    <div class="quiz-explain">Faker'da o'zbek tili yo'q va u <b>ogohlantirmasdan</b>
+    standart tilga qaytadi. O'zbekcha ma'lumot uchun
+    <code>randomElement(['Toshkent', ...])</code> — o'z ro'yxatingiz.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span> Factory'da <code>has()</code> ga
+    bog'lanish nomi nima uchun beriladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Laravel taxmini o'zbekcha nomda ishlamaydi</button></li>
+      <li><button class="quiz-option">Bog'lanish ikki marta yasalmasligi uchun</button></li>
+      <li><button class="quiz-option">So'rovlar soni kamayib ketishi uchun</button></li>
+    </ul>
+    <div class="quiz-explain">Laravel <code>Vakansiya</code> dan
+    <code>vakansiyas</code>, keyin <code>vakansiya</code> deb sinaydi — bizning metod
+    esa <code>vakansiyalar</code>. Shuning uchun nomni <b>har doim</b> yozamiz.</div>
+  </div>
+
+  <!-- ═══════════════ 6) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+    <p class="recall-intro">Avval o'zingiz javob bering, keyin ochib tekshiring.
+    Oxirgi ikkitasi — <a href="0027-boglanish-belongstomany-va-pivot.html">27-darsni</a>
+    takrorlash.</p>
+
+    <details class="recall">
+      <summary>Factory va seeder farqi nimada?</summary>
+      <div class="answer"><p><b>Factory</b> — <b>bitta</b> yozuvning retsepti
+      (<code>definition()</code>). <b>Seeder</b> — bazada nima bo'lishi kerakligining
+      <b>butun rejasi</b>: qaysi factory, nechta, qanday bog'lanish bilan.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Belgilangan ma'lumot (ko'nikma nomlari) uchun nima ishlatiladi?</summary>
+      <div class="answer"><p>Factory <b>emas</b> — oddiy ro'yxat va
+      <code>firstOrCreate</code>. Aks holda «laudantium» kabi ma'nosiz nomlar chiqadi.
+      Factory <b>hajm</b> uchun.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Ichma-ich factory (<code>Kompaniya::factory()</code>) nima qiladi?</summary>
+      <div class="answer"><p>Har yozuv uchun <b>yana bitta</b> yozuv yasaydi va uning
+      <code>id</code> sini qo'yadi. Qulay, lekin «yashirin <code>INSERT</code>» —
+      200 vakansiya → 400 so'rov. Katta hajmda <code>for()</code> ishlatiladi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: <code>sync()</code> nima qiladi?</summary>
+      <div class="answer"><p>Ro'yxatni <b>aynan moslashtiradi</b> — ro'yxatda
+      yo'qlarini <b>o'chiradi</b>. Faqat qo'shish uchun —
+      <code>syncWithoutDetaching</code>.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: pivot jadval nomi qanday taxmin qilinadi?</summary>
+      <div class="answer"><p>Ikki <b>model</b> nomi → kichik harf → <b>alifbo
+      tartibida</b> → <code>_</code> bilan: <code>konikma_vakansiya</code>. Ko'plik
+      yasalmaydi.</p></div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 7) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Cho'ntak xulosasi</span>
+    <ul>
+      <li><b>Factory</b> — bitta yozuvning retsepti
+      (<code>make:factory</code> → <code>definition()</code>).
+      <b>Seeder</b> — bazani to'ldirishning butun rejasi.</li>
+      <li>⚠️ Modelga <code>use HasFactory;</code> kerak, bo'lmasa
+      <code>Call to undefined method ...::factory()</code>.</li>
+      <li><code>make()</code> bazaga <b>yozmaydi</b> (<code>id=NULL</code>),
+      <code>create()</code> yozadi. <code>factory(3)</code> — uchta.
+      <code>create(['nom' =&gt; ...])</code> — aniq qiymat.</li>
+      <li><code>fake()</code>: <code>numberBetween</code> · <code>boolean(80)</code> ·
+      <code>randomElement([...])</code> · <code>unique()</code> ·
+      <code>dateTimeBetween</code> · <code>sentence</code>.</li>
+      <li>⚠️ <b><code>fake('uz_UZ')</code> jimgina inglizcha qaytaradi</b> — Faker'da
+      o'zbek tili yo'q. Yechim: o'z ro'yxatingiz
+      (<code>randomElement</code>), kerak bo'lsa ikki ro'yxatni qo'shib.</li>
+      <li>Bog'lanishlar: <code>has(..., 'nom')</code> ·
+      <code>for($obyekt, 'nom')</code> ·
+      <code>hasAttached($lar, [pivot], 'nom')</code>.</li>
+      <li>🔑 <b>Bog'lanish nomini har doim yozing</b> — Laravel taxmini o'zbekcha
+      nomda ishlamaydi (<code>vakansiyas</code> / <code>konikmas</code>). Xato
+      <b>ovoz chiqaradi</b>.</li>
+      <li><b>State</b>: <code>state([...])</code> yoki
+      <code>state(fn ($atr) =&gt; [...])</code>. Zanjirlanadi:
+      <code>-&gt;yopiq()-&gt;boy()</code>. Closure — har yozuv uchun alohida
+      hisoblanadi.</li>
+      <li>Belgilangan ma'lumot (ko'nikmalar) — factory <b>emas</b>, ro'yxat +
+      <code>firstOrCreate</code>.</li>
+      <li><code>db:seed</code> qo'shadi · <code>migrate:fresh --seed</code> noldan
+      to'ldiradi (kunlik ish shakli) · <code>--class=</code> bittasini.</li>
+      <li>⚡ Ichma-ich factory — «yashirin <code>INSERT</code>»: 200 vakansiya →
+      <b>400 so'rov</b>. <code>for()</code> bilan — <b>200</b>. Tezlikni
+      <b>so'rovlar soni</b> bilan o'lchang: millisekund har safar o'zgaradi.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p>Endi bazada 400 dan ortiq vakansiya bor. Sahifani ochib ko'ring —
+    <b>hammasi bitta sahifada</b> chiqadi. Bu ham ko'rinish jihatidan yaroqsiz, ham
+    sekin: har safar 400 qator o'qiladi.</p>
+    <p>29-dars Modul C ni yakunlaydi: <b>sahifalash</b> (<code>paginate</code>),
+    <b>Query Builder</b> ning qolgan imkoniyatlari (<code>whereBetween</code>,
+    <code>when</code> bilan shartli filtr), <b>scope</b> — takrorlanadigan shartga nom
+    berish, va <b>N+1</b> ga rasmiy tanishuv.</p>
+    <p>Va shu darsdan keyin IshTop <b>haqiqiy ish e'lonlari sayti</b> ko'rinishiga
+    keladi: filtr, qidiruv, sahifalash. Modul D esa unga <b>foydalanuvchi</b>
+    qo'shadi — ro'yxatdan o'tish, kirish, huquqlar.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel — Eloquent: Factories</b>:
+    <a href="https://laravel.com/docs/13.x/eloquent-factories">laravel.com/docs/13.x/eloquent-factories</a>
+    — <code>definition</code>, state, <code>has</code>/<code>for</code>/<code>hasAttached</code>.<sup><a href="#fn1">1</a></sup><br>
+    <b>Database: Seeding</b>:
+    <a href="https://laravel.com/docs/13.x/seeding">laravel.com/docs/13.x/seeding</a>
+    — <code>DatabaseSeeder</code>, <code>db:seed</code>,
+    <code>--seed</code>.<sup><a href="#fn2">2</a></sup><br>
+    <b>Faker</b> (<code>fake()</code> ning ichi):
+    <a href="https://fakerphp.org/">fakerphp.org</a> — barcha
+    <i>formatter</i> lar ro'yxati.<sup><a href="#fn3">3</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b> «bir nechta seeder yozsam
+    bo'ladimi?» (<code>$this-&gt;call([...])</code>), «test uchun alohida factory
+    kerakmi?», «o'zbekcha ism-familiya ro'yxatini qanday tuzsam yaxshi?»,
+    «<code>fake()</code> har safar bir xil ma'lumot bersin desam?»
+    (<code>fake()-&gt;seed(1234)</code>) — har qanday savol yaxshi. Ikkinchi savolning
+    javobi: <b>yo'q</b>, xuddi shu factory'lar Modul E dagi testlarda ham
+    ishlatiladi — aynan shuning uchun ularni hozir yozdik.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0027-boglanish-belongstomany-va-pivot.html">Oldingi: belongsToMany va pivot</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel 13 — <a href="https://laravel.com/docs/13.x/eloquent-factories">Eloquent: Factories</a>.</li>
+      <li id="fn2">Laravel 13 — <a href="https://laravel.com/docs/13.x/seeding">Database: Seeding</a>.</li>
+      <li id="fn3">FakerPHP — <a href="https://fakerphp.org/">rasmiy hujjat</a>.</li>
+      <li id="fn4">Barchasi jonli o'lchangan (Laravel 13.25.0, SQLite 3.45.1):
+      <code>HasFactory</code> yo'q → <code>BadMethodCallException: Call to undefined
+      method App\Models\Kompaniya::factory()</code> ·
+      <code>make()</code> → <code>id=NULL</code> · <code>create()</code> → id bor ·
+      ichma-ich factory kompaniyalar sonini <b>7 → 8</b> qildi ·
+      <code>has()</code> nomsiz → <code>Call to undefined method
+      App\Models\Kompaniya::vakansiya()</code>, nom bilan → 2 vakansiya ·
+      <code>hasAttached()</code> nomsiz → <code>...::konikmas()</code> ·
+      <code>Str::plural('Vakansiya')</code> → <b>Vakansiyas</b> ·
+      state'lar zanjiri (<code>yopiq()-&gt;boy()</code>) ·
+      <code>fake('uz_UZ')-&gt;city()</code> → <b>Hahnfurt</b> (xatosiz) ·
+      <code>migrate:fresh --seed</code> → <b>5 kompaniya, 20 vakansiya, 8 ko'nikma</b> ·
+      va tezlik: <code>factory(200)-&gt;create()</code> → <b>400 so'rov</b>,
+      <code>-&gt;for()</code> bilan → <b>200 so'rov</b> (ikki o'lchovda
+      1579/562 ms va 1113/730 ms — vaqt o'zgaradi, so'rov soni yo'q).</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

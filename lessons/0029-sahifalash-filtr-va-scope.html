@@ -1,0 +1,1295 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 29 — Sahifalash, filtr, scope va N+1</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 29 · MODUL C — MA'LUMOTLAR · YAKUNIY DARS</p>
+  <h1>Sahifalash va filtr: IshTop haqiqiy saytga aylanadi</h1>
+  <p class="lead">28-darsdan keyin bazada yuzlab vakansiya bor — va ular <b>hammasi
+  bitta sahifada</b> chiqadi. Bugun sahifalash, qidiruv va filtr qo'shamiz. Va Modul C
+  ni <b>N+1 muammosini baland xatoga aylantiradigan</b> bitta qator bilan yakunlaymiz.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 16 daqiqa</span>
+    <span>💻 Amaliyot ≈ 26 daqiqa</span>
+    <span>Kerak: <a href="0028-factory-va-seeder.html">Dars 28</a></span>
+  </p>
+
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b><code>paginate()</code> — sahifalash</b>
+        <span class="nima">Nima qaytaradi (<code>LengthAwarePaginator</code>) va uning
+        metodlari: <code>total</code> · <code>currentPage</code> ·
+        <code>lastPage</code> · <code>firstItem</code>/<code>lastItem</code>.</span></li>
+      <li><b><code>simplePaginate()</code> farqi</b>
+        <span class="nima">🔍 O'lchandi: <code>paginate</code> — <b>2 so'rov</b>
+        (<code>COUNT</code> bor), <code>simplePaginate</code> — <b>1 so'rov</b>
+        (<code>limit 6</code> hiylasi bilan).</span></li>
+      <li><b>Sahifa havolalarini o'zimiz yasaymiz</b>
+        <span class="nima">Laravel'ning <code>links()</code> i <b>6500 belgilik</b>
+        Tailwind HTML beradi — bizda CSS framework yo'q, shuning uchun
+        paginator API bilan 15 qatorlik o'z qismimizni yozamiz.</span></li>
+      <li><b><code>withQueryString()</code></b>
+        <span class="nima">⚠️ Bo'lmasa: filtrlab, 2-sahifaga o'tsangiz <b>filtr
+        yo'qoladi</b>. Bu eng ko'p uchraydigan sahifalash bug'i.</span></li>
+      <li><b><code>when()</code> — shartli filtr</b>
+        <span class="nima">Bo'sh qiymatda <code>WHERE</code> <b>umuman
+        qo'shilmaydi</b>. Qidiruv formasi shu bilan yoziladi.</span></li>
+      <li><b><code>whereLike</code> va boshqa shartlar</b>
+        <span class="nima">Qidiruv (standart holda <b>katta-kichik harfga sezgir
+        emas</b>) · <code>whereBetween</code> · <code>distinct()-&gt;pluck()</code>.</span></li>
+      <li><b>Scope — shartga nom berish</b>
+        <span class="nima">Yangi shakl <code>#[Scope]</code> (Laravel 12+) va eski
+        <code>scopeFaol()</code>. Ikkalasi ham ishlaydi, zanjirlanadi.</span></li>
+      <li><b>⚡ N+1 bilan rasmiy tanishuv</b>
+        <span class="nima"><code>Model::preventLazyLoading()</code> — muammoni
+        <b>jimgina sekinlikdan</b> <b>500 xatoga</b> aylantiradi va qaysi qatorda
+        ekanini aytadi.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima">Mavjud bo'lmagan sahifa · bo'sh natija · filtr + sahifa ·
+        <code>links()</code> muqobillari · scope'ning ikki shakli · <code>when</code>
+        va <code>0</code> tuzog'i · <code>preventLazyLoading</code> ni qayerga
+        qo'yish.</span></li>
+      <li><b>🎓 Modul C yakuni</b>
+        <span class="nima">SQL'dan boshlab, bugungi filtrga qadar bosib o'tilgan yo'l
+        va Modul D ga o'tish.</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Nega bu muhim</span>
+    <p>Ish e'lonlari saytini ochganingizni tasavvur qiling va u sizga <b>bir vaqtning
+    o'zida</b> 5000 ta e'lonni ko'rsatsin. Sahifa sekin ochiladi, kerakli e'lonni topib
+    bo'lmaydi, telefonda esa umuman ishlatib bo'lmaydi.</p>
+    <p>Shuning uchun <b>har</b> ro'yxatli sahifada uchta narsa bo'ladi:
+    <b>sahifalash</b>, <b>qidiruv</b> va <b>filtr</b>. Bularsiz ilova «demo» bo'lib
+    qoladi.</p>
+    <p>Va bugungi oxirgi bo'lim — <b>N+1</b>. 26-darsda uni o'lchagandik, lekin u
+    <b>jimgina</b> muammo edi: sahifa ishlaydi, faqat sekin. Bugun uni <b>baland
+    xatoga</b> aylantiramiz — shunda uni <b>yozayotgan paytingizda</b> topasiz, real
+    serverda emas.</p>
+  </div>
+
+  <!-- ═══════════════ 2) TUSHUNCHA ═══════════════ -->
+  <h2><code>paginate()</code> — sahifalash</h2>
+
+  <div class="codefile">
+    <div class="fname">controller</div>
+    <code class="cmd" data-cmd="$vakansiyalar = Vakansiya::orderByDesc('maosh')-&gt;paginate(5);">$vakansiyalar = Vakansiya::orderByDesc('maosh')-&gt;<span class="add">paginate(5)</span>;</code>
+  </div>
+
+  <p><code>get()</code> o'rniga <code>paginate(5)</code> — tamom. U
+  <b><code>LengthAwarePaginator</code></b> qaytaradi: bu <code>@foreach</code> da
+  massiv kabi ishlaydi, lekin ustiga <b>sahifa haqidagi ma'lumot</b> ham olib
+  yuradi:</p>
+
+  <table class="sheet">
+    <tr><th>Metod</th><th class="note-cell">Nima beradi</th></tr>
+    <tr><td><code>total()</code></td><td class="note-cell">Jami qatorlar soni (<b>hamma</b> sahifalarda)</td></tr>
+    <tr><td><code>count()</code></td><td class="note-cell">Shu sahifadagi qatorlar soni</td></tr>
+    <tr><td><code>currentPage()</code> · <code>lastPage()</code></td><td class="note-cell">Joriy va oxirgi sahifa raqami</td></tr>
+    <tr><td><code>firstItem()</code> · <code>lastItem()</code></td><td class="note-cell">«20 tadan <b>6–10</b>» yozuvi uchun</td></tr>
+    <tr><td><code>onFirstPage()</code> · <code>hasMorePages()</code></td><td class="note-cell">Havolani o'chirib qo'yish uchun</td></tr>
+    <tr><td><code>previousPageUrl()</code> · <code>nextPageUrl()</code></td><td class="note-cell">Tayyor manzillar (<code>?page=2</code>)</td></tr>
+    <tr><td><code>hasPages()</code></td><td class="note-cell">Umuman sahifalash kerakmi (natija bitta sahifaga sig'sa — yo'q)</td></tr>
+  </table>
+
+  <p>Sahifa raqami qayerdan olinadi? Manzildagi <code>?page=</code> dan —
+  <b>o'zi</b>. Siz hech narsa yozmaysiz.</p>
+
+  <div class="callout tip">
+    <span class="label">🔍 Sehr yo'q: <code>paginate</code> ikki so'rov yuboradi</span>
+    <p>O'lchandi:</p>
+    <div class="natija">── paginate(5) → 2 so'rov
+   select count(*) as "aggregate" from "vakansiyalar"
+   select * from "vakansiyalar" limit 5 offset 0
+
+── simplePaginate(5) → 1 so'rov
+   select * from "vakansiyalar" limit 6 offset 0</div>
+    <p><code>paginate</code> ga <b>«4 sahifadan 2-si»</b> deb yozish uchun jami son
+    kerak — shuning uchun <code>COUNT</code> so'rovi. <code>simplePaginate</code> esa
+    faqat «keyingi sahifa bormi?» degan savolga javob beradi va buni <b>ayyorona</b>
+    hal qiladi: <code>limit 5</code> o'rniga <b><code>limit 6</code></b> so'raydi —
+    oltinchi qator kelsa, demak davomi bor.</p>
+    <p>Millionlab qatorli jadvalda <code>COUNT</code> qimmat bo'ladi, shuning uchun
+    <code>simplePaginate</code> tezroq. Evaziga <code>total()</code> va
+    <code>lastPage()</code> <b>yo'q</b> bo'ladi.</p>
+  </div>
+
+  <h3>Sahifa havolalarini o'zimiz yasaymiz</h3>
+
+  <p>Laravel'da tayyor <code>{{ $vakansiyalar-&gt;links() }}</code> bor. Lekin u
+  <b>Tailwind CSS</b> uchun yozilgan va <b>6500 belgilik</b> HTML chiqaradi — bizda esa
+  hech qanday CSS framework yo'q, natija chalkash ko'rinadi.</p>
+
+  <p>Bizga 15 qator yetadi, va u paginator API'siga tayanadi:</p>
+
+  <div class="codefile">
+    <div class="fname">resources/views/qismlar/sahifalar.blade.php</div>
+    <code class="cmd" data-cmd="&lt;p class=&quot;sahifalar&quot;&gt;
+    @if ($sahifalar-&gt;total() &gt; 0)
+        &lt;span&gt;{{ $sahifalar-&gt;total() }} tadan {{ $sahifalar-&gt;firstItem() }}–{{ $sahifalar-&gt;lastItem() }}&lt;/span&gt;
+    @endif
+
+    @if ($sahifalar-&gt;hasPages())
+        @if ($sahifalar-&gt;onFirstPage())
+            &lt;span&gt;&amp;larr; Oldingi&lt;/span&gt;
+        @else
+            &lt;a href=&quot;{{ $sahifalar-&gt;previousPageUrl() }}&quot;&gt;&amp;larr; Oldingi&lt;/a&gt;
+        @endif
+
+        &lt;span&gt;{{ $sahifalar-&gt;currentPage() }} / {{ $sahifalar-&gt;lastPage() }}&lt;/span&gt;
+
+        @if ($sahifalar-&gt;hasMorePages())
+            &lt;a href=&quot;{{ $sahifalar-&gt;nextPageUrl() }}&quot;&gt;Keyingi &amp;rarr;&lt;/a&gt;
+        @else
+            &lt;span&gt;Keyingi &amp;rarr;&lt;/span&gt;
+        @endif
+    @endif
+&lt;/p&gt;">&lt;p class="sahifalar"&gt;
+    @if ($sahifalar-&gt;total() &gt; 0)
+        &lt;span&gt;{{ $sahifalar-&gt;total() }} tadan {{ $sahifalar-&gt;firstItem() }}–{{ $sahifalar-&gt;lastItem() }}&lt;/span&gt;
+    @endif
+
+    @if ($sahifalar-&gt;hasPages())
+        @if ($sahifalar-&gt;onFirstPage())
+            &lt;span&gt;&amp;larr; Oldingi&lt;/span&gt;
+        @else
+            &lt;a href="{{ $sahifalar-&gt;previousPageUrl() }}"&gt;&amp;larr; Oldingi&lt;/a&gt;
+        @endif
+
+        &lt;span&gt;{{ $sahifalar-&gt;currentPage() }} / {{ $sahifalar-&gt;lastPage() }}&lt;/span&gt;
+
+        @if ($sahifalar-&gt;hasMorePages())
+            &lt;a href="{{ $sahifalar-&gt;nextPageUrl() }}"&gt;Keyingi &amp;rarr;&lt;/a&gt;
+        @else
+            &lt;span&gt;Keyingi &amp;rarr;&lt;/span&gt;
+        @endif
+    @endif
+&lt;/p&gt;</code>
+  </div>
+
+  <div class="natija">20 tadan 1–5     ← Oldingi   1 / 4   Keyingi →
+20 tadan 6–10    ← Oldingi   2 / 4   Keyingi →
+20 tadan 16–20   ← Oldingi   4 / 4   Keyingi →</div>
+
+  <p>Ishlatilishi — 19-darsdagi <code>@include</code>:
+  <code>@include('qismlar.sahifalar', ['sahifalar' =&gt; $vakansiyalar])</code>.
+  Bitta fayl, hamma ro'yxatli sahifada qayta ishlatiladi.</p>
+
+  <h2>Filtr va qidiruv: <code>when()</code></h2>
+
+  <p>Foydalanuvchi <b>ba'zan</b> qidiradi, <b>ba'zan</b> shahar tanlaydi.
+  Ya'ni shart <b>bo'lishi ham, bo'lmasligi ham</b> mumkin. Buni <code>if</code> bilan
+  yozsa kod tez chalkashadi:</p>
+
+  <div class="natija">❌ $so_rov = Vakansiya::query();
+   if ($request-&gt;input('q')) {
+       $so_rov-&gt;whereLike('nom', '%' . $request-&gt;input('q') . '%');
+   }
+   if ($request-&gt;input('shahar')) {
+       $so_rov-&gt;where('shahar', $request-&gt;input('shahar'));
+   }
+   ...</div>
+
+  <p>Laravel'ning <code>when()</code> metodi shuni <b>zanjirda</b> yozishga imkon
+  beradi:</p>
+
+  <div class="codefile">
+    <div class="fname">app/Http/Controllers/VakansiyaController.php</div>
+    <code class="cmd" data-cmd="$vakansiyalar = Vakansiya::query()
+    -&gt;with('kompaniya')
+    -&gt;withCount('konikmalar')
+    -&gt;when($request-&gt;input('q'), fn ($so_rov, $matn) =&gt; $so_rov-&gt;whereLike('nom', &quot;%{$matn}%&quot;))
+    -&gt;when($request-&gt;input('shahar'), fn ($so_rov, $shahar) =&gt; $so_rov-&gt;where('shahar', $shahar))
+    -&gt;when($request-&gt;boolean('faqat_faol'), fn ($so_rov) =&gt; $so_rov-&gt;faol())
+    -&gt;orderByDesc('maosh')
+    -&gt;paginate(5)
+    -&gt;withQueryString();">$vakansiyalar = Vakansiya::query()
+    -&gt;with('kompaniya')
+    -&gt;withCount('konikmalar')
+    <span class="add">-&gt;when($request-&gt;input('q'), fn ($so_rov, $matn) =&gt; $so_rov-&gt;whereLike('nom', "%{$matn}%"))
+    -&gt;when($request-&gt;input('shahar'), fn ($so_rov, $shahar) =&gt; $so_rov-&gt;where('shahar', $shahar))
+    -&gt;when($request-&gt;boolean('faqat_faol'), fn ($so_rov) =&gt; $so_rov-&gt;faol())</span>
+    -&gt;orderByDesc('maosh')
+    <span class="add">-&gt;paginate(5)
+    -&gt;withQueryString()</span>;</code>
+  </div>
+
+  <p><code>when($shart, $closure)</code>: shart <b>rost</b> bo'lsa closure ishlaydi,
+  aks holda <b>hech narsa qo'shilmaydi</b>. Va closure'ning <b>ikkinchi
+  argumenti</b> — o'sha shartning qiymati, ya'ni uni qaytadan yozish shart emas.</p>
+
+  <div class="natija">shahar = null        → select * from "vakansiyalar"
+shahar = 'Toshkent'  → select * from "vakansiyalar" where "shahar" = ?</div>
+
+  <p>SQL'ning o'zi o'zgaradi — kerak bo'lmagan shart <b>umuman qo'shilmaydi</b>.</p>
+
+  <table class="sheet">
+    <tr><th>Shart</th><th class="note-cell">Ma'nosi</th></tr>
+    <tr><td><code>whereLike('nom', '%php%')</code></td><td class="note-cell">Qidiruv. Standart holda <b>katta-kichik harfga sezgir emas</b></td></tr>
+    <tr><td><code>whereLike('nom', '%PHP%', true)</code></td><td class="note-cell">Uchinchi argument — <b>sezgir</b> qilish</td></tr>
+    <tr><td><code>where('nom', 'like', '%php%')</code></td><td class="note-cell">Eski shakl — hamma versiyada ishlaydi</td></tr>
+    <tr><td><code>whereBetween('maosh', [1000, 2000])</code></td><td class="note-cell">Oraliq</td></tr>
+    <tr><td><code>whereIn('shahar', ['Toshkent', 'Buxoro'])</code></td><td class="note-cell">Ro'yxatdagilardan biri</td></tr>
+    <tr><td><code>distinct()-&gt;pluck('shahar')</code></td><td class="note-cell">Takrorlanmas qiymatlar — filtr ro'yxatini yasash uchun</td></tr>
+  </table>
+
+  <div class="callout warning">
+    <span class="label">⚠️ <code>withQueryString()</code> — eng ko'p uchraydigan bug'</span>
+    <p>Foydalanuvchi «Toshkent» ni tanladi, 4 ta natija ko'rdi, «Keyingi» ni bosdi —
+    va <b>filtr yo'qoldi</b>, yana hamma vakansiya chiqdi. Sabab:</p>
+    <div class="natija">withQueryString() SIZ  → http://localhost:8000?page=2
+withQueryString() BOR  → http://localhost:8000?shahar=Toshkent&amp;q=dasturchi&amp;page=2</div>
+    <p>Paginator manzilni <b>o'zi</b> yasaydi va standart holda faqat
+    <code>page</code> ni qo'yadi. <code>withQueryString()</code> unga «manzildagi
+    <b>qolgan</b> parametrlarni ham olib qol» deydi.</p>
+    <p>Muqobili — <code>appends(['shahar' =&gt; $shahar])</code>: aniq qaysi
+    parametrlarni saqlashni o'zingiz aytasiz. <code>withQueryString()</code>
+    aksariyat holatda qulayroq.</p>
+  </div>
+
+  <h2>Scope — shartga nom berish</h2>
+
+  <p><code>where('faol', true)</code> ni o'nta joyda yozgan bo'lsangiz va ertaga
+  «faol» ning ta'rifi o'zgarsa (masalan «muddati o'tmagan» ham qo'shilsa) — o'nta
+  joyni tuzatish kerak. <b>Scope</b> shu shartga <b>nom beradi</b> va uni modelga
+  ko'chiradi:</p>
+
+  <div class="codefile">
+    <div class="fname">app/Models/Vakansiya.php</div>
+    <code class="cmd" data-cmd="use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
+
+class Vakansiya extends Model
+{
+    #[Scope]
+    protected function faol(Builder $so_rov): void
+    {
+        $so_rov-&gt;where('faol', true);
+    }
+
+    #[Scope]
+    protected function qimmat(Builder $so_rov, int $eng_kam = 2000): void
+    {
+        $so_rov-&gt;where('maosh', '&gt;=', $eng_kam);
+    }
+}">use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
+
+class Vakansiya extends Model
+{
+    <span class="add">#[Scope]
+    protected function faol(Builder $so_rov): void
+    {
+        $so_rov-&gt;where('faol', true);
+    }
+
+    #[Scope]
+    protected function qimmat(Builder $so_rov, int $eng_kam = 2000): void
+    {
+        $so_rov-&gt;where('maosh', '&gt;=', $eng_kam);
+    }</span>
+}</code>
+  </div>
+
+  <div class="natija">Vakansiya::faol()-&gt;count()                → 16
+Vakansiya::faol()-&gt;qimmat()-&gt;count()      → 8
+Vakansiya::faol()-&gt;qimmat(1500)-&gt;toSql()
+   → select * from "vakansiyalar" where "faol" = ? and "maosh" &gt;= ?</div>
+
+  <p>Uch foydasi: <b>nom</b> («faol» — kod o'qishga oson bo'ladi), <b>bir joyda</b>
+  (ta'rif o'zgarsa bitta joyni tuzatasiz) va <b>zanjirlanadi</b> (boshqa shartlar
+  bilan birga ishlaydi).</p>
+
+  <p><code>#[Scope]</code> — <b>atribut</b>, PHP 8 ning imkoniyati: metodga
+  «yorliq» osadi va Laravel uni shu yorliqdan taniydi. Metodning o'zi
+  <code>protected</code>, lekin tashqarida <code>Vakansiya::faol()</code> deb
+  chaqiriladi.</p>
+
+  <h2>⚡ N+1 bilan rasmiy tanishuv</h2>
+
+  <p>26-darsda muammoni o'lchagandik: sikl ichida bog'lanishga murojaat →
+  <code>1 + N</code> so'rov. Lekin u <b>jimgina</b> muammo: sahifa <b>ishlaydi</b>,
+  faqat sekin. Kichik bazada esa sekinlik ham sezilmaydi — muammo real serverda,
+  ma'lumot ko'payganda «portlaydi».</p>
+
+  <p>Laravel'da uni <b>xatoga aylantiradigan</b> bitta qator bor:</p>
+
+  <div class="codefile">
+    <div class="fname">app/Providers/AppServiceProvider.php</div>
+    <code class="cmd" data-cmd="use Illuminate\Database\Eloquent\Model;
+
+public function boot(): void
+{
+    Model::preventLazyLoading(! app()-&gt;isProduction());
+}">use Illuminate\Database\Eloquent\Model;
+
+public function boot(): void
+{
+    <span class="add">Model::preventLazyLoading(! app()-&gt;isProduction());</span>
+}</code>
+  </div>
+
+  <p>Endi <code>with()</code> ni unutsangiz sahifa <b>ochilmaydi</b>:</p>
+
+  <div class="natija">Illuminate\Database\LazyLoadingViolationException
+
+Attempted to lazy load [kompaniya] on model [App\Models\Vakansiya]
+but lazy loading is disabled.
+
+   resources/views/vakansiyalar/index.blade.php:33</div>
+
+  <p>Xato <b>qaysi bog'lanish</b> va <b>qaysi qator</b> ekanini aytadi. Ya'ni muammoni
+  <b>yozayotgan paytingizda</b> topasiz.</p>
+
+  <div class="callout note">
+    <span class="label">Nega <code>! app()-&gt;isProduction()</code></span>
+    <p>Real serverda bu <b>o'chirilgan</b> bo'lishi kerak: u yerda unutilgan
+    <code>with()</code> sahifani <b>butunlay buzadi</b>, holbuki u shunchaki
+    sekinroq ishlagan bo'lardi. Foydalanuvchi uchun «sekin» — «buzuq» dan
+    yaxshiroq.</p>
+    <p>Ya'ni bu <b>ishlab chiqish asbobi</b>: qattiq qoida faqat sizning
+    kompyuteringizda. Bu naqsh Laravel jamoasida keng tarqalgan.</p>
+    <p>⚠️ Bir nozik jihat o'lchandi: cheklov <b>to'plamdagi</b> modellarga
+    qo'llanadi — ya'ni aynan N+1 holatiga. Yakka model
+    (<code>Vakansiya::first()-&gt;kompaniya</code>) uchun u ogohlantirmaydi.</p>
+  </div>
+
+  <!-- ═══════════════ 3) HAR XIL HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir bir marta o'qib chiqing, keyin
+  kerak bo'lganda qaytib qarang.</p>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 1</span>
+    <h4>Mavjud bo'lmagan sahifa so'ralsa</h4>
+    <p><code>?page=999</code> — bunday sahifa yo'q. Laravel <b>xato bermaydi</b>:</p>
+    <div class="natija">?page=999  →  bo'sh ro'yxat, 200 status
+              →  «Hech narsa topilmadi»
+              →  navigatsiyada: 999 / 4        ← g'alati ko'rinadi</div>
+    <p>Bu odatda yaxshi: qo'lda yozilgan yoki eskirgan havola sahifani buzmaydi.
+    <code>@forelse</code> ning <code>@empty</code> qismi (18-dars) shu holatni chiroyli
+    ko'rsatadi.</p>
+    <p>Lekin navigatsiyada <code>999 / 4</code> chiqadi — chunki
+    <code>currentPage()</code> manzildan olingan raqamni qaytaradi. Ikki yechim:</p>
+    <div class="natija">// 1) 404 berish
+if ($vakansiyalar-&gt;currentPage() &gt; $vakansiyalar-&gt;lastPage()) {
+    abort(404);
+}
+
+// 2) oxirgi sahifaga yo'naltirish
+if ($vakansiyalar-&gt;currentPage() &gt; $vakansiyalar-&gt;lastPage()) {
+    return redirect()-&gt;route('vakansiyalar.index', ['page' =&gt; $vakansiyalar-&gt;lastPage()]);
+}</div>
+    <p>Kichik loyihada hech narsa qilmaslik ham mumkin — sahifa buzilmaydi.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 2</span>
+    <h4>Natija bitta sahifaga sig'sa</h4>
+    <p>4 ta natija, sahifada 5 ta ko'rsatilyapti — «Oldingi/Keyingi» kerak emas.
+    <code>hasPages()</code> aynan shuni tekshiradi:</p>
+    <div class="natija">?shahar=Toshkent  →  4 tadan 1–4
+                     (Oldingi/Keyingi ko'rsatilmaydi)
+
+⚠️ Sizdagi son boshqacha bo'ladi — ma'lumot tasodifiy yasalgan (28-dars).
+   Muhimi: natija bitta sahifaga sig'sa, navigatsiya ko'rinmaydi.</div>
+    <p>Lekin <b>«4 tadan 1–4»</b> yozuvi <code>hasPages()</code> dan <b>tashqarida</b>
+    turishi kerak — foydalanuvchi natijalar sonini har doim ko'rishi kerak. Shuning
+    uchun bizning qismimizda ikkita alohida <code>@if</code> bor.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 3</span>
+    <h4>Filtr + sahifa: <code>withQueryString()</code> unutilsa</h4>
+    <div class="natija">?shahar=Toshkent           →  4 ta natija ✅
+«Keyingi» bosildi          →  ?page=2        ← shahar YO'QOLDI
+                           →  yana hamma vakansiya</div>
+    <p>Foydalanuvchi buni «sayt buzuq» deb qabul qiladi. Va kod jihatidan
+    <b>hech qanday xato yo'q</b> — shuning uchun uni sinovda topish qiyin.</p>
+    <p>✅ <code>-&gt;withQueryString()</code> — paginate'dan <b>keyin</b>:</p>
+    <div class="natija">-&gt;paginate(5)
+-&gt;withQueryString();
+
+«Oldingi» havolasi:  ?q=dasturchi&amp;faqat_faol=1&amp;page=1   ✅</div>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 4</span>
+    <h4><code>links()</code> ni ishlatmoqchi bo'lsangiz</h4>
+    <p>Loyihada Tailwind yoki Bootstrap bo'lsa, tayyor havolalar chiroyli chiqadi:</p>
+    <div class="natija">{{ $vakansiyalar-&gt;links() }}                      ← Tailwind (standart)
+{{ $vakansiyalar-&gt;links('pagination::bootstrap-5') }}  ← Bootstrap 5</div>
+    <p>Yoki AppServiceProvider'da bir marta:
+    <code>Paginator::useBootstrapFive();</code></p>
+    <p>Ko'rinishlarni <b>o'zingizniki</b> qilish ham mumkin — ular oddiy Blade
+    fayllari (yana «sehr yo'q»):</p>
+    <div class="natija">php artisan vendor:publish --tag=laravel-pagination
+→ resources/views/vendor/pagination/  (9 ta blade fayl)</div>
+    <p>Biz esa o'z qismimizni yozdik — chunki kursda CSS framework yo'q va
+    paginator API'sini bilib olish foydaliroq.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 5</span>
+    <h4>Scope'ning ikki shakli</h4>
+    <p>Internetdagi ko'p misollarda <b>eski</b> shakl uchraydi — u hali ham
+    ishlaydi:</p>
+    <div class="natija">// ESKI (barcha versiyalarda): metod nomi "scope" bilan boshlanadi
+public function scopeFaol(Builder $so_rov): void
+{
+    $so_rov-&gt;where('faol', true);
+}
+
+// YANGI (Laravel 12+): atribut
+#[Scope]
+protected function faol(Builder $so_rov): void
+{
+    $so_rov-&gt;where('faol', true);
+}</div>
+    <p>Ikkalasi ham <code>Vakansiya::faol()</code> deb chaqiriladi va natijasi
+    <b>bir xil</b> (o'lchandi: 16 va 16).</p>
+    <p>Yangi shakl afzal: metod nomi <b>toza</b> (<code>faol</code>, emas
+    <code>scopeFaol</code>) va niyat <b>atribut</b> bilan ochiq ko'rsatilgan. Lekin
+    eski kodni o'qiy olish uchun ikkalasini bilish kerak.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 6</span>
+    <h4><code>when()</code> va <code>0</code> tuzog'i</h4>
+    <p><code>when()</code> shartni <b>truthy</b> deb tekshiradi (3-dars!). Demak
+    <code>0</code>, <code>'0'</code>, bo'sh satr — <b>yolg'on</b> hisoblanadi:</p>
+    <div class="natija">?eng_kam_maosh=0   →  when(0, ...)  →  shart QO'SHILMAYDI
+
+// Foydalanuvchi «0» dan katta maosh so'radi, lekin filtr ishlamadi</div>
+    <p>Odatda bu <b>to'g'ri</b> xatti-harakat (bo'sh maydon = filtr yo'q). Lekin
+    <code>0</code> ma'noli qiymat bo'lgan joyda aniq tekshirish kerak:</p>
+    <div class="natija">-&gt;when($request-&gt;filled('eng_kam_maosh'), fn ($q) =&gt;
+    $q-&gt;where('maosh', '&gt;=', $request-&gt;integer('eng_kam_maosh')))</div>
+    <p><code>filled()</code> — «maydon bor va bo'sh emas» (<code>0</code> ham
+    hisoblanadi). Bu 20-darsdagi <code>required</code> va truthy farqining
+    davomi.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 7</span>
+    <h4><code>preventLazyLoading</code> ni qayerga qo'yish</h4>
+    <div class="natija">✅ app/Providers/AppServiceProvider.php → boot()
+   Model::preventLazyLoading(! app()-&gt;isProduction());
+
+❌ Controllerda yoki modelda — u global sozlama, bir joyda bo'lishi kerak</div>
+    <p>Qo'shimcha imkoniyat: xato o'rniga <b>logga yozish</b>:</p>
+    <div class="natija">Model::handleLazyLoadingViolationUsing(function ($model, $relation) {
+    logger()-&gt;warning("N+1: {$relation} on " . get_class($model));
+});</div>
+    <p>Bu real serverda foydali: sahifa buzilmaydi, lekin muammolar logga tushadi va
+    keyin ularni tuzatasiz. Modul H da bunga qaytamiz.</p>
+  </div>
+
+  <!-- ═══════════════ 4) AMALIYOT / MODE-HINT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    <span class="mode-hint-title">💻 Amaliy qism kompyuterda</span>
+    <p>Amaliyotda IshTop'ga sahifalash, qidiruv va shahar filtri qo'shasiz — sahifa
+    haqiqiy ish e'lonlari saytiga o'xshab qoladi. Oxirida <code>with()</code> ni
+    ataylab olib tashlab, N+1 ning <b>500 xatosiga</b> aylanganini ko'rasiz.</p>
+    <button type="button" class="modebtn" data-set-mode="do">💻 Amaliyot rejimini ko'rish</button>
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <p>Toza va to'la bazadan boshlang</p>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+php artisan migrate:fresh --seed">cd ~/Projects/Learn/ishtop
+php artisan migrate:fresh --seed
+<span class="out">Solindi: 5 kompaniya, 20 vakansiya, 8 ko'nikma.</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> 20 vakansiya — sahifalash uchun
+        yetarli (5 tadan ko'rsatsak, 4 sahifa bo'ladi).</p>
+      </li>
+
+      <li>
+        <p>Modelga scope qo'shing</p>
+        <p class="why-step">Takrorlanadigan shartga nom beramiz.</p>
+        <p><code>app/Models/Vakansiya.php</code> ning yuqorisiga ikkita
+        <code>use</code>, klass ichiga esa ikkita metod:</p>
+        <div class="cmd" data-cmd="use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;">use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;</div>
+        <div class="cmd" data-cmd="    #[Scope]
+    protected function faol(Builder $so_rov): void
+    {
+        $so_rov-&gt;where('faol', true);
+    }
+
+    #[Scope]
+    protected function qimmat(Builder $so_rov, int $eng_kam = 2000): void
+    {
+        $so_rov-&gt;where('maosh', '&gt;=', $eng_kam);
+    }">    #[Scope]
+    protected function faol(Builder $so_rov): void
+    {
+        $so_rov-&gt;where('faol', true);
+    }
+
+    #[Scope]
+    protected function qimmat(Builder $so_rov, int $eng_kam = 2000): void
+    {
+        $so_rov-&gt;where('maosh', '&gt;=', $eng_kam);
+    }</div>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik.
+        Tekshirish: <code>php -l app/Models/Vakansiya.php</code></p>
+      </li>
+
+      <li>
+        <p>🔍 Sahifalash va scope'ni skriptda o'lchang</p>
+        <p class="why-step">Brauzerga o'tishdan oldin — nima bo'layotganini raqamda
+        ko'rish.</p>
+        <div class="cmd" data-cmd="cat &gt; sql/15-sahifalash.php &lt;&lt;'EOF'
+&lt;?php
+
+use App\Models\Vakansiya;
+use Illuminate\Support\Facades\DB;
+
+require __DIR__ . '/../vendor/autoload.php';
+$app = require_once __DIR__ . '/../bootstrap/app.php';
+$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+
+function sanab(string $s, callable $f): void
+{
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+    $f();
+    $log = DB::getQueryLog();
+    echo PHP_EOL, '── ', $s, ' → ', count($log), ' so\'rov', PHP_EOL;
+    foreach ($log as $q) { echo '     ', substr($q['query'], 0, 80), PHP_EOL; }
+    DB::disableQueryLog();
+}
+
+sanab('paginate(5)', fn () =&gt; Vakansiya::paginate(5));
+sanab('simplePaginate(5)', fn () =&gt; Vakansiya::simplePaginate(5));
+
+$p = Vakansiya::paginate(5);
+echo PHP_EOL, '── paginator ma\'lumotlari', PHP_EOL;
+echo '   total: ', $p-&gt;total(), '  sahifalar: ', $p-&gt;lastPage(),
+     '  joriy: ', $p-&gt;currentPage(), '  ', $p-&gt;firstItem(), '–', $p-&gt;lastItem(), PHP_EOL;
+echo '   nextPageUrl: ', $p-&gt;nextPageUrl(), PHP_EOL;
+
+echo PHP_EOL, '── scope lar', PHP_EOL;
+echo '   faol(): ', Vakansiya::faol()-&gt;count(), PHP_EOL;
+echo '   faol()-&gt;qimmat(1500): ', Vakansiya::faol()-&gt;qimmat(1500)-&gt;count(), PHP_EOL;
+echo '   SQL: ', Vakansiya::faol()-&gt;qimmat(1500)-&gt;toSql(), PHP_EOL;
+
+echo PHP_EOL, '── when() shartli filtr', PHP_EOL;
+foreach ([null, 'Toshkent'] as $shahar) {
+    $q = Vakansiya::query()-&gt;when($shahar, fn ($s, $v) =&gt; $s-&gt;where('shahar', $v));
+    echo '   shahar=', var_export($shahar, true), ' → ', $q-&gt;count(), ' ta | ',
+        substr($q-&gt;toSql(), 0, 60), PHP_EOL;
+}
+
+echo PHP_EOL, '── whereLike', PHP_EOL;
+echo '   %dasturchi% : ', Vakansiya::whereLike('nom', '%dasturchi%')-&gt;count(), PHP_EOL;
+echo '   %DASTURCHI% : ', Vakansiya::whereLike('nom', '%DASTURCHI%')-&gt;count(), ' (sezgir emas)', PHP_EOL;
+EOF
+php sql/15-sahifalash.php">cat &gt; sql/15-sahifalash.php &lt;&lt;'EOF'
+&lt;?php
+
+use App\Models\Vakansiya;
+use Illuminate\Support\Facades\DB;
+
+require __DIR__ . '/../vendor/autoload.php';
+$app = require_once __DIR__ . '/../bootstrap/app.php';
+$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+
+function sanab(string $s, callable $f): void
+{
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+    $f();
+    $log = DB::getQueryLog();
+    echo PHP_EOL, '── ', $s, ' → ', count($log), ' so\'rov', PHP_EOL;
+    foreach ($log as $q) { echo '     ', substr($q['query'], 0, 80), PHP_EOL; }
+    DB::disableQueryLog();
+}
+
+sanab('paginate(5)', fn () =&gt; Vakansiya::paginate(5));
+sanab('simplePaginate(5)', fn () =&gt; Vakansiya::simplePaginate(5));
+
+$p = Vakansiya::paginate(5);
+echo PHP_EOL, '── paginator ma\'lumotlari', PHP_EOL;
+echo '   total: ', $p-&gt;total(), '  sahifalar: ', $p-&gt;lastPage(),
+     '  joriy: ', $p-&gt;currentPage(), '  ', $p-&gt;firstItem(), '–', $p-&gt;lastItem(), PHP_EOL;
+echo '   nextPageUrl: ', $p-&gt;nextPageUrl(), PHP_EOL;
+
+echo PHP_EOL, '── scope lar', PHP_EOL;
+echo '   faol(): ', Vakansiya::faol()-&gt;count(), PHP_EOL;
+echo '   faol()-&gt;qimmat(1500): ', Vakansiya::faol()-&gt;qimmat(1500)-&gt;count(), PHP_EOL;
+echo '   SQL: ', Vakansiya::faol()-&gt;qimmat(1500)-&gt;toSql(), PHP_EOL;
+
+echo PHP_EOL, '── when() shartli filtr', PHP_EOL;
+foreach ([null, 'Toshkent'] as $shahar) {
+    $q = Vakansiya::query()-&gt;when($shahar, fn ($s, $v) =&gt; $s-&gt;where('shahar', $v));
+    echo '   shahar=', var_export($shahar, true), ' → ', $q-&gt;count(), ' ta | ',
+        substr($q-&gt;toSql(), 0, 60), PHP_EOL;
+}
+
+echo PHP_EOL, '── whereLike', PHP_EOL;
+echo '   %dasturchi% : ', Vakansiya::whereLike('nom', '%dasturchi%')-&gt;count(), PHP_EOL;
+echo '   %DASTURCHI% : ', Vakansiya::whereLike('nom', '%DASTURCHI%')-&gt;count(), ' (sezgir emas)', PHP_EOL;
+EOF
+php sql/15-sahifalash.php
+<span class="out">── paginate(5) → 2 so'rov</span>
+<span class="out">     select count(*) as "aggregate" from "vakansiyalar"</span>
+<span class="out">     select * from "vakansiyalar" limit 5 offset 0</span>
+<span class="out">── simplePaginate(5) → 1 so'rov</span>
+<span class="out">     select * from "vakansiyalar" limit 6 offset 0</span>
+<span class="out">   total: 20  sahifalar: 4  joriy: 1  1–5</span>
+<span class="out">   faol(): 16</span>
+<span class="out">   shahar=NULL → 20 ta | select * from "vakansiyalar"</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> beshta bo'lim.
+        <br>🔍 <b>Eng muhimi:</b> <code>paginate</code> — <b>2 so'rov</b>
+        (<code>COUNT</code> bor), <code>simplePaginate</code> — <b>1 so'rov</b> va
+        u <b><code>limit 6</code></b> so'raydi (5 emas!) — «keyingi sahifa bormi»ni
+        shundan biladi.
+        <br><code>when(null, ...)</code> da SQL'da <code>where</code> <b>umuman
+        yo'q</b>.
+        <br><code>whereLike</code> katta harfda ham topdi.
+        <br><i>Diqqat: <code>faol()</code> va boshqa sonlar sizda boshqacha bo'ladi —
+        28-darsdagi factory ma'lumotni tasodifiy yasaydi. So'rovlar soni
+        (<b>2</b> va <b>1</b>) esa barqaror.</i></p>
+      </li>
+
+      <li>
+        <p>Sahifa havolalari qismini yasang</p>
+        <div class="cmd" data-cmd="mkdir -p resources/views/qismlar
+cat &gt; resources/views/qismlar/sahifalar.blade.php &lt;&lt;'EOF'
+&lt;p class=&quot;sahifalar&quot;&gt;
+    @if ($sahifalar-&gt;total() &gt; 0)
+        &lt;span&gt;{{ $sahifalar-&gt;total() }} tadan {{ $sahifalar-&gt;firstItem() }}–{{ $sahifalar-&gt;lastItem() }}&lt;/span&gt;
+    @endif
+
+    @if ($sahifalar-&gt;hasPages())
+        @if ($sahifalar-&gt;onFirstPage())
+            &lt;span&gt;&amp;larr; Oldingi&lt;/span&gt;
+        @else
+            &lt;a href=&quot;{{ $sahifalar-&gt;previousPageUrl() }}&quot;&gt;&amp;larr; Oldingi&lt;/a&gt;
+        @endif
+
+        &lt;span&gt;{{ $sahifalar-&gt;currentPage() }} / {{ $sahifalar-&gt;lastPage() }}&lt;/span&gt;
+
+        @if ($sahifalar-&gt;hasMorePages())
+            &lt;a href=&quot;{{ $sahifalar-&gt;nextPageUrl() }}&quot;&gt;Keyingi &amp;rarr;&lt;/a&gt;
+        @else
+            &lt;span&gt;Keyingi &amp;rarr;&lt;/span&gt;
+        @endif
+    @endif
+&lt;/p&gt;
+EOF">mkdir -p resources/views/qismlar
+cat &gt; resources/views/qismlar/sahifalar.blade.php &lt;&lt;'EOF'
+&lt;p class="sahifalar"&gt;
+    @if ($sahifalar-&gt;total() &gt; 0)
+        &lt;span&gt;{{ $sahifalar-&gt;total() }} tadan {{ $sahifalar-&gt;firstItem() }}–{{ $sahifalar-&gt;lastItem() }}&lt;/span&gt;
+    @endif
+
+    @if ($sahifalar-&gt;hasPages())
+        @if ($sahifalar-&gt;onFirstPage())
+            &lt;span&gt;&amp;larr; Oldingi&lt;/span&gt;
+        @else
+            &lt;a href="{{ $sahifalar-&gt;previousPageUrl() }}"&gt;&amp;larr; Oldingi&lt;/a&gt;
+        @endif
+
+        &lt;span&gt;{{ $sahifalar-&gt;currentPage() }} / {{ $sahifalar-&gt;lastPage() }}&lt;/span&gt;
+
+        @if ($sahifalar-&gt;hasMorePages())
+            &lt;a href="{{ $sahifalar-&gt;nextPageUrl() }}"&gt;Keyingi &amp;rarr;&lt;/a&gt;
+        @else
+            &lt;span&gt;Keyingi &amp;rarr;&lt;/span&gt;
+        @endif
+    @endif
+&lt;/p&gt;
+EOF</div>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik. Diqqat: natijalar soni
+        (<code>total</code>) <code>hasPages()</code> dan <b>tashqarida</b> —
+        bitta sahifada ham ko'rinishi uchun (HOLAT 2).</p>
+      </li>
+
+      <li>
+        <p>Controllerni filtr va sahifalash bilan yangilang</p>
+        <div class="cmd" data-cmd="cat &gt; app/Http/Controllers/VakansiyaController.php &lt;&lt;'EOF'
+&lt;?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Vakansiya;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\View\View;
+
+class VakansiyaController extends Controller
+{
+    public function index(Request $request): View
+    {
+        $vakansiyalar = Vakansiya::query()
+            -&gt;with('kompaniya')
+            -&gt;withCount('konikmalar')
+            -&gt;when($request-&gt;input('q'), fn ($so_rov, $matn) =&gt; $so_rov-&gt;whereLike('nom', &quot;%{$matn}%&quot;))
+            -&gt;when($request-&gt;input('shahar'), fn ($so_rov, $shahar) =&gt; $so_rov-&gt;where('shahar', $shahar))
+            -&gt;when($request-&gt;boolean('faqat_faol'), fn ($so_rov) =&gt; $so_rov-&gt;faol())
+            -&gt;orderByDesc('maosh')
+            -&gt;paginate(5)
+            -&gt;withQueryString();
+
+        return view('vakansiyalar.index', [
+            'vakansiyalar' =&gt; $vakansiyalar,
+            'shaharlar' =&gt; Vakansiya::query()-&gt;distinct()-&gt;orderBy('shahar')-&gt;pluck('shahar'),
+        ]);
+    }
+
+    public function show(string $id): View
+    {
+        $v = Vakansiya::with(['kompaniya', 'konikmalar'])-&gt;findOrFail($id);
+
+        $boshqalar = [];
+        if ($v-&gt;kompaniya !== null) {
+            $boshqalar = $v-&gt;kompaniya-&gt;vakansiyalar()-&gt;where('id', '!=', $v-&gt;id)-&gt;get();
+        }
+
+        return view('vakansiyalar.show', ['v' =&gt; $v, 'boshqalar' =&gt; $boshqalar]);
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        $tekshirilgan = $request-&gt;validate([
+            'nom' =&gt; 'required|string|min:5|max:100',
+            'maosh' =&gt; 'required|integer|min:1',
+        ], [
+            'nom.required' =&gt; 'Vakansiya nomi kiritilishi shart.',
+            'nom.min' =&gt; 'Vakansiya nomi kamida :min belgidan iborat bo\'lsin.',
+            'maosh.required' =&gt; 'Maosh kiritilishi shart.',
+            'maosh.integer' =&gt; 'Maosh butun son bo\'lishi kerak.',
+        ]);
+
+        Vakansiya::create($tekshirilgan);
+
+        return redirect()-&gt;route('vakansiyalar.index')
+            -&gt;with('xabar', &quot;Qo'shildi: {$tekshirilgan['nom']}&quot;);
+    }
+}
+EOF
+php -l app/Http/Controllers/VakansiyaController.php">cat &gt; app/Http/Controllers/VakansiyaController.php &lt;&lt;'EOF'
+&lt;?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Vakansiya;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\View\View;
+
+class VakansiyaController extends Controller
+{
+    public function index(Request $request): View
+    {
+        $vakansiyalar = Vakansiya::query()
+            -&gt;with('kompaniya')
+            -&gt;withCount('konikmalar')
+            <span class="add">-&gt;when($request-&gt;input('q'), fn ($so_rov, $matn) =&gt; $so_rov-&gt;whereLike('nom', "%{$matn}%"))
+            -&gt;when($request-&gt;input('shahar'), fn ($so_rov, $shahar) =&gt; $so_rov-&gt;where('shahar', $shahar))
+            -&gt;when($request-&gt;boolean('faqat_faol'), fn ($so_rov) =&gt; $so_rov-&gt;faol())</span>
+            -&gt;orderByDesc('maosh')
+            <span class="add">-&gt;paginate(5)
+            -&gt;withQueryString()</span>;
+
+        return view('vakansiyalar.index', [
+            'vakansiyalar' =&gt; $vakansiyalar,
+            <span class="add">'shaharlar' =&gt; Vakansiya::query()-&gt;distinct()-&gt;orderBy('shahar')-&gt;pluck('shahar'),</span>
+        ]);
+    }
+
+    public function show(string $id): View
+    {
+        $v = Vakansiya::with(['kompaniya', 'konikmalar'])-&gt;findOrFail($id);
+
+        $boshqalar = [];
+        if ($v-&gt;kompaniya !== null) {
+            $boshqalar = $v-&gt;kompaniya-&gt;vakansiyalar()-&gt;where('id', '!=', $v-&gt;id)-&gt;get();
+        }
+
+        return view('vakansiyalar.show', ['v' =&gt; $v, 'boshqalar' =&gt; $boshqalar]);
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        $tekshirilgan = $request-&gt;validate([
+            'nom' =&gt; 'required|string|min:5|max:100',
+            'maosh' =&gt; 'required|integer|min:1',
+        ], [
+            'nom.required' =&gt; 'Vakansiya nomi kiritilishi shart.',
+            'nom.min' =&gt; 'Vakansiya nomi kamida :min belgidan iborat bo\'lsin.',
+            'maosh.required' =&gt; 'Maosh kiritilishi shart.',
+            'maosh.integer' =&gt; 'Maosh butun son bo\'lishi kerak.',
+        ]);
+
+        Vakansiya::create($tekshirilgan);
+
+        return redirect()-&gt;route('vakansiyalar.index')
+            -&gt;with('xabar', "Qo'shildi: {$tekshirilgan['nom']}");
+    }
+}
+EOF
+php -l app/Http/Controllers/VakansiyaController.php
+<span class="out">No syntax errors detected</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> «No syntax errors detected».
+        <br><code>$request-&gt;boolean('faqat_faol')</code> — checkbox uchun qulay:
+        <code>"1"</code>, <code>"true"</code>, <code>"on"</code> ni
+        <code>true</code> ga aylantiradi.</p>
+      </li>
+
+      <li>
+        <p>Ro'yxat sahifasiga filtr formasini qo'shing</p>
+        <div class="cmd" data-cmd="cat &gt; resources/views/vakansiyalar/index.blade.php &lt;&lt;'EOF'
+@extends('layouts.asosiy')
+
+@section('mazmun')
+    &lt;h1&gt;Vakansiyalar&lt;/h1&gt;
+
+    @if (session('xabar'))
+        &lt;p style=&quot;color:green&quot;&gt;{{ session('xabar') }}&lt;/p&gt;
+    @endif
+
+    &lt;form method=&quot;GET&quot; action=&quot;{{ route('vakansiyalar.index') }}&quot;&gt;
+        &lt;input type=&quot;text&quot; name=&quot;q&quot; placeholder=&quot;Nom bo'yicha qidirish&quot; value=&quot;{{ request('q') }}&quot;&gt;
+
+        &lt;select name=&quot;shahar&quot;&gt;
+            &lt;option value=&quot;&quot;&gt;Barcha shaharlar&lt;/option&gt;
+            @foreach ($shaharlar as $shahar)
+                &lt;option value=&quot;{{ $shahar }}&quot; @selected(request('shahar') === $shahar)&gt;{{ $shahar }}&lt;/option&gt;
+            @endforeach
+        &lt;/select&gt;
+
+        &lt;label&gt;
+            &lt;input type=&quot;checkbox&quot; name=&quot;faqat_faol&quot; value=&quot;1&quot; @checked(request()-&gt;boolean('faqat_faol'))&gt;
+            Faqat faollari
+        &lt;/label&gt;
+
+        &lt;button type=&quot;submit&quot;&gt;Filtrlash&lt;/button&gt;
+        &lt;a href=&quot;{{ route('vakansiyalar.index') }}&quot;&gt;Tozalash&lt;/a&gt;
+    &lt;/form&gt;
+
+    &lt;ul&gt;
+        @forelse ($vakansiyalar as $v)
+            &lt;li&gt;
+                &lt;a href=&quot;{{ route('vakansiyalar.show', $v-&gt;id) }}&quot;&gt;{{ $v-&gt;nom }}&lt;/a&gt;
+                — {{ $v-&gt;maosh }} · {{ $v-&gt;kompaniya?-&gt;nom ?? 'kompaniya ko\'rsatilmagan' }}
+                · {{ $v-&gt;konikmalar_count }} ko'nikma
+            &lt;/li&gt;
+        @empty
+            &lt;li&gt;Hech narsa topilmadi.&lt;/li&gt;
+        @endforelse
+    &lt;/ul&gt;
+
+    @include('qismlar.sahifalar', ['sahifalar' =&gt; $vakansiyalar])
+@endsection
+EOF">cat &gt; resources/views/vakansiyalar/index.blade.php &lt;&lt;'EOF'
+@extends('layouts.asosiy')
+
+@section('mazmun')
+    &lt;h1&gt;Vakansiyalar&lt;/h1&gt;
+
+    @if (session('xabar'))
+        &lt;p style="color:green"&gt;{{ session('xabar') }}&lt;/p&gt;
+    @endif
+
+    <span class="add">&lt;form method="GET" action="{{ route('vakansiyalar.index') }}"&gt;
+        &lt;input type="text" name="q" placeholder="Nom bo'yicha qidirish" value="{{ request('q') }}"&gt;
+
+        &lt;select name="shahar"&gt;
+            &lt;option value=""&gt;Barcha shaharlar&lt;/option&gt;
+            @foreach ($shaharlar as $shahar)
+                &lt;option value="{{ $shahar }}" @selected(request('shahar') === $shahar)&gt;{{ $shahar }}&lt;/option&gt;
+            @endforeach
+        &lt;/select&gt;
+
+        &lt;label&gt;
+            &lt;input type="checkbox" name="faqat_faol" value="1" @checked(request()-&gt;boolean('faqat_faol'))&gt;
+            Faqat faollari
+        &lt;/label&gt;
+
+        &lt;button type="submit"&gt;Filtrlash&lt;/button&gt;
+        &lt;a href="{{ route('vakansiyalar.index') }}"&gt;Tozalash&lt;/a&gt;
+    &lt;/form&gt;</span>
+
+    &lt;ul&gt;
+        @forelse ($vakansiyalar as $v)
+            &lt;li&gt;
+                &lt;a href="{{ route('vakansiyalar.show', $v-&gt;id) }}"&gt;{{ $v-&gt;nom }}&lt;/a&gt;
+                — {{ $v-&gt;maosh }} · {{ $v-&gt;kompaniya?-&gt;nom ?? 'kompaniya ko\'rsatilmagan' }}
+                · {{ $v-&gt;konikmalar_count }} ko'nikma
+            &lt;/li&gt;
+        @empty
+            &lt;li&gt;Hech narsa topilmadi.&lt;/li&gt;
+        @endforelse
+    &lt;/ul&gt;
+
+    <span class="add">@include('qismlar.sahifalar', ['sahifalar' =&gt; $vakansiyalar])</span>
+@endsection
+EOF</div>
+        <p class="expect">⚠️ <b>Diqqat — vakansiya qo'shish formasi bu yerda
+        yo'q.</b> 19–20-darslarda yozgan <code>&lt;form method="POST"&gt;</code> ni
+        ataylab olib tashladik: sahifa endi <b>ro'yxat va filtr</b> uchun.
+        <br>Forma <b>30-darsda qaytadi</b> — lekin bu safar <b>faqat kirgan
+        foydalanuvchilar</b> uchun. Hozir esa uni <b>istalgan odam</b> ishlatishi
+        mumkin edi, va bu Modul D ning asosiy sababi.
+        <br><i>(<code>store</code> metodi va route joyida turibdi — faqat sahifada
+        tugmasi yo'q.)</i></p>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik.
+        <br>Ikkita yangi Blade yordamchisi: <code>@selected(...)</code> va
+        <code>@checked(...)</code> — shart rost bo'lsa
+        <code>selected</code>/<code>checked</code> atributini qo'yadi. Ular
+        <code>@if</code> yozishdan qisqaroq.
+        <br>Forma <code>method="GET"</code> — chunki filtr <b>ma'lumot
+        o'zgartirmaydi</b> (13-dars). Shuning uchun <code>@csrf</code> ham kerak
+        emas, va natijani havola sifatida yuborish mumkin.</p>
+      </li>
+
+      <li>
+        <p>🎉 Brauzerda sinang</p>
+        <div class="cmd" data-cmd="php artisan serve">php artisan serve</div>
+        <p class="expect"><b>Kutilgan natija:</b> <code>/vakansiyalar</code> da
+        endi qidiruv maydoni, shahar ro'yxati va checkbox bor. Pastda:</p>
+        <div class="natija">20 tadan 1–5     ← Oldingi   1 / 4   Keyingi →</div>
+        <p class="expect">Beshta narsani sinang:
+        <br><b>1)</b> «Keyingi» — <code>?page=2</code>, yozuv <code>20 tadan 6–10</code>
+        ga o'zgaradi.
+        <br><b>2)</b> Qidiruvga <code>dasturchi</code> yozing — natija kamayadi.
+        <br><b>3)</b> Shahar tanlang — natija kamayadi. Agar natija <b>5 tadan
+        kam</b> bo'lsa «Oldingi/Keyingi» <b>ko'rinmaydi</b>, faqat
+        <code>4 tadan 1–4</code> kabi yozuv qoladi.
+        <i>(Sonlar sizda boshqacha — ma'lumot tasodifiy yasalgan.)</i>
+        <br><b>4)</b> Filtrlab, keyin «Keyingi» ni bosing — manzilda <b>filtr
+        ham</b> saqlanadi (<code>?q=...&amp;page=2</code>). Bu
+        <code>withQueryString()</code>.
+        <br><b>5)</b> <code>?page=999</code> yozing — bo'sh ro'yxat va «Hech narsa
+        topilmadi», xato <b>yo'q</b>.</p>
+      </li>
+
+      <li>
+        <p>⚡ N+1 ni <b>xatoga aylantiring</b></p>
+        <p class="why-step">Darsning yakuniy qadami — muammoni jimgina sekinlikdan
+        baland xatoga o'tkazish.</p>
+        <p><code>app/Providers/AppServiceProvider.php</code> da:</p>
+        <div class="cmd" data-cmd="use Illuminate\Database\Eloquent\Model;
+
+    public function boot(): void
+    {
+        Model::preventLazyLoading(! app()-&gt;isProduction());
+    }">use Illuminate\Database\Eloquent\Model;
+
+    public function boot(): void
+    {
+        Model::preventLazyLoading(! app()-&gt;isProduction());
+    }</div>
+        <p class="expect"><b>Kutilgan natija:</b> sahifa <b>avvalgidek</b> ishlaydi —
+        chunki controllerda <code>with('kompaniya')</code> bor.</p>
+        <p>Endi uni <b>ataylab</b> olib tashlang: controllerdagi
+        <code>-&gt;with('kompaniya')</code> qatorini o'chirib, sahifani yangilang:</p>
+        <div class="natija">Illuminate\Database\LazyLoadingViolationException
+
+Attempted to lazy load [kompaniya] on model [App\Models\Vakansiya]
+but lazy loading is disabled.
+
+   resources/views/vakansiyalar/index.blade.php:33</div>
+        <p class="expect">🎉 <b>500 xatosi</b> — va u <b>qaysi bog'lanish</b> va
+        <b>qaysi qator</b> ekanini aytadi. Endi <code>with()</code> ni qaytaring:
+        sahifa yana ishlaydi.
+        <br>Bundan keyin N+1 ni <b>unutib bo'lmaydi</b>.</p>
+      </li>
+
+      <li>
+        <p>Ishni saqlang</p>
+        <div class="cmd" data-cmd="git add -A
+git commit -m &quot;29-dars: sahifalash, filtr, scope va N+1 himoyasi&quot;">git add -A
+git commit -m "29-dars: sahifalash, filtr, scope va N+1 himoyasi"</div>
+        <p class="expect"><b>Kutilgan natija:</b> commit haqida xabar.
+        <br><b>Modul C tugadi</b> 🎓</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><input type="checkbox" id="d29c1"><label for="d29c1">Modelga <code>#[Scope]</code> bilan ikkita scope yozdim</label></li>
+      <li><input type="checkbox" id="d29c2"><label for="d29c2"><b><code>paginate</code> 2 so'rov, <code>simplePaginate</code> 1 so'rov ekanini o'lchadim</b> 🔍</label></li>
+      <li><input type="checkbox" id="d29c3"><label for="d29c3"><code>simplePaginate</code> ning <code>limit 6</code> hiylasini ko'rdim</label></li>
+      <li><input type="checkbox" id="d29c4"><label for="d29c4">Sahifa havolalari qismini paginator API bilan yozdim</label></li>
+      <li><input type="checkbox" id="d29c5"><label for="d29c5"><b>Qidiruv va shahar filtri ishladi</b></label></li>
+      <li><input type="checkbox" id="d29c6"><label for="d29c6"><b>Filtrlab «Keyingi» bosganda filtr saqlanib qolganini ko'rdim</b> (<code>withQueryString</code>)</label></li>
+      <li><input type="checkbox" id="d29c7"><label for="d29c7"><code>?page=999</code> da xato emas, bo'sh ro'yxat chiqishini tekshirdim</label></li>
+      <li><input type="checkbox" id="d29c8"><label for="d29c8"><b>N+1 ni 500 xatosiga aylantirdim</b> ⚡</label></li>
+      <li><input type="checkbox" id="d29c9"><label for="d29c9">Ishni commit qildim</label></li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 5) TAXMIN + QUIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Controller shunday yozilgan — <b><code>withQueryString()</code> siz</b>:</p>
+    <div class="codefile">
+      <div class="fname">controller</div>
+      <code class="cmd" data-cmd="$vakansiyalar = Vakansiya::query()
+    -&gt;when($request-&gt;input('shahar'), fn ($s, $sh) =&gt; $s-&gt;where('shahar', $sh))
+    -&gt;paginate(5);       // ← withQueryString() YO'Q">$vakansiyalar = Vakansiya::query()
+    -&gt;when($request-&gt;input('shahar'), fn ($s, $sh) =&gt; $s-&gt;where('shahar', $sh))
+    -&gt;paginate(5);       <span class="add">// ← withQueryString() YO'Q</span></code>
+    </div>
+    <p>Foydalanuvchi «Toshkent» ni tanladi — <b>12 ta</b> natija chiqdi, ya'ni
+    3 sahifa. Keyin <b>«Keyingi»</b> ni bosdi. Nima ko'radi?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <div class="natija">Manzil:   ?page=2          ← shahar YO'Q
+Natija:   BARCHA vakansiyalarning 2-sahifasi (Toshkent emas)
+Xato:     yo'q</div>
+        <p>Filtr <b>jimgina yo'qoladi</b>. Paginator manzilni <b>o'zi</b> yasaydi va
+        standart holda faqat <code>page</code> parametrini qo'yadi — manzildagi
+        qolgan parametrlarni <b>bilmaydi</b>.</p>
+        <p>Foydalanuvchi tomonidan bu shunday ko'rinadi: «filtrladim, keyingi sahifaga
+        o'tdim va hammasi buzildi». Va bu <b>eng ko'p uchraydigan</b> sahifalash
+        bug'i — chunki dasturchi odatda <b>birinchi sahifada</b> sinab, ishlayapti
+        deb o'ylaydi.</p>
+        <p class="expect">✅ <b>Yechim bitta metod:</b></p>
+        <div class="natija">-&gt;paginate(5)
+-&gt;withQueryString();
+
+→ ?shahar=Toshkent&amp;page=2   ✅</div>
+        <p><b>Tekshirish odati:</b> filtrlagandan keyin «Keyingi» ni bosib,
+        <b>manzil qatoriga</b> qarang. Filtr parametri bormi? Yo'q bo'lsa —
+        <code>withQueryString()</code> unutilgan.</p>
+        <p>Muqobil: <code>appends(['shahar' =&gt; $shahar])</code> — aniq parametrlarni
+        sanab berish. Lekin filtrlar ko'payganda <code>withQueryString()</code>
+        qulayroq.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span> <code>paginate()</code> va
+    <code>simplePaginate()</code> farqi nimada?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">paginate jami sonni ham hisoblaydi</button></li>
+      <li><button class="quiz-option">paginate faqat birinchi sahifani ochadi</button></li>
+      <li><button class="quiz-option">paginate havolalarni avtomatik chiroyli qiladi</button></li>
+    </ul>
+    <div class="quiz-explain">O'lchandi: <code>paginate</code> — <b>2 so'rov</b>
+    (<code>COUNT</code> qo'shiladi), <code>simplePaginate</code> — <b>1 so'rov</b>
+    (<code>limit 6</code> bilan «davomi bormi» ni biladi). Evaziga
+    <code>total()</code> va <code>lastPage()</code> bo'lmaydi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span> <code>withQueryString()</code>
+    nima uchun kerak?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Sahifa almashganda filtr saqlanib qolsin</button></li>
+      <li><button class="quiz-option">So'rovlar soni ikki barobar kamaysin</button></li>
+      <li><button class="quiz-option">Manzil qatori qisqaroq ko'rinib tursin</button></li>
+    </ul>
+    <div class="quiz-explain">Usiz «Keyingi» havolasi faqat <code>?page=2</code>
+    bo'ladi va filtr <b>jimgina yo'qoladi</b>. Tekshirish odati: filtrlagandan keyin
+    manzil qatoriga qarang.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span>
+    <code>Model::preventLazyLoading()</code> nima qiladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">N+1 ni baland xatoga aylantiradi</button></li>
+      <li><button class="quiz-option">Barcha bog'lanishlarni avtomatik oldindan yuklaydi</button></li>
+      <li><button class="quiz-option">Sekin so'rovlarni logga yozib boradi</button></li>
+    </ul>
+    <div class="quiz-explain">U bog'lanishni <b>o'zi yuklamaydi</b> — aksincha,
+    <code>with()</code> unutilgan joyda <code>LazyLoadingViolationException</code>
+    otadi va qaysi qatorda ekanini aytadi. Real serverda o'chirilgan bo'ladi
+    (<code>! app()-&gt;isProduction()</code>).</div>
+  </div>
+
+  <!-- ═══════════════ 6) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+    <p class="recall-intro">Avval o'zingiz javob bering, keyin ochib tekshiring.
+    Oxirgi ikkitasi — <a href="0028-factory-va-seeder.html">28-darsni</a>
+    takrorlash.</p>
+
+    <details class="recall">
+      <summary>Sahifa raqami qayerdan olinadi?</summary>
+      <div class="answer"><p>Manzildagi <code>?page=</code> dan — paginator uni
+      <b>o'zi</b> o'qiydi. Siz hech narsa yozmaysiz.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary><code>when()</code> nima qiladi?</summary>
+      <div class="answer"><p>Shart <b>rost</b> bo'lsagina closure'ni ishlatadi —
+      aks holda <code>WHERE</code> <b>umuman qo'shilmaydi</b>. Closure'ning ikkinchi
+      argumenti — shartning qiymati.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Scope nima uchun kerak?</summary>
+      <div class="answer"><p>Takrorlanadigan shartga <b>nom berish</b> va uni
+      <b>bir joyda</b> saqlash. Ta'rif o'zgarsa bitta joyni tuzatasiz. Zanjirlanadi:
+      <code>Vakansiya::faol()-&gt;qimmat()</code>.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: <code>fake('uz_UZ')</code> nima qiladi?</summary>
+      <div class="answer"><p><b>Jimgina</b> inglizcha ma'lumot qaytaradi — Faker'da
+      o'zbek tili yo'q. Yechim: <code>randomElement</code> bilan o'z
+      ro'yxatingiz.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: factory'da bog'lanish nomi nima uchun yoziladi?</summary>
+      <div class="answer"><p>Laravel taxmini o'zbekcha nomda ishlamaydi
+      (<code>vakansiyas</code>, <code>konikmas</code>). Shuning uchun
+      <code>has(..., 'vakansiyalar')</code> deb <b>aniq</b> beriladi.</p></div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 7) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Cho'ntak xulosasi</span>
+    <ul>
+      <li><code>get()</code> o'rniga <code>paginate(5)</code> — sahifa raqami
+      <code>?page=</code> dan <b>o'zi</b> olinadi.</li>
+      <li>Paginator metodlari: <code>total</code> · <code>currentPage</code> ·
+      <code>lastPage</code> · <code>firstItem</code>/<code>lastItem</code> ·
+      <code>hasPages</code> · <code>onFirstPage</code> ·
+      <code>previousPageUrl</code>/<code>nextPageUrl</code>.</li>
+      <li>🔍 <code>paginate</code> — <b>2 so'rov</b> (<code>COUNT</code> bor);
+      <code>simplePaginate</code> — <b>1 so'rov</b> (<code>limit 6</code> hiylasi),
+      lekin <code>total()</code> yo'q.</li>
+      <li>⚠️ <b><code>withQueryString()</code></b> — bo'lmasa sahifa almashganda
+      <b>filtr yo'qoladi</b>. Eng ko'p uchraydigan sahifalash bug'i.</li>
+      <li><code>when($shart, $closure)</code> — shart rost bo'lsagina qo'shiladi;
+      ikkinchi argument — qiymat. ⚠️ <code>0</code> <b>falsy</b>, kerak bo'lsa
+      <code>filled()</code>.</li>
+      <li><code>whereLike</code> (standart holda <b>sezgir emas</b>) ·
+      <code>whereBetween</code> · <code>whereIn</code> ·
+      <code>distinct()-&gt;pluck()</code>.</li>
+      <li><b>Scope</b> — shartga nom: <code>#[Scope]</code> (yangi) yoki
+      <code>scopeFaol()</code> (eski). Zanjirlanadi, parametr qabul qiladi.</li>
+      <li>⚡ <code>Model::preventLazyLoading(! app()-&gt;isProduction())</code> —
+      N+1 ni <b>500 xatosiga</b> aylantiradi va qatorini ko'rsatadi. Real serverda
+      o'chiq.</li>
+      <li>Blade: <code>@selected(...)</code> · <code>@checked(...)</code> ·
+      <code>request('q')</code> bilan formani to'ldirish.</li>
+      <li>Filtr formasi — <code>method="GET"</code>: ma'lumot o'zgarmaydi, natijani
+      havola qilib yuborish mumkin, <code>@csrf</code> kerak emas.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🎓 MODUL C TUGADI (9 / 9)</span>
+    <p>To'qqiz darsda bosib o'tilgan yo'l:</p>
+    <div class="natija">21  SQL o'qish            SELECT, WHERE, NULL tuzog'i
+22  SQL yozish            INSERT/UPDATE/DELETE, JOIN, GROUP BY
+23  Migration             tuzilma kodda, --pretend bilan SQL ko'rinadi
+24  Route parametri       /vakansiyalar/3, sahifa bazaga ulandi
+25  Eloquent              model, $table, $fillable, toSql()
+26  belongsTo/hasMany     $v->kompaniya, N+1 birinchi o'lchov
+27  belongsToMany         pivot jadval, attach/sync
+28  Factory va Seeder     ma'lumotni Laravel yasaydi
+29  Sahifalash va filtr   paginate, when, scope, N+1 himoyasi</div>
+    <p>Diqqat qiling: <b>hech qayerda sehr qolmadi</b>. Eloquent SQL yozadi
+    (<code>toSql()</code>), migration SQL yuboradi (<code>--pretend</code>), pivot
+    <code>INNER JOIN</code> qiladi, paginator <code>LIMIT/OFFSET</code> qo'yadi.
+    21–22-darslardagi SQL bilimi butun modul bo'ylab <b>ish berdi</b> — aynan shuning
+    uchun u boshida turgan edi.</p>
+    <p>IshTop endi: ro'yxat, qidiruv, filtr, sahifalash, bitta vakansiya sahifasi,
+    kompaniya va ko'nikmalar. Bitta katta narsa yetishmaydi — <b>foydalanuvchi</b>.
+    Shu sababdan bugun vakansiya qo'shish formasini sahifadan <b>vaqtincha</b> olib
+    qo'ydik: hozir uni <b>istalgan odam</b> ishlatishi mumkin edi. U 30-darsda
+    <b>kirish talab qiladigan</b> holda qaytadi.</p>
+    <p><b>Modul D — Autentifikatsiya va huquqlar</b> shuni yechadi: ro'yxatdan o'tish,
+    kirish, «kim nima qila oladi». Va u ham <b>qo'lda</b> boshlanadi (30-dars) —
+    sessiya va parol xeshini o'z qo'lingiz bilan yozasiz, keyingina Laravel'ning
+    tayyor yechimiga o'tamiz. Modul A dagi mini-framework naqshi.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel — Pagination</b>:
+    <a href="https://laravel.com/docs/13.x/pagination">laravel.com/docs/13.x/pagination</a>
+    — <code>paginate</code>, <code>simplePaginate</code>, <code>appends</code>,
+    ko'rinishlarni almashtirish.<sup><a href="#fn1">1</a></sup><br>
+    <b>Query Builder</b>:
+    <a href="https://laravel.com/docs/13.x/queries#conditional-clauses">Conditional
+    Clauses (<code>when</code>)</a> va
+    <a href="https://laravel.com/docs/13.x/queries#where-clauses">Where
+    Clauses</a>.<sup><a href="#fn2">2</a></sup><br>
+    <b>Query Scopes</b>:
+    <a href="https://laravel.com/docs/13.x/eloquent#query-scopes">laravel.com/docs/13.x/eloquent#query-scopes</a>.<sup><a href="#fn3">3</a></sup><br>
+    <b>N+1 himoyasi</b>:
+    <a href="https://laravel.com/docs/13.x/eloquent-relationships#preventing-lazy-loading">Preventing
+    Lazy Loading</a>.<sup><a href="#fn4">4</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b> «sahifa raqamlarini
+    (1 2 3 …) ko'rsatsam bo'ladimi?», «qidiruvni tez qilish uchun indeks qanday
+    qo'yiladi?», «bir nechta ko'nikma bo'yicha filtrlash-chi?»,
+    «<code>cursorPaginate</code> nima?» — har qanday savol yaxshi. Ikkinchi savol
+    Modul H ning mavzusi; uchinchisi esa 27-darsdagi <code>whereHas</code> ni
+    <code>when</code> ichida ishlatish bilan hal bo'ladi — xohlasangiz birga
+    qo'shamiz.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0028-factory-va-seeder.html">Oldingi: Factory va Seeder</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/yol-xaritasi.html">Yo'l xaritasi</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel 13 — <a href="https://laravel.com/docs/13.x/pagination">Database: Pagination</a>.</li>
+      <li id="fn2">Laravel 13 — <a href="https://laravel.com/docs/13.x/queries">Database: Query Builder</a>.</li>
+      <li id="fn3">Laravel 13 — <a href="https://laravel.com/docs/13.x/eloquent#query-scopes">Eloquent: Query Scopes</a>.</li>
+      <li id="fn4">Laravel 13 — <a href="https://laravel.com/docs/13.x/eloquent-relationships#preventing-lazy-loading">Preventing Lazy Loading</a>.</li>
+      <li id="fn5">Barchasi jonli o'lchangan (Laravel 13.25.0, SQLite 3.45.1):
+      <code>paginate(5)</code> → <b>2 so'rov</b> (<code>count(*)</code> +
+      <code>limit 5 offset 0</code>) · <code>simplePaginate(5)</code> →
+      <b>1 so'rov</b> (<code>limit 6</code>) · <code>links()</code> → <b>6501</b>
+      belgilik Tailwind HTML · sahifada <code>20 tadan 1–5</code> · <code>1 / 4</code>,
+      <code>2 / 4</code>, <code>4 / 4</code> · <code>?shahar=Toshkent</code> →
+      <code>4 tadan 1–4</code> · <code>?q=zzz</code> → «Hech narsa topilmadi» ·
+      <code>withQueryString()</code> bilan
+      <code>?q=dasturchi&amp;faqat_faol=1&amp;page=1</code>, usiz <code>?page=2</code> ·
+      <code>when(null)</code> → <code>where</code> yo'q ·
+      <code>whereLike('%DASTURCHI%')</code> → <b>5</b> ta,
+      <code>caseSensitive: true</code> → <b>0</b> ta ·
+      <code>#[Scope]</code> va <code>scopeFaol()</code> → ikkalasi ham <b>16</b> ·
+      va <code>with()</code> olib tashlanganda → <b>500</b> +
+      <code>LazyLoadingViolationException</code>
+      (<code>index.blade.php:33</code>).</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

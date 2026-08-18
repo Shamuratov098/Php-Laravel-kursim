@@ -24,6 +24,27 @@
     <span>Kerak: <a href="0019-blade-komponent-va-forma.html">Dars 19</a></span>
   </p>
 
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b>Bitta chaqiruv — butun tekshiruv</b>
+        <span class="nima"><code>$request-&gt;validate([...])</code> va qoidalar ro'yxati.</span></li>
+      <li><b>🔑 <code>validate()</code> qiymat qaytaradi</b>
+        <span class="nima">Va faqat <b>qoidadagi</b> maydonlarni — bazaga yozishda shuni ishlating.</span></li>
+      <li><b>Xato bo'lsa to'rt qadam</b>
+        <span class="nima">Exception → sessiya → <b>302 redirect ortga</b> → forma to'ldirilgan holda.</span></li>
+      <li><b><code>$errors</code> va <code>@error</code></b>
+        <span class="nima">Har view'da avtomatik mavjud; maydon yonidagi xato.</span></li>
+      <li><b><code>old()</code></b>
+        <span class="nima">Kiritilgan qiymat saqlanib qolishi — bo'lmasa foydalanuvchi ketadi.</span></li>
+      <li><b>Flash xabar</b>
+        <span class="nima"><code>redirect()-&gt;with(...)</code> + <code>session(...)</code> — bir marta ko'rinadi.</span></li>
+      <li><b>O'zbekcha xabarlar</b>
+        <span class="nima">Ikkinchi argument, <code>'maydon.qoida'</code> kaliti va <code>:min</code> almashishi.</span></li>
+    </ol>
+  </div>
+
   <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
   <div class="callout why">
     <span class="label">Nega bu muhim</span>

@@ -19,7 +19,7 @@
 
   <p class="lesson-meta">
     <span>Holat: <b>Modul B — 4/7</b></span>
-    <span>Tayyor darslar: 23 / 73</span>
+    <span>Tayyor darslar: 34 / 73</span>
     <span>Marra: 48-dars</span>
     <span>📱 O'qishga mos</span>
   </p>
@@ -279,7 +279,7 @@
   </section>
 
   <!-- ================= MODUL C ================= -->
-  <section class="module is-current"">
+  <section class="module"">
     <div class="module-head">
       <span class="module-tag">Modul C</span>
       <h3>Ma'lumotlar — SQL, migration, Eloquent</h3>
@@ -315,65 +315,65 @@
         </div>
         <span class="road-state">Tayyor</span>
       </li>
-      <li class="now">
+      <li class="done">
         <span class="road-n">24</span>
         <div class="road-body">
-          <span class="t">Route parametri, nomlangan route va resource controller</span>
+          <a href="../lessons/0024-route-parametri-va-nomlangan-route.html">Route parametri, nomlangan route va resource</a>
           <span class="road-win">Bitta vakansiya sahifasini ochaman va havolalarni qo'lda yozmayman</span>
-          <span class="road-cmds">/{id} · -&gt;name() · route() · Route::resource · 404</span>
+          <span class="road-cmds">/{id} · -&gt;name() · route() · abort(404) · Route::resource</span>
         </div>
-        <span class="road-state">Keyingi</span>
+        <span class="road-state">Tayyor</span>
       </li>
-      <li>
+      <li class="done">
         <span class="road-n">25</span>
         <div class="road-body">
-          <span class="t">Eloquent — CRUD</span>
+          <a href="../lessons/0025-eloquent-crud.html">Eloquent — CRUD</a>
           <span class="road-win">Model orqali yozuv yaratib, o'qib, o'zgartirib, o'chiraman</span>
-          <span class="road-cmds">make:model · find · where · create · $fillable</span>
+          <span class="road-cmds">make:model · $table · $fillable · find · findOrFail · create · toSql</span>
         </div>
-        <span class="road-state">Rejada</span>
+        <span class="road-state">Tayyor</span>
       </li>
-      <li>
+      <li class="done">
         <span class="road-n">26</span>
         <div class="road-body">
-          <span class="t">Bog'lanish 1 — hasMany va belongsTo</span>
+          <a href="../lessons/0026-boglanish-belongsto-hasmany.html">Bog'lanish 1 — hasMany va belongsTo</a>
           <span class="road-win">Kompaniyaning vakansiyalarini bir qatorda olaman</span>
-          <span class="road-cmds">hasMany · belongsTo · foreignId · constrained</span>
+          <span class="road-cmds">belongsTo · hasMany · ?-&gt; · whereHas · withCount · with() va N+1</span>
         </div>
-        <span class="road-state">Rejada</span>
+        <span class="road-state">Tayyor</span>
       </li>
-      <li>
+      <li class="done">
         <span class="road-n">27</span>
         <div class="road-body">
-          <span class="t">Bog'lanish 2 — belongsToMany va pivot</span>
+          <a href="../lessons/0027-boglanish-belongstomany-va-pivot.html">Bog'lanish 2 — belongsToMany va pivot</a>
           <span class="road-win">Vakansiyaga ko'nikma bog'layman, ariza pivot'da yashaydi</span>
-          <span class="road-cmds">belongsToMany · pivot · attach · detach · withPivot</span>
+          <span class="road-cmds">belongsToMany · pivot · attach · detach · sync · toggle · withPivot</span>
         </div>
-        <span class="road-state">Rejada</span>
+        <span class="road-state">Tayyor</span>
       </li>
-      <li>
+      <li class="done">
         <span class="road-n">28</span>
         <div class="road-body">
-          <span class="t">Factory va Seeder</span>
+          <a href="../lessons/0028-factory-va-seeder.html">Factory va Seeder</a>
           <span class="road-win">Bir buyruq bilan 200 ta ishonchli test yozuvi yasayman</span>
-          <span class="road-cmds">make:factory · fake() · db:seed · migrate:fresh --seed</span>
+          <span class="road-cmds">make:factory · fake() · make/create · has/for/hasAttached · state · db:seed</span>
         </div>
-        <span class="road-state">Rejada</span>
+        <span class="road-state">Tayyor</span>
       </li>
-      <li>
+      <li class="done">
         <span class="road-n">29</span>
         <div class="road-body">
-          <span class="t">Query Builder, pagination, scope va N+1 bilan tanishuv</span>
+          <a href="../lessons/0029-sahifalash-filtr-va-scope.html">Sahifalash, filtr, scope va N+1</a>
           <span class="road-win">Ro'yxatni sahifalayman va N+1 muammosini o'z ko'zim bilan ko'raman</span>
-          <span class="road-cmds">paginate · scope · with() · query log</span>
+          <span class="road-cmds">paginate · withQueryString · when · whereLike · #[Scope] · preventLazyLoading</span>
         </div>
-        <span class="road-state">Rejada</span>
+        <span class="road-state">Tayyor</span>
       </li>
     </ol>
   </section>
 
   <!-- ================= MODUL D ================= -->
-  <section class="module">
+  <section class="module is-current"">
     <div class="module-head">
       <span class="module-tag">Modul D</span>
       <h3>Foydalanuvchi va ruxsat</h3>
@@ -382,59 +382,59 @@
       tayyor yechimiga qaraysiz — shunda tayyor yechim tushunarli bo'ladi.</p>
     </div>
     <ol class="road">
-      <li>
+      <li class="done">
         <span class="road-n">30</span>
         <div class="road-body">
-          <span class="t">Auth mexanizmi — qo'lda</span>
+          <a href="../lessons/0030-auth-qolda.html">Auth mexanizmi — qo'lda</a>
           <span class="road-win">Parol qanday saqlanadi va kirish qanday eslanadi — o'zim yozdim</span>
-          <span class="road-cmds">Hash::make · Hash::check · session · Auth::attempt</span>
+          <span class="road-cmds">Hash::make · Auth::attempt · regenerate · @auth · middleware('auth')</span>
         </div>
-        <span class="road-state">Rejada</span>
+        <span class="road-state">Tayyor</span>
       </li>
-      <li>
+      <li class="done">
         <span class="road-n">31</span>
         <div class="road-body">
-          <span class="t">Starter kit — nima yaratildi va nega</span>
+          <a href="../lessons/0031-starter-kit.html">Starter kit — nima yaratildi va nega</a>
           <span class="road-win">Tayyor auth ishlaydi, va har faylining vazifasini aytaman</span>
-          <span class="road-cmds">starter kit · auth route'lari · yaratilgan fayllar</span>
+          <span class="road-cmds">breeze:install · rate limiting · Form Request · lang:publish</span>
         </div>
-        <span class="road-state">Rejada</span>
+        <span class="road-state">Tayyor</span>
       </li>
-      <li>
+      <li class="done">
         <span class="road-n">32</span>
         <div class="road-body">
-          <span class="t">Middleware</span>
+          <a href="../lessons/0032-middleware.html">Middleware</a>
           <span class="road-win">Ruxsatsiz odam sahifaga kirmaydi</span>
-          <span class="road-cmds">make:middleware · auth · guest · guruh</span>
+          <span class="road-cmds">make:middleware · $next · alias · group · parametr · terminate</span>
         </div>
-        <span class="road-state">Rejada</span>
+        <span class="road-state">Tayyor</span>
       </li>
-      <li>
+      <li class="done">
         <span class="road-n">33</span>
         <div class="road-body">
-          <span class="t">Gate va Policy</span>
+          <a href="../lessons/0033-gate-va-policy.html">Gate va Policy</a>
           <span class="road-win">Vakansiyani faqat egasi tahrirlaydi</span>
-          <span class="road-cmds">make:policy · authorize · Gate::define · @can</span>
+          <span class="road-cmds">make:policy · authorize() · 403 · @can · can: middleware · Gate::define</span>
         </div>
-        <span class="road-state">Rejada</span>
+        <span class="road-state">Tayyor</span>
       </li>
-      <li>
+      <li class="done">
         <span class="road-n">34</span>
         <div class="road-body">
-          <span class="t">Rollar — ish beruvchi va nomzod</span>
+          <a href="../lessons/0034-rollar.html">Rollar — ish beruvchi va nomzod</a>
           <span class="road-win">Ikki xil foydalanuvchi ikki xil narsani ko'radi</span>
-          <span class="road-cmds">role ustuni · policy'da rol · Blade'da @can</span>
+          <span class="road-cmds">make:enum · rol ustuni · cast · Rule::enum · cases() · @can</span>
         </div>
-        <span class="road-state">Rejada</span>
+        <span class="road-state">Tayyor</span>
       </li>
-      <li>
+      <li class="now">
         <span class="road-n">35</span>
         <div class="road-body">
           <span class="t">Form Request</span>
           <span class="road-win">Validatsiya controllerdan chiqib, o'z joyini topdi</span>
           <span class="road-cmds">make:request · rules() · authorize() · messages()</span>
         </div>
-        <span class="road-state">Rejada</span>
+        <span class="road-state">Keyingi</span>
       </li>
       <li>
         <span class="road-n">36</span>

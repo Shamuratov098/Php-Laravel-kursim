@@ -18,7 +18,7 @@
   izoh esa o'zbekcha.</p>
 
   <p class="lesson-meta">
-    <span>Atamalar: <b>98 ta</b></span>
+    <span>Atamalar: <b>142 ta</b></span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>📱 O'qishga mos</span>
   </p>
@@ -26,7 +26,7 @@
   <div class="callout note">
     <span class="label">Bu hujjat o'sib boradi</span>
     <p>Atama faqat <b>o'z darsi yozilganda</b> qo'shiladi — oldindan emas. Hozir:
-    Modul A, B va C boshi (1–23-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
+    Modul A–D (1–34-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
     bosqichida qat'iy belgilangan va 73 dars bo'ylab o'zgarmaydi).</p>
   </div>
 
@@ -187,6 +187,9 @@
       <dd><code>if</code> dan farqi: natijani <b>qaytaradi</b> (o'zgaruvchiga solinadi) va
       har doim <code>===</code> bilan solishtiradi. Mos variant topilmasa va
       <code>default</code> yozilmagan bo'lsa — <code>UnhandledMatchError</code>.
+      <a href="#enum">Enum</a> bilan ishlaganda bu <b>foyda</b>: yangi
+      <code>case</code> qo'shsangiz <code>match</code> darhol xato berib, sizni
+      to'ldirish kerak bo'lgan joyga olib boradi.
       <span class="eg">$m = match($holat) { "yangi" =&gt; "...", default =&gt; "..." };</span></dd>
     </div>
 
@@ -848,6 +851,510 @@
       (<code>return new class extends Migration</code>): nom berilsa, ikkita migration
       to'qnashishi mumkin edi. G'oyasi <a href="#closure">closure</a> bilan bir xil.
       <span class="eg">return new class extends Migration { ... };</span></dd>
+    </div>
+
+    <div class="term" id="route-parametri">
+      <dt>route parametri <span class="uz">— manzilning o'zgaruvchi qismi</span></dt>
+      <dd><code>/vakansiyalar/{id}</code> — jingalak qavs «istalgan qiymat» degani;
+      Laravel uni controller metodiga <b>argument</b> qilib beradi. U yerdan SQL'ga
+      faqat <b>parametr</b> bo'lib boradi (<code>WHERE id = ?</code>) — manzilni
+      istalgan odam o'zgartira olgani uchun bu majburiy
+      (<a href="#sql-injection">SQL injection</a>).
+      ⚠️ Route'lar <b>yozilgan tartibda</b> tekshiriladi: aniq yo'llar
+      (<code>/create</code>) parametrlilardan <b>oldin</b> turishi kerak, aks holda
+      <code>{id}</code> ularni ham «yeb qo'yadi».
+      <span class="eg">Route::get('/vakansiyalar/{id}', [Ctrl::class, 'show']);</span></dd>
+    </div>
+
+    <div class="term" id="nomlangan-route">
+      <dt>nomlangan route <span class="uz">(named route) — manzilga nom berish</span></dt>
+      <dd><code>-&gt;name('vakansiyalar.show')</code> bilan nom beriladi, keyin hamma
+      joyda <code>route('vakansiyalar.show', $id)</code> ishlatiladi. Foydasi: manzil
+      <b>bitta joyda</b> yoziladi, va xato yozilsa Laravel <b>darhol</b> aytadi
+      (<code>Route [...] not defined</code>). Nom qolipi — <code>resurs.amal</code>.
+      <code>route()</code> to'liq manzil (domen bilan) qaytaradi.
+      <span class="eg">&lt;a href="{{ route('vakansiyalar.show', $v-&gt;id) }}"&gt;</span></dd>
+    </div>
+
+    <div class="term" id="resource-controller">
+      <dt>resource controller <span class="uz">— yetti amalning standart to'plami</span></dt>
+      <dd><code>Route::resource('vakansiyalar', VakansiyaController::class)</code> bitta
+      qatordan <b>7 route</b> yasaydi: <code>index</code>, <code>create</code>,
+      <code>store</code>, <code>show</code>, <code>edit</code>, <code>update</code>,
+      <code>destroy</code> — standart nomlar bilan va <b>to'g'ri tartibda</b>
+      (<code>create</code> ni <code>{id}</code> dan oldin qo'yadi). Cheklash —
+      <code>-&gt;only([...])</code>.
+      <span class="eg">Route::resource('vakansiyalar', VakansiyaController::class);</span></dd>
+    </div>
+
+    <div class="term" id="abort">
+      <dt>abort(404) <span class="uz">— so'rovni to'xtatib xato javob berish</span></dt>
+      <dd><a href="#throw">throw</a> ning Laravel shakli: funksiyani <b>darhol
+      to'xtatadi</b>, javobni Laravel yasaydi. <code>return</code> yozish shart emas.
+      Yozuv topilmasa <b>404</b> berish kerak — bo'sh sahifa brauzerga «sahifa bor»
+      deb aytadi, hech narsa qilmaslik esa <b>500</b> beradi.
+      <span class="eg">if ($qatorlar === []) { abort(404); }</span></dd>
+    </div>
+
+    <div class="term" id="eloquent">
+      <dt>Eloquent <span class="uz">— Laravel'ning ORM'i</span></dt>
+      <dd><b>ORM</b> (object-relational mapper): <a href="#table">jadval</a>ni klass,
+      qatorni <a href="#object">obyekt</a> qilib ko'rsatadi. <b>Sehr emas</b> — SQL
+      yozadi, va <code>toSql()</code> uni ko'rsatadi (qiymatlar <code>?</code> bilan,
+      ya'ni parametr). O'qish: <code>all</code> · <code>find</code> ·
+      <code>findOrFail</code> · <code>where(...)-&gt;get()</code>. Yozish:
+      <code>create</code> · <code>save</code> · <code>delete</code>.
+      <code>created_at</code>/<code>updated_at</code> <b>avtomatik</b> to'ldiriladi.
+      <span class="eg">Vakansiya::where('maosh', '&gt;', 700)-&gt;get()</span></dd>
+    </div>
+
+    <div class="term" id="model-table">
+      <dt>$table <span class="uz">— model qaysi jadvalga qarashi</span></dt>
+      <dd>Laravel klass nomini <b>inglizcha</b> qoida bilan ko'plikka aylantirib taxmin
+      qiladi: <code>Vakansiya</code> → <code>vakansiyas</code>. O'zbekcha nomli loyihada
+      bu deyarli har doim xato, shuning uchun <code>protected $table</code> yozish
+      <b>majburiy</b>. Xato ko'rinishi: <code>no such table: vakansiyas</code>.
+      Tekshirish: <code>(new Vakansiya)-&gt;getTable()</code>.
+      <span class="eg">protected $table = 'vakansiyalar';</span></dd>
+    </div>
+
+    <div class="term" id="mass-assignment">
+      <dt>mass assignment <span class="uz">— ommaviy to'ldirish va uning himoyasi</span></dt>
+      <dd>Massivdagi barcha maydonni birdan modelga yozish (<code>create($massiv)</code>).
+      Xavfi: foydalanuvchi formaga yashirincha <code>admin=1</code> qo'shsa, o'zini
+      admin qilib qo'yishi mumkin. Shuning uchun <code>$fillable</code> — <b>ruxsat
+      berilgan</b> ustunlar ro'yxati. Ro'yxatda yo'q maydon <b>jimgina tashlanadi</b>;
+      <code>$fillable</code> butunlay yo'q bo'lsa — <code>MassAssignmentException</code>.
+      Birinchi qatlam esa <a href="#validation">validatsiya</a> (20-dars).
+      <span class="eg">protected $fillable = ['nom', 'maosh'];</span></dd>
+    </div>
+
+    <div class="term" id="boglanish">
+      <dt>bog'lanish <span class="uz">(relationship) — modellar orasidagi aloqa</span></dt>
+      <dd>Bazadagi <a href="#foreign-key">tashqi kalit</a>ning <a href="#eloquent">Eloquent</a>
+      dagi shakli. Modelga bir marta metod yoziladi, keyin butun ilovada ishlatiladi.
+      Qaysi metod kerakligini bitta savol hal qiladi: <b><code>_id</code> ustuni qaysi
+      jadvalda?</b> — o'sha modelda <a href="#belongsto">belongsTo</a>, ikkinchisida
+      <a href="#hasmany">hasMany</a>.
+      <span class="eg">$v-&gt;kompaniya-&gt;nom · $k-&gt;vakansiyalar</span></dd>
+    </div>
+
+    <div class="term" id="belongsto">
+      <dt>belongsTo <span class="uz">— «kimga tegishli» (tashqi kalit shu modelda)</span></dt>
+      <dd><b>Bitta</b> obyekt yoki <code>NULL</code> qaytaradi. Tashqi kalit nomini
+      <b>metod nomidan</b> taxmin qiladi: <code>kompaniya()</code> →
+      <code>kompaniya_id</code>. ⚠️ Metod nomi ustunga mos kelmasa —
+      <b>jimgina <code>NULL</code></b>, xato ham, so'rov ham yo'q. Tashxis:
+      <code>getForeignKeyName()</code>; yechim — ikkinchi argument.
+      <span class="eg">return $this-&gt;belongsTo(Kompaniya::class, 'kompaniya_id');</span></dd>
+    </div>
+
+    <div class="term" id="hasmany">
+      <dt>hasMany <span class="uz">— «kimlarga ega» (tashqi kalit boshqa jadvalda)</span></dt>
+      <dd><b>Collection</b> qaytaradi (bo'sh bo'lishi mumkin). Tashqi kalitni
+      <b>klass nomidan</b> taxmin qiladi: <code>Kompaniya</code> →
+      <code>kompaniya_id</code>. 🔑 <b>Qavssiz — natija, qavs bilan — so'rov</b>:
+      <code>$k-&gt;vakansiyalar</code> tayyor to'plam,
+      <code>$k-&gt;vakansiyalar()</code> esa ustiga <code>where</code>,
+      <code>orderBy</code>, hatto <code>create</code> qo'shiladigan so'rov.
+      <span class="eg">$k-&gt;vakansiyalar()-&gt;where('faol', 1)-&gt;get()</span></dd>
+    </div>
+
+    <div class="term" id="n-plus-1">
+      <dt>N+1 muammosi <span class="uz">— sikl ichida bog'lanishga murojaat</span></dt>
+      <dd>Ro'yxat uchun <b>1</b> so'rov, keyin <b>har qator uchun bittadan</b> —
+      jami <code>1 + N</code>. 5 qatorda sezilmaydi, 500 qatorda sahifa sekinlashadi.
+      Yechim — <b>eager loading</b>: <code>with('bog\'lanish')</code>, u kerakli
+      <code>id</code> larni yig'ib bitta <code>in (...)</code> so'rovi yuboradi
+      (o'lchandi: <b>5 → 2</b>). Standart holat esa <b>lazy loading</b> deb ataladi.
+      Sanash uchun — <code>withCount</code> (<b>1</b> so'rov).
+      <span class="eg">Vakansiya::with('kompaniya')-&gt;get()</span></dd>
+    </div>
+
+    <div class="term" id="nullsafe">
+      <dt>nullsafe operator <span class="uz">— <code>?-&gt;</code>, bo'sh qiymatni xatosiz o'qish</span></dt>
+      <dd>PHP 8: chapdagisi <code>null</code> bo'lsa, davom etmaydi va
+      <code>null</code> qaytaradi. Bog'lanish bo'sh bo'lganda
+      <code>$v-&gt;kompaniya-&gt;nom</code> «Attempt to read property on null» beradi,
+      <code>$v-&gt;kompaniya?-&gt;nom</code> esa <code>null</code>. Odatda
+      <code>??</code> bilan birga ishlatiladi. Muqobillari: <code>@if</code> va
+      <code>optional()</code>.
+      <span class="eg">{{ $v-&gt;kompaniya?-&gt;nom ?? '—' }}</span></dd>
+    </div>
+
+    <div class="term" id="pivot">
+      <dt>pivot jadval <span class="uz">— bog'lanishni saqlaydigan uchinchi jadval</span></dt>
+      <dd>Ko'pdan-ko'pga (<i>many to many</i>) bog'lanish ikki tomonning hech biriga
+      tegishli emas — u <b>ikkisining orasidagi fakt</b>, shuning uchun o'z jadvalida
+      saqlanadi. Har qator = bitta juftlik. Boshqa nomlari: <i>junction table</i>,
+      <i>join table</i>, oraliq jadval. Qo'shimcha ustun ham bo'lishi mumkin
+      (<code>daraja</code>) — unga <code>withPivot</code> orqali yetiladi.
+      Migration'da <code>unique([...])</code> takroriy juftlikni taqiqlaydi.
+      <span class="eg">konikma_vakansiya (vakansiya_id, konikma_id, daraja)</span></dd>
+    </div>
+
+    <div class="term" id="belongstomany">
+      <dt>belongsToMany <span class="uz">— ko'pdan-ko'pga bog'lanish</span></dt>
+      <dd><a href="#belongsto">belongsTo</a>/<a href="#hasmany">hasMany</a> juftligidan
+      farqli — <b>ikki tomon ham bir xil</b> metodni ishlatadi.
+      <a href="#pivot">Pivot</a> jadval nomini shunday taxmin qiladi: ikki <b>model</b>
+      nomi → kichik harf → <b>alifbo tartibida</b> → <code>_</code> bilan
+      (<code>Konikma</code>+<code>Vakansiya</code> → <code>konikma_vakansiya</code>).
+      <b>Ko'plik yasamaydi.</b> Nom mos kelmasa — to'rt argument beriladi va xato
+      <b>ovoz chiqaradi</b> («no such table»).
+      <span class="eg">return $this-&gt;belongsToMany(Konikma::class)-&gt;withPivot('daraja');</span></dd>
+    </div>
+
+    <div class="term" id="attach-sync">
+      <dt>attach / detach / sync <span class="uz">— pivot juftliklarini boshqarish</span></dt>
+      <dd><code>attach($id)</code> qo'shadi (mavjudini <b>tekshirmaydi</b>) ·
+      <code>detach($id)</code> olib tashlaydi, <b>argumentsiz — hammasini</b> ·
+      ⚠️ <code>sync([...])</code> ro'yxatni <b>aynan moslashtiradi</b>, ya'ni ro'yxatda
+      yo'qlarini <b>o'chiradi</b> (hisobot qaytaradi:
+      <code>attached</code>/<code>detached</code>/<code>updated</code>) ·
+      <code>syncWithoutDetaching([...])</code> faqat qo'shadi ·
+      <code>toggle([...])</code> almashtiradi ·
+      <code>updateExistingPivot($id, [...])</code> pivot ustunini o'zgartiradi.
+      Hammasi <b>qavs bilan</b> chaqiriladi.
+      <span class="eg">$v-&gt;konikmalar()-&gt;syncWithoutDetaching([5]);</span></dd>
+    </div>
+
+    <div class="term" id="cascade">
+      <dt>cascadeOnDelete <span class="uz">— «ota» o'chsa, bog'liq qatorlar ham o'chadi</span></dt>
+      <dd>Migration'da <a href="#foreign-key">tashqi kalit</a>ga qo'yiladigan qoida:
+      vakansiya o'chirilsa, uning <a href="#pivot">pivot</a> qatorlari <b>bazaning
+      o'zi</b> tomonidan o'chiriladi — «yetim» qatorlar qolmaydi. SQL'da
+      <code>on delete cascade</code> bo'lib chiqadi (<code>--pretend</code> bilan
+      ko'rish mumkin).
+      <span class="eg">$table-&gt;foreignId('vakansiya_id')-&gt;constrained('vakansiyalar')-&gt;cascadeOnDelete();</span></dd>
+    </div>
+
+    <div class="term" id="factory">
+      <dt>factory <span class="uz">— bitta yozuvning «retsepti»</span></dt>
+      <dd><code>database/factories/</code> dagi klass: <code>definition()</code> metodi
+      bitta yozuvning maydonlarini qaytaradi. Modelda <code>use HasFactory;</code>
+      bo'lishi <b>shart</b>, aks holda
+      <code>Call to undefined method ...::factory()</code>.
+      <code>make()</code> bazaga <b>yozmaydi</b>, <code>create()</code> yozadi;
+      <code>factory(3)</code> — uchta. Bog'lanishlar:
+      <code>has()</code> · <code>for()</code> · <code>hasAttached()</code> — o'zbekcha
+      nomda bog'lanish nomini <b>aniq</b> berish kerak.
+      <span class="eg">Vakansiya::factory(10)-&gt;for($k, 'kompaniya')-&gt;create()</span></dd>
+    </div>
+
+    <div class="term" id="fake">
+      <dt>fake() <span class="uz">— soxta, lekin realistik ma'lumot (Faker)</span></dt>
+      <dd><code>numberBetween</code> · <code>boolean(80)</code> ·
+      <code>randomElement([...])</code> · <code>unique()</code> ·
+      <code>dateTimeBetween</code> · <code>sentence</code>.
+      ⚠️ <b>O'zbek tili yo'q</b>: <code>fake('uz_UZ')</code> <b>jimgina</b> inglizchaga
+      qaytadi (xato bermaydi). Shuning uchun o'zbekcha ma'lumot uchun
+      <code>randomElement</code> bilan <b>o'z ro'yxatingiz</b> ishlatiladi.
+      <span class="eg">fake()-&gt;randomElement(['Toshkent', 'Samarqand'])</span></dd>
+    </div>
+
+    <div class="term" id="state">
+      <dt>state <span class="uz">— factory'ning nom berilgan holati</span></dt>
+      <dd>«Yopiq vakansiya», «yuqori maoshli vakansiya» kabi holatlarni factory'ga metod
+      sifatida qo'shish. <b>Zanjirlanadi</b>: <code>-&gt;yopiq()-&gt;boy()</code>.
+      Massiv shakli qiymatni bir marta hisoblaydi, <code>fn ($atr) =&gt; [...]</code>
+      shakli esa <b>har yozuv uchun</b> qaytadan — <code>fake()</code> ishlatilsa
+      ikkinchisi kerak.
+      <span class="eg">return $this-&gt;state(['faol' =&gt; false]);</span></dd>
+    </div>
+
+    <div class="term" id="seeder">
+      <dt>seeder <span class="uz">— bazani to'ldirishning butun rejasi</span></dt>
+      <dd><a href="#factory">Factory</a> <b>bitta</b> yozuvni biladi, seeder esa
+      «bazada nima bo'lishi kerak»ni: qaysi factory, nechta, qanday bog'lanish bilan.
+      <code>php artisan db:seed</code> ma'lumot <b>qo'shadi</b> (ikki marta chaqirilsa
+      ikki barobar bo'ladi), <code>migrate:fresh --seed</code> esa noldan to'ldiradi —
+      ishlab chiqishdagi odatiy yo'l.
+      🔑 Belgilangan ma'lumot (ko'nikma nomlari) factory bilan emas, ro'yxat va
+      <code>firstOrCreate</code> bilan solinadi.
+      <span class="eg">php artisan migrate:fresh --seed</span></dd>
+    </div>
+
+    <div class="term" id="paginate">
+      <dt>sahifalash <span class="uz">(pagination) — natijani sahifalarga bo'lish</span></dt>
+      <dd><code>get()</code> o'rniga <code>paginate(5)</code> — sahifa raqami
+      manzildagi <code>?page=</code> dan <b>o'zi</b> olinadi. Metodlari:
+      <code>total</code> · <code>currentPage</code>/<code>lastPage</code> ·
+      <code>firstItem</code>/<code>lastItem</code> · <code>hasPages</code> ·
+      <code>previousPageUrl</code>/<code>nextPageUrl</code>.
+      🔍 O'lchandi: <code>paginate</code> — <b>2 so'rov</b> (<code>COUNT</code> bor),
+      <code>simplePaginate</code> — <b>1 so'rov</b> (<code>limit 6</code> so'rab
+      «davomi bormi»ni biladi), lekin <code>total()</code> bo'lmaydi.
+      <span class="eg">Vakansiya::orderByDesc('maosh')-&gt;paginate(5)</span></dd>
+    </div>
+
+    <div class="term" id="withquerystring">
+      <dt>withQueryString() <span class="uz">— sahifa havolalarida filtrni saqlash</span></dt>
+      <dd>Paginator manzilni o'zi yasaydi va standart holda <b>faqat</b>
+      <code>page</code> ni qo'yadi — natijada «Keyingi» bosilganda filtr
+      <b>jimgina yo'qoladi</b>. Bu eng ko'p uchraydigan sahifalash bug'i, chunki
+      birinchi sahifada hammasi to'g'ri ko'rinadi. Muqobili —
+      <code>appends([...])</code>.
+      <span class="eg">-&gt;paginate(5)-&gt;withQueryString()</span></dd>
+    </div>
+
+    <div class="term" id="when">
+      <dt>when() <span class="uz">— shartli so'rov bo'lagi</span></dt>
+      <dd>Shart <b>rost</b> bo'lsagina closure ishlaydi; aks holda <code>WHERE</code>
+      <b>umuman qo'shilmaydi</b>. Closure'ning ikkinchi argumenti — shartning qiymati.
+      Qidiruv/filtr formasi shu bilan yoziladi.
+      ⚠️ Shart <a href="#truthy-falsy">truthy</a> deb tekshiriladi, ya'ni
+      <code>0</code> ham «yo'q» hisoblanadi — kerak bo'lsa
+      <code>$request-&gt;filled(...)</code>.
+      <span class="eg">-&gt;when($shahar, fn ($q, $v) =&gt; $q-&gt;where('shahar', $v))</span></dd>
+    </div>
+
+    <div class="term" id="scope">
+      <dt>scope <span class="uz">— so'rov shartiga nom berish</span></dt>
+      <dd>Takrorlanadigan shartni modelga ko'chirish: nom paydo bo'ladi, ta'rif
+      <b>bir joyda</b> turadi va boshqa shartlar bilan <b>zanjirlanadi</b>.
+      Yangi shakl — <code>#[Scope]</code> atributi (Laravel 12+), eski shakl —
+      metod nomini <code>scope</code> bilan boshlash. Ikkalasi ham
+      <code>Vakansiya::faol()</code> deb chaqiriladi.
+      <span class="eg">#[Scope] protected function faol(Builder $q): void { ... }</span></dd>
+    </div>
+
+    <div class="term" id="preventlazyloading">
+      <dt>preventLazyLoading() <span class="uz">— N+1 ni xatoga aylantirish</span></dt>
+      <dd><a href="#n-plus-1">N+1</a> jimgina muammo: sahifa ishlaydi, faqat sekin.
+      Bu sozlama unutilgan <code>with()</code> joyida
+      <code>LazyLoadingViolationException</code> otadi va <b>qaysi bog'lanish,
+      qaysi qator</b> ekanini aytadi. <code>AppServiceProvider::boot()</code> ga
+      qo'yiladi va real serverda <b>o'chiriladi</b>
+      (<code>! app()-&gt;isProduction()</code>) — u yerda «sekin» «buzuq» dan
+      yaxshiroq. Cheklov <b>to'plamdagi</b> modellarga qo'llanadi.
+      <span class="eg">Model::preventLazyLoading(! app()-&gt;isProduction());</span></dd>
+    </div>
+
+    <div class="term" id="hash">
+      <dt>parol xeshi <span class="uz">(hash) — orqaga qaytarib bo'lmaydigan qiymat</span></dt>
+      <dd>Parol bazada <b>hech qachon</b> ochiq saqlanmaydi.
+      <code>Hash::make($parol)</code> saqlashda, <code>Hash::check($parol, $xesh)</code>
+      tekshirishda. Bir xil parolga har safar <b>boshqa</b> xesh chiqadi — chunki
+      <b>tuz</b> (salt) xeshning ichida yoziladi; <code>check</code> uni o'qib olib
+      qaytadan hisoblaydi. Shakli: <code>$2y$12$…</code> — bcrypt,
+      <code>cost=12</code>, <b>60 belgi</b>.
+      🔍 Sehr yo'q: <code>password_verify()</code> Laravel xeshini taniydi va
+      aksincha.
+      <span class="eg">'password' =&gt; Hash::make($tekshirilgan['password'])</span></dd>
+    </div>
+
+    <div class="term" id="auth-attempt">
+      <dt>Auth::attempt() <span class="uz">— kirishga urinish</span></dt>
+      <dd>Bitta chaqiruvda uch ish: email bo'yicha foydalanuvchini <b>topadi</b>,
+      parolni <a href="#hash">xesh</a> bilan <b>tekshiradi</b>, muvaffaqiyatli bo'lsa
+      <a href="#session">sessiyaga</a> <b>yozadi</b>. <code>password</code> kaliti
+      maxsus — u <code>Hash::check</code> ga uzatiladi, qolganlari oddiy
+      <code>where</code> ga aylanadi. Xato bo'lganda xabar <b>umumiy</b> bo'lishi
+      kerak («Email yoki parol xato») — aks holda hujumchi qaysi emaillar
+      ro'yxatdan o'tganini bilib oladi.
+      <span class="eg">if (! Auth::attempt($malumot)) { ... }</span></dd>
+    </div>
+
+    <div class="term" id="session-fixation">
+      <dt>session fixation <span class="uz">— sessiyani «yuqtirish» hujumi</span></dt>
+      <dd>Hujumchi o'z sessiya <code>id</code> sini qurbonga yuqtiradi; qurbon o'sha
+      sessiya bilan kirsa, hujumchi ham «kirgan» bo'lib qoladi. Himoya —
+      har kirishdan keyin <code>session()-&gt;regenerate()</code>: u
+      <code>id</code> ni <b>almashtiradi</b>. O'lchandi: <code>sessions</code>
+      jadvalida kirishdan oldin va keyin <code>id</code> <b>boshqa</b>, va
+      <code>user_id</code> paydo bo'ladi.
+      <span class="eg">$request-&gt;session()-&gt;regenerate();</span></dd>
+    </div>
+
+    <div class="term" id="auth-middleware">
+      <dt>auth middleware <span class="uz">— route'ni kirish talab qiladigan qilish</span></dt>
+      <dd><code>-&gt;middleware('auth')</code> — mehmon so'rovi controllerga
+      <b>umuman yetib bormaydi</b>, <b>302</b> bilan kirish sahifasiga yuboriladi.
+      ⚠️ U <code>login</code> <b>nomli</b> route'ni qidiradi; nom boshqacha bo'lsa
+      <code>Route [login] not defined</code> xatosi chiqadi (manzil o'zbekcha
+      bo'lishi mumkin).
+      🔒 Blade'dagi <code>@auth</code> bilan menyuni yashirish — <b>himoya emas</b>,
+      faqat ko'rinish.
+      <span class="eg">Route::post('/vakansiyalar', ...)-&gt;middleware('auth');</span></dd>
+    </div>
+
+    <div class="term" id="starter-kit">
+      <dt>starter kit <span class="uz">— auth'ning tayyor to'plami</span></dt>
+      <dd>Laravel 13 uchun <code>laravel/breeze</code>:
+      <code>breeze:install blade</code> ro'yxatdan o'tish, kirish, chiqish, parol
+      tiklash, email tasdiqlash va profil sahifasini <b>bir buyruqda</b> yasaydi.
+      ⚠️ <b>Mavjud loyihani buzadi:</b> o'lchandi — <b>42 yangi fayl</b>, va
+      <code>routes/web.php</code> <b>butunlay almashtiriladi</b> (controller fayllari
+      qoladi, route'lar yo'qoladi). Shuning uchun u <b>yangi</b> loyiha uchun; mavjud
+      loyihada avval <code>git commit</code>, keyin <code>git diff</code>.
+      <span class="eg">php artisan breeze:install blade</span></dd>
+    </div>
+
+    <div class="term" id="rate-limiting">
+      <dt>rate limiting <span class="uz">— urinishlar sonini cheklash</span></dt>
+      <dd>Brute-force hujumiga qarshi asosiy himoya: parol bir necha marta xato
+      kiritilsa, hisob vaqtincha <b>qulflanadi</b> (Breeze'da 5 urinish).
+      <code>RateLimiter::tooManyAttempts</code> · <code>hit</code> ·
+      <code>availableIn</code> · <code>clear</code>.
+      🔑 Kalit <b>email + IP</b> juftligidan tuziladi: faqat IP bo'lsa bitta
+      ofisdagilar bir-birini bloklaydi, faqat email bo'lsa hujumchi begona hisobni
+      bloklaydi. Hisoblagich <a href="#session">keshda</a> saqlanadi, shuning uchun
+      <code>php artisan cache:clear</code> uni tozalaydi.
+      <span class="eg">RateLimiter::hit(mb_strtolower($email) . '|' . $request-&gt;ip(), 60);</span></dd>
+    </div>
+
+    <div class="term" id="tarjima-fayli">
+      <dt>tarjima fayli <span class="uz">(localization) — xabarlarni til bo'yicha ajratish</span></dt>
+      <dd><code>php artisan lang:publish</code> → <code>lang/en/</code>
+      (<code>auth.php</code>, <code>validation.php</code>, <code>passwords.php</code>,
+      <code>pagination.php</code>). <code>lang/uz/</code> yasab,
+      <code>.env</code> da <code>APP_LOCALE=uz</code> qo'yilsa xabarlar o'zbekcha
+      bo'ladi — <b>controllerlarga tegmasdan</b>. 20-darsda har controllerda qo'lda
+      yozilgan xabarlarning to'g'ri yechimi shu.
+      <span class="eg">// lang/uz/auth.php → 'failed' =&gt; 'Email yoki parol xato.'</span></dd>
+    </div>
+
+    <div class="term" id="middleware-yozish">
+      <dt>middleware yozish <span class="uz">— o'z qatlamingizni yaratish</span></dt>
+      <dd><code>php artisan make:middleware Nomi</code> → yagona metod
+      <code>handle(Request $request, Closure $next)</code>. <code>$next</code> —
+      <a href="#closure">closure</a>: «zanjirning qolgan qismi». U <b>javobni
+      qaytaradi</b>, shuning uchun kod yozish uchun <b>ikki joy</b> bor:
+      undan <b>oldin</b> (so'rovni tekshirish/to'xtatish) va <b>keyin</b> (javobni
+      o'zgartirish, o'lchash).
+      ⚠️ Laravel 11+ da <code>app/Http/Kernel.php</code> <b>yo'q</b> — ro'yxatdan
+      o'tkazish <code>bootstrap/app.php</code> dagi <code>withMiddleware</code> da:
+      <code>alias([...])</code> · <code>append</code>/<code>prepend</code> (global).
+      <span class="eg">$middleware-&gt;alias(['olchash' =&gt; SoravniOlchash::class]);</span></dd>
+    </div>
+
+    <div class="term" id="piyoz">
+      <dt>piyoz naqshi <span class="uz">— middleware'lar bir-birining ichida</span></dt>
+      <dd>Middleware'lar <b>yozilgan tartibda</b> kiradi va <b>teskari tartibda</b>
+      chiqadi. Birinchi yozilgani — <b>eng tashqi</b> qatlam: birinchi ko'radi
+      so'rovni, oxirgi ko'radi javobni. Log bilan o'lchandi:
+      <code>A kirdi → B kirdi → controller → B chiqdi → A chiqdi</code>.
+      Amaliy natija: tashqi qatlamning vaqt o'lchovi <b>ichkaridagilarni ham</b>
+      qamrab oladi.
+      <span class="eg">-&gt;middleware(['olchash', 'til'])</span></dd>
+    </div>
+
+    <div class="term" id="middleware-parametr">
+      <dt>middleware parametri <span class="uz">— ikki nuqtadan keyingi qiymat</span></dt>
+      <dd><code>'til:en'</code> → <code>handle($request, $next, $standart = 'en')</code>.
+      Bir nechta parametr vergul bilan: <code>'ishvaqti:0,1'</code>. Berilmasa
+      metoddagi <b>standart qiymat</b> ishlatiladi. Laravel'ning o'z misoli —
+      <code>'throttle:5,1'</code> (<a href="#rate-limiting">rate limiting</a>).
+      <span class="eg">-&gt;middleware(['auth', 'ishvaqti:9,18'])</span></dd>
+    </div>
+
+    <div class="term" id="policy">
+      <dt>policy <span class="uz">— bitta model uchun huquq qoidalari</span></dt>
+      <dd><code>make:policy XPolicy --model=X</code>. Metodlari:
+      <code>viewAny</code> · <code>view</code> · <code>create</code> ·
+      <code>update</code> · <code>delete</code>. Nomlar <b>kelishuv</b> —
+      o'zbekchaga o'girilmaydi. <b>Avtomatik topiladi</b>:
+      <code>Models\X</code> → <code>Policies\XPolicy</code> (o'zbekcha nomda ham
+      ishlaydi, chunki ko'plik yasalmaydi).
+      ⚠️ Policy'da metod <b>yo'q</b> bo'lsa — <code>false</code>, xato emas.
+      Aniq yozuv haqidagi metod modelni ham oladi
+      (<code>update(User $u, Vakansiya $v)</code>), yozuvsizi olmaydi
+      (<code>create(User $u)</code>).
+      <span class="eg">return $vakansiya-&gt;user_id === $user-&gt;id;</span></dd>
+    </div>
+
+    <div class="term" id="authorize">
+      <dt>authorize() <span class="uz">— controllerda huquq tekshiruvi</span></dt>
+      <dd>Ruxsat bo'lmasa <b>403 Forbidden</b> otiladi va keyingi kod
+      <b>ishlamaydi</b> (20-darsdagi <code>validate()</code> naqshi).
+      ⚠️ Laravel 11+ da bazaviy <code>Controller</code> <b>bo'sh</b> — avval
+      <code>use AuthorizesRequests;</code> qo'shish kerak, aks holda
+      <code>Call to undefined method ...::authorize()</code>.
+      Muqobillari: <code>'can:delete,vakansiya'</code> middleware ·
+      <code>$user-&gt;can(...)</code> · <code>Gate::allows(...)</code>.
+      <span class="eg">$this-&gt;authorize('delete', $vakansiya);</span></dd>
+    </div>
+
+    <div class="term" id="gate">
+      <dt>Gate <span class="uz">— modelsiz huquq qoidasi</span></dt>
+      <dd><code>Gate::define('nom', fn (User $u) =&gt; ...)</code> —
+      <a href="#policy">policy</a> og'irlik qilganda: «hisobotni ko'rish»,
+      «sozlamalarni o'zgartirish».
+      <code>Gate::before(...)</code> — <b>har</b> tekshiruvdan oldin ishlaydigan
+      ustun qoida (superuser): <code>true</code> → ruxsat va policy
+      <b>so'ralmaydi</b>; <code>null</code> → policy o'z ishini qiladi.
+      ⚠️ <code>null</code> qaytarish muhim — <code>false</code> yozilsa hech kim
+      hech narsa qila olmaydi.
+      <span class="eg">Gate::forUser($odam)-&gt;allows('delete', $vakansiya)</span></dd>
+    </div>
+
+    <div class="term" id="can-blade">
+      <dt>@can <span class="uz">— Blade'da huquqqa qarab ko'rsatish</span></dt>
+      <dd><code>@can('delete', $v) ... @endcan</code> — tugmani faqat huquqi borga
+      ko'rsatadi. <code>@cannot</code> — teskarisi.
+      🔒 <b>Yashirish — himoya emas:</b> so'rovni qo'lda yuborish mumkin, shuning
+      uchun <a href="#authorize">authorize()</a> ham kerak. Bu qoida kursda to'rt
+      marta uchraydi: <code>@auth</code> (30) · middleware (32) · <code>@can</code>
+      (33) · rol (34).
+      ⚠️ Yozuvsiz huquq uchun <b>klass</b> beriladi:
+      <code>@can('create', App\Models\Vakansiya::class)</code> — Blade'da
+      <code>use</code> yo'q, to'liq yo'l yoziladi.
+      <span class="eg">@can('delete', $v) &lt;button&gt;O'chirish&lt;/button&gt; @endcan</span></dd>
+    </div>
+
+    <div class="term" id="enum">
+      <dt>enum <span class="uz">— cheklangan qiymatlar to'plami</span></dt>
+      <dd>PHP 8.1+. «Faqat shu qiymatlar bo'lishi mumkin» degan tur. Oddiy matn
+      ustuni <code>'ish_beruvhi'</code> xatosini <b>jimgina</b> qabul qiladi,
+      enum qabul qilmaydi — noto'g'ri <code>case</code> yozilsa PHP darhol
+      to'xtaydi. <code>make:enum Rol --string</code> bilan yasaladi.
+      Enum'ga <b>metod</b> yozish mumkin (<a href="#match">match</a> bilan).
+      <span class="eg">enum Rol: string { case Nomzod = 'nomzod'; }</span></dd>
+    </div>
+
+    <div class="term" id="backing-value">
+      <dt>backing value <span class="uz">— enum'ning tayanch qiymati</span></dt>
+      <dd>Enum'da <b>ikki tomon</b> bor: <code>case</code> nomi (kodda ishlatiladi)
+      va backing value (bazada yotadi). <code>-&gt;name</code> →
+      <code>'IshBeruvchi'</code>, <code>-&gt;value</code> →
+      <code>'ish_beruvchi'</code>. Matndan enum'ga:
+      <code>from()</code> noto'g'ri qiymatda <b>otadi</b>,
+      <code>tryFrom()</code> <code>null</code> qaytaradi — ishonchli manbada
+      birinchisi, tashqi ma'lumotda ikkinchisi.
+      <span class="eg">Rol::tryFrom('boshqa')  →  null</span></dd>
+    </div>
+
+    <div class="term" id="enum-cast">
+      <dt>enum cast <span class="uz">— bazadagi matnni enum'ga aylantirish</span></dt>
+      <dd><code>casts()</code> ichida <code>'rol' =&gt; Rol::class</code>.
+      <b>Sehr yo'q:</b> o'qishda <code>Rol::from($matn)</code>, yozishda
+      <code>-&gt;value</code>. Bazada oddiy matn qoladi, shuning uchun boshqa
+      dasturlar ham o'qiy oladi. <code>where()</code> va JSON'da enum o'zi
+      <code>-&gt;value</code> ga aylanadi.
+      ⚠️ Bazaga begona qiymat tushsa, o'qishda <code>ValueError</code>.
+      <span class="eg">'rol' =&gt; Rol::class,</span></dd>
+    </div>
+
+    <div class="term" id="rule-enum">
+      <dt>Rule::enum <span class="uz">— enum bo'yicha validatsiya</span></dt>
+      <dd><code>'rol' =&gt; ['required', Rule::enum(Rol::class)]</code> — qiymat
+      shu enum'ning case'laridan biri bo'lsin. Qo'lda
+      <code>'in:nomzod,ish_beruvchi'</code> yozish ham mumkin, lekin unda ro'yxat
+      ikki joyda yotadi va bir kun ajralib ketadi. Formani ham enum'dan yasang:
+      <code>Rol::cases()</code>.
+      <span class="eg">@foreach (\App\Enums\Rol::cases() as $rol)</span></dd>
+    </div>
+
+    <div class="term" id="rol-va-egalik">
+      <dt>rol va egalik <span class="uz">— ikki xil savol</span></dt>
+      <dd><b>Rol</b> — toifa savoli («umuman shunday ish qila olasanmi?»),
+      <b>egalik</b> — yozuv savoli («bu aynan seningmi?»). Yozuv ustidagi
+      amallarda <b>ikkalasi</b> ham kerak. ⚠️ Faqat rolni tekshirish — har qanday
+      ish beruvchi begona e'lonni o'chira oladi degani.
+      🔍 Tashxis: policy metodi <code>$vakansiya</code> ni <b>qabul qilib,
+      ishlatmasa</b> — deyarli har doim xato.
+      <span class="eg">$u-&gt;rol === Rol::IshBeruvchi &amp;&amp; $v-&gt;user_id === $u-&gt;id</span></dd>
     </div>
   </dl>
 

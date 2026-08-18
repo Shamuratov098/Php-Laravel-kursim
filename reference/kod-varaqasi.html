@@ -17,7 +17,7 @@
   muhit ma'lumotlari. Har dars yangi buyruq o'rgatilsa, shu yerga qo'shiladi.</p>
 
   <p class="lesson-meta">
-    <span>Qamrov: <b>1-dars</b> — muhit va ishga tushirish</span>
+    <span>Qamrov: <b>1&ndash;34-darslar</b> — muhitdan rollargacha</span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>💻 Amaliyotga mos</span>
   </p>
@@ -379,6 +379,340 @@
     <p><code>id</code> ni ma'lumot skriptida <b>qo'lda yozmang</b> — <code>DELETE</code>
     dan keyin <code>AUTOINCREMENT</code> davom etadi va tashqi kalit sinadi. Bazadan
     <code>SELECT</code> bilan o'qib oling.</p>
+  </div>
+
+  <h2>Route parametri va nomlangan route (24-dars)</h2>
+  <table class="sheet">
+    <tr><th>Kod</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>Route::get('/vakansiyalar/{id}', ...)</code></td><td class="note-cell">Jingalak qavs — «istalgan qiymat»; controller metodiga <b>argument</b> bo'lib boradi</td></tr>
+    <tr><td><code>-&gt;name('vakansiyalar.show')</code></td><td class="note-cell">Route'ga nom. Qolip: <code>resurs.amal</code></td></tr>
+    <tr><td><code>route('vakansiyalar.show', $id)</code></td><td class="note-cell"><b>To'liq</b> manzil yasaydi. Blade'da, controllerda — hamma joyda</td></tr>
+    <tr><td><code>redirect()-&gt;route('vakansiyalar.index')</code></td><td class="note-cell">Nom bilan redirect</td></tr>
+    <tr><td><code>abort(404)</code></td><td class="note-cell">Topilmasa. Funksiyani <b>to'xtatadi</b> — <code>return</code> shart emas</td></tr>
+    <tr><td><code>Route::resource('nom', Ctrl::class)</code></td><td class="note-cell"><b>7 route</b> bir qatorda, to'g'ri tartibda. Cheklash — <code>-&gt;only([...])</code></td></tr>
+    <tr><td><code>php artisan route:list --path=nom</code></td><td class="note-cell">Route'lar va ularning <b>nomlari</b></td></tr>
+  </table>
+  <div class="callout note">
+    <p>⚠️ <b>Tartib muhim:</b> route'lar <b>yozilgan tartibda</b> tekshiriladi va birinchi
+    mos kelganida to'xtaydi. <code>/vakansiyalar/create</code> ni
+    <code>/vakansiyalar/{id}</code> dan <b>oldin</b> yozing — aks holda
+    <code>{id}</code> «create» so'zini ham ushlab oladi va <b>404</b> chiqadi.</p>
+    <p>🔒 URL'dan kelgan qiymat SQL'ga <b>faqat parametr</b> bilan:
+    <code>WHERE id = ?</code>, <code>[$id]</code>. Manzilni istalgan odam o'zgartiradi.</p>
+    <p><code>DB::select</code> <b>obyekt</b> qaytaradi: <code>$v-&gt;nom</code>.
+    Xom SQL bilan <code>created_at</code> ni o'zingiz to'ldirasiz (<code>now()</code>).</p>
+  </div>
+
+  <h2>Eloquent (25-darsdan)</h2>
+  <table class="sheet">
+    <tr><th>Kod</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>php artisan make:model Vakansiya</code></td><td class="note-cell"><code>app/Models/</code> ga bo'sh klass (metodlar merosdan)</td></tr>
+    <tr><td><code>protected $table = 'vakansiyalar';</code></td><td class="note-cell">⚠️ <b>O'zbekcha nomda majburiy</b> — Laravel <code>vakansiyas</code> deb taxmin qiladi</td></tr>
+    <tr><td><code>protected $fillable = [...];</code></td><td class="note-cell">🔒 Formadan to'ldirishga <b>ruxsat berilgan</b> ustunlar</td></tr>
+    <tr><td><code>(new Vakansiya)-&gt;getTable()</code></td><td class="note-cell">«Sen qaysi jadvalni izlayapsan?» — tekshirish usuli</td></tr>
+    <tr><td><code>Vakansiya::all()</code></td><td class="note-cell"><code>SELECT *</code> → Collection</td></tr>
+    <tr><td><code>Vakansiya::find($id)</code></td><td class="note-cell">Bitta obyekt; topilmasa <b><code>NULL</code></b></td></tr>
+    <tr><td><code>Vakansiya::findOrFail($id)</code></td><td class="note-cell">Topilmasa <b>404</b> — controllerda shuni ishlating</td></tr>
+    <tr><td><code>-&gt;where('maosh', '&gt;', 700)</code></td><td class="note-cell">Shart. Ikki <code>where</code> = <code>AND</code></td></tr>
+    <tr><td><code>-&gt;orderBy('maosh', 'desc')-&gt;get()</code></td><td class="note-cell">Saralash; <code>get()</code> — «endi bajar»</td></tr>
+    <tr><td><code>-&gt;first()</code> · <code>::count()</code> · <code>-&gt;value('nom')</code></td><td class="note-cell">Birinchi qator · soni · bitta ustun qiymati</td></tr>
+    <tr><td><code>Vakansiya::create([...])</code></td><td class="note-cell"><code>INSERT</code>; <code>created_at</code> 🎁 <b>avtomatik</b></td></tr>
+    <tr><td><code>$v-&gt;maosh = 1400; $v-&gt;save();</code></td><td class="note-cell"><code>UPDATE ... WHERE id = ?</code></td></tr>
+    <tr><td><code>$v-&gt;delete()</code> · <code>$v-&gt;toArray()</code></td><td class="note-cell">O'chirish · massivga aylantirish</td></tr>
+    <tr><td><code>-&gt;toSql()</code></td><td class="note-cell">🔍 <b>Eloquent yozgan SQL'ni ko'rsatadi</b> (qiymatlar <code>?</code> bilan)</td></tr>
+  </table>
+  <div class="callout note">
+    <p>🔑 <b>Sehr yo'q:</b> <code>Vakansiya::where('maosh', '&gt;', 700)-&gt;toSql()</code> →
+    <code>select * from "vakansiyalar" where "maosh" &gt; ? order by "maosh" desc</code>.
+    <code>?</code> — parametr, ya'ni <b>injection'dan himoya o'z-o'zidan</b> keladi.</p>
+    <p>🔒 <b>$fillable ikki holati:</b> ro'yxatda yo'q maydon — <b>jimgina tashlanadi</b>
+    (xato yo'q!); <code>$fillable</code> <b>umuman</b> yo'q — <code>MassAssignmentException</code>.
+    «Nega saqlanmadi?» degan savolda birinchi qaraydigan joy — shu ro'yxat.</p>
+  </div>
+
+  <h2>Bog'lanishlar (26-darsdan)</h2>
+  <table class="sheet">
+    <tr><th>Kod</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>belongsTo(Kompaniya::class)</code></td><td class="note-cell">Tashqi kalit <b>shu</b> modelda. <b>Bitta</b> obyekt yoki <code>NULL</code></td></tr>
+    <tr><td><code>hasMany(Vakansiya::class)</code></td><td class="note-cell">Tashqi kalit <b>boshqa</b> jadvalda. <b>Collection</b></td></tr>
+    <tr><td><code>belongsTo(K::class, 'kompaniya_id')</code></td><td class="note-cell">Tashqi kalitni <b>aniq</b> ko'rsatish (nom mos kelmasa <b>majburiy</b>)</td></tr>
+    <tr><td><code>-&gt;getForeignKeyName()</code></td><td class="note-cell">🔍 «Laravel qaysi ustunni izlayapti?» — <code>NULL</code> muammosining tashxisi</td></tr>
+    <tr><td><code>$v-&gt;kompaniya</code></td><td class="note-cell"><b>Qavssiz</b> — so'rov bajariladi, natija qaytadi</td></tr>
+    <tr><td><code>$k-&gt;vakansiyalar()-&gt;where(...)</code></td><td class="note-cell"><b>Qavs bilan</b> — so'rov, ustiga shart qo'shiladi</td></tr>
+    <tr><td><code>$k-&gt;vakansiyalar()-&gt;create([...])</code></td><td class="note-cell">Yaratadi va <code>kompaniya_id</code> ni <b>o'zi</b> qo'yadi</td></tr>
+    <tr><td><code>whereHas('kompaniya', fn ($q) =&gt; ...)</code></td><td class="note-cell">Bog'langan jadval shartiga ko'ra filtrlash</td></tr>
+    <tr><td><code>has(...)</code> · <code>doesntHave(...)</code></td><td class="note-cell">Bog'langan yozuvi bor / yo'q</td></tr>
+    <tr><td><code>withCount('vakansiyalar')</code></td><td class="note-cell">Sanash — natija <code>$k-&gt;vakansiyalar_count</code> da, <b>1</b> so'rov</td></tr>
+    <tr><td><code>with('kompaniya')</code></td><td class="note-cell">⚡ <b>Eager loading</b> — N+1 ni yo'qotadi</td></tr>
+    <tr><td><code>-&gt;associate($k)</code> · <code>-&gt;dissociate()</code></td><td class="note-cell">Keyin biriktirish / ajratish (keyin <code>save()</code>)</td></tr>
+    <tr><td><code>$v-&gt;fresh()</code></td><td class="note-cell">Obyektni bazadan <b>qayta o'qish</b></td></tr>
+    <tr><td><code>{{ $v-&gt;kompaniya?-&gt;nom ?? '—' }}</code></td><td class="note-cell">Bo'sh bog'lanishni xatosiz chiqarish (nullsafe + <code>??</code>)</td></tr>
+  </table>
+  <div class="callout note">
+    <p>🔑 <b>Qaysi metod kerak?</b> Bitta savol: <code>_id</code> ustuni qaysi jadvalda —
+    o'sha modelda <code>belongsTo</code>, ikkinchisida <code>hasMany</code>.</p>
+    <p>🔑 <b>Taxmin qayerdan olinadi:</b> <code>belongsTo</code> — <b>metod nomidan</b>,
+    <code>hasMany</code> — <b>klass nomidan</b>. Ikkalasi ham <code>_id</code> qo'shadi.</p>
+    <p>⚠️ Metod nomi ustunga mos kelmasa — <b>jimgina <code>NULL</code></b>: xato ham,
+    bazaga so'rov ham yo'q. Sahifada shunchaki bo'sh joy chiqadi.</p>
+    <p>⚡ <b>N+1:</b> <code>with()</code> siz <b>5</b> so'rov, bilan <b>2</b>,
+    <code>withCount</code> bilan <b>1</b>. Qoida: <b>sikl ichida bog'lanish →
+    <code>with()</code></b>.</p>
+  </div>
+
+  <h2>Ko'pdan-ko'pga: pivot (27-darsdan)</h2>
+  <table class="sheet">
+    <tr><th>Kod</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>belongsToMany(Konikma::class)</code></td><td class="note-cell"><b>Ikki tomon ham</b> shu metodni ishlatadi</td></tr>
+    <tr><td><code>-&gt;withPivot('daraja')</code></td><td class="note-cell">Pivotdagi qo'shimcha ustunni tortadi. ⚠️ Yozilmasa <code>$k-&gt;pivot-&gt;daraja</code> <b>NULL</b></td></tr>
+    <tr><td><code>$k-&gt;pivot-&gt;daraja</code></td><td class="note-cell">Pivot qatoridagi qiymat. Tashxis: <code>$k-&gt;pivot-&gt;toArray()</code></td></tr>
+    <tr><td><code>belongsToMany(M::class, 'pivot', 'bu_id', 'u_id')</code></td><td class="note-cell">Nom taxminga mos kelmasa — <b>to'rt argument</b></td></tr>
+    <tr><td><code>-&gt;getTable()</code> · <code>getForeignPivotKeyName()</code></td><td class="note-cell">🔍 Taxmin qilingan pivot nomi va kalitlar</td></tr>
+    <tr><td><code>attach($id)</code> · <code>attach([1, 2])</code></td><td class="note-cell">Qo'shadi. Mavjudini <b>tekshirmaydi</b> → <code>UNIQUE</code> xatosi yoki dubl</td></tr>
+    <tr><td><code>attach($id, ['daraja' =&gt; 'kuchli'])</code></td><td class="note-cell">Qo'shadi va pivot ustunini to'ldiradi</td></tr>
+    <tr><td><code>detach($id)</code> · <code>detach()</code></td><td class="note-cell">Bittasini · ⚠️ <b>hammasini</b></td></tr>
+    <tr><td><code>sync([2, 4])</code></td><td class="note-cell">⚠️ Ro'yxatni <b>aynan moslashtiradi</b> — qolganini <b>o'chiradi</b>. Hisobot qaytaradi</td></tr>
+    <tr><td><code>syncWithoutDetaching([...])</code></td><td class="note-cell">Faqat qo'shadi, hech narsa o'chirmaydi</td></tr>
+    <tr><td><code>toggle([...])</code></td><td class="note-cell">Bori ketadi, yo'g'i keladi</td></tr>
+    <tr><td><code>updateExistingPivot($id, [...])</code></td><td class="note-cell">Mavjud juftlikning pivot ustunini o'zgartiradi</td></tr>
+    <tr><td><code>unique(['vakansiya_id', 'konikma_id'])</code></td><td class="note-cell">🔒 Migration'da: takroriy juftlik taqiqlanadi</td></tr>
+    <tr><td><code>-&gt;cascadeOnDelete()</code></td><td class="note-cell">Ota o'chsa pivot qatorlari ham o'chadi</td></tr>
+  </table>
+  <div class="callout note">
+    <p>🔑 <b>Pivot nomi taxmini:</b> ikki <b>model</b> nomi → kichik harf →
+    <b>alifbo tartibida</b> → <code>_</code> bilan.
+    <code>Konikma</code>+<code>Vakansiya</code> → <code>konikma_vakansiya</code>.
+    <b>Ko'plik yasalmaydi.</b></p>
+    <p>⚠️ <b>Eng xatarli metod — <code>sync()</code>.</b> «Qo'sh» degani emas,
+    «ro'yxat <b>aynan shu</b> bo'lsin» degani. Hisobotdagi <code>detached</code> ga
+    qarang. Faqat qo'shish uchun — <code>syncWithoutDetaching</code>.</p>
+    <p>⚡ N+1 pivot bilan ham bor: <code>with('konikmalar')</code> →
+    <b>6 → 2</b>, <code>withCount('konikmalar')</code> → <b>1</b>.
+    <code>with(['kompaniya', 'konikmalar'])</code> — massiv ham qabul qiladi.</p>
+  </div>
+
+  <h2>Factory va Seeder (28-darsdan)</h2>
+  <table class="sheet">
+    <tr><th>Kod</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>php artisan make:factory NomFactory</code></td><td class="note-cell">Modelni <b>nomdan</b> topadi; <code>definition()</code> ni to'ldirasiz</td></tr>
+    <tr><td><code>use HasFactory;</code></td><td class="note-cell">⚠️ Modelda <b>shart</b> — bo'lmasa <code>Call to undefined method ...::factory()</code></td></tr>
+    <tr><td><code>-&gt;make()</code> · <code>-&gt;create()</code></td><td class="note-cell">Bazaga <b>yozmaydi</b> (<code>id=NULL</code>) · yozadi</td></tr>
+    <tr><td><code>factory(3)</code> · <code>create(['nom' =&gt; ...])</code></td><td class="note-cell">Uchta · aniq qiymat berish</td></tr>
+    <tr><td><code>fake()-&gt;numberBetween(400, 3000)</code></td><td class="note-cell">Tasodifiy son</td></tr>
+    <tr><td><code>fake()-&gt;boolean(80)</code></td><td class="note-cell">80% ehtimol bilan <code>true</code></td></tr>
+    <tr><td><code>fake()-&gt;randomElement([...])</code></td><td class="note-cell">🇺🇿 <b>O'zbekcha ma'lumot uchun asosiy usul</b></td></tr>
+    <tr><td><code>fake()-&gt;unique()-&gt;safeEmail()</code></td><td class="note-cell">Takrorlanmaydigan qiymat</td></tr>
+    <tr><td><code>fake('uz_UZ')</code></td><td class="note-cell">⚠️ <b>Ishlamaydi</b> — jimgina inglizchaga qaytadi</td></tr>
+    <tr><td><code>'kompaniya_id' =&gt; Kompaniya::factory()</code></td><td class="note-cell">Ichma-ich factory: «otani» ham yasaydi (⚡ yashirin <code>INSERT</code>)</td></tr>
+    <tr><td><code>-&gt;has(Vakansiya::factory(4), 'vakansiyalar')</code></td><td class="note-cell"><code>hasMany</code> tomoni. ⚠️ Nom <b>majburiy</b></td></tr>
+    <tr><td><code>-&gt;for($kompaniya, 'kompaniya')</code></td><td class="note-cell"><code>belongsTo</code> tomoni. Katta hajmda <b>shuni</b> ishlating</td></tr>
+    <tr><td><code>-&gt;hasAttached($lar, ['daraja' =&gt; 'kuchli'], 'konikmalar')</code></td><td class="note-cell">Pivot juftliklari (27-dars). Nom — <b>uchinchi</b> argument</td></tr>
+    <tr><td><code>state([...])</code> · <code>state(fn ($atr) =&gt; [...])</code></td><td class="note-cell">Nom berilgan holat. Closure — <b>har yozuv uchun</b> qaytadan</td></tr>
+    <tr><td><code>php artisan db:seed</code></td><td class="note-cell">Seeder'ni ishga tushiradi — ma'lumot <b>qo'shiladi</b></td></tr>
+    <tr><td><code>php artisan migrate:fresh --seed</code></td><td class="note-cell">Noldan: jadval + ma'lumot. Kunlik ish shakli</td></tr>
+    <tr><td><code>firstOrCreate(['nom' =&gt; $x])</code></td><td class="note-cell">Belgilangan ma'lumot uchun — takrorlanmaydi</td></tr>
+    <tr><td><code>$this-&gt;command-&gt;info('...')</code></td><td class="note-cell">Seeder ichidan terminalga xabar</td></tr>
+  </table>
+  <div class="callout note">
+    <p>🔑 <b>Factory — hajm uchun, ro'yxat — belgilangan ma'lumot uchun.</b>
+    «PHP», «Laravel» kabi nomlarni <code>fake()</code> ga topshirsangiz «laudantium»
+    chiqadi.</p>
+    <p>⚠️ <b>Bog'lanish nomini har doim yozing:</b> Laravel <code>Vakansiya</code> dan
+    <code>vakansiyas</code>, keyin <code>vakansiya</code> deb sinaydi — bizning metod
+    esa <code>vakansiyalar</code>. Xato ovoz chiqaradi, lekin oldini olish oson.</p>
+    <p>⚡ <b>Ichma-ich factory qimmat:</b> 200 vakansiya → <b>400 so'rov</b>.
+    «Ota»larni oldin yasab, <code>for()</code> bilan ulasangiz → <b>200</b>.</p>
+  </div>
+
+  <h2>Sahifalash, filtr va scope (29-darsdan)</h2>
+  <table class="sheet">
+    <tr><th>Kod</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>-&gt;paginate(5)</code></td><td class="note-cell"><code>get()</code> o'rniga. Sahifa <code>?page=</code> dan <b>o'zi</b> olinadi (2 so'rov)</td></tr>
+    <tr><td><code>-&gt;simplePaginate(5)</code></td><td class="note-cell"><b>1 so'rov</b> (<code>limit 6</code>), lekin <code>total()</code>/<code>lastPage()</code> yo'q</td></tr>
+    <tr><td><code>-&gt;withQueryString()</code></td><td class="note-cell">⚠️ <b>Majburiy</b> filtr bo'lsa — bo'lmasa sahifa almashganda filtr yo'qoladi</td></tr>
+    <tr><td><code>total()</code> · <code>firstItem()</code> · <code>lastItem()</code></td><td class="note-cell">«20 tadan 6–10» yozuvi uchun</td></tr>
+    <tr><td><code>currentPage()</code> · <code>lastPage()</code></td><td class="note-cell">«2 / 4»</td></tr>
+    <tr><td><code>hasPages()</code> · <code>onFirstPage()</code> · <code>hasMorePages()</code></td><td class="note-cell">Navigatsiyani ko'rsatish/o'chirish</td></tr>
+    <tr><td><code>previousPageUrl()</code> · <code>nextPageUrl()</code></td><td class="note-cell">Tayyor manzillar</td></tr>
+    <tr><td><code>{{ $lar-&gt;links() }}</code></td><td class="note-cell">Tayyor havolalar — <b>Tailwind</b> uchun (~6500 belgi). CSS framework yo'q bo'lsa o'zingiz yozing</td></tr>
+    <tr><td><code>-&gt;when($shart, fn ($q, $v) =&gt; ...)</code></td><td class="note-cell">Shart rost bo'lsagina qo'shiladi. ⚠️ <code>0</code> — falsy</td></tr>
+    <tr><td><code>$request-&gt;filled('maydon')</code></td><td class="note-cell"><code>0</code> ham «bor» hisoblanishi kerak bo'lganda</td></tr>
+    <tr><td><code>whereLike('nom', '%php%')</code></td><td class="note-cell">Qidiruv. <b>Katta-kichik harfga sezgir emas</b>; 3-argument — sezgir qilish</td></tr>
+    <tr><td><code>whereBetween('maosh', [1000, 2000])</code></td><td class="note-cell">Oraliq</td></tr>
+    <tr><td><code>distinct()-&gt;pluck('shahar')</code></td><td class="note-cell">Filtr ro'yxatini yasash</td></tr>
+    <tr><td><code>#[Scope] protected function faol(Builder $q)</code></td><td class="note-cell">Shartga nom (yangi shakl). Chaqirilishi — <code>Vakansiya::faol()</code></td></tr>
+    <tr><td><code>public function scopeFaol(Builder $q)</code></td><td class="note-cell">Eski shakl — barcha versiyalarda ishlaydi</td></tr>
+    <tr><td><code>Model::preventLazyLoading(! app()-&gt;isProduction())</code></td><td class="note-cell">⚡ N+1 ni <b>500 xatosiga</b> aylantiradi. <code>AppServiceProvider::boot()</code> ga</td></tr>
+    <tr><td><code>@selected(...)</code> · <code>@checked(...)</code></td><td class="note-cell">Blade: formani joriy filtr bilan to'ldirish</td></tr>
+    <tr><td><code>request('q')</code></td><td class="note-cell">Viewda joriy so'rov parametri</td></tr>
+  </table>
+  <div class="callout note">
+    <p>🔑 <b>Filtr formasi — <code>method="GET"</code>:</b> ma'lumot o'zgarmaydi,
+    natijani havola qilib yuborish mumkin, <code>@csrf</code> kerak emas.</p>
+    <p>⚠️ <b>Tekshirish odati:</b> filtrlagandan keyin «Keyingi» ni bosing va
+    <b>manzil qatoriga</b> qarang — filtr parametri bormi? Yo'q bo'lsa
+    <code>withQueryString()</code> unutilgan.</p>
+    <p>🔍 <code>?page=999</code> xato bermaydi — bo'sh ro'yxat qaytadi (navigatsiyada
+    <code>999 / 4</code> ko'rinadi). Kerak bo'lsa
+    <code>currentPage() &gt; lastPage()</code> ni tekshirib <code>abort(404)</code>.</p>
+  </div>
+
+  <h2>Auth — kirish va chiqish (30-darsdan)</h2>
+  <table class="sheet">
+    <tr><th>Kod</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>Hash::make($parol)</code></td><td class="note-cell">Xesh yasaydi. Har safar <b>boshqa</b> natija (tuz ichida)</td></tr>
+    <tr><td><code>Hash::check($parol, $xesh)</code></td><td class="note-cell">Tekshiradi. ⚠️ Parolni <code>===</code> bilan solishtirmang</td></tr>
+    <tr><td><code>$2y$12$…</code></td><td class="note-cell">bcrypt, cost 12, <b>60 belgi</b>. <code>config/hashing.php</code></td></tr>
+    <tr><td><code>unique:users,email</code></td><td class="note-cell">Bu email bazada yo'qligini tekshiradi</td></tr>
+    <tr><td><code>confirmed</code></td><td class="note-cell"><code>&lt;maydon&gt;_confirmation</code> maydoni bilan mosligini talab qiladi</td></tr>
+    <tr><td><code>Auth::attempt(['email' =&gt; …, 'password' =&gt; …])</code></td><td class="note-cell">Topadi + tekshiradi + sessiyaga yozadi</td></tr>
+    <tr><td><code>Auth::login($user)</code></td><td class="note-cell">Parolsiz kiritish (ro'yxatdan o'tgandan keyin)</td></tr>
+    <tr><td><code>session()-&gt;regenerate()</code></td><td class="note-cell">⚠️ <b>Session fixation</b> himoyasi — har kirishdan keyin</td></tr>
+    <tr><td><code>Auth::logout()</code></td><td class="note-cell">Sessiyadan <code>user_id</code> ni olib tashlaydi</td></tr>
+    <tr><td><code>session()-&gt;invalidate()</code></td><td class="note-cell">Butun sessiyani yo'q qiladi</td></tr>
+    <tr><td><code>session()-&gt;regenerateToken()</code></td><td class="note-cell">Yangi CSRF token</td></tr>
+    <tr><td><code>back()-&gt;withErrors([...])-&gt;onlyInput('email')</code></td><td class="note-cell">Xato + faqat email saqlanadi (parol <b>hech qachon</b>)</td></tr>
+    <tr><td><code>@auth … @else … @endauth</code></td><td class="note-cell">Kirgan / mehmon. <code>@guest</code> — teskarisi</td></tr>
+    <tr><td><code>auth()-&gt;user()</code> · <code>auth()-&gt;id()</code> · <code>auth()-&gt;check()</code></td><td class="note-cell">Obyekt · id · «kirganmi?»</td></tr>
+    <tr><td><code>-&gt;middleware('auth')</code></td><td class="note-cell">🔒 Haqiqiy himoya. Mehmon → <b>302</b> → kirish sahifasi</td></tr>
+  </table>
+  <div class="callout note">
+    <p>🔍 <b>Sehr yo'q:</b> <code>password_verify()</code> Laravel xeshini taniydi,
+    <code>Hash::check</code> esa PHP yasaganini — bir xil narsa.
+    Va «kirgan» bo'lish = <code>sessions</code> jadvalidagi qatorda
+    <code>user_id</code> turishi.</p>
+    <p>⚠️ <b>Route nomi aynan <code>login</code></b> bo'lishi kerak — aks holda
+    <code>Route [login] not defined</code>. Manzil o'zbekcha bo'lishi mumkin
+    (<code>/kirish</code>).</p>
+    <p>🔒 <b>Menyuni yashirish himoya emas.</b> <code>@auth</code> — ko'rinish uchun,
+    <code>middleware('auth')</code> — himoya uchun. Ikkalasi ham kerak.</p>
+    <p>Chiqish — <b>POST forma</b>, havola emas: u holatni o'zgartiradi.</p>
+  </div>
+
+  <h2>Starter kit va rate limiting (31-darsdan)</h2>
+  <table class="sheet">
+    <tr><th>Kod</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>composer require laravel/breeze --dev</code></td><td class="note-cell">Starter kit paketi</td></tr>
+    <tr><td><code>php artisan breeze:install blade</code></td><td class="note-cell">42 fayl yasaydi. ⚠️ <code>routes/web.php</code> ni <b>almashtiradi</b></td></tr>
+    <tr><td>Stack lar</td><td class="note-cell"><code>blade</code> · <code>livewire</code> · <code>react</code> · <code>vue</code> · <code>api</code></td></tr>
+    <tr><td>Flaglar</td><td class="note-cell"><code>--dark</code> · <code>--pest</code> · <code>--typescript</code> · <code>--eslint</code></td></tr>
+    <tr><td><code>RateLimiter::tooManyAttempts($kalit, 5)</code></td><td class="note-cell">«5 tadan ko'p urinish bo'ldimi?»</td></tr>
+    <tr><td><code>RateLimiter::hit($kalit, 60)</code></td><td class="note-cell">Xato urinishni sanaydi (60 soniya davomida)</td></tr>
+    <tr><td><code>RateLimiter::availableIn($kalit)</code></td><td class="note-cell">Necha soniyadan keyin ruxsat</td></tr>
+    <tr><td><code>RateLimiter::clear($kalit)</code></td><td class="note-cell">Muvaffaqiyatli kirishdan keyin tozalash</td></tr>
+    <tr><td><code>mb_strtolower($email) . '|' . $request-&gt;ip()</code></td><td class="note-cell">🔑 Kalit: <b>email + IP</b> (faqat bittasi yetarli emas)</td></tr>
+    <tr><td><code>php artisan cache:clear</code></td><td class="note-cell">Hisoblagichni tozalash (sinovda o'zingizni bloklab qo'ysangiz)</td></tr>
+    <tr><td><code>php artisan lang:publish</code></td><td class="note-cell"><code>lang/en/</code> ga 4 ta tarjima fayli</td></tr>
+    <tr><td><code>lang/uz/auth.php</code> + <code>APP_LOCALE=uz</code></td><td class="note-cell">Xabarlar o'zbekcha — controllerlarga <b>tegmasdan</b></td></tr>
+    <tr><td><code>redirect()-&gt;intended(...)</code></td><td class="note-cell">Kirishdan oldin bormoqchi bo'lgan sahifaga qaytarish</td></tr>
+  </table>
+  <div class="callout note">
+    <p>⚠️ <b>Starter kit — yangi loyiha uchun.</b> Mavjud loyihada:
+    <code>git commit</code> → <code>breeze:install</code> →
+    <code>git diff routes/web.php</code> → route'larni <b>qo'lda</b> qaytarish.
+    Yoki nusxada sinab ko'rish.</p>
+    <p>🎯 Breeze yozgan kod <b>tanish</b>: <code>Hash::make</code>,
+    <code>User::create</code>, <code>Auth::login</code>,
+    <code>session()-&gt;regenerate()</code>. Chiqish metodi — 30-darsdagi
+    <b>o'sha uch qator</b>.</p>
+    <p>🆕 Bizda yo'q bo'lgani: <b>rate limiting</b>, <b>Form Request</b>,
+    parol tiklash, email tasdiqlash, <code>guest</code> middleware.</p>
+  </div>
+
+  <h2>Middleware yozish (32-darsdan)</h2>
+  <table class="sheet">
+    <tr><th>Kod</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>php artisan make:middleware Nomi</code></td><td class="note-cell"><code>app/Http/Middleware/</code> ga klass</td></tr>
+    <tr><td><code>handle(Request $request, Closure $next)</code></td><td class="note-cell">Yagona metod. <code>$next</code> — zanjirning qolgan qismi</td></tr>
+    <tr><td><code>$javob = $next($request);</code></td><td class="note-cell">🔑 Undan <b>oldin</b> — so'rov; <b>keyin</b> — javob</td></tr>
+    <tr><td><code>return redirect(...)</code> (<code>$next</code> siz)</td><td class="note-cell">🔒 To'xtatadi — controller <b>ishlamaydi</b> (<code>auth</code> shunday)</td></tr>
+    <tr><td><code>$javob-&gt;headers-&gt;set('X-...', ...)</code></td><td class="note-cell">Javobga sarlavha qo'shish</td></tr>
+    <tr><td><code>terminate(Request, Response)</code></td><td class="note-cell">Javob <b>yuborilgandan keyin</b> ishlaydi (log, statistika)</td></tr>
+    <tr><td><code>$middleware-&gt;alias([...])</code></td><td class="note-cell"><code>bootstrap/app.php</code> da nom berish</td></tr>
+    <tr><td><code>$middleware-&gt;append(...)</code> · <code>prepend(...)</code></td><td class="note-cell">⚠️ <b>Global</b> — har so'rovda</td></tr>
+    <tr><td><code>-&gt;middleware('nom')</code></td><td class="note-cell">Bitta route'ga</td></tr>
+    <tr><td><code>-&gt;middleware(['a', 'b'])</code></td><td class="note-cell">Bir nechta (tartib muhim)</td></tr>
+    <tr><td><code>Route::middleware([...])-&gt;group(fn () =&gt; ...)</code></td><td class="note-cell">Guruh — ichidagi hamma route'ga</td></tr>
+    <tr><td><code>'til:en'</code> · <code>'ishvaqti:0,1'</code></td><td class="note-cell">Parametr → <code>handle(..., $a, $b)</code></td></tr>
+    <tr><td><code>php artisan route:list -v</code></td><td class="note-cell">🔍 Har route ostida middleware ro'yxati</td></tr>
+    <tr><td><code>middleware('guest')</code></td><td class="note-cell"><code>auth</code> ning teskarisi — kirgan odam ko'rmasin</td></tr>
+  </table>
+  <div class="callout note">
+    <p>⚠️ <b>Laravel 11+ da <code>app/Http/Kernel.php</code> YO'Q.</b> Eski
+    qo'llanmalar shu fayl haqida yozadi — hammasi endi
+    <code>bootstrap/app.php</code> da (17-darsdagi bo'sh joy).</p>
+    <p>🔍 <b>Piyoz tartibi</b> (logda o'lchandi):
+    <code>A kirdi → B kirdi → controller → B chiqdi → A chiqdi</code>.
+    Birinchi yozilgan — eng tashqi qatlam.</p>
+    <p>⚠️ Har tarmoqda <b>nimadir qaytishi</b> shart, aks holda
+    <code>TypeError: Return value must be of type Response</code>.</p>
+  </div>
+
+  <h2>Huquqlar: Gate va Policy (33-darsdan)</h2>
+  <table class="sheet">
+    <tr><th>Kod</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>make:policy XPolicy --model=X</code></td><td class="note-cell">5 metodli skelet (hammasi <code>false</code>)</td></tr>
+    <tr><td><code>update(User $u, Vakansiya $v)</code></td><td class="note-cell">Aniq yozuv haqida</td></tr>
+    <tr><td><code>create(User $u)</code></td><td class="note-cell">Yozuv hali yo'q — «umuman yaratsa bo'ladimi?»</td></tr>
+    <tr><td><code>Gate::getPolicyFor(X::class)</code></td><td class="note-cell">🔍 Policy topildimi (avtomatik: <code>Models\X</code> → <code>Policies\XPolicy</code>)</td></tr>
+    <tr><td><code>use AuthorizesRequests;</code></td><td class="note-cell">⚠️ Bazaviy <code>Controller</code> ga — bo'lmasa <code>authorize()</code> yo'q</td></tr>
+    <tr><td><code>$this-&gt;authorize('delete', $v)</code></td><td class="note-cell">Ruxsat bo'lmasa <b>403</b>, keyingi kod ishlamaydi</td></tr>
+    <tr><td><code>'can:delete,vakansiya'</code></td><td class="note-cell">Middleware shakli — controllerda kod yo'q</td></tr>
+    <tr><td><code>@can(...)</code> · <code>@cannot(...)</code></td><td class="note-cell">Blade'da ko'rsatish/yashirish</td></tr>
+    <tr><td><code>$user-&gt;can(...)</code> · <code>cannot(...)</code></td><td class="note-cell">Shart sifatida</td></tr>
+    <tr><td><code>Gate::forUser($x)-&gt;allows(...)</code></td><td class="note-cell">Boshqa odam nomidan (skript, test)</td></tr>
+    <tr><td><code>Gate::inspect(...)</code></td><td class="note-cell"><code>allowed()</code> + <code>message()</code> — «nega?»</td></tr>
+    <tr><td><code>Response::deny('sabab')</code></td><td class="note-cell"><code>bool</code> o'rniga — 403 sahifasida sizning xabaringiz</td></tr>
+    <tr><td><code>Gate::define('nom', fn ($u) =&gt; ...)</code></td><td class="note-cell">Modelsiz qoida</td></tr>
+    <tr><td><code>Gate::before(fn ($u, $q) =&gt; ...)</code></td><td class="note-cell">Ustun qoida. <code>null</code> → policy'ga o'tadi</td></tr>
+    <tr><td><code>foreignId('user_id')-&gt;nullOnDelete()</code></td><td class="note-cell">Egasi o'chsa yozuv qoladi, <code>user_id</code> <code>NULL</code> bo'ladi</td></tr>
+  </table>
+  <div class="callout note">
+    <p>🔑 <b>Middleware va policy farqi:</b> middleware — <b>route</b> darajasida
+    («kirganmi?»), policy — <b>yozuv</b> darajasida («bu yozuv kimniki?»).</p>
+    <p>⚠️ <b>Policy'da metod yo'q</b> → <code>false</code> (xato emas). Metod nomlari
+    <b>kelishuv</b>: <code>view</code>, <code>create</code>, <code>update</code>,
+    <code>delete</code> — o'zbekchaga o'girilmaydi.</p>
+    <p>Statuslar: <b>302→login</b> «kim ekaningni bilmayman» · <b>403</b> «huquqing
+    yo'q» · <b>404</b> «yozuv yo'q».</p>
+    <p>🔒 <code>@can</code> — ko'rinish, <code>authorize()</code> — himoya.
+    <b>Ikkalasi ham</b> kerak.</p>
+  </div>
+
+  <h2>Rollar va enum (34-darsdan)</h2>
+  <table class="sheet">
+    <tr><th>Kod</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>make:enum Rol --string</code></td><td class="note-cell"><code>app/Enums/Rol.php</code> — matn tayanchli enum</td></tr>
+    <tr><td><code>case IshBeruvchi = 'ish_beruvchi';</code></td><td class="note-cell">Chapda <b>case nomi</b> (kodda), o'ngda <b>backing value</b> (bazada)</td></tr>
+    <tr><td><code>$rol-&gt;name</code> · <code>$rol-&gt;value</code></td><td class="note-cell"><code>'IshBeruvchi'</code> · <code>'ish_beruvchi'</code></td></tr>
+    <tr><td><code>Rol::from('nomzod')</code></td><td class="note-cell">Matndan enum'ga. Noto'g'ri qiymatda <b>otadi</b> (<code>ValueError</code>)</td></tr>
+    <tr><td><code>Rol::tryFrom('boshqa')</code></td><td class="note-cell"><code>null</code> qaytaradi — tashqi ma'lumot uchun</td></tr>
+    <tr><td><code>Rol::cases()</code></td><td class="note-cell">Barcha case'lar — formani enum'dan yasash</td></tr>
+    <tr><td><code>match ($this) { self::X =&gt; ... }</code></td><td class="note-cell">Enum'ga metod. To'liq bo'lmasa <code>UnhandledMatchError</code> — <b>foyda</b></td></tr>
+    <tr><td><code>string('rol')-&gt;default('nomzod')</code></td><td class="note-cell">⚠️ Mavjud qatorlar bor jadvalda <code>default</code> <b>majburiy</b></td></tr>
+    <tr><td><code>'rol' =&gt; Rol::class</code></td><td class="note-cell"><code>casts()</code> ichida. Bazada matn, PHP'da obyekt</td></tr>
+    <tr><td><code>$u-&gt;rol === Rol::IshBeruvchi</code></td><td class="note-cell"><code>===</code> ishlaydi — case <b>yagona nusxada</b></td></tr>
+    <tr><td><code>Rule::enum(Rol::class)</code></td><td class="note-cell">Validatsiya. <code>in:</code> ro'yxatini takrorlashdan afzal</td></tr>
+    <tr><td><code>authorize('create', Vakansiya::class)</code></td><td class="note-cell">Yozuv yo'q → <b>klass</b> beriladi</td></tr>
+    <tr><td><code>@can('create', App\Models\Vakansiya::class)</code></td><td class="note-cell">Blade'da to'liq yo'l — u yerda <code>use</code> yo'q</td></tr>
+    <tr><td><code>@checked(old('rol') === $rol-&gt;value)</code></td><td class="note-cell">Xatodan keyin radio tanlovi saqlanadi</td></tr>
+    <tr><td><code>where('rol', Rol::IshBeruvchi)</code></td><td class="note-cell">Enum o'zi <code>-&gt;value</code> ga aylanadi</td></tr>
+  </table>
+  <div class="callout note">
+    <p>⚠️ <b>Rol va egalik — boshqa-boshqa savol.</b> Rol: «umuman shunday ish
+    qila olasanmi?» Egalik: «bu aynan seningmi?» Yozuv ustidagi amallarda
+    <b>ikkalasi</b> ham:
+    <code>$u-&gt;rol === Rol::IshBeruvchi &amp;&amp; $v-&gt;user_id === $u-&gt;id</code>.</p>
+    <p>🔍 <b>Tashxis:</b> policy metodi <code>$vakansiya</code> ni qabul qilib
+    <b>ishlatmasa</b> — deyarli har doim xato.</p>
+    <p>Statuslar aralashmasin: <b>419</b> CSRF (so'rov qayerdan kelgani noma'lum)
+    · <b>403</b> huquq yo'q · <b>302→login</b> kirmagan.</p>
+    <p>Bazaga begona qiymat tushsa, o'qishda <code>ValueError</code> —
+    <code>"boshqa" is not a valid backing value for enum</code>.</p>
+    <p>⚠️ <b>Generator yo'li:</b> <code>make:enum Rol</code> deb yozing,
+    <code>make:enum Enums/Rol</code> emas — ikkinchisi
+    <code>app/Enums/Enums/Rol.php</code> yasaydi. Chiqishdagi <b>yo'lga
+    qarang</b>.</p>
   </div>
 
   <h2>Xatoni o'qish</h2>

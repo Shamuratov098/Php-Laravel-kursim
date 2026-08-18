@@ -1,0 +1,972 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 31 — Starter kit: nima yaratildi va nega</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 31 · MODUL D — FOYDALANUVCHI VA HUQUQLAR</p>
+  <h1>Starter kit: tayyor auth'ni <b>o'qiy olish</b></h1>
+  <p class="lead">30-darsda auth'ni qo'lda yozdik. Laravel'da esa buning tayyor
+  yechimi bor — <b>starter kit</b>. Bugun uni o'rnatamiz, <b>lekin IshTop'ga
+  emas</b>: u <code>routes/web.php</code> ni butunlay almashtirib yuboradi. Alohida
+  nusxada o'rnatib, har faylni o'qib chiqamiz — va ikkita g'oyani o'zimizga olib
+  kelamiz.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 15 daqiqa</span>
+    <span>💻 Amaliyot ≈ 24 daqiqa</span>
+    <span>Kerak: <a href="0030-auth-qolda.html">Dars 30</a></span>
+  </p>
+
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b>Starter kit nima</b>
+        <span class="nima">Auth'ning tayyor to'plami: controller, view, route, parol
+        tiklash, email tasdiqlash. Laravel 13 uchun — <code>laravel/breeze</code>.</span></li>
+      <li><b>⚠️ U mavjud loyihani buzadi</b>
+        <span class="nima">O'lchandi: <b>42 yangi fayl</b>, <b>3 fayl ustiga
+        yozildi</b> — shu qatorda <code>routes/web.php</code>. Bizning barcha
+        route'larimiz <b>yo'qoladi</b>.</span></li>
+      <li><b>Shuning uchun — alohida nusxada</b>
+        <span class="nima">Loyihani nusxalab, o'sha yerda o'rnatamiz. IshTop
+        <b>tegilmaydi</b>.</span></li>
+      <li><b>Yonma-yon: ro'yxatdan o'tish</b>
+        <span class="nima">Bizning <code>royxat()</code> va Breeze'ning
+        <code>RegisteredUserController@store</code> — <b>deyarli aynan</b>
+        bir xil.</span></li>
+      <li><b>Yonma-yon: chiqish</b>
+        <span class="nima">Bizning <code>chiqish()</code> va Breeze'ning
+        <code>destroy()</code> — uch qator, <b>so'zma-so'z</b> bir xil.</span></li>
+      <li><b>🆕 Rate limiting</b>
+        <span class="nima">Bizda yo'q edi: 5 marta xato parol → <b>qulflash</b>.
+        Jonli o'lchandi. Brute-force hujumiga qarshi asosiy himoya.</span></li>
+      <li><b>🆕 Form Request</b>
+        <span class="nima">Validatsiya controllerdan chiqib alohida klassga o'tadi —
+        Modul D ning keyingi darslaridan birida biz ham shunday qilamiz.</span></li>
+      <li><b>Yana nimalar bor</b>
+        <span class="nima"><code>redirect()-&gt;intended()</code> · event'lar ·
+        <code>Password::defaults()</code> · parol tiklash · email tasdiqlash ·
+        profil sahifasi.</span></li>
+      <li><b>Xabarlarni o'zbekchalashtirish</b>
+        <span class="nima"><code>lang:publish</code> → <code>lang/uz/auth.php</code> +
+        <code>APP_LOCALE=uz</code>. 20-darsda va'da qilingan yechim.</span></li>
+      <li><b>Qaror: nimani olib kelamiz</b>
+        <span class="nima">IshTop'da <b>o'z</b> auth'imiz qoladi, Breeze'dan
+        <b>ikki g'oya</b> olinadi: rate limiting va tarjima fayllari.</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Nega bu dars 30-darsdan <b>keyin</b></span>
+    <p>Ko'p kurslar auth'ni shundan boshlaydi: «bitta buyruq yozing, tayyor». Natijada
+    o'quvchida 40 ta notanish fayl paydo bo'ladi va u ularga <b>qo'rqib</b> qaraydi —
+    tegishga ham, tuzatishga ham botinmaydi.</p>
+    <p>Siz esa kecha <code>Hash::make</code>, <code>Auth::attempt</code>,
+    <code>session()-&gt;regenerate()</code>, <code>middleware('auth')</code> ni
+    <b>o'z qo'lingiz bilan</b> yozdingiz. Bugun o'sha 40 fayl ochilganda, ularning
+    yarmini <b>tanib olasiz</b> — chunki bir xil narsa.</p>
+    <p>Bu Modul A dagi naqshning takrori: mini-framework (14–15) → Laravel (16–17);
+    SQL (21–22) → Eloquent (25); auth qo'lda (30) → starter kit (31).</p>
+    <p>Va ish joyida ikkala ko'nikma ham kerak: tayyor yechimni <b>ishlata olish</b>,
+    va u nima qilayotganini <b>tushunish</b>.</p>
+  </div>
+
+  <!-- ═══════════════ 2) TUSHUNCHA ═══════════════ -->
+  <h2>⚠️ Eng muhimi: u mavjud loyihani buzadi</h2>
+
+  <p>Buni bilmasdan o'rnatgan odam ko'p vaqt yo'qotadi, shuning uchun darsning
+  <b>boshida</b> aytamiz. <code>breeze:install</code> ni ishlatgandan keyin
+  o'lchangan natija:</p>
+
+  <div class="natija">═══ YANGI fayllar ═══
+  42 ta
+
+  Auth controllerlar : 9 ta   (RegisteredUserController, AuthenticatedSessionController, …)
+  Form Request lar   : 2 ta
+  auth view lar      : 8 ta
+  komponentlar       : 14 ta
+  routes/auth.php    : 1 ta
+
+═══ USTIGA YOZILGAN ═══
+  resources/css/app.css
+  resources/js/app.js
+  routes/web.php          ← ⚠️ BUTUNLAY ALMASHTIRILDI</div>
+
+  <p>Oxirgi qator eng xatarlisi. Tekshirdik:</p>
+
+  <div class="natija">O'rnatishdan oldin: routes/web.php da «vakansiyalar» so'zi 5 marta
+O'rnatishdan keyin: 0 marta
+
+Ya'ni index, show, store, kirish, chiqish — HAMMASI yo'qoldi.</div>
+
+  <div class="callout warning">
+    <span class="label">Shuning uchun IshTop'ga o'rnatmaymiz</span>
+    <p>Amaliyotda loyihani <b>nusxalab</b>, o'sha nusxada o'rnatamiz. IshTop
+    tegilmaydi.</p>
+    <p>Bu shunchaki ehtiyotkorlik emas — <b>to'g'ri ish uslubi</b>. Starter kit
+    <b>yangi</b> loyiha uchun mo'ljallangan: siz uni birinchi kunda o'rnatasiz va
+    ustiga o'z kodingizni yozasiz. Yarim yo'lda o'rnatish — hech qachon rejalashtirilgan
+    holat emas.</p>
+    <p>Agar mavjud loyihaga <b>baribir</b> kerak bo'lsa: avval
+    <code>git commit</code> qiling, keyin o'rnating, so'ng <code>git diff</code> bilan
+    nima o'zgarganini ko'rib, <code>routes/web.php</code> ni <b>qo'lda</b> tiklang.</p>
+  </div>
+
+  <h2>O'rnatish</h2>
+
+  <div class="codefile">
+    <div class="fname">terminal (nusxada!)</div>
+    <code class="cmd" data-cmd="composer require laravel/breeze --dev
+php artisan breeze:install blade">composer require laravel/breeze --dev
+php artisan breeze:install blade</code>
+  </div>
+
+  <p><code>blade</code> — bizga mos «stack». Boshqalari ham bor
+  (<code>livewire</code>, <code>react</code>, <code>vue</code>, <code>api</code>),
+  lekin ular JavaScript freymvorklarini talab qiladi.</p>
+
+  <p>Buyruq o'zi <code>npm install</code> va <code>npm run build</code> ni ham
+  bajaradi — Breeze view'lari <b>Tailwind CSS</b> ishlatadi. Bizning kursda CSS
+  framework yo'q edi, shuning uchun sahifalar birdan «chiroyli» bo'lib qoladi.</p>
+
+  <h2>Yonma-yon: bizning kod va Breeze</h2>
+
+  <h3>Ro'yxatdan o'tish</h3>
+
+  <div class="codefile">
+    <div class="fname">30-dars — biz yozgan</div>
+    <code class="cmd" data-cmd="$tekshirilgan = $request-&gt;validate([
+    'name' =&gt; 'required|string|max:100',
+    'email' =&gt; 'required|email|unique:users,email',
+    'password' =&gt; 'required|string|min:8|confirmed',
+]);
+
+$user = User::create([
+    'name' =&gt; $tekshirilgan['name'],
+    'email' =&gt; $tekshirilgan['email'],
+    'password' =&gt; Hash::make($tekshirilgan['password']),
+]);
+
+Auth::login($user);
+$request-&gt;session()-&gt;regenerate();">$tekshirilgan = $request-&gt;validate([
+    'name' =&gt; 'required|string|max:100',
+    'email' =&gt; 'required|email|unique:users,email',
+    'password' =&gt; 'required|string|min:8|confirmed',
+]);
+
+$user = User::create([
+    'name' =&gt; $tekshirilgan['name'],
+    'email' =&gt; $tekshirilgan['email'],
+    'password' =&gt; Hash::make($tekshirilgan['password']),
+]);
+
+Auth::login($user);
+$request-&gt;session()-&gt;regenerate();</code>
+  </div>
+
+  <div class="codefile">
+    <div class="fname">Breeze — RegisteredUserController@store</div>
+    <code class="cmd" data-cmd="$request-&gt;validate([
+    'name' =&gt; ['required', 'string', 'max:255'],
+    'email' =&gt; ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
+    'password' =&gt; ['required', 'confirmed', Rules\Password::defaults()],
+]);
+
+$user = User::create([
+    'name' =&gt; $request-&gt;name,
+    'email' =&gt; $request-&gt;email,
+    'password' =&gt; Hash::make($request-&gt;password),
+]);
+
+event(new Registered($user));
+
+Auth::login($user);
+
+return redirect(route('dashboard', absolute: false));">$request-&gt;validate([
+    'name' =&gt; ['required', 'string', 'max:255'],
+    'email' =&gt; ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
+    'password' =&gt; ['required', 'confirmed', <span class="add">Rules\Password::defaults()</span>],
+]);
+
+$user = User::create([
+    'name' =&gt; $request-&gt;name,
+    'email' =&gt; $request-&gt;email,
+    'password' =&gt; Hash::make($request-&gt;password),
+]);
+
+<span class="add">event(new Registered($user));</span>
+
+Auth::login($user);
+
+return redirect(route('dashboard', absolute: false));</code>
+  </div>
+
+  <p><b>Deyarli aynan bir xil.</b> <code>Hash::make</code>, <code>User::create</code>,
+  <code>Auth::login</code> — hammasi tanish. Farqlar:</p>
+
+  <table class="sheet">
+    <tr><th>Breeze'da</th><th class="note-cell">Nima</th></tr>
+    <tr><td>Qoidalar <b>massiv</b> bilan</td><td class="note-cell"><code>['required', 'string']</code> — <code>'required|string'</code> bilan bir xil, shunchaki boshqa yozuv</td></tr>
+    <tr><td><code>'unique:'.User::class</code></td><td class="note-cell"><code>'unique:users,email'</code> ning boshqa shakli — jadval nomi modeldan olinadi</td></tr>
+    <tr><td><code>lowercase</code></td><td class="note-cell">Email kichik harfda saqlansin (<code>Ali@X.uz</code> va <code>ali@x.uz</code> — bitta odam)</td></tr>
+    <tr><td><code>Rules\Password::defaults()</code></td><td class="note-cell">Parol qoidalari bir joydan boshqariladi (30-darsdagi HOLAT 7)</td></tr>
+    <tr><td><code>event(new Registered($user))</code></td><td class="note-cell">🆕 «Foydalanuvchi ro'yxatdan o'tdi» xabari — masalan xush kelibsiz emailini yuborish uchun. Modul G da ko'ramiz</td></tr>
+  </table>
+
+  <h3>Chiqish</h3>
+
+  <div class="codefile">
+    <div class="fname">Breeze — AuthenticatedSessionController@destroy</div>
+    <code class="cmd" data-cmd="Auth::guard('web')-&gt;logout();
+
+$request-&gt;session()-&gt;invalidate();
+
+$request-&gt;session()-&gt;regenerateToken();
+
+return redirect('/');">Auth::guard('web')-&gt;logout();
+
+$request-&gt;session()-&gt;invalidate();
+
+$request-&gt;session()-&gt;regenerateToken();
+
+return redirect('/');</code>
+  </div>
+
+  <p>Bu — 30-darsda yozgan <b>o'sha uch qator</b>. So'zma-so'z. Yagona farq
+  <code>Auth::guard('web')</code>: «web» — sessiyaga asoslangan guard'ning nomi
+  (API uchun boshqasi bo'ladi, Modul F).</p>
+
+  <p>🎯 Mana shu — darsning asosiy g'oyasi. Tayyor kod <b>sizga notanish emas</b>.</p>
+
+  <!-- ═══════════════ YANGI NARSALAR ═══════════════ -->
+  <h2>🆕 Bizda yo'q bo'lgan narsalar</h2>
+
+  <h3>1. Rate limiting — eng muhimi</h3>
+
+  <p>Bizning 30-darsdagi kodda bir kamchilik bor edi: hujumchi parolni
+  <b>cheksiz</b> marta sinab ko'rishi mumkin. Breeze buni yopadi:</p>
+
+  <div class="codefile">
+    <div class="fname">Breeze — LoginRequest::authenticate()</div>
+    <code class="cmd" data-cmd="$this-&gt;ensureIsNotRateLimited();
+
+if (! Auth::attempt($this-&gt;only('email', 'password'), $this-&gt;boolean('remember'))) {
+    RateLimiter::hit($this-&gt;throttleKey());
+
+    throw ValidationException::withMessages([
+        'email' =&gt; trans('auth.failed'),
+    ]);
+}
+
+RateLimiter::clear($this-&gt;throttleKey());">$this-&gt;ensureIsNotRateLimited();
+
+if (! Auth::attempt($this-&gt;only('email', 'password'), $this-&gt;boolean('remember'))) {
+    <span class="add">RateLimiter::hit($this-&gt;throttleKey());</span>
+
+    throw ValidationException::withMessages([
+        'email' =&gt; trans('auth.failed'),
+    ]);
+}
+
+<span class="add">RateLimiter::clear($this-&gt;throttleKey());</span></code>
+  </div>
+
+  <p>Jonli sinab ko'rildi — 6 marta noto'g'ri parol:</p>
+
+  <div class="natija">urinish 1: These credentials do not match our records.
+urinish 2: These credentials do not match our records.
+urinish 3: These credentials do not match our records.
+urinish 4: These credentials do not match our records.
+urinish 5: These credentials do not match our records.
+urinish 6: Too many login attempts. Please try again in 58 seconds.</div>
+
+  <p><b>5 ta urinishga ruxsat, 6-chisida qulflash.</b> Hisoblagich kalit sifatida
+  <b>email + IP</b> juftligini ishlatadi — ya'ni bir odam boshqalarni bloklab
+  qo'yolmaydi.</p>
+
+  <h3>2. Form Request</h3>
+
+  <p>Diqqat qiling: yuqoridagi kod <b>controllerda emas</b>, alohida
+  <code>LoginRequest</code> klassida. Controller esa juda qisqa bo'lib qoldi:</p>
+
+  <div class="natija">public function store(LoginRequest $request): RedirectResponse
+{
+    $request-&gt;authenticate();
+    $request-&gt;session()-&gt;regenerate();
+
+    return redirect()-&gt;intended(route('dashboard', absolute: false));
+}</div>
+
+  <p>Bu naqsh — <b>Form Request</b> — Modul D ning keyingi darslaridan birida bizda
+  ham bo'ladi. Hozircha g'oyasini eslab qoling: <b>validatsiya controllerdan chiqadi</b>.</p>
+
+  <h3>3. Qolganlari</h3>
+
+  <table class="sheet">
+    <tr><th>Nima</th><th class="note-cell">Vazifasi</th></tr>
+    <tr><td><code>redirect()-&gt;intended(...)</code></td><td class="note-cell">Kirishdan <b>oldin</b> bormoqchi bo'lgan sahifaga qaytaradi</td></tr>
+    <tr><td>Parol tiklash</td><td class="note-cell"><code>forgot-password</code>, <code>reset-password</code> + email + <code>password_reset_tokens</code> jadvali</td></tr>
+    <tr><td>Email tasdiqlash</td><td class="note-cell"><code>verify-email</code> + imzolangan havola (<code>signed</code> middleware)</td></tr>
+    <tr><td>Parolni tasdiqlash</td><td class="note-cell">Muhim amaldan oldin parolni qayta so'rash</td></tr>
+    <tr><td>Profil sahifasi</td><td class="note-cell">Ism/email o'zgartirish, hisobni o'chirish</td></tr>
+    <tr><td><code>guest</code> middleware</td><td class="note-cell">Kirgan odam kirish sahifasini <b>ko'rmasin</b> (<code>auth</code> ning teskarisi)</td></tr>
+  </table>
+
+  <h2>Hajm solishtiruvi</h2>
+
+  <table class="sheet">
+    <tr><th>Nima</th><th>Biz (30-dars)</th><th class="note-cell">Breeze</th></tr>
+    <tr><td>Auth controllerlar</td><td><b>81</b> qator, 1 fayl</td><td class="note-cell"><b>347</b> qator, 9 fayl</td></tr>
+    <tr><td>Form Request</td><td>—</td><td class="note-cell"><b>117</b> qator, 2 fayl</td></tr>
+    <tr><td>Auth view lar</td><td><b>38</b> qator, 2 fayl</td><td class="note-cell"><b>259</b> qator, 8 fayl</td></tr>
+    <tr><td>Komponentlar</td><td>—</td><td class="note-cell">14 fayl</td></tr>
+    <tr><td>Route qatorlari</td><td><b>5</b></td><td class="note-cell"><b>59</b> (<code>routes/auth.php</code>)</td></tr>
+  </table>
+
+  <p>Breeze <b>10 barobar ko'p</b> kod yozadi — lekin u 10 barobar ko'p ish ham
+  qiladi (parol tiklash, email tasdiqlash, rate limiting, profil). Savol
+  «qaysi biri yaxshi?» emas, <b>«menga hozir nima kerak?»</b></p>
+
+  <div class="callout tip">
+    <span class="label">Bizning qarorimiz</span>
+    <p><b>IshTop'da o'z auth'imiz qoladi.</b> Sabablari:</p>
+    <ul>
+      <li>Breeze <code>routes/web.php</code> ni buzadi va Tailwind olib keladi —
+      kursning qolgan qismi boshqa uslubda yozilgan;</li>
+      <li>keyingi darslar (middleware, Gate/Policy, rollar) <b>bizning</b> kod
+      ustiga quriladi;</li>
+      <li>bizning 81 qator kod <b>tushunarli</b> va yetarli.</li>
+    </ul>
+    <p>Lekin Breeze'dan <b>ikki g'oyani</b> olib kelamiz:</p>
+    <div class="natija">1. Rate limiting  — kirish urinishlarini cheklash
+2. lang/uz/      — xabarlarni o'zbekchalashtirish</div>
+    <p>Real loyihada esa qoida oddiy: <b>yangi</b> loyiha boshlayotgan bo'lsangiz —
+    starter kit'dan boshlang.</p>
+  </div>
+
+  <!-- ═══════════════ 3) HAR XIL HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir bir marta o'qib chiqing, keyin
+  kerak bo'lganda qaytib qarang.</p>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 1</span>
+    <h4>Yangi loyiha — starter kit'dan boshlash</h4>
+    <div class="natija">composer create-project laravel/laravel yangi-loyiha
+cd yangi-loyiha
+composer require laravel/breeze --dev
+php artisan breeze:install blade
+php artisan migrate</div>
+    <p>Bu <b>to'g'ri</b> tartib: hech narsa yozilmagan, demak hech narsa buzilmaydi.
+    Birinchi kunda 20 daqiqada to'liq auth tayyor bo'ladi — parol tiklash, email
+    tasdiqlash bilan birga.</p>
+    <p>🔑 Ish joyida ko'p loyiha shunday boshlanadi. Sizdan «Breeze bilan tanishmisiz?»
+    deb so'rashlari mumkin — javob endi «ha, va u nima qilishini bilaman».</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 2</span>
+    <h4>Mavjud loyihaga o'rnatish</h4>
+    <div class="natija">routes/web.php        ← BUTUNLAY almashtiriladi
+resources/css/app.css ← ustiga yoziladi
+resources/js/app.js   ← ustiga yoziladi</div>
+    <p>Agar baribir kerak bo'lsa, <b>tartib</b> shunday:</p>
+    <div class="natija">1. git add -A &amp;&amp; git commit -m "breeze dan oldin"   ← eng muhim qadam
+2. composer require laravel/breeze --dev
+3. php artisan breeze:install blade
+4. git diff routes/web.php            ← nima yo'qolganini ko'rish
+5. o'z route'laringizni QO'LDA qaytarish</div>
+    <p>Git bo'lmasa — yo'qolgan kodni qaytarib bo'lmaydi. Bu Git kursidagi
+    «commit qilib qo'y» qoidasining amaliy narxi.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 3</span>
+    <h4>Xabarlarni o'zbekchalashtirish</h4>
+    <p>Breeze xabarlari inglizcha, lekin ular <b>tarjima fayllarida</b> —
+    ya'ni controllerlarni tahrirlash shart emas (20-darsda va'da qilgan yechim):</p>
+    <div class="natija">php artisan lang:publish
+→ lang/en/auth.php, validation.php, passwords.php, pagination.php</div>
+    <p>Keyin <code>lang/uz/auth.php</code> yasab, <code>.env</code> da
+    <code>APP_LOCALE=uz</code> qo'yiladi:</p>
+    <div class="natija">// lang/uz/auth.php
+return [
+    'failed' =&gt; 'Email yoki parol xato.',
+    'throttle' =&gt; 'Juda ko\'p urinish. :seconds soniyadan keyin qayta urining.',
+];
+
+Natija:  &lt;li&gt;Email yoki parol xato.&lt;/li&gt;   ✅</div>
+    <p>Bu yondashuv <b>har joyda</b> ishlaydi: <code>validation.php</code> ni ham
+    shunday tarjima qilsangiz, 20-darsda har controllerda yozgan o'zbekcha xabarlar
+    kerak bo'lmaydi.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 4</span>
+    <h4>Boshqa «stack»lar</h4>
+    <table class="sheet">
+      <tr><th>Stack</th><th class="note-cell">Nima</th></tr>
+      <tr><td><code>blade</code></td><td class="note-cell">Oddiy Blade + Tailwind. <b>Bizga mos</b></td></tr>
+      <tr><td><code>livewire</code></td><td class="note-cell">Blade + Livewire (JS yozmasdan interaktivlik)</td></tr>
+      <tr><td><code>react</code> · <code>vue</code></td><td class="note-cell">Inertia + React/Vue — alohida frontend</td></tr>
+      <tr><td><code>api</code></td><td class="note-cell">View'siz, faqat API uchun (Modul F ga yaqin)</td></tr>
+    </table>
+    <p>Qo'shimcha flaglar: <code>--dark</code> (qorong'i rejim),
+    <code>--pest</code> (Pest testlari — Modul E da ko'ramiz),
+    <code>--typescript</code>, <code>--eslint</code>.</p>
+    <p>Kurs uchun <code>blade</code> tanlandi: u <b>eng kam</b> yangi narsa olib
+    keladi.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 5</span>
+    <h4>Rate limiting kalitini to'g'ri tanlash</h4>
+    <div class="natija">❌ faqat IP bo'yicha
+   → bitta ofisdagi hamma odam bir-birini bloklaydi (bir xil IP)
+
+❌ faqat email bo'yicha
+   → hujumchi begona emailni ataylab bloklab qo'yadi (DoS)
+
+✅ email + IP birga
+   $kalit = mb_strtolower($email) . '|' . $request-&gt;ip();</div>
+    <p>Breeze aynan shunday qiladi (<code>throttleKey()</code>). Biz ham amaliyotda
+    shu shaklni yozamiz.</p>
+    <p><code>mb_strtolower</code> — <code>Ali@X.uz</code> va <code>ali@x.uz</code>
+    bitta kalit bo'lishi uchun. Aks holda hujumchi harflarni almashtirib
+    cheklovni chetlab o'tardi.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 6</span>
+    <h4>Sinovda o'zingizni bloklab qo'yish</h4>
+    <p>Rate limiting'ni sinayotganda o'zingiz qulflanib qolasiz — va keyingi
+    sinovlar «nega ishlamayapti?» degan chalkashlik beradi (buni yozayotganda
+    men ham shunga tushdim).</p>
+    <div class="natija">php artisan cache:clear      ← hisoblagichni tozalaydi
+
+// yoki boshqa email bilan sinash
+// yoki 60 soniya kutish</div>
+    <p>Hisoblagich <b>kesh</b>da saqlanadi — shuning uchun <code>cache:clear</code>
+    ishlaydi. Bu Modul H dagi kesh mavzusining kichik bir ko'rinishi.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>Starter kit'ni olib tashlash</h4>
+    <p>Sinab ko'rdingiz va kerak bo'lmasa:</p>
+    <div class="natija">git checkout .            ← commit qilgan bo'lsangiz, eng oson yo'l
+git clean -fd             ← yangi fayllarni ham o'chiradi
+
+// yoki nusxa bilan ishlagan bo'lsangiz:
+rm -rf ishtop-nusxa       ← shunchaki papkani o'chirasiz</div>
+    <p>Biz amaliyotda <b>nusxa</b> bilan ishlaymiz, ya'ni ortga qaytish —
+    bitta papkani o'chirish. Sinov uchun eng xavfsiz usul.</p>
+  </div>
+
+  <!-- ═══════════════ 4) AMALIYOT / MODE-HINT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    <span class="mode-hint-title">💻 Amaliy qism kompyuterda</span>
+    <p>Amaliyotda IshTop'ni <b>nusxalab</b>, nusxada Breeze'ni o'rnatasiz va u
+    yozgan kodni o'qiysiz — shu qatorda <code>routes/web.php</code> ning
+    yo'qolganini ham. Keyin nusxani o'chirib, IshTop'ga <b>ikki g'oyani</b> olib
+    kelasiz: rate limiting va o'zbekcha xabarlar.</p>
+    <button type="button" class="modebtn" data-set-mode="do">💻 Amaliyot rejimini ko'rish</button>
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <p>Avval IshTop'ni commit qiling</p>
+        <p class="why-step">Bugun tajriba qilamiz. Commit — ortga qaytish
+        kafolati.</p>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+git add -A
+git commit -m &quot;31-darsdan oldingi holat&quot;
+git log --oneline -1">cd ~/Projects/Learn/ishtop
+git add -A
+git commit -m "31-darsdan oldingi holat"
+git log --oneline -1</div>
+        <p class="expect"><b>Kutilgan natija:</b> oxirgi commit ko'rinadi.</p>
+      </li>
+
+      <li>
+        <p>Loyihaning <b>nusxasini</b> yasang</p>
+        <p class="why-step">⚠️ Breeze'ni IshTop'ga o'rnatmaymiz — u
+        <code>routes/web.php</code> ni almashtirib yuboradi.</p>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn
+cp -r ishtop ishtop-nusxa
+cd ishtop-nusxa
+grep -c vakansiyalar routes/web.php">cd ~/Projects/Learn
+cp -r ishtop ishtop-nusxa
+cd ishtop-nusxa
+grep -c vakansiyalar routes/web.php
+<span class="out">5</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> <code>5</code> — nusxadagi
+        <code>routes/web.php</code> da «vakansiyalar» so'zi 5 marta uchraydi. Bu
+        raqamni <b>eslab qoling</b>.</p>
+      </li>
+
+      <li>
+        <p>Breeze'ni o'rnating</p>
+        <p class="why-step">Bu bir necha daqiqa oladi — <code>npm install</code> ham
+        bajariladi.</p>
+        <div class="cmd" data-cmd="composer require laravel/breeze --dev
+php artisan breeze:install blade">composer require laravel/breeze --dev
+php artisan breeze:install blade
+<span class="out">INFO  Breeze scaffolding installed successfully.</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> oxirida «installed successfully».
+        Yo'lda <code>vite ... built in ...ms</code> chiqadi — bu Tailwind CSS
+        yig'ilishi.</p>
+      </li>
+
+      <li>
+        <p>⚠️ Nima yo'qolganini ko'ring</p>
+        <div class="cmd" data-cmd="grep -c vakansiyalar routes/web.php
+cat routes/web.php">grep -c vakansiyalar routes/web.php
+cat routes/web.php
+<span class="out">0</span>
+<span class="out">Route::get('/dashboard', ...)-&gt;name('dashboard');</span>
+<span class="out">require __DIR__.'/auth.php';</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> <code>0</code>.
+        <br>⚠️ Vakansiya route'lari, kirish/chiqish route'lari — <b>hammasi
+        yo'qoldi</b>. Fayl butunlay almashtirilgan.
+        <br>Diqqat: <code>AuthController.php</code> fayli <b>joyida turibdi</b> —
+        faqat unga olib boradigan route'lar yo'q.</p>
+      </li>
+
+      <li>
+        <p>Breeze yozgan kodni o'qing</p>
+        <p class="why-step">Darsning asosiy maqsadi — tanish narsalarni tanib
+        olish.</p>
+        <div class="cmd" data-cmd="ls app/Http/Controllers/Auth/
+
+echo &quot;=== RO'YXATDAN O'TISH ===&quot;
+sed -n '/public function store/,/^    }/p' app/Http/Controllers/Auth/RegisteredUserController.php
+
+echo &quot;=== CHIQISH ===&quot;
+sed -n '/public function destroy/,/^    }/p' app/Http/Controllers/Auth/AuthenticatedSessionController.php">ls app/Http/Controllers/Auth/
+
+echo "=== RO'YXATDAN O'TISH ==="
+sed -n '/public function store/,/^    }/p' app/Http/Controllers/Auth/RegisteredUserController.php
+
+echo "=== CHIQISH ==="
+sed -n '/public function destroy/,/^    }/p' app/Http/Controllers/Auth/AuthenticatedSessionController.php
+<span class="out">AuthenticatedSessionController.php  RegisteredUserController.php  ...</span>
+<span class="out">$user = User::create([... 'password' =&gt; Hash::make($request-&gt;password)]);</span>
+<span class="out">Auth::guard('web')-&gt;logout();</span>
+<span class="out">$request-&gt;session()-&gt;invalidate();</span>
+<span class="out">$request-&gt;session()-&gt;regenerateToken();</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> 9 ta controller, va ichida
+        <b>tanish kod</b>: <code>Hash::make</code>, <code>User::create</code>,
+        <code>Auth::login</code>.
+        <br>🎯 Chiqish metodi — 30-darsda yozgan <b>o'sha uch qator</b>, so'zma-so'z.</p>
+      </li>
+
+      <li>
+        <p>🆕 Rate limiting'ni jonli sinang</p>
+        <p class="why-step">Bizda yo'q bo'lgan asosiy narsa.</p>
+        <div class="cmd" data-cmd="php artisan migrate:fresh
+php artisan serve">php artisan migrate:fresh
+php artisan serve</div>
+        <p class="expect"><b>Kutilgan natija:</b> <code>/register</code> ga o'ting
+        (Tailwind tufayli sahifa chiroyli), ro'yxatdan o'ting. Keyin chiqing va
+        <code>/login</code> da <b>noto'g'ri parolni 6 marta</b> kiriting:</p>
+        <div class="natija">urinish 1–5: These credentials do not match our records.
+urinish 6:   Too many login attempts. Please try again in 58 seconds.</div>
+        <p class="expect">🔒 <b>5 urinish, keyin qulflash.</b> Bizning 30-darsdagi
+        kodda bu yo'q edi — hujumchi cheksiz sinab ko'rishi mumkin edi.</p>
+      </li>
+
+      <li>
+        <p>Xabarlarni o'zbekchalashtiring</p>
+        <p class="why-step">20-darsda va'da qilingan yechim — nihoyat.</p>
+        <div class="cmd" data-cmd="php artisan lang:publish
+ls lang/en/
+
+mkdir -p lang/uz
+cat &gt; lang/uz/auth.php &lt;&lt;'EOF'
+&lt;?php
+
+return [
+    'failed' =&gt; 'Email yoki parol xato.',
+    'password' =&gt; 'Parol noto\'g\'ri.',
+    'throttle' =&gt; 'Juda ko\'p urinish. :seconds soniyadan keyin qayta urining.',
+];
+EOF">php artisan lang:publish
+ls lang/en/
+
+mkdir -p lang/uz
+cat &gt; lang/uz/auth.php &lt;&lt;'EOF'
+&lt;?php
+
+return [
+    'failed' =&gt; 'Email yoki parol xato.',
+    'password' =&gt; 'Parol noto\'g\'ri.',
+    'throttle' =&gt; 'Juda ko\'p urinish. :seconds soniyadan keyin qayta urining.',
+];
+EOF
+<span class="out">auth.php  pagination.php  passwords.php  validation.php</span></div>
+        <p>Keyin <code>.env</code> da tilni o'zgartiring va keshni tozalang:</p>
+        <div class="cmd" data-cmd="# .env faylida:
+#   APP_LOCALE=uz
+
+php artisan config:clear
+php artisan cache:clear"># .env faylida:
+#   APP_LOCALE=uz
+
+php artisan config:clear
+php artisan cache:clear</div>
+        <p class="expect"><b>Kutilgan natija:</b> <code>/login</code> da noto'g'ri
+        parol kiriting — xabar endi <b>o'zbekcha</b>:
+        <code>Email yoki parol xato.</code>
+        <br>⚠️ <code>cache:clear</code> kerak, chunki oldingi qadamda o'zingizni
+        <b>bloklab qo'ygansiz</b> (HOLAT 6).
+        <br>🔑 Diqqat: controllerlarga <b>tegmadik</b>. Xabar tarjima faylidan
+        keladi.</p>
+      </li>
+
+      <li>
+        <p>Nusxani o'chiring — tajriba tugadi</p>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn
+rm -rf ishtop-nusxa
+cd ishtop
+grep -c vakansiyalar routes/web.php">cd ~/Projects/Learn
+rm -rf ishtop-nusxa
+cd ishtop
+grep -c vakansiyalar routes/web.php
+<span class="out">5</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> yana <code>5</code> — IshTop
+        <b>tegilmagan</b>. Nusxa bilan ishlashning butun ma'nosi shu.</p>
+      </li>
+
+      <li>
+        <p>🔒 Rate limiting'ni <b>IshTop'ga</b> olib keling</p>
+        <p class="why-step">Breeze'dan olingan birinchi g'oya. Endi bizning
+        kirish sahifamiz ham himoyalangan bo'ladi.</p>
+        <p><code>AuthController.php</code> yuqorisiga:</p>
+        <div class="cmd" data-cmd="use Illuminate\Support\Facades\RateLimiter;">use Illuminate\Support\Facades\RateLimiter;</div>
+        <p><code>kirish()</code> metodida <code>Auth::attempt</code> ni shu blok bilan
+        almashtiring:</p>
+        <div class="cmd" data-cmd="        $kalit = mb_strtolower($request-&gt;input('email')) . '|' . $request-&gt;ip();
+
+        if (RateLimiter::tooManyAttempts($kalit, 5)) {
+            $soniya = RateLimiter::availableIn($kalit);
+
+            return back()
+                -&gt;withErrors(['email' =&gt; &quot;Juda ko'p urinish. {$soniya} soniyadan keyin qayta urining.&quot;])
+                -&gt;onlyInput('email');
+        }
+
+        if (! Auth::attempt($malumot)) {
+            RateLimiter::hit($kalit, 60);
+
+            return back()
+                -&gt;withErrors(['email' =&gt; 'Email yoki parol xato.'])
+                -&gt;onlyInput('email');
+        }
+
+        RateLimiter::clear($kalit);
+
+        $request-&gt;session()-&gt;regenerate();">        $kalit = mb_strtolower($request-&gt;input('email')) . '|' . $request-&gt;ip();
+
+        if (RateLimiter::tooManyAttempts($kalit, 5)) {
+            $soniya = RateLimiter::availableIn($kalit);
+
+            return back()
+                -&gt;withErrors(['email' =&gt; "Juda ko'p urinish. {$soniya} soniyadan keyin qayta urining."])
+                -&gt;onlyInput('email');
+        }
+
+        if (! Auth::attempt($malumot)) {
+            RateLimiter::hit($kalit, 60);
+
+            return back()
+                -&gt;withErrors(['email' =&gt; 'Email yoki parol xato.'])
+                -&gt;onlyInput('email');
+        }
+
+        RateLimiter::clear($kalit);
+
+        $request-&gt;session()-&gt;regenerate();</div>
+        <p class="expect"><b>Kutilgan natija:</b> <code>php -l</code> toza. Endi
+        <code>/kirish</code> da 6 marta noto'g'ri parol kiriting:</p>
+        <div class="natija">urinish 1–5: Email yoki parol xato.
+urinish 6:   Juda ko'p urinish. 59 soniyadan keyin qayta urining.</div>
+        <p class="expect">🎉 Breeze'dagi himoya endi bizning kodda ham bor —
+        <b>10 qator</b> bilan.
+        <br><code>RateLimiter::hit($kalit, 60)</code> — 60 soniya davomida
+        hisoblanadi.</p>
+      </li>
+
+      <li>
+        <p>Ishni saqlang</p>
+        <div class="cmd" data-cmd="git add -A
+git commit -m &quot;31-dars: starter kit o'rganildi, rate limiting qo'shildi&quot;">git add -A
+git commit -m "31-dars: starter kit o'rganildi, rate limiting qo'shildi"</div>
+        <p class="expect"><b>Kutilgan natija:</b> commit haqida xabar.</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><input type="checkbox" id="d31c1"><label for="d31c1">IshTop'ni commit qildim (tajribadan oldin)</label></li>
+      <li><input type="checkbox" id="d31c2"><label for="d31c2"><b>Nusxada</b> ishladim — IshTop'ga tegmadim</label></li>
+      <li><input type="checkbox" id="d31c3"><label for="d31c3"><b><code>routes/web.php</code> 5 → 0 bo'lganini ko'rdim</b> ⚠️</label></li>
+      <li><input type="checkbox" id="d31c4"><label for="d31c4">Breeze'ning chiqish metodi biznikiga aynan o'xshashini ko'rdim</label></li>
+      <li><input type="checkbox" id="d31c5"><label for="d31c5"><b>Rate limiting'ni jonli sinadim (5 urinish → qulflash)</b> 🔒</label></li>
+      <li><input type="checkbox" id="d31c6"><label for="d31c6"><code>lang/uz/auth.php</code> bilan xabarni o'zbekchalashtirdim</label></li>
+      <li><input type="checkbox" id="d31c7"><label for="d31c7">Nusxani o'chirdim va IshTop butunligini tekshirdim</label></li>
+      <li><input type="checkbox" id="d31c8"><label for="d31c8"><b>Rate limiting'ni IshTop'ga olib keldim</b> 🎉</label></li>
+      <li><input type="checkbox" id="d31c9"><label for="d31c9">Ishni commit qildim</label></li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 5) TAXMIN + QUIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Hamkasbingiz yarim yo'lda turgan loyihaga auth qo'shmoqchi bo'ldi. Loyihada
+    <code>routes/web.php</code> shunday:</p>
+    <div class="codefile">
+      <div class="fname">routes/web.php (o'rnatishdan oldin)</div>
+      <code class="cmd" data-cmd="Route::get('/vakansiyalar', [VakansiyaController::class, 'index'])-&gt;name('vakansiyalar.index');
+Route::post('/vakansiyalar', [VakansiyaController::class, 'store'])-&gt;name('vakansiyalar.store');
+Route::get('/vakansiyalar/{id}', [VakansiyaController::class, 'show'])-&gt;name('vakansiyalar.show');
+Route::get('/kirish', [AuthController::class, 'kirishForma'])-&gt;name('login');
+Route::post('/chiqish', [AuthController::class, 'chiqish'])-&gt;name('chiqish');">Route::get('/vakansiyalar', [VakansiyaController::class, 'index'])-&gt;name('vakansiyalar.index');
+Route::post('/vakansiyalar', [VakansiyaController::class, 'store'])-&gt;name('vakansiyalar.store');
+Route::get('/vakansiyalar/{id}', [VakansiyaController::class, 'show'])-&gt;name('vakansiyalar.show');
+Route::get('/kirish', [AuthController::class, 'kirishForma'])-&gt;name('login');
+Route::post('/chiqish', [AuthController::class, 'chiqish'])-&gt;name('chiqish');</code>
+    </div>
+    <p>U <code>php artisan breeze:install blade</code> ni ishga tushirdi. Uch savol:
+    <b>(a)</b> bu route'lar nima bo'ladi? <b>(b)</b> uning
+    <code>VakansiyaController</code> va <code>AuthController</code> fayllari
+    o'chadimi? <b>(c)</b> sayt ishlaydimi?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <div class="natija">(a) HAMMASI yo'qoladi — routes/web.php butunlay almashtiriladi
+(b) YO'Q — controller fayllari joyida qoladi
+(c) Sayt «ishlaydi», lekin /vakansiyalar → 404</div>
+        <p>Bu eng chalkashtiradigan holat: <b>fayllar joyida</b>, kod ham joyida,
+        lekin sahifalar ochilmaydi. Chunki route — kod bilan manzil orasidagi
+        ko'prik (24-dars), va u yo'qolgan.</p>
+        <p>O'lchandi: o'rnatishdan oldin <code>routes/web.php</code> da
+        «vakansiyalar» so'zi <b>5 marta</b>, keyin — <b>0 marta</b>.</p>
+        <p class="expect">⚠️ <b>Yana bir nozik zarar:</b> eski
+        <code>routes/web.php</code> da <code>login</code> nomli route bor edi.
+        Breeze o'z <code>login</code> nomini <code>routes/auth.php</code> ga
+        qo'yadi, ya'ni bu qism <b>ishlashda davom etadi</b> — lekin endi
+        <b>Breeze'ning</b> kirish sahifasiga. Ya'ni ilova «yarim biznikimi, yarim
+        uniki» holatga tushadi.</p>
+        <p><b>To'g'ri yo'l:</b></p>
+        <div class="natija">1. git commit           ← oldin
+2. breeze:install
+3. git diff routes/web.php
+4. o'z route'larini qo'lda qaytarish
+
+// yoki bugungi darsdagidek: NUSXADA sinab ko'rish</div>
+        <p>🔑 <b>Umumiy saboq:</b> «bitta buyruq bilan tayyor» degan vositalar
+        odatda <b>yangi</b> loyiha uchun yozilgan. Mavjud loyihaga qo'llashdan oldin
+        commit qiling.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span> <code>breeze:install</code>
+    mavjud loyihaga nima qiladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">routes/web.php ni butunlay almashtiradi</button></li>
+      <li><button class="quiz-option">Faqat yangi fayllarni qo'shadi</button></li>
+      <li><button class="quiz-option">Mavjud kodni avtomatik birlashtiradi</button></li>
+    </ul>
+    <div class="quiz-explain">42 yangi fayl qo'shadi, lekin
+    <code>routes/web.php</code>, <code>app.css</code> va <code>app.js</code> ustiga
+    <b>yozadi</b>. Controller fayllari o'chmaydi — faqat ularga olib boradigan
+    route'lar yo'qoladi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span> Breeze bizning 30-darsdagi
+    kodimizdan qaysi jihati bilan kuchli?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Kirish urinishlarini cheklab qo'yadi</button></li>
+      <li><button class="quiz-option">Parolni ancha kuchliroq xeshlaydi</button></li>
+      <li><button class="quiz-option">Sessiyani ancha tezroq saqlaydi</button></li>
+    </ul>
+    <div class="quiz-explain">Xeshlash va sessiya <b>bir xil</b> — ikkalasi ham
+    <code>Hash::make</code> va <code>session()-&gt;regenerate()</code> ishlatadi.
+    Farq — <b>rate limiting</b> (5 urinish → qulflash), Form Request, parol tiklash
+    va email tasdiqlash.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span> Auth xabarlari qanday
+    o'zbekchalashtiriladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">lang/uz/auth.php tarjima fayli bilan</button></li>
+      <li><button class="quiz-option">Har controllerda qo'lda yozib</button></li>
+      <li><button class="quiz-option">Breeze sozlamalari orqali o'zgartirib</button></li>
+    </ul>
+    <div class="quiz-explain"><code>php artisan lang:publish</code> →
+    <code>lang/uz/auth.php</code> + <code>APP_LOCALE=uz</code>. Controllerlarga
+    <b>tegilmaydi</b> — 20-darsda aytilgan «to'g'ri yechim» aynan shu.</div>
+  </div>
+
+  <!-- ═══════════════ 6) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+    <p class="recall-intro">Avval o'zingiz javob bering, keyin ochib tekshiring.
+    Oxirgi ikkitasi — <a href="0030-auth-qolda.html">30-darsni</a> takrorlash.</p>
+
+    <details class="recall">
+      <summary>Starter kit'ni qachon ishlatish kerak?</summary>
+      <div class="answer"><p><b>Yangi</b> loyihada, birinchi kunda. Mavjud loyihaga
+      o'rnatish <code>routes/web.php</code> ni buzadi — bunday holatda avval
+      <code>git commit</code>, keyin <code>git diff</code> bilan tiklash.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Rate limiting kaliti nima uchun email <b>va</b> IP dan tuziladi?</summary>
+      <div class="answer"><p>Faqat IP bo'lsa — bitta ofisdagi odamlar bir-birini
+      bloklaydi. Faqat email bo'lsa — hujumchi begona hisobni ataylab bloklaydi.
+      Ikkisi birga bo'lsa ikkala muammo ham yo'q.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Breeze'ning chiqish metodi biznikidan farq qiladimi?</summary>
+      <div class="answer"><p><b>Deyarli yo'q</b> — <code>logout()</code>,
+      <code>invalidate()</code>, <code>regenerateToken()</code>, o'sha uch qator.
+      Yagona farq <code>Auth::guard('web')</code>.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: «kirgan» bo'lish aslida nima?</summary>
+      <div class="answer"><p>Bazadagi <code>sessions</code> jadvalining qatoriga
+      <code>user_id</code> yozilishi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: route nomi nima uchun <code>login</code> bo'lishi kerak?</summary>
+      <div class="answer"><p><code>auth</code> middleware kirmagan foydalanuvchini
+      <b>o'sha nomdagi</b> route'ga yuboradi. Nom boshqacha bo'lsa —
+      <code>Route [login] not defined</code>.</p></div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 7) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Cho'ntak xulosasi</span>
+    <ul>
+      <li><b>Starter kit</b> — auth'ning tayyor to'plami. Laravel 13 uchun
+      <code>laravel/breeze</code>, <code>breeze:install blade</code>.</li>
+      <li>⚠️ <b>Mavjud loyihani buzadi:</b> 42 yangi fayl, va
+      <code>routes/web.php</code> <b>butunlay almashtiriladi</b> (o'lchandi:
+      5 → 0). Controller fayllari qoladi, route'lar yo'qoladi.</li>
+      <li>Xavfsiz yo'l: <b>nusxada</b> sinash, yoki avval <code>git commit</code> +
+      keyin <code>git diff</code> bilan tiklash.</li>
+      <li>🎯 Yaratilgan kod <b>tanish</b>: <code>Hash::make</code>,
+      <code>User::create</code>, <code>Auth::login</code>,
+      <code>session()-&gt;regenerate()</code>. Chiqish metodi — 30-darsdagi
+      <b>o'sha uch qator</b>.</li>
+      <li>🆕 <b>Rate limiting</b> — bizda yo'q edi: 5 urinish → qulflash. Kalit =
+      <b>email + IP</b>.</li>
+      <li>🆕 <b>Form Request</b> — validatsiya controllerdan chiqadi (keyingi
+      darslarda bizda ham bo'ladi).</li>
+      <li>Yana: <code>intended()</code> · event'lar ·
+      <code>Password::defaults()</code> · parol tiklash · email tasdiqlash ·
+      <code>guest</code> middleware.</li>
+      <li>Hajm: biz <b>81</b> qator controller, Breeze <b>347</b> — lekin u ancha
+      ko'p ish qiladi.</li>
+      <li><code>lang:publish</code> + <code>lang/uz/auth.php</code> +
+      <code>APP_LOCALE=uz</code> — xabarlar o'zbekcha, controllerlarga
+      <b>tegmasdan</b>.</li>
+      <li>⚠️ Rate limiting'ni sinaganda o'zingizni bloklab qo'yasiz —
+      <code>php artisan cache:clear</code>.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p>Endi IshTop'da auth bor: kirish, chiqish, himoyalangan route. Lekin
+    <code>middleware('auth')</code> ni har route'ga <b>alohida</b> yozyapmiz — va
+    tez orada bizga «faqat ish beruvchi», «faqat egasi» kabi qoidalar ham kerak
+    bo'ladi.</p>
+    <p>32-darsda <b>middleware</b> ni chuqurroq ko'ramiz: 17-darsda uni
+    <i>piyoz qatlamlari</i> sifatida ko'rgandik, endi <b>o'zimiz yozamiz</b>.
+    Guruhlar (<code>Route::middleware(...)-&gt;group()</code>), parametrli
+    middleware va ularning tartibi — hammasi shu darsda.</p>
+    <p>Va o'sha yerda «menyuni yashirish himoya emas» degan qoida ikkinchi
+    marta ish beradi.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel — Starter Kits</b>:
+    <a href="https://laravel.com/docs/13.x/starter-kits">laravel.com/docs/13.x/starter-kits</a>.<sup><a href="#fn1">1</a></sup><br>
+    <b>Breeze</b>: <a href="https://github.com/laravel/breeze">github.com/laravel/breeze</a>
+    — kod ochiq, o'qish uchun eng yaxshi manba.<sup><a href="#fn2">2</a></sup><br>
+    <b>Rate Limiting</b>:
+    <a href="https://laravel.com/docs/13.x/rate-limiting">laravel.com/docs/13.x/rate-limiting</a>.<sup><a href="#fn3">3</a></sup><br>
+    <b>Localization</b> (tarjima fayllari):
+    <a href="https://laravel.com/docs/13.x/localization">laravel.com/docs/13.x/localization</a>.<sup><a href="#fn4">4</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b> «Breeze'ning view'larini
+    Tailwind'siz ishlatsam bo'ladimi?», «Jetstream nima va Breeze'dan farqi?»,
+    «parol tiklash uchun email sozlash kerakmi?», «Breeze'ning
+    <code>dashboard</code> sahifasini o'chirsam bo'ladimi?» — har qanday savol
+    yaxshi. Uchinchi savolning javobi: <b>ha</b>, lekin ishlab chiqishda
+    <code>MAIL_MAILER=log</code> qo'yib, xatni <code>storage/logs</code> dan o'qish
+    mumkin — Modul H da ko'ramiz.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0030-auth-qolda.html">Oldingi: Auth qo'lda</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel 13 — <a href="https://laravel.com/docs/13.x/starter-kits">Starter Kits</a>.</li>
+      <li id="fn2"><a href="https://github.com/laravel/breeze">laravel/breeze</a> (v2.4.2 — Laravel 11, 12, 13 ni qo'llab-quvvatlaydi).</li>
+      <li id="fn3">Laravel 13 — <a href="https://laravel.com/docs/13.x/rate-limiting">Rate Limiting</a>.</li>
+      <li id="fn4">Laravel 13 — <a href="https://laravel.com/docs/13.x/localization">Localization</a>.</li>
+      <li id="fn5">Barchasi jonli o'lchangan (Laravel 13.25.0, Breeze v2.4.2):
+      <code>breeze:install blade</code> → <b>42 yangi fayl</b>, ustiga yozilgan
+      <b>3 ta</b> (<code>resources/css/app.css</code>,
+      <code>resources/js/app.js</code>, <code>routes/web.php</code>), o'chirilgan
+      <b>0 ta</b> · <code>routes/web.php</code> da «vakansiyalar» <b>5 → 0</b> ·
+      9 auth controller (<b>347</b> qator), 2 Form Request (<b>117</b>), 8 auth view
+      (<b>259</b>), 14 komponent, <code>routes/auth.php</code> (<b>59</b>) ·
+      bizniki: <b>81</b> qator controller, <b>38</b> qator view, <b>5</b> route
+      qatori · rate limiting: 5 urinish o'tdi, 6-chisida
+      <code>Too many login attempts. Please try again in 58 seconds.</code> ·
+      <code>lang:publish</code> → 4 fayl · <code>lang/uz/auth.php</code> +
+      <code>APP_LOCALE=uz</code> → <code>&lt;li&gt;Email yoki parol xato.&lt;/li&gt;</code> ·
+      IshTop'ga qo'shilgan rate limiting: 6-urinishda
+      <code>Juda ko'p urinish. 59 soniyadan keyin qayta urining.</code></li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

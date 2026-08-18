@@ -72,31 +72,39 @@ _Avoid_: ketma-ketlik, bog'lanish
 ## IshTop domeni
 
 Kurs davomida quriladigan ilova: ish beruvchilar vakansiya joylaydi, nomzodlar ariza
-beradi. Matnda o'zbekcha atama, **kodda inglizcha** nom ishlatiladi — ikkisi bu jadval
-orqali bog'lanadi va 73 dars bo'ylab o'zgarmaydi.
+beradi. **Kodda ham o'zbekcha** nom ishlatiladi (`Vakansiya`, `vakansiyalar`) — reja
+bosqichida inglizcha nom mo'ljallangan edi, lekin 2026-08-17 da o'zbekcha nomda qolishga
+qaror qilindi ([ADR 0004](docs/adr/0004-ozbekcha-nomlar-va-laravel-kelishuvlari.md)).
 
-**Kompaniya** → `Company`:
+**Chegara qoidasi (2026-08-18):** o'zbekcha nom faqat **bizning domen** modellarimizga
+tegishli. **Laravel'ning o'zi bergan** modellar inglizcha qoladi — birinchi navbatda
+`User` (u `Authenticatable` dan meros oladi, `config/auth.php` unga ishora qiladi va
+starter kit, Sanctum, parol tiklash, bildirishnomalar hammasi shu nomni kutadi).
+Matnda esa u har doim **«foydalanuvchi»** deb ataladi.
+Pastdagi jadval o'zbekcha atamani kod nomiga bog'laydi va 73 dars bo'ylab o'zgarmaydi.
+
+**Kompaniya** → `Kompaniya` (jadval `kompaniyalar`):
 Vakansiya joylaydigan tashkilot. Bitta `User` (ish beruvchi) ga tegishli.
 _Avoid_: tashkilot, firma, ish beruvchi (bu — odam, kompaniya emas)
 
-**Vakansiya** → `Vacancy`:
-Ochiq ish o'rni e'loni. `Company` ga tegishli, muddati (`expires_at`) bor.
+**Vakansiya** → `Vakansiya` (jadval `vakansiyalar`):
+Ochiq ish o'rni e'loni. `Kompaniya` ga tegishli (`kompaniya_id`), muddati bor.
 _Avoid_: e'lon, ish, lavozim, job
 
-**Nomzod** → `User` (`role: candidate`):
+**Nomzod** → `User` (`rol: nomzod`):
 Ariza beradigan foydalanuvchi. Alohida jadval emas — roli bilan ajratiladi.
 _Avoid_: talabgor, ishchi, kandidat
 
-**Ish beruvchi** → `User` (`role: employer`):
+**Ish beruvchi** → `User` (`rol: ish_beruvchi`):
 Kompaniyaga egalik qiluvchi va vakansiya joylaydigan foydalanuvchi.
 _Avoid_: xo'jayin, rekruter, admin
 
-**Ariza** → `Application`:
-Nomzodning aynan bitta vakansiyaga topshirgan hujjati. Statusi (`status`) va rezyume
-fayli bor. `User` ↔ `Vacancy` orasidagi bog'lanish shu yozuv orqali amalga oshadi.
+**Ariza** → `Ariza` (jadval `arizalar`):
+Nomzodning aynan bitta vakansiyaga topshirgan hujjati. Holati va rezyume fayli bor.
+`User` ↔ `Vakansiya` orasidagi bog'lanish shu yozuv orqali amalga oshadi.
 _Avoid_: so'rov, zayavka, murojaat, arizacha
 
-**Ko'nikma** → `Skill`:
-Vakansiya talab qiladigan qobiliyat (`PHP`, `Laravel`, `SQL`). `Vacancy` bilan
-`belongsToMany`.
+**Ko'nikma** → `Konikma` (jadval `konikmalar`):
+Vakansiya talab qiladigan qobiliyat (`PHP`, `Laravel`, `SQL`). `Vakansiya` bilan
+`belongsToMany`, pivot jadval — `konikma_vakansiya`.
 _Avoid_: tag, teg, mahorat, talab

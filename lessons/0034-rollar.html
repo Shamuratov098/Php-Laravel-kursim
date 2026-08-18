@@ -1,0 +1,1224 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 34 — Rollar: ish beruvchi va nomzod</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 34 · MODUL D — FOYDALANUVCHI VA HUQUQLAR</p>
+  <h1>Rollar: ish beruvchi va nomzod</h1>
+  <p class="lead">33-darsda policy yozdik — lekin <code>create(User $user)</code>
+  metodi hech kimga ruxsat bermay <code>false</code> qaytardi. Sababi: «kim
+  vakansiya <i>yarata</i> oladi?» degan savolga javob beradigan ma'lumot yo'q edi.
+  Bugun <code>users</code> jadvaliga <b>rol</b> qo'shamiz. Yo'lda PHP'ning
+  <b>enum</b> turini o'rganamiz — cheklangan qiymatlar to'plamini himoyalashning
+  eng ishonchli usuli.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 15 daqiqa</span>
+    <span>💻 Amaliyot ≈ 24 daqiqa</span>
+    <span>Kerak: <a href="0033-gate-va-policy.html">Dars 33</a></span>
+  </p>
+
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b>Nega rol kerak</b>
+        <span class="nima">33-darsdan qolgan bo'shliq: <code>create()</code> da
+        yozuv <b>yo'q</b>, demak javob foydalanuvchining <b>o'zida</b> bo'lishi
+        kerak.</span></li>
+      <li><b>Enum — cheklangan to'plam</b>
+        <span class="nima">Oddiy matn ustuni <code>'ish_beruvhi'</code> xatosini
+        ham qabul qiladi. Enum qabul qilmaydi. PHP 8.1 dan.</span></li>
+      <li><b><code>make:enum Rol --string</code></b>
+        <span class="nima"><code>case</code> nomi va <b>backing value</b> —
+        ikki tomon: <code>-&gt;name</code> kodda, <code>-&gt;value</code>
+        bazada.</span></li>
+      <li><b><code>from()</code> va <code>tryFrom()</code></b>
+        <span class="nima">Birinchisi noto'g'ri qiymatda <b>otiladi</b>,
+        ikkinchisi <code>null</code> qaytaradi. Qaysi biri qayerda.</span></li>
+      <li><b>⚠️ Migration'da <code>default()</code></b>
+        <span class="nima">Jadvalda allaqachon qatorlar bor — <code>default</code>
+        yozmasangiz baza aniq xato bilan rad etadi. O'lchandi.</span></li>
+      <li><b>Cast: <code>'rol' =&gt; Rol::class</code></b>
+        <span class="nima">Bazada oddiy matn, PHP'da <b>obyekt</b>. Sehr yo'q —
+        ichida nima bo'layotgani xom SQL bilan ko'rsatiladi.</span></li>
+      <li><b>Enum'ga metod qo'shish</b>
+        <span class="nima"><code>nomi()</code> va <code>match</code>. To'liq
+        bo'lmagan <code>match</code> — <b>foyda</b>, zarar emas.</span></li>
+      <li><b>Policy'da roldan foydalanish</b>
+        <span class="nima"><code>create()</code> endi <code>true</code> qaytara
+        oladi. <code>===</code> nega ishlaydi — enum case <b>yagona
+        nusxa</b>.</span></li>
+      <li><b>⚠️ Rol yetarli emas</b>
+        <span class="nima"><code>update</code>/<code>delete</code> da <b>rol
+        va egalik</b> — ikkalasi ham. Faqat rolni tekshirsangiz ochiq
+        zaiflik.</span></li>
+      <li><b>Ro'yxatdan o'tishda rol tanlash</b>
+        <span class="nima"><code>Rule::enum()</code> bilan tekshirish,
+        <code>Rol::cases()</code> bilan formani <b>enum'ning o'zidan</b>
+        yasash.</span></li>
+      <li><b>Blade: <code>@can</code> klass bilan</b>
+        <span class="nima">Obyekt yo'q — <code>Vakansiya::class</code> beriladi.
+        Nomzod formani <b>ko'rmaydi</b>, POST qilsa <b>403</b>.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima">Begona qiymat → <code>ValueError</code> ·
+        <code>default</code>siz migration · <code>Rule::enum</code> vs
+        <code>in:</code> · klass vs obyekt · faqat rol tekshirish ·
+        <code>cases()</code> · <code>where()</code> va JSON.</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">33-darsdan qolgan bo'shliq</span>
+    <p>Policy'dagi beshta metodni eslang. To'rttasida <b>yozuv</b> bor,
+    bittasida yo'q:</p>
+    <div class="natija">public function view(User $user, Vakansiya $vakansiya)     ← yozuv bor
+public function update(User $user, Vakansiya $vakansiya)   ← yozuv bor
+public function delete(User $user, Vakansiya $vakansiya)   ← yozuv bor
+public function create(User $user)                         ← yozuv YO'Q</div>
+    <p>Sababi oddiy: <code>create</code> chaqirilganda vakansiya <b>hali
+    yaratilmagan</b>. Tekshirishga yozuv yo'q. Demak javob faqat bitta joydan
+    kelishi mumkin — <b>foydalanuvchining o'zidan</b>.</p>
+    <p>IshTop'da ikki xil odam bor:</p>
+    <div class="natija">ish beruvchi  →  vakansiya joylaydi
+nomzod        →  vakansiyalarni ko'radi, ariza beradi</div>
+    <p>Hozir esa hamma bir xil. <code>users</code> jadvalida bu farqni
+    saqlaydigan hech nima yo'q — shuning uchun <code>create()</code>
+    <code>false</code> dan boshqa hech nima qaytara olmasdi.</p>
+  </div>
+
+  <!-- ═══════════════ 2) TUSHUNCHA: ENUM ═══════════════ -->
+  <h2>Nega oddiy matn ustuni yetmaydi</h2>
+
+  <p>Eng sodda yechim — <code>rol</code> nomli matn ustuni. Ishlaydi... to birinchi
+  xatogacha:</p>
+
+  <div class="codefile">
+    <span class="fname">oddiy matn ustuni bo'lganda</span>
+    <code class="cmd">$user-&gt;rol = 'ish_beruvhi';   // ← harf tushib qolgan, baza QABUL QILADI
+$user-&gt;rol = 'employer';       // ← boshqa til, baza QABUL QILADI
+$user-&gt;rol = 'Nomzod';         // ← katta harf, baza QABUL QILADI
+$user-&gt;rol = 'nomzod ';        // ← oxirida probel, baza QABUL QILADI</code>
+  </div>
+
+  <p>To'rttasi ham bazaga tushadi va <b>hech qanday xato bermaydi</b>. Xato keyin,
+  boshqa joyda chiqadi: <code>$user-&gt;rol === 'ish_beruvchi'</code> tekshiruvi
+  jimgina <code>false</code> qaytaradi va odam o'z e'lonini qo'sha olmay qoladi.
+  Bunday xatoni topish qiyin — chunki u <b>xato bo'lib ko'rinmaydi</b>.</p>
+
+  <p>PHP 8.1 dan boshlab bunga tayyor tur bor: <b>enum</b>. Enum — «faqat shu
+  qiymatlar bo'lishi mumkin» degan ro'yxat.<sup><a href="#fn1">1</a></sup></p>
+
+  <div class="codefile">
+    <span class="fname">app/Enums/Rol.php</span>
+    <code class="cmd">&lt;?php
+
+namespace App\Enums;
+
+enum Rol: string          // ← «: string» — backing (tayanch) turi
+{
+    case Nomzod = 'nomzod';
+    case IshBeruvchi = 'ish_beruvchi';
+}</code>
+  </div>
+
+  <p>Bu yerda <b>ikki tomon</b> bor va ularni chalkashtirmaslik muhim:</p>
+
+  <div class="natija">Rol::IshBeruvchi        ← case NOMI      — kodda shu ishlatiladi
+'ish_beruvchi'          ← backing VALUE — bazada shu yotadi
+
+$rol-&gt;name   → 'IshBeruvchi'    (matn, kamdan-kam kerak)
+$rol-&gt;value  → 'ish_beruvchi'   (matn, bazaga shu boradi)</div>
+
+  <p>Endi yuqoridagi to'rtta xatoning hech biri yozilmaydi — chunki
+  <code>Rol::IshBeruvhi</code> deb yozsangiz PHP <b>darhol</b> to'xtaydi:
+  bunday case yo'q.</p>
+
+  <h3>Matndan enum'ga: <code>from</code> va <code>tryFrom</code></h3>
+
+  <p>Bazadan yoki formadan kelgan narsa — <b>matn</b>. Uni enum'ga aylantirish
+  kerak. Ikkita usul bor va farqi jiddiy:</p>
+
+  <div class="natija">Rol::from('nomzod')      → Rol::Nomzod            ✅
+Rol::from('boshqa')      → ValueError OTILADI      💥
+
+Rol::tryFrom('nomzod')   → Rol::Nomzod            ✅
+Rol::tryFrom('boshqa')   → null                    ⚠️ jimgina</div>
+
+  <p class="expect">O'lchangan: <code>Rol::tryFrom('boshqa')</code> →
+  <code>NULL</code>, <code>Rol::tryFrom('nomzod')-&gt;name</code> →
+  <code>Nomzod</code>.<sup><a href="#fn4">4</a></sup></p>
+
+  <div class="callout tip">
+    <span class="label">Qaysi birini qachon</span>
+    <p><code>from()</code> — o'zingiz ishonadigan manbada (baza). Xato bo'lsa
+    <b>darhol</b> bilish yaxshi.</p>
+    <p><code>tryFrom()</code> — tashqaridan kelgan ma'lumotda (forma, API).
+    U yerda noto'g'ri qiymat <b>kutilgan</b> narsa, dastur qulamasligi kerak.</p>
+  </div>
+
+  <!-- ═══════════════ 3) MIGRATION ═══════════════ -->
+  <h2>Bazaga <code>rol</code> ustuni</h2>
+
+  <p>Enum — PHP tomonidagi tur. Bazada esa oddiy ustun kerak. 23-darsdagi
+  migration mexanizmi bilan qo'shamiz:</p>
+
+  <div class="codefile">
+    <span class="fname">database/migrations/..._add_rol_to_users_table.php</span>
+    <code class="cmd">    public function up(): void
+    {
+        Schema::table('users', function (Blueprint $table) {
+            $table-&gt;string('rol')-&gt;default('nomzod');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('users', function (Blueprint $table) {
+            $table-&gt;dropColumn('rol');
+        });
+    }</code>
+  </div>
+
+  <div class="callout warning">
+    <span class="label">⚠️ <code>default('nomzod')</code> — bezak emas, majburiy</span>
+    <p>Jadvalda <b>allaqachon foydalanuvchilar bor</b> (30-darsda ro'yxatdan
+    o'tgan). Yangi ustun ularda qanday qiymat oladi? Javob yo'q — shuning uchun
+    baza rad etadi:</p>
+    <div class="natija">SQLSTATE[HY000]: General error: 1
+Cannot add a NOT NULL column with default value NULL</div>
+    <p>Ikki yechim bor: <code>-&gt;default('nomzod')</code> (mavjud odamlarning
+    hammasi nomzod bo'ladi) yoki <code>-&gt;nullable()</code> (bo'sh qoladi, keyin
+    to'ldirasiz). Biz birinchisini tanlaymiz — IshTop'da nomzod <b>mantiqiy
+    boshlang'ich holat</b>.</p>
+    <p>🔍 Bu qoida faqat SQLite'da emas: MySQL va PostgreSQL ham xuddi shu
+    savolni beradi. Mavjud qatorlarga qiymat kerak.</p>
+  </div>
+
+  <!-- ═══════════════ 4) CAST ═══════════════ -->
+  <h2>Cast — bazadagi matnni enum'ga aylantirish</h2>
+
+  <p>Ustun tayyor, lekin <code>$user-&gt;rol</code> hozir oddiy matn qaytaradi.
+  Modelga bitta qator qo'shamiz:</p>
+
+  <div class="codefile">
+    <span class="fname">app/Models/User.php</span>
+    <code class="cmd">use App\Enums\Rol;
+
+    protected $fillable = ['name', 'email', 'password', 'rol'];   // ← 'rol' qo'shildi
+
+    protected function casts(): array
+    {
+        return [
+            'email_verified_at' =&gt; 'datetime',
+            'password' =&gt; 'hashed',
+            'rol' =&gt; Rol::class,        // ← shu qator
+        ];
+    }</code>
+  </div>
+
+  <p>Endi ikkala tomonga ham qaraymiz — <b>sehr yo'q</b>, faqat aylantirish:</p>
+
+  <div class="natija">── PHP tomonda: obyekt
+   tipi   : App\Enums\Rol
+   value  : ish_beruvchi
+   name   : IshBeruvchi
+
+── 🔍 Bazada nima yotibdi (xom SQL bilan tekshirildi)
+   Dostonbek   'nomzod'
+   Ali         'ish_beruvchi'
+   Vali        'nomzod'</div>
+
+  <p>Bazada — <b>oddiy matn</b>, boshqa hech nima. Cast shunchaki ikki yo'nalishda
+  ishlaydi:</p>
+
+  <div class="natija">bazadan o'qiyotganda:   'ish_beruvchi'  →  Rol::from('ish_beruvchi')
+bazaga yozayotganda:    Rol::IshBeruvchi →  -&gt;value  →  'ish_beruvchi'</div>
+
+  <p>Shuning uchun boshqa dasturlar (masalan hisobot yozadigan skript) bu ustunni
+  bemalol o'qiy oladi — u yerda hech qanday maxsus format yo'q.</p>
+
+  <h3>Enum'ga metod qo'shish</h3>
+
+  <p>Enum — klassga o'xshaydi: unga metod yozish mumkin. Ekranda
+  <code>ish_beruvchi</code> emas, <b>«Ish beruvchi»</b> ko'rinishi kerak:</p>
+
+  <div class="codefile">
+    <span class="fname">app/Enums/Rol.php — to'ldirilgan</span>
+    <code class="cmd">enum Rol: string
+{
+    case Nomzod = 'nomzod';
+    case IshBeruvchi = 'ish_beruvchi';
+
+    public function nomi(): string
+    {
+        return match ($this) {
+            self::Nomzod =&gt; 'Nomzod',
+            self::IshBeruvchi =&gt; 'Ish beruvchi',
+        };
+    }
+}</code>
+  </div>
+
+  <p>Bu yerda <code>match</code> ishlatilgan — <code>switch</code>ning qat'iy
+  ukasi. Va uning bir xususiyati bor, u dastlab <b>kamchilikka o'xshaydi</b>:</p>
+
+  <div class="natija">// match'da IshBeruvchi unutilsa:
+$f(Rol::Nomzod)      → 'Nomzod'                              ✅
+$f(Rol::IshBeruvchi) → UnhandledMatchError                   💥
+                       "Unhandled match case of type App\Enums\Rol"</div>
+
+  <div class="callout tip">
+    <span class="label">Bu xato — foyda</span>
+    <p>Ertaga uchinchi rol qo'shsangiz (masalan <code>Admin</code>),
+    <code>match</code> darhol xato beradi va sizni <b>o'sha joyga olib boradi</b>.
+    Agar <code>match</code> jim turganda edi, saytda bo'sh nom chiqib qolardi va
+    siz buni bilmasdingiz.</p>
+    <p>Bu «zanjir uzilmaydi» qoidasining kod ichidagi ko'rinishi: yangi holat
+    qo'shilsa, unga bog'liq hamma joy <b>eslatib turadi</b>.</p>
+  </div>
+
+  <!-- ═══════════════ 5) POLICY'DA ROL ═══════════════ -->
+  <h2>Policy'ga rol kiradi</h2>
+
+  <p>Endi <code>create()</code> nihoyat mazmunli javob bera oladi:</p>
+
+  <div class="codefile">
+    <span class="fname">app/Policies/VakansiyaPolicy.php</span>
+    <code class="cmd">use App\Enums\Rol;
+
+    public function create(User $user): bool
+    {
+        return $user-&gt;rol === Rol::IshBeruvchi;
+    }</code>
+  </div>
+
+  <p>Diqqat: <code>===</code> ishlatilgan — <code>==</code> emas, matn
+  solishtiruvi emas. Bu ishlaydi, chunki enum case <b>yagona nusxada</b> mavjud:
+  butun dastur davomida <code>Rol::IshBeruvchi</code> — bitta va o'sha obyekt.
+  Shu sababli <code>===</code> (aynan bir xil obyektmi?) to'g'ri javob
+  beradi.<sup><a href="#fn1">1</a></sup></p>
+
+  <div class="natija">$u-&gt;rol === Rol::IshBeruvchi : true</div>
+
+  <h3>⚠️ Rol yetarli emas — egalik ham kerak</h3>
+
+  <p>Endi eng muhim joy. <code>update</code> va <code>delete</code> uchun
+  <b>faqat rolni</b> tekshirsangiz, mana bu bo'ladi: har qanday ish beruvchi
+  <b>boshqa ish beruvchining</b> e'lonini o'chira oladi. Bu 33-darsda
+  yopgan teshikni qayta ochish bilan barobar.</p>
+
+  <p>To'g'ri variant — ikkalasi ham:</p>
+
+  <div class="codefile">
+    <span class="fname">app/Policies/VakansiyaPolicy.php</span>
+    <code class="cmd">    public function update(User $user, Vakansiya $vakansiya): bool
+    {
+        return $user-&gt;rol === Rol::IshBeruvchi        // ← kim
+            &amp;&amp; $vakansiya-&gt;user_id === $user-&gt;id;     // ← kimniki
+    }
+
+    public function delete(User $user, Vakansiya $vakansiya): bool
+    {
+        return $this-&gt;update($user, $vakansiya);      // ← qoida bir xil
+    }</code>
+  </div>
+
+  <p>Ikki savol, ikki shart:</p>
+
+  <div class="natija">rol     →  «sen umuman shunday ish qila olasanmi?»
+egalik  →  «bu aynan sening yozuvingmi?»</div>
+
+  <p class="expect"><b>O'lchangan natija:</b></p>
+  <div class="natija">create:  Ali (ish beruvchi)            true
+         Vali (nomzod)                 false
+
+delete:  Ali (egasi + ish beruvchi)    true
+         Vali (nomzod)                 false
+         Vali ish beruvchi, lekin EGASI EMAS:
+             create → true    (yarata oladi)
+             delete → false   (begonasini yo'q)</div>
+
+  <p>Oxirgi qatorga qarang: bitta odam bir vaqtning o'zida <b>yarata oladi</b>,
+  lekin <b>begonasini o'chira olmaydi</b>. Ikki shart mustaqil ishlayapti.</p>
+
+  <!-- ═══════════════ 6) CONTROLLER ═══════════════ -->
+  <h2>Controllerda: yaratishni himoyalash</h2>
+
+  <p>33-darsdagi naqsh o'zgarmaydi — faqat endi <code>create</code> uchun ham
+  qo'yamiz. Yozuv yo'q, shuning uchun ikkinchi argument <b>klass nomi</b>:</p>
+
+  <div class="codefile">
+    <span class="fname">app/Http/Controllers/VakansiyaController.php</span>
+    <code class="cmd">    public function store(Request $request)
+    {
+        $this-&gt;authorize('create', Vakansiya::class);   // ← obyekt emas, KLASS
+
+        $tekshirilgan = $request-&gt;validate([ /* ... */ ]);
+
+        Vakansiya::create($tekshirilgan + ['user_id' =&gt; $request-&gt;user()-&gt;id]);
+
+        return redirect()-&gt;route('vakansiyalar.index')
+            -&gt;with('xabar', 'Qo\'shildi: ' . $tekshirilgan['sarlavha']);
+    }</code>
+  </div>
+
+  <p>Nega klass? Chunki Laravel policy'ni <b>topishi</b> kerak, lekin uzatishga
+  yozuv yo'q. Klass nomi — «shu model uchun policy'ni top, keyin
+  <code>create($user)</code> ni chaqir» degani.</p>
+
+  <p class="expect"><b>O'lchangan:</b> nomzod POST yuborsa —
+  <b>403</b>. Ish beruvchi yuborsa — <b>302</b> va «Qo'shildi: Rolli
+  vakansiya».<sup><a href="#fn4">4</a></sup></p>
+
+  <!-- ═══════════════ 7) BLADE ═══════════════ -->
+  <h2>Blade'da: formani kimga ko'rsatamiz</h2>
+
+  <p><code>@can</code> ham xuddi shunday — klass nomi bilan:</p>
+
+  <div class="codefile">
+    <span class="fname">resources/views/vakansiyalar/index.blade.php</span>
+    <code class="cmd">@can('create', App\Models\Vakansiya::class)
+    &lt;h2&gt;Yangi vakansiya&lt;/h2&gt;
+    &lt;form method="POST" action="{{ route('vakansiyalar.store') }}"&gt;
+        @csrf
+        {{-- ... maydonlar ... --}}
+    &lt;/form&gt;
+@else
+    &lt;p&gt;Vakansiya joylash uchun &lt;b&gt;ish beruvchi&lt;/b&gt; sifatida
+    kirishingiz kerak.&lt;/p&gt;
+@endcan</code>
+  </div>
+
+  <p><code>@else</code> — bu yerda muhim. Formani shunchaki yashirsangiz, nomzod
+  <b>nima uchun</b> ko'rmayotganini bilmaydi va sayt buzuq deb o'ylaydi. Sabab
+  ko'rsatish — interfeys sifati.</p>
+
+  <p class="expect"><b>O'lchangan:</b></p>
+  <div class="natija">Ali  (ish beruvchi): forma bor        1
+Vali (nomzod)      : forma yo'q       0
+Vali ko'radi: «... ish beruvchi sifatida kirishingiz kerak.»</div>
+
+  <div class="callout warning">
+    <span class="label">🔒 Yashirish — himoya emas (to'rtinchi marta)</span>
+    <p><code>@can</code> formani yashirdi. Lekin nomzod POST so'rovini
+    <b>qo'lda</b> yuborishi mumkin — 33-darsda buni sinab ko'rgan edik.</p>
+    <p>Shuning uchun <code>store()</code> ichidagi
+    <code>$this-&gt;authorize('create', ...)</code> <b>ham</b> turibdi. Biz uni
+    sinadik: nomzodning qo'lda yuborgan so'rovi <b>403</b> oldi.</p>
+    <div class="natija">@can        →  ko'rinish uchun   (nima ko'rsatamiz)
+authorize() →  himoya uchun     (nimaga ruxsat beramiz)</div>
+  </div>
+
+  <!-- ═══════════════ 8) RO'YXATDAN O'TISH ═══════════════ -->
+  <h2>Ro'yxatdan o'tishda rol tanlash</h2>
+
+  <p>Yangi odam kelganda unga rol berish kerak. 30-darsdagi
+  <code>royxat()</code> metodiga qo'shamiz:</p>
+
+  <div class="codefile">
+    <span class="fname">app/Http/Controllers/AuthController.php</span>
+    <code class="cmd">use App\Enums\Rol;
+use Illuminate\Validation\Rule;
+
+    $tekshirilgan = $request-&gt;validate([
+        'name'     =&gt; ['required', 'string', 'max:255'],
+        'email'    =&gt; ['required', 'email', 'unique:users,email'],
+        'password' =&gt; ['required', 'confirmed', 'min:8'],
+        'rol'      =&gt; ['required', Rule::enum(Rol::class)],   // ← shu qator
+    ], [
+        'rol.required' =&gt; 'Rolni tanlang.',
+    ]);
+
+    $user = User::create([
+        'name'     =&gt; $tekshirilgan['name'],
+        'email'    =&gt; $tekshirilgan['email'],
+        'password' =&gt; $tekshirilgan['password'],
+        'rol'      =&gt; $tekshirilgan['rol'],     // ← cast o'zi enum'ga aylantiradi
+    ]);</code>
+  </div>
+
+  <p><code>Rule::enum(Rol::class)</code> — «bu qiymat shu enum'ning
+  case'laridan biri bo'lsin».<sup><a href="#fn2">2</a></sup> Qo'lda
+  <code>'in:nomzod,ish_beruvchi'</code> deb yozish ham mumkin edi, lekin unda
+  ro'yxat <b>ikki joyda</b> yotadi va bir kun kelib ajralib ketadi.</p>
+
+  <h3>Formani enum'ning o'zidan yasash</h3>
+
+  <div class="codefile">
+    <span class="fname">resources/views/auth/royxat.blade.php</span>
+    <code class="cmd">&lt;p&gt;
+    Kim sifatida:
+    @foreach (\App\Enums\Rol::cases() as $rol)
+        &lt;label&gt;
+            &lt;input type="radio" name="rol" value="{{ $rol-&gt;value }}"
+                   @checked(old('rol') === $rol-&gt;value)&gt;
+            {{ $rol-&gt;nomi() }}
+        &lt;/label&gt;
+    @endforeach
+&lt;/p&gt;</code>
+  </div>
+
+  <p><code>Rol::cases()</code> — barcha case'lar ro'yxati. Formani qo'lda
+  yozmaganimiz uchun, ertaga <code>Admin</code> qo'shsangiz forma <b>o'zi
+  yangilanadi</b>.</p>
+
+  <p><code>@checked(...)</code> — 30-darsdagi <code>old()</code> naqshining
+  radio uchun ko'rinishi: validatsiya xatosidan keyin tanlov
+  <b>saqlanib qoladi</b>.</p>
+
+  <p class="expect"><b>O'lchangan:</b></p>
+  <div class="natija">rolsiz yuborilsa           → &lt;li&gt;Rolni tanlang.&lt;/li&gt;
+rol=ish_beruvchi bilan     → 302 → /vakansiyalar
+                             forma darhol ko'rinadi (1)
+                             bazadagi rol: ish_beruvchi (Ish beruvchi)
+rol=nomzod bilan           → forma ko'rinmaydi (0)
+                             «... ish beruvchi sifatida kirishingiz kerak.»</div>
+
+  <!-- ═══════════════ 9) HAR XIL HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir bir marta o'qib chiqing,
+  keyin kerak bo'lganda qaytib qarang.</p>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 1</span>
+    <h4>Bazaga begona qiymat tushib qolsa</h4>
+    <p>Enum PHP tomonini himoyalaydi, lekin bazani emas. Kimdir xom SQL bilan
+    (yoki eski migration bilan) noto'g'ri qiymat yozsa, o'qishda portlaydi:</p>
+    <div class="natija">UPDATE users SET rol = 'boshqa' WHERE id = 1;
+
+$user-&gt;rol   →  ValueError
+                "boshqa" is not a valid backing value
+                for enum App\Enums\Rol</div>
+    <p>Bu <b>yomon</b> emas, aslida yaxshi: yashirin buzuq ma'lumot jimgina
+    yurgandan ko'ra, darhol ko'rinib qolgani afzal. Lekin bilib turish kerak —
+    xato <code>User</code> modelini o'qigan <b>har qanday</b> joyda chiqadi,
+    hatto ro'yxat sahifasida ham.</p>
+    <p>✅ Oldini olish: bazada ham cheklov qo'ying. MySQL'da
+    <code>enum</code> ustun turi bor; barcha bazalarda <code>check</code>
+    cheklovi ishlaydi.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 2</span>
+    <h4><code>default</code>siz migration</h4>
+    <div class="natija">$table-&gt;string('rol');           // default yo'q
+
+SQLSTATE[HY000]: General error: 1
+Cannot add a NOT NULL column with default value NULL</div>
+    <p>Jadval <b>bo'sh</b> bo'lsa bu xato chiqmaydi — shuning uchun ba'zan
+    kompyuteringizda ishlaydi, serverda esa ishlamaydi. Farq: sizda baza yangi,
+    serverda ming dona foydalanuvchi bor.</p>
+    <p>✅ Qoida: mavjud jadvalga ustun qo'shayotganda <b>har doim</b>
+    <code>default()</code> yoki <code>nullable()</code> bering. Bu 23-darsdagi
+    «migration oldinga ham, orqaga ham ishlashi kerak» qoidasining davomi.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 3</span>
+    <h4><code>Rule::enum()</code> vs qo'lda <code>in:</code></h4>
+    <div class="natija">'rol' =&gt; ['required', 'in:nomzod,ish_beruvchi']   // ishlaydi, lekin...
+'rol' =&gt; ['required', Rule::enum(Rol::class)]     // ✅ afzal</div>
+    <p>Ikkalasi ham bugun bir xil natija beradi. Farq ertaga ko'rinadi: yangi rol
+    qo'shsangiz birinchi variantda <code>in:</code> ro'yxatini <b>qo'lda</b>
+    yangilash kerak — va uni unutish oson, chunki hech qanday xato
+    chiqmaydi.</p>
+    <p>Bu bir manba qoidasi: ro'yxat <b>bitta joyda</b> — enum'da — yashasin.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 4</span>
+    <h4>Klass nomi bilan yoki obyekt bilan</h4>
+    <div class="natija">$this-&gt;authorize('create', Vakansiya::class);   // yozuv YO'Q  → klass
+$this-&gt;authorize('update', $vakansiya);        // yozuv BOR  → obyekt
+
+@can('create', App\Models\Vakansiya::class)    // Blade'da ham xuddi shunday
+@can('update', $vakansiya)</div>
+    <p>Qoidasi oddiy: policy metodi <b>ikkinchi argument oladimi?</b>
+    <code>create(User $user)</code> olmaydi — klass beriladi.
+    <code>update(User $user, Vakansiya $v)</code> oladi — obyekt beriladi.</p>
+    <p>⚠️ Blade'da to'liq yo'lni yozish kerak
+    (<code>App\Models\Vakansiya::class</code>) — Blade fayllarida
+    <code>use</code> yo'q.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 5</span>
+    <h4>Faqat rolni tekshirish</h4>
+    <div class="natija">public function delete(User $user, Vakansiya $vakansiya): bool
+{
+    return $user-&gt;rol === Rol::IshBeruvchi;    // ⚠️ egalik unutilgan
+}</div>
+    <p>Natija: <b>har qanday</b> ish beruvchi boshqa ish beruvchining e'lonini
+    o'chira oladi. Bu 33-darsda yopilgan teshikning aynan o'zi — faqat endi
+    «kirgan har kim» o'rniga «ish beruvchi bo'lgan har kim».</p>
+    <p>✅ Yodda tuting: rol — <b>toifa</b> savoli, egalik — <b>yozuv</b>
+    savoli. Yozuv ustidagi amallarda ikkalasi ham kerak.</p>
+    <p>🔍 Buni sinash oson: ikkinchi ish beruvchi yasang va birinchisining
+    e'lonini o'chirib ko'ring. <code>false</code> chiqishi shart.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 6</span>
+    <h4><code>cases()</code> — ro'yxatni takrorlamaslik</h4>
+    <div class="natija">@foreach (\App\Enums\Rol::cases() as $rol)     // ✅ enum'dan
+    ... {{ $rol-&gt;nomi() }}
+@endforeach
+
+&lt;input type="radio" value="nomzod"&gt; Nomzod              // ⚠️ qo'lda
+&lt;input type="radio" value="ish_beruvchi"&gt; Ish beruvchi</div>
+    <p>Qo'lda yozilgan variantda uchta joy bir-biriga qarab turadi: enum,
+    validatsiya ro'yxati va forma. Ulardan bittasi o'zgarsa, qolgani
+    <b>jimgina</b> eskirib qoladi.</p>
+    <p><code>cases()</code> + <code>Rule::enum()</code> bilan enum yagona manba
+    bo'ladi — o'zgartirish bir joyda.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>Enum qidiruvda va JSON'da</h4>
+    <div class="natija">User::where('rol', Rol::IshBeruvchi)-&gt;count()   →  2
+User::where('rol', Rol::Nomzod)-&gt;count()       →  3
+
+$user-&gt;only(['name', 'rol'])  →  {"name":"Ali","rol":"ish_beruvchi"}</div>
+    <p>Ikkala joyda ham enum <b>o'zi</b> <code>-&gt;value</code> ga aylanadi —
+    qo'lda <code>Rol::IshBeruvchi-&gt;value</code> deb yozish shart emas
+    (yozsangiz ham ishlaydi).</p>
+    <p>JSON'da esa <code>'ish_beruvchi'</code> chiqadi, <code>'Ish beruvchi'</code>
+    emas. Ekranga chiqarish uchun <code>nomi()</code> ni <b>aniq</b> chaqirish
+    kerak: <code>{{ $user-&gt;rol-&gt;nomi() }}</code>.</p>
+  </div>
+
+  <!-- ═══════════════ 10) AMALIYOT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    <span class="mode-hint-title">💻 Amaliy qism kompyuterda</span>
+    <p>Amaliyotda enum yasaysiz, <code>users</code> ga <code>rol</code> ustuni
+    qo'shasiz va ikkita foydalanuvchi bilan sinaysiz: ish beruvchi formani
+    ko'radi va qo'sha oladi, nomzod formani ko'rmaydi va qo'lda yuborsa
+    <b>403</b> oladi.</p>
+    <button type="button" class="modebtn" data-set-mode="do">💻 Amaliyot rejimini ko'rish</button>
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <p>Enum yasang</p>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+php artisan cache:clear
+php artisan make:enum Rol --string">cd ~/Projects/Learn/ishtop
+php artisan cache:clear
+php artisan make:enum Rol --string
+<span class="out"> INFO  Enum [app/Enums/Rol.php] created successfully.</span></div>
+        <p class="why-step">⚠️ <code>Rol</code> deb yozildi, <code>Enums/Rol</code>
+        emas — generator <code>app/Enums/</code> papkasini <b>o'zi biladi</b>.
+        <code>Enums/Rol</code> desangiz <code>app/Enums/Enums/Rol.php</code>
+        yasaladi (papka ikki marta!) va keyin «klass topilmadi» xatosi bilan
+        ovora bo'lasiz. Yasalgan faylning <b>yo'liga qarang</b> — chiqishda
+        aniq yozilgan.</p>
+        <p class="why-step">🔍 <code>--string</code> — <code>enum Rol: string</code>
+        yozadi, yani backing value beradi. Bayroqsiz oddiy (tayanchsiz) enum
+        chiqadi va uni bazaga saqlab bo'lmaydi.</p>
+        <p class="why-step">🔍 <code>cache:clear</code> — 31-darsda qo'shilgan
+        so'rov cheklovi (rate limit) sinovlar paytida sizni qamab qo'ymasligi
+        uchun.</p>
+      </li>
+
+      <li>
+        <p>Enum'ni to'ldiring</p>
+        <div class="cmd" data-cmd="# app/Enums/Rol.php — to'liq fayl:
+
+&lt;?php
+
+namespace App\Enums;
+
+enum Rol: string
+{
+    case Nomzod = 'nomzod';
+    case IshBeruvchi = 'ish_beruvchi';
+
+    public function nomi(): string
+    {
+        return match ($this) {
+            self::Nomzod =&gt; 'Nomzod',
+            self::IshBeruvchi =&gt; 'Ish beruvchi',
+        };
+    }
+}"># app/Enums/Rol.php — to'liq fayl:
+
+&lt;?php
+
+namespace App\Enums;
+
+enum Rol: string
+{
+    case Nomzod = 'nomzod';
+    case IshBeruvchi = 'ish_beruvchi';
+
+    public function nomi(): string
+    {
+        return match ($this) {
+            self::Nomzod =&gt; 'Nomzod',
+            self::IshBeruvchi =&gt; 'Ish beruvchi',
+        };
+    }
+}</div>
+        <div class="cmd" data-cmd="php -l app/Enums/Rol.php">php -l app/Enums/Rol.php
+<span class="out">No syntax errors detected in app/Enums/Rol.php</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> sintaksis xatosi yo'q.
+        Faylni qo'lda tahrirlagandan keyin <code>php -l</code> — arzon va tez
+        tekshiruv, odat qiling.</p>
+      </li>
+
+      <li>
+        <p><code>rol</code> ustunini qo'shing</p>
+        <div class="cmd" data-cmd="php artisan make:migration add_rol_to_users_table">php artisan make:migration add_rol_to_users_table</div>
+        <p>Yasalgan faylni to'ldiring:</p>
+        <div class="cmd" data-cmd="    public function up(): void
+    {
+        Schema::table('users', function (Blueprint $table) {
+            $table-&gt;string('rol')-&gt;default('nomzod');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('users', function (Blueprint $table) {
+            $table-&gt;dropColumn('rol');
+        });
+    }">    public function up(): void
+    {
+        Schema::table('users', function (Blueprint $table) {
+            $table-&gt;string('rol')-&gt;default('nomzod');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('users', function (Blueprint $table) {
+            $table-&gt;dropColumn('rol');
+        });
+    }</div>
+        <div class="cmd" data-cmd="php artisan migrate">php artisan migrate</div>
+        <p class="expect"><b>Kutilgan natija:</b> migration bajariladi.
+        <br>⚠️ <b>Diqqat:</b> <code>default('nomzod')</code> tufayli
+        <b>mavjud hamma foydalanuvchi</b> — shu jumladan sizning o'z hisobingiz —
+        nomzod bo'ldi. Shuning uchun 9-qadamda yangi hisob yasaysiz. Eski
+        hisobingizni ish beruvchi qilmoqchi bo'lsangiz:
+        <code>php artisan tinker --execute="App\Models\User::first()->update(['rol' =&gt; 'ish_beruvchi']);"</code>
+        <br>🔍 Sinab ko'ring: <code>default('nomzod')</code> ni o'chirib
+        <code>php artisan migrate:rollback</code> va yana <code>migrate</code>
+        qiling — <code>Cannot add a NOT NULL column</code> xatosini
+        <b>o'z ko'zingiz bilan</b> ko'rasiz. Keyin qaytarib qo'ying.</p>
+      </li>
+
+      <li>
+        <p>Modelga cast qo'shing</p>
+        <div class="cmd" data-cmd="# app/Models/User.php da uchta o'zgarish:
+
+# 1) yuqoriga:
+use App\Enums\Rol;
+
+# 2) $fillable ga 'rol' qo'shing:
+    protected $fillable = ['name', 'email', 'password', 'rol'];
+
+# 3) casts() ichiga:
+            'rol' =&gt; Rol::class,"># app/Models/User.php da uchta o'zgarish:
+
+# 1) yuqoriga:
+use App\Enums\Rol;
+
+# 2) $fillable ga 'rol' qo'shing:
+    protected $fillable = ['name', 'email', 'password', 'rol'];
+
+# 3) casts() ichiga:
+            'rol' =&gt; Rol::class,</div>
+        <div class="cmd" data-cmd="php artisan tinker --execute=&quot;dump(App\Models\User::first()->rol);&quot;">php artisan tinker --execute=&quot;dump(App\Models\User::first()-&gt;rol);&quot;
+<span class="out">App\Enums\Rol {#6414</span>
+<span class="out">  +name: &quot;Nomzod&quot;</span>
+<span class="out">  +value: &quot;nomzod&quot;</span>
+<span class="out">}</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> matn emas, <b>obyekt</b>
+        chiqadi — va ichida ikkala tomon ham ko'rinadi: <code>name</code> va
+        <code>value</code>. Agar faqat <code>"nomzod"</code> (oddiy matn) chiqsa —
+        cast qo'shilmagan.
+        <br>🔍 <code>{#6414</code> — obyektning xotiradagi raqami, har safar
+        boshqacha bo'ladi. Unga e'tibor bermang.</p>
+      </li>
+
+      <li>
+        <p>Policy'ga rolni kiriting</p>
+        <div class="cmd" data-cmd="# app/Policies/VakansiyaPolicy.php
+
+use App\Enums\Rol;
+
+    public function create(User $user): bool
+    {
+        return $user-&gt;rol === Rol::IshBeruvchi;
+    }
+
+    public function update(User $user, Vakansiya $vakansiya): bool
+    {
+        return $user-&gt;rol === Rol::IshBeruvchi
+            &amp;&amp; $vakansiya-&gt;user_id === $user-&gt;id;
+    }
+
+    public function delete(User $user, Vakansiya $vakansiya): bool
+    {
+        return $this-&gt;update($user, $vakansiya);
+    }"># app/Policies/VakansiyaPolicy.php
+
+use App\Enums\Rol;
+
+    public function create(User $user): bool
+    {
+        return $user-&gt;rol === Rol::IshBeruvchi;
+    }
+
+    public function update(User $user, Vakansiya $vakansiya): bool
+    {
+        return $user-&gt;rol === Rol::IshBeruvchi
+            &amp;&amp; $vakansiya-&gt;user_id === $user-&gt;id;
+    }
+
+    public function delete(User $user, Vakansiya $vakansiya): bool
+    {
+        return $this-&gt;update($user, $vakansiya);
+    }</div>
+        <div class="cmd" data-cmd="php -l app/Policies/VakansiyaPolicy.php">php -l app/Policies/VakansiyaPolicy.php</div>
+      </li>
+
+      <li>
+        <p>Controllerda yaratishni himoyalang</p>
+        <div class="cmd" data-cmd="# app/Http/Controllers/VakansiyaController.php
+# store() metodining BIRINCHI qatoriga:
+
+        $this-&gt;authorize('create', Vakansiya::class);"># app/Http/Controllers/VakansiyaController.php
+# store() metodining BIRINCHI qatoriga:
+
+        $this-&gt;authorize('create', Vakansiya::class);</div>
+        <p class="why-step">⚠️ Klass nomi — chunki hali yozuv yo'q. Agar
+        <code>Call to undefined method ...::authorize()</code> chiqsa,
+        33-darsdagi <code>use AuthorizesRequests;</code> qo'shilmagan.</p>
+      </li>
+
+      <li>
+        <p>Ro'yxatdan o'tishga rol qo'shing</p>
+        <div class="cmd" data-cmd="# app/Http/Controllers/AuthController.php — royxat() ichida
+
+use App\Enums\Rol;
+use Illuminate\Validation\Rule;
+
+# validate() ro'yxatiga:
+        'rol' =&gt; ['required', Rule::enum(Rol::class)],
+
+# xabarlar ro'yxatiga:
+        'rol.required' =&gt; 'Rolni tanlang.',
+
+# User::create() ichiga:
+        'rol' =&gt; $tekshirilgan['rol'],"># app/Http/Controllers/AuthController.php — royxat() ichida
+
+use App\Enums\Rol;
+use Illuminate\Validation\Rule;
+
+# validate() ro'yxatiga:
+        'rol' =&gt; ['required', Rule::enum(Rol::class)],
+
+# xabarlar ro'yxatiga:
+        'rol.required' =&gt; 'Rolni tanlang.',
+
+# User::create() ichiga:
+        'rol' =&gt; $tekshirilgan['rol'],</div>
+        <p>Formaga radio tugmalar:</p>
+        <div class="cmd" data-cmd="# resources/views/auth/royxat.blade.php
+# parol maydonlaridan keyin:
+
+        &lt;p&gt;
+            Kim sifatida:
+            @foreach (\App\Enums\Rol::cases() as $rol)
+                &lt;label&gt;
+                    &lt;input type=&quot;radio&quot; name=&quot;rol&quot; value=&quot;{{ $rol-&gt;value }}&quot; @checked(old('rol') === $rol-&gt;value)&gt;
+                    {{ $rol-&gt;nomi() }}
+                &lt;/label&gt;
+            @endforeach
+        &lt;/p&gt;"># resources/views/auth/royxat.blade.php
+# parol maydonlaridan keyin:
+
+        &lt;p&gt;
+            Kim sifatida:
+            @foreach (\App\Enums\Rol::cases() as $rol)
+                &lt;label&gt;
+                    &lt;input type=&quot;radio&quot; name=&quot;rol&quot; value=&quot;{{ $rol-&gt;value }}&quot; @checked(old('rol') === $rol-&gt;value)&gt;
+                    {{ $rol-&gt;nomi() }}
+                &lt;/label&gt;
+            @endforeach
+        &lt;/p&gt;</div>
+      </li>
+
+      <li>
+        <p>Formani faqat ish beruvchiga ko'rsating</p>
+        <div class="cmd" data-cmd="# resources/views/vakansiyalar/index.blade.php
+# «Yangi vakansiya» formasini o'rab oling:
+
+@can('create', App\Models\Vakansiya::class)
+    ... forma shu yerda ...
+@else
+    &lt;p&gt;Vakansiya joylash uchun &lt;b&gt;ish beruvchi&lt;/b&gt; sifatida kirishingiz kerak.&lt;/p&gt;
+@endcan"># resources/views/vakansiyalar/index.blade.php
+# «Yangi vakansiya» formasini o'rab oling:
+
+@can('create', App\Models\Vakansiya::class)
+    ... forma shu yerda ...
+@else
+    &lt;p&gt;Vakansiya joylash uchun &lt;b&gt;ish beruvchi&lt;/b&gt; sifatida kirishingiz kerak.&lt;/p&gt;
+@endcan</div>
+      </li>
+
+      <li>
+        <p>Ikkita odam bilan sinang</p>
+        <div class="cmd" data-cmd="php artisan serve">php artisan serve</div>
+        <p>Brauzerda <code>/royxatdan-otish</code> ni oching va ikkita hisob
+        yasang — birini <b>ish beruvchi</b>, ikkinchisini <b>nomzod</b> qilib.</p>
+        <div class="natija">ish beruvchi  →  «Yangi vakansiya» formasi KO'RINADI, qo'sha oladi
+nomzod        →  forma yo'q, o'rniga sabab yozuvi
+
+rolni tanlamasdan yuborsangiz  →  «Rolni tanlang.»</div>
+        <p class="expect"><b>Kutilgan natija:</b> uchala holat ham yuqoridagidek.
+        Agar nomzodda ham forma ko'rinsa — <code>@can</code> ichida
+        <code>Vakansiya::class</code> emas, boshqa narsa yozilgan.</p>
+      </li>
+
+      <li>
+        <p>🔒 Yashirish himoya emasligini tekshiring</p>
+        <p>Nomzod sifatida kirgan holda <code>/vakansiyalar</code> sahifasini
+        oching va brauzer konsolida (F12 &rarr; Console) yuboring. Sahifadagi
+        <b>«Chiqish»</b> formasining tokenini qarzga olamiz:</p>
+        <div class="cmd" data-cmd="fetch('/vakansiyalar', {
+  method: 'POST',
+  body: new URLSearchParams({
+    _token: document.querySelector('input[name=_token]').value,
+    sarlavha: 'Qochib ketgan', tavsif: 'test', maosh: '1'
+  })
+}).then(r =&gt; console.log('status:', r.status))">fetch('/vakansiyalar', {
+  method: 'POST',
+  body: new URLSearchParams({
+    _token: document.querySelector('input[name=_token]').value,
+    sarlavha: 'Qochib ketgan', tavsif: 'test', maosh: '1'
+  })
+}).then(r =&gt; console.log('status:', r.status))
+<span class="out">status: 403</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> <b>403</b>. Forma yashirilgan
+        bo'lsa ham, <code>authorize()</code> to'sib turibdi. Agar bu yerda
+        <b>302</b> yoki <b>200</b> chiqsa — <code>store()</code> dagi
+        <code>authorize()</code> qatori tushib qolgan.</p>
+        <p class="why-step">🔍 <code>_token</code> ni olib tashlab qayta
+        yuboring — <b>419</b> chiqadi, 403 emas. Ikkalasi <b>boshqa-boshqa</b>
+        to'siq: <b>419</b> «so'roving qayerdan kelgani noma'lum» (32-darsdagi
+        CSRF), <b>403</b> «kim ekaningni bilaman, huquqing yo'q». So'rov avval
+        CSRF to'sig'idan o'tadi, keyin policy'ga yetadi.</p>
+      </li>
+
+      <li>
+        <p>Ishni saqlang</p>
+        <div class="cmd" data-cmd="git add -A
+git commit -m &quot;34-dars: rollar — enum, cast va policy&quot;">git add -A
+git commit -m &quot;34-dars: rollar — enum, cast va policy&quot;</div>
+        <p class="expect"><b>Kutilgan natija:</b> commit haqida xabar.</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><input type="checkbox" id="d34c1"><label for="d34c1"><code>Rol</code> enum'ini yasadim va <code>nomi()</code> metodini yozdim</label></li>
+      <li><input type="checkbox" id="d34c2"><label for="d34c2"><code>php -l</code> bilan sintaksisni tekshirdim</label></li>
+      <li><input type="checkbox" id="d34c3"><label for="d34c3"><code>rol</code> ustunini <code>default('nomzod')</code> bilan qo'shdim</label></li>
+      <li><input type="checkbox" id="d34c4"><label for="d34c4"><b><code>default</code>siz migration xatosini o'z ko'zim bilan ko'rdim</b> ⚠️</label></li>
+      <li><input type="checkbox" id="d34c5"><label for="d34c5">Cast qo'ydim va <code>tinker</code> da <b>enum</b> chiqishini tasdiqladim</label></li>
+      <li><input type="checkbox" id="d34c6"><label for="d34c6">Policy'da <b>rol va egalik</b> — ikkalasini ham tekshirdim</label></li>
+      <li><input type="checkbox" id="d34c7"><label for="d34c7">Ro'yxatdan o'tishga <code>Rule::enum</code> va radio tugmalar qo'shdim</label></li>
+      <li><input type="checkbox" id="d34c8"><label for="d34c8">Ish beruvchi formani ko'rishini, nomzod ko'rmasligini sinadim</label></li>
+      <li><input type="checkbox" id="d34c9"><label for="d34c9"><b>Nomzodning qo'lda yuborgan so'rovi 403 olishini ko'rdim</b> 🔒</label></li>
+      <li><input type="checkbox" id="d34c10"><label for="d34c10">Tokensiz so'rov <b>419</b> berishini — boshqa to'siq ekanini ko'rdim</label></li>
+      <li><input type="checkbox" id="d34c11"><label for="d34c11">Ishni commit qildim</label></li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 11) SINAB KO'RAMIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Vali — <b>ish beruvchi</b>. Uning o'z vakansiyasi bor. Ali ham
+    <b>ish beruvchi</b>, uning ham vakansiyasi bor. Policy shunday:</p>
+    <div class="codefile">
+      <div class="fname">app/Policies/VakansiyaPolicy.php</div>
+      <code class="cmd" data-cmd="    public function create(User $user): bool
+    {
+        return $user-&gt;rol === Rol::IshBeruvchi;
+    }
+
+    public function delete(User $user, Vakansiya $vakansiya): bool
+    {
+        return $user-&gt;rol === Rol::IshBeruvchi;
+    }">    public function create(User $user): bool
+    {
+        return $user-&gt;rol === Rol::IshBeruvchi;
+    }
+
+    public function delete(User $user, Vakansiya $vakansiya): bool
+    {
+        return $user-&gt;rol === Rol::IshBeruvchi;
+    }</code>
+    </div>
+    <p>Vali <b>Alining</b> vakansiyasi sahifasini ochdi. «O'chirish» tugmasi
+    ko'rinadimi? Va bossa nima bo'ladi?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <div class="natija">Tugma:  KO'RINADI.
+Bossa:  vakansiya O'CHADI.   Ali e'lonidan ayrildi.
+
+Gate::forUser($vali)-&gt;allows('delete', $alining_vakansiyasi)  →  true</div>
+        <p>Chunki <code>delete()</code> faqat <b>rolni</b> so'radi:
+        «ish beruvchimisan?» — ha. <code>$vakansiya</code> argumenti
+        qabul qilingan, lekin <b>ishlatilmagan</b>.</p>
+        <p class="expect">⚠️ Bu 33-darsda yopilgan teshikning qaytishi. Faqat
+        endi u <b>kamroq ko'zga tashlanadi</b>: kod «rol tekshirilyapti» deb
+        ishonarli ko'rinadi, hech qanday xato chiqmaydi va sinovda ham
+        o'tib ketishi mumkin — agar sinovda <b>bitta</b> ish beruvchi bo'lsa.</p>
+        <p>🔑 <b>Tashxis usuli:</b> policy metodini o'qiyotganda
+        <b>argumentlarni sanang</b>. <code>$vakansiya</code> qabul qilingan-u,
+        tanada <b>ishlatilmagan</b> bo'lsa — deyarli har doim xato.</p>
+        <div class="natija">// to'g'risi
+return $user-&gt;rol === Rol::IshBeruvchi
+    &amp;&amp; $vakansiya-&gt;user_id === $user-&gt;id;</div>
+        <p>Va yana bir nozik joy: <code>create()</code> da
+        <code>$vakansiya</code> <b>yo'q</b> — u yerda faqat rol tekshirilishi
+        <b>to'g'ri</b>. Ikkita metod bir-biriga o'xshaydi, lekin qoidasi
+        boshqa.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span> <code>'rol' =&gt; Rol::class</code>
+    cast qo'yilganda bazaga nima yoziladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Backing value yani oddiy matn</button></li>
+      <li><button class="quiz-option">Obyekt seriyalangan holda maxsus formatda</button></li>
+      <li><button class="quiz-option">Case nomi katta harflar bilan</button></li>
+    </ul>
+    <div class="quiz-explain">Bazada <code>'ish_beruvchi'</code> — oddiy matn.
+    Xom SQL bilan tekshirdik. Cast faqat <b>aylantiradi</b>: o'qishda
+    <code>Rol::from(...)</code>, yozishda <code>-&gt;value</code>. Shuning uchun
+    ustunni boshqa dasturlar ham o'qiy oladi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span> Foydalanuvchilari bor
+    jadvalga yangi ustun qo'shayotganda nima kerak?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">default qiymati albatta ko'rsatilishi kerak</button></li>
+      <li><button class="quiz-option">avval barcha qatorlar o'chirilishi kerak</button></li>
+      <li><button class="quiz-option">ustun nomi inglizcha bo'lishi kerak</button></li>
+    </ul>
+    <div class="quiz-explain">Mavjud qatorlarda yangi ustun qanday qiymat oladi?
+    Javob bo'lmasa baza rad etadi:
+    <code>Cannot add a NOT NULL column with default value NULL</code>.
+    Yechim — <code>default()</code> yoki <code>nullable()</code>.
+    ⚠️ Bo'sh jadvalda bu xato chiqmaydi — shuning uchun serverdagina
+    ko'rinishi mumkin.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span> <code>delete()</code> policy'sida
+    faqat rol tekshirilsa nima bo'ladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Ish beruvchi begona e'lonni o'chiradi</button></li>
+      <li><button class="quiz-option">Nomzod ham e'lon qo'sha oladi</button></li>
+      <li><button class="quiz-option">Hech kim hech nima qilolmaydi</button></li>
+    </ul>
+    <div class="quiz-explain">Rol — <b>toifa</b> savoli («umuman shunday ish
+    qila olasanmi?»), egalik — <b>yozuv</b> savoli («bu seningmi?»). Yozuv
+    ustidagi amallarda <b>ikkalasi</b> ham kerak:
+    <code>$user-&gt;rol === Rol::IshBeruvchi &amp;&amp; $vakansiya-&gt;user_id === $user-&gt;id</code>.</div>
+  </div>
+
+  <!-- ═══════════════ 12) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+    <p class="recall-intro">Avval o'zingiz javob bering, keyin ochib tekshiring.
+    Oxirgi ikkitasi — <a href="0033-gate-va-policy.html">33-darsni</a> takrorlash.</p>
+
+    <details class="recall">
+      <summary><code>from()</code> va <code>tryFrom()</code> farqi nimada?</summary>
+      <div class="answer"><p><code>from('boshqa')</code> — <code>ValueError</code>
+      <b>otadi</b>. <code>tryFrom('boshqa')</code> — <code>null</code>
+      qaytaradi. Ishonchli manbada (baza) birinchisi, tashqi ma'lumotda
+      (forma, API) ikkinchisi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Cast ichida qanday sehr bor?</summary>
+      <div class="answer"><p>Hech qanday. O'qishda <code>Rol::from($matn)</code>,
+      yozishda <code>$rol-&gt;value</code>. Bazada oddiy matn yotadi — xom SQL
+      bilan tekshirdik.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary><code>create()</code> policy metodida nega yozuv yo'q?</summary>
+      <div class="answer"><p>Chunki tekshirish paytida vakansiya <b>hali
+      yaratilmagan</b>. Shuning uchun javob foydalanuvchining o'zidan —
+      rolidan — kelishi kerak. Chaqirishda ham obyekt emas,
+      <code>Vakansiya::class</code> beriladi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: policy qanday topiladi?</summary>
+      <div class="answer"><p>Nom bo'yicha: <code>App\Models\X</code> →
+      <code>App\Policies\XPolicy</code>. Ro'yxatdan o'tkazish shart emas.
+      Tekshirish — <code>Gate::getPolicyFor(...)</code>.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: <code>$this-&gt;authorize()</code> ishlashi uchun nima kerak?</summary>
+      <div class="answer"><p>Laravel 11+ da bazaviy <code>Controller</code>
+      <b>bo'sh</b> — unga <code>use AuthorizesRequests;</code> qo'shish kerak.
+      Aks holda <code>Call to undefined method ...::authorize()</code>.</p></div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 13) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Cho'ntak xulosasi</span>
+    <ul>
+      <li><b>Enum</b> — cheklangan qiymatlar to'plami (PHP 8.1+).
+      Oddiy matn ustuni <code>'ish_beruvhi'</code> xatosini <b>jimgina</b> qabul
+      qiladi, enum qabul qilmaydi.</li>
+      <li><code>php artisan make:enum Rol --string</code> →
+      <code>app/Enums/Rol.php</code>.</li>
+      <li>Ikki tomon: <code>Rol::IshBeruvchi</code> — <b>case nomi</b> (kodda),
+      <code>'ish_beruvchi'</code> — <b>backing value</b> (bazada).
+      <code>-&gt;name</code> va <code>-&gt;value</code>.</li>
+      <li><code>from()</code> noto'g'ri qiymatda <b>otadi</b>,
+      <code>tryFrom()</code> <code>null</code> qaytaradi.</li>
+      <li>⚠️ Mavjud qatorlar bor jadvalga ustun qo'shishda
+      <code>-&gt;default(...)</code> yoki <code>-&gt;nullable()</code>
+      <b>majburiy</b>:
+      <code>Cannot add a NOT NULL column with default value NULL</code>.</li>
+      <li>Cast: <code>'rol' =&gt; Rol::class</code>. <b>Sehr yo'q</b> — bazada
+      matn, PHP'da obyekt, o'rtada <code>from()</code>/<code>-&gt;value</code>.</li>
+      <li>Enum'ga metod yozish mumkin: <code>nomi()</code> +
+      <code>match ($this)</code>. To'liq bo'lmagan <code>match</code> →
+      <code>UnhandledMatchError</code> — bu <b>foyda</b>, yangi case qo'shganda
+      eslatib turadi.</li>
+      <li><code>===</code> enum bilan ishlaydi — case <b>yagona nusxada</b>
+      mavjud.</li>
+      <li>⚠️ <b>Rol va egalik — boshqa-boshqa savol.</b> Yozuv ustidagi
+      amallarda ikkalasi ham:
+      <code>$user-&gt;rol === Rol::IshBeruvchi &amp;&amp; $vakansiya-&gt;user_id === $user-&gt;id</code>.</li>
+      <li>Yozuv yo'q bo'lganda <b>klass</b> beriladi:
+      <code>authorize('create', Vakansiya::class)</code>,
+      <code>@can('create', App\Models\Vakansiya::class)</code>.</li>
+      <li><code>Rule::enum(Rol::class)</code> — validatsiya.
+      <code>Rol::cases()</code> — formani enum'dan yasash. Ro'yxat
+      <b>bitta joyda</b> yashaydi.</li>
+      <li>🔒 <b>Yashirish — himoya emas</b> (to'rtinchi marta): forma
+      yashirilgan bo'lsa ham nomzodning qo'lda yuborgan so'rovi
+      <b>403</b> oldi.</li>
+      <li>Statuslar aralashmasin: <b>419</b> CSRF (so'rov qayerdan kelgani
+      noma'lum) · <b>403</b> huquq yo'q · <b>302→login</b> kirmagan.</li>
+      <li>Enum <code>where()</code> da va JSON'da o'zi <code>-&gt;value</code> ga
+      aylanadi. Ekranga chiroyli nom kerak bo'lsa —
+      <code>{{ $user-&gt;rol-&gt;nomi() }}</code>.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p>IshTop'da endi ikki xil odam bor va har biri o'z narsasini ko'radi.
+    Lekin <code>store()</code> metodiga qarang: <code>authorize()</code>,
+    keyin uzun <code>validate()</code> ro'yxati, keyin xato xabarlari, keyin
+    saqlash — hammasi <b>bitta metodda</b>. Va <code>update()</code> da
+    xuddi shu ro'yxat <b>yana bir marta</b> takrorlanadi.</p>
+    <p>35-darsda <b>Form Request</b> bilan validatsiyani controllerdan chiqaramiz:
+    <code>make:request</code>, <code>rules()</code>, <code>messages()</code> va
+    <code>authorize()</code> — bugungi huquq tekshiruvi ham o'sha yerga
+    ko'chishi mumkin.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>PHP — Enumerations</b>:
+    <a href="https://devdocs.io/php/language.enumerations">devdocs.io/php/language.enumerations</a>
+    — <code>case</code>, backing value, <code>from</code>/<code>tryFrom</code>,
+    <code>cases()</code>, enum'ga metod qo'shish.<sup><a href="#fn1">1</a></sup><br>
+    <b>Laravel — Enum Casting</b>:
+    <a href="https://laravel.com/docs/13.x/eloquent-mutators#enum-casting">Eloquent
+    Mutators &amp; Casting</a>.<sup><a href="#fn3">3</a></sup><br>
+    <b>Laravel — <code>Rule::enum</code></b>:
+    <a href="https://laravel.com/docs/13.x/validation#rule-enum">Validation
+    Rules</a>.<sup><a href="#fn2">2</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b> «bir odam ham ish beruvchi,
+    ham nomzod bo'lsa-chi?», «adminni qanday qo'shaman?», «rolni keyinchalik
+    o'zgartirsa bo'ladimi?», «enum o'rniga alohida <code>rollar</code> jadvali
+    kerak emasmi?» — har qanday savol yaxshi. Oxirgisi ayniqsa muhim: bizning
+    yechim <b>bitta odam — bitta rol</b> deb faraz qiladi. Agar bir odamga bir
+    nechta rol kerak bo'lsa, 27-darsdagi <b>ko'pga-ko'p</b> bog'lanish va pivot
+    jadval ishga tushadi.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0033-gate-va-policy.html">Oldingi: Gate va Policy</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">PHP — <a href="https://devdocs.io/php/language.enumerations">Enumerations</a>
+      (backed enums, <code>from</code>/<code>tryFrom</code>, <code>cases</code>,
+      enum'da metodlar).</li>
+      <li id="fn2">Laravel 13 — <a href="https://laravel.com/docs/13.x/validation#rule-enum">Validation:
+      <code>Rule::enum</code></a>.</li>
+      <li id="fn3">Laravel 13 — <a href="https://laravel.com/docs/13.x/eloquent-mutators#enum-casting">Eloquent:
+      Enum Casting</a>.</li>
+      <li id="fn4">Barchasi jonli o'lchangan (PHP 8.3.32, Laravel 13.25.0, SQLite):
+      <code>make:enum Rol --string</code> stub yasadi ·
+      cast'dan keyin <code>tipi: App\Enums\Rol</code>,
+      <code>value: ish_beruvchi</code>, <code>name: IshBeruvchi</code>,
+      bazada esa xom SQL bilan <code>'ish_beruvchi'</code> ·
+      <code>default</code>siz ustun → <code>Cannot add a NOT NULL column with
+      default value NULL</code> · to'liq bo'lmagan <code>match</code> →
+      <code>UnhandledMatchError</code> · <code>tryFrom('boshqa')</code> →
+      <code>NULL</code> · bazaga qo'lda <code>'boshqa'</code> yozilganda o'qishda
+      <code>ValueError</code> · policy: Ali (ish beruvchi) <code>create</code>
+      <b>true</b>, Vali (nomzod) <b>false</b>; Vali ish beruvchi bo'lganda ham
+      begona yozuvga <code>delete</code> <b>false</b> ·
+      <code>@can</code>: forma ish beruvchida <b>1</b>, nomzodda <b>0</b> ·
+      nomzodning POST so'rovi <b>403</b>, tokensiz so'rov <b>419</b> ·
+      ish beruvchining POST so'rovi <b>302</b> + «Qo'shildi: Rolli vakansiya» ·
+      rolsiz ro'yxatdan o'tish → «Rolni tanlang.» ·
+      <code>where('rol', Rol::IshBeruvchi)</code> ishladi ·
+      <code>only(['name','rol'])</code> →
+      <code>{"name":"Ali","rol":"ish_beruvchi"}</code>.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

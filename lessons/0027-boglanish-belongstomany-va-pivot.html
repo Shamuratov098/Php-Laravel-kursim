@@ -1,0 +1,1226 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 27 — Bog'lanish 2: belongsToMany va pivot</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 27 · MODUL C — MA'LUMOTLAR</p>
+  <h1>Ko'pdan-ko'pga: vakansiya ↔ ko'nikma</h1>
+  <p class="lead">26-darsdagi bog'lanish <b>bir tomonlama</b> edi: bitta vakansiyada
+  bitta kompaniya. Lekin vakansiya <b>bir necha ko'nikma</b> talab qiladi, va bitta
+  ko'nikma <b>bir necha vakansiyada</b> uchraydi. Bunday holatni bitta ustun bilan
+  yechib bo'lmaydi — <b>uchinchi jadval</b> kerak.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 16 daqiqa</span>
+    <span>💻 Amaliyot ≈ 26 daqiqa</span>
+    <span>Kerak: <a href="0026-boglanish-belongsto-hasmany.html">Dars 26</a></span>
+  </p>
+
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b>Nega bitta ustun yetmaydi</b>
+        <span class="nima">Ko'pdan-ko'pga (<i>many to many</i>) bog'lanishning shakli va
+        uni <code>kompaniya_id</code> kabi yechib bo'lmasligining sababi.</span></li>
+      <li><b>Pivot jadval</b>
+        <span class="nima">Uchinchi jadval — <code>konikma_vakansiya</code>. Faqat ikki
+        tashqi kalitdan iborat bo'lishi mumkin, lekin qo'shimcha ustun ham
+        qo'shiladi.</span></li>
+      <li><b>Pivot jadvalni migration bilan yasash</b>
+        <span class="nima"><code>foreignId()-&gt;constrained()</code> ·
+        <code>cascadeOnDelete()</code> · <code>unique([...])</code> — takroriy juftlikni
+        baza darajasida taqiqlash.</span></li>
+      <li><b><code>belongsToMany</code> — ikki tomondan</b>
+        <span class="nima">Bu bog'lanishda <b>ikki tomon ham bir xil</b> metodni
+        ishlatadi — 26-darsdagi <code>belongsTo</code>/<code>hasMany</code> juftligidan
+        farqi shu.</span></li>
+      <li><b>Laravel pivot nomini qanday taxmin qiladi</b>
+        <span class="nima">Ikki model nomini <b>alifbo tartibida</b> qo'shadi:
+        <code>Konikma</code> + <code>Vakansiya</code> → <code>konikma_vakansiya</code>.
+        Ko'plik yasamaydi.</span></li>
+      <li><b>Amallar: <code>attach</code> · <code>detach</code> · <code>sync</code> ·
+        <code>toggle</code></b>
+        <span class="nima">Qo'shish · olib tashlash · <b>ro'yxatni aynan moslashtirish</b>
+        · almashtirish. Va <code>syncWithoutDetaching</code> nima uchun
+        kerak.</span></li>
+      <li><b>Pivot ustunidagi qo'shimcha ma'lumot</b>
+        <span class="nima"><code>withPivot('daraja')</code> va
+        <code>$k-&gt;pivot-&gt;daraja</code>. Yozilmasa — <b>jimgina
+        <code>NULL</code></b>.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima">Nom mos kelmaganda · takroriy <code>attach</code> ·
+        <code>withPivot</code> siz · <code>sync</code> va uning hisoboti · filtrlash ·
+        ikki tomonlama sanash · pivotga vaqt muhri.</span></li>
+      <li><b>N+1 va <code>with()</code></b>
+        <span class="nima">Yana o'lchaymiz: <b>6 → 2 → 1</b>. Pivot bilan ishlaganda
+        so'rov <code>inner join</code> ga aylanadi.</span></li>
+      <li><b>IshTop'da natija</b>
+        <span class="nima">Vakansiya sahifasida ko'nikmalar ro'yxati, ro'yxat sahifasida
+        ko'nikma soni.</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Nega bitta ustun yetmaydi</span>
+    <p>26-darsda kompaniyani <code>vakansiyalar.kompaniya_id</code> ustuni bilan
+    bog'lagandik. Xuddi shu yo'lni ko'nikma uchun sinab ko'ramiz:
+    <code>vakansiyalar.konikma_id</code>. Lekin vakansiya <b>uchta</b> ko'nikma talab
+    qilsa-chi?</p>
+    <div class="natija">❌ konikma_id ustuniga uchta qiymat sig'maydi
+
+❌ konikma_id_1, konikma_id_2, konikma_id_3  — nechta ustun kerak? Beshta? O'nta?
+   Va «PHP talab qiladigan vakansiyalar» so'rovi qanday yoziladi?</div>
+    <p>Muammoning ildizi shunda: bog'lanish <b>vakansiyaning xossasi</b> ham emas,
+    <b>ko'nikmaning xossasi</b> ham emas — u <b>ikkisining orasidagi fakt</b>. Shuning
+    uchun uni <b>o'z jadvalida</b> saqlash kerak.</p>
+    <p>Bu naqsh hamma joyda uchraydi: maqola ↔ teg, o'quvchi ↔ kurs, film ↔ janr. Va
+    IshTop uchun ham ikkinchi marta kerak bo'ladi — <b>nomzod ↔ vakansiya</b>
+    (ariza).</p>
+  </div>
+
+  <!-- ═══════════════ 2) TUSHUNCHA ═══════════════ -->
+  <h2>Pivot jadval — bog'lanishning o'z jadvali</h2>
+
+  <div class="natija">vakansiyalar          konikma_vakansiya (pivot)          konikmalar
+┌────┬───────────┐    ┌──────────────┬────────────┐    ┌────┬─────────┐
+│ id │ nom       │    │ vakansiya_id │ konikma_id │    │ id │ nom     │
+├────┼───────────┤    ├──────────────┼────────────┤    ├────┼─────────┤
+│  1 │ Backend   │◄───│      1       │     1      │───►│  1 │ PHP     │
+│  3 │ Laravel   │◄───│      1       │     2      │───►│  2 │ Laravel │
+└────┴───────────┘◄───│      1       │     3      │───►│  3 │ SQL     │
+                  ◄───│      3       │     1      │───►│  4 │ Git     │
+                  ◄───│      3       │     2      │    │  5 │ Docker  │
+                      └──────────────┴────────────┘    └────┴─────────┘
+
+Har qator = bitta fakt: «1-vakansiya 1-ko'nikmani talab qiladi»</div>
+
+  <p>Pivot jadvalning har qatori — <b>bitta juftlik</b>. Vakansiyaga to'rtinchi
+  ko'nikma kerak bo'lsa, jadvalga <b>yana bitta qator</b> qo'shiladi; ustun
+  qo'shilmaydi. Shuning uchun cheklov yo'q.</p>
+
+  <div class="callout note">
+    <span class="label">Atama: pivot</span>
+    <p><b>Pivot jadval</b> (<i>pivot table</i>) — faqat <b>bog'lanishni saqlash</b>
+    uchun yasalgan jadval. Boshqa nomlari ham bor: <i>junction table</i>,
+    <i>join table</i>, «oraliq jadval». Laravel hujjatlarida <b>pivot</b> deyiladi,
+    shuning uchun kursda ham shu atamani ishlatamiz.</p>
+    <p>Odatda unda <code>id</code> ham shart emas — ikki tashqi kalit birgalikda
+    qatorni ajratib turadi. Lekin biz <code>id</code> ni qoldiramiz: Laravel'ning
+    standart <code>$table-&gt;id()</code> qatori zarar qilmaydi va keyinroq pivotga
+    qo'shimcha ustun qo'shganda qulay bo'ladi.</p>
+  </div>
+
+  <h3>Pivot jadvalni migration bilan yasash</h3>
+
+  <div class="codefile">
+    <div class="fname">terminal</div>
+    <code class="cmd" data-cmd="php artisan make:migration create_konikmalar_table
+php artisan make:migration create_konikma_vakansiya_table">php artisan make:migration create_konikmalar_table
+php artisan make:migration create_konikma_vakansiya_table</code>
+  </div>
+
+  <p>Ikkinchi buyruqning nomiga qarang — <code>create_<b>konikma_vakansiya</b>_table</code>.
+  Laravel undan jadval nomini o'zi oladi (23-dars), va bu nom <b>tasodifiy emas</b>:
+  pastda uning qoidasini ko'rasiz.</p>
+
+  <div class="codefile">
+    <div class="fname">database/migrations/…_create_konikma_vakansiya_table.php</div>
+    <code class="cmd" data-cmd="Schema::create('konikma_vakansiya', function (Blueprint $table) {
+    $table-&gt;id();
+    $table-&gt;foreignId('vakansiya_id')-&gt;constrained('vakansiyalar')-&gt;cascadeOnDelete();
+    $table-&gt;foreignId('konikma_id')-&gt;constrained('konikmalar')-&gt;cascadeOnDelete();
+    $table-&gt;string('daraja')-&gt;nullable();
+    $table-&gt;timestamps();
+
+    $table-&gt;unique(['vakansiya_id', 'konikma_id']);
+});">Schema::create('konikma_vakansiya', function (Blueprint $table) {
+    $table-&gt;id();
+    <span class="add">$table-&gt;foreignId('vakansiya_id')-&gt;constrained('vakansiyalar')-&gt;cascadeOnDelete();
+    $table-&gt;foreignId('konikma_id')-&gt;constrained('konikmalar')-&gt;cascadeOnDelete();</span>
+    <span class="add">$table-&gt;string('daraja')-&gt;nullable();</span>
+    $table-&gt;timestamps();
+
+    <span class="add">$table-&gt;unique(['vakansiya_id', 'konikma_id']);</span>
+});</code>
+  </div>
+
+  <table class="sheet">
+    <tr><th>Qator</th><th class="note-cell">Nima uchun</th></tr>
+    <tr><td><code>foreignId(...)-&gt;constrained(...)</code></td><td class="note-cell">Ikki tashqi kalit (23-dars) — bazaning o'zi mavjud bo'lmagan <code>id</code> ni rad etadi</td></tr>
+    <tr><td><code>-&gt;cascadeOnDelete()</code></td><td class="note-cell">🆕 Vakansiya o'chirilsa, uning pivot qatorlari <b>o'zi</b> o'chadi — «yetim» qatorlar qolmaydi</td></tr>
+    <tr><td><code>string('daraja')-&gt;nullable()</code></td><td class="note-cell">Pivotdagi <b>qo'shimcha</b> ma'lumot: «kuchli», «boshlang'ich»</td></tr>
+    <tr><td><code>unique([...])</code></td><td class="note-cell">🔒 Bitta juftlik <b>ikki marta</b> yozilmasin — pastda nima uchun muhim ekanini ko'rasiz</td></tr>
+  </table>
+
+  <p>Va 23-darsdagi asbob shu yerda ham ishlaydi — <code>--pretend</code>:</p>
+
+  <div class="natija">create table "konikma_vakansiya" (
+  "id" integer primary key autoincrement not null,
+  "vakansiya_id" integer not null,
+  "konikma_id" integer not null,
+  "daraja" varchar,
+  "created_at" datetime, "updated_at" datetime,
+  foreign key("vakansiya_id") references "vakansiyalar"("id") on delete cascade,
+  foreign key("konikma_id") references "konikmalar"("id") on delete cascade
+)
+create unique index "konikma_vakansiya_vakansiya_id_konikma_id_unique"
+  on "konikma_vakansiya" ("vakansiya_id", "konikma_id")</div>
+
+  <h2><code>belongsToMany</code> — ikki tomon ham bir xil</h2>
+
+  <p>26-darsda ikki tomon <b>ikki xil</b> metod ishlatgan edi
+  (<code>belongsTo</code> va <code>hasMany</code>). Ko'pdan-ko'pgada esa
+  <b>simmetriya</b> bor — ikkalasi ham <code>belongsToMany</code>:</p>
+
+  <div class="codefile">
+    <div class="fname">app/Models/Vakansiya.php</div>
+    <code class="cmd" data-cmd="public function konikmalar(): BelongsToMany
+{
+    return $this-&gt;belongsToMany(Konikma::class)-&gt;withPivot('daraja');
+}">public function konikmalar(): BelongsToMany
+{
+    return $this-&gt;belongsToMany(Konikma::class)<span class="add">-&gt;withPivot('daraja')</span>;
+}</code>
+  </div>
+
+  <div class="codefile">
+    <div class="fname">app/Models/Konikma.php</div>
+    <code class="cmd" data-cmd="public function vakansiyalar(): BelongsToMany
+{
+    return $this-&gt;belongsToMany(Vakansiya::class);
+}">public function vakansiyalar(): BelongsToMany
+{
+    return $this-&gt;belongsToMany(Vakansiya::class);
+}</code>
+  </div>
+
+  <p>Ishlatish 26-darsdagidek — <b>qavssiz natija, qavs bilan so'rov</b>:</p>
+
+  <div class="natija">$v-&gt;konikmalar-&gt;pluck('nom')-&gt;implode(', ')   → "PHP, Laravel, SQL"
+$k-&gt;vakansiyalar-&gt;pluck('nom')-&gt;implode(', ')  → "Backend dasturchi, Laravel dasturchi"
+
+$v-&gt;konikmalar()-&gt;where('nom', 'PHP')-&gt;exists()  → true</div>
+
+  <h3>Pivot nomi qanday taxmin qilinadi</h3>
+
+  <p>Biz hech qayerda <code>konikma_vakansiya</code> deb yozmadik. Qoida:</p>
+
+  <div class="natija">Ikki MODEL nomi → kichik harfga → ALIFBO tartibida → «_» bilan qo'shiladi
+
+Konikma + Vakansiya  →  konikma, vakansiya  →  konikma_vakansiya  ✅
+                                    (k < v)
+
+Diqqat: ko'plik YASALMAYDI. «konikmalar_vakansiyalar» emas!</div>
+
+  <table class="sheet">
+    <tr><th>Tekshirish</th><th class="note-cell">Natija</th></tr>
+    <tr><td><code>$rel-&gt;getTable()</code></td><td class="note-cell"><code>konikma_vakansiya</code></td></tr>
+    <tr><td><code>$rel-&gt;getForeignPivotKeyName()</code></td><td class="note-cell"><code>vakansiya_id</code> — «bu tomon»</td></tr>
+    <tr><td><code>$rel-&gt;getRelatedPivotKeyName()</code></td><td class="note-cell"><code>konikma_id</code> — «u tomon»</td></tr>
+  </table>
+
+  <div class="callout note">
+    <span class="label">O'zbekcha nomlar bu safar ham muammo bermadi</span>
+    <p>25-darsda <code>$table</code> ni qo'lda yozishga majbur bo'ldik, chunki Laravel
+    <b>ko'plik</b> yasashga urinardi. Bog'lanishlarda esa (26 va 27-darslar) u ko'plik
+    yasamaydi — shunchaki <code>_id</code> qo'shadi yoki ikki nomni birlashtiradi.</p>
+    <p>Shuning uchun butun kursda faqat bitta qoidaga rioya qilsak yetadi:
+    <b>jadval nomlarini model nomiga qarab tanlash</b>
+    (<code>Kompaniya</code> → <code>kompaniya_id</code>,
+    <code>Konikma</code>+<code>Vakansiya</code> → <code>konikma_vakansiya</code>).
+    Migration'ni <b>biz</b> yozamiz, ya'ni nomni tanlash ham bizning qo'limizda.</p>
+    <p><b>Ochiq gap:</b> professional Laravel loyihalarida kod nomlari odatda
+    <b>inglizcha</b> bo'ladi (<code>Vacancy</code>, <code>Skill</code>) — hujjatlar,
+    kutubxonalar va xalqaro jamoa shu tilda. Bu kursda o'zbekcha nom <b>ongli
+    tanlov</b>: atamalar tushunarli bo'lishi uchun. Ish joyida jamoaning uslubiga
+    qarab yozasiz.</p>
+  </div>
+
+  <h2>Amallar: <code>attach</code>, <code>detach</code>, <code>sync</code>, <code>toggle</code></h2>
+
+  <p>Ko'pdan-ko'pgada «qiymat berish» yo'q — <b>juftlik qo'shish yoki olib tashlash</b>
+  bor. Shuning uchun alohida metodlar ishlatiladi:</p>
+
+  <table class="sheet">
+    <tr><th>Metod</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>attach($id)</code> · <code>attach([1, 2, 3])</code></td><td class="note-cell"><b>Qo'shadi.</b> Mavjudini tekshirmaydi — takroriy juftlik yasashi mumkin</td></tr>
+    <tr><td><code>attach($id, ['daraja' =&gt; 'kuchli'])</code></td><td class="note-cell">Qo'shadi <b>va pivot ustunini</b> to'ldiradi</td></tr>
+    <tr><td><code>detach($id)</code></td><td class="note-cell">Bitta juftlikni olib tashlaydi</td></tr>
+    <tr><td><code>detach()</code></td><td class="note-cell">⚠️ Argumentsiz — <b>hammasini</b> olib tashlaydi</td></tr>
+    <tr><td><code>sync([2, 4])</code></td><td class="note-cell">⚠️ Ro'yxatni <b>aynan moslashtiradi</b>: yo'qlarini qo'shadi, <b>ro'yxatda bo'lmaganlarini o'chiradi</b></td></tr>
+    <tr><td><code>syncWithoutDetaching([1, 5])</code></td><td class="note-cell">Qo'shadi, lekin <b>hech narsani o'chirmaydi</b>. Takroriy juftlik ham yasamaydi</td></tr>
+    <tr><td><code>toggle([2, 3])</code></td><td class="note-cell">Bori — ketadi, yo'g'i — keladi (almashtiradi)</td></tr>
+    <tr><td><code>updateExistingPivot($id, [...])</code></td><td class="note-cell">Mavjud juftlikning <b>pivot ustunini</b> o'zgartiradi</td></tr>
+  </table>
+
+  <p>Hammasi <b>qavs bilan</b> chaqiriladi (<code>$v-&gt;konikmalar()-&gt;attach(...)</code>) —
+  chunki bular <b>so'rov</b>, tayyor natija emas (26-dars qoidasi).</p>
+
+  <h3>Pivotdagi qo'shimcha ma'lumot</h3>
+
+  <p>Pivot jadvalda <code>daraja</code> ustuni bor edi. Unga yetib borish uchun
+  <b>ikki narsa</b> kerak:</p>
+
+  <div class="natija">1) Modelda:   -&gt;withPivot('daraja')
+2) Ishlatishda: $k-&gt;pivot-&gt;daraja</div>
+
+  <div class="natija">foreach ($v-&gt;konikmalar as $k) {
+    echo $k-&gt;nom, ' — ', $k-&gt;pivot-&gt;daraja;
+}
+
+PHP — kuchli
+Laravel —
+SQL —</div>
+
+  <p><code>$k-&gt;pivot</code> — pivot qatorini ifodalovchi obyekt
+  (<code>Illuminate\Database\Eloquent\Relations\Pivot</code>). Uning ichida
+  <b>faqat</b> siz <code>withPivot</code> da sanab o'tgan ustunlar bo'ladi:</p>
+
+  <div class="natija">withPivot('daraja') BOR  → {"vakansiya_id":1,"konikma_id":1,"daraja":"kuchli"}
+withPivot YO'Q           → {"vakansiya_id":1,"konikma_id":1}
+                            va $k-&gt;pivot-&gt;daraja  →  NULL  (xato yo'q!)</div>
+
+  <div class="callout tip">
+    <span class="label">🔍 Sehr yo'q: <code>pivot</code> qayerdan keladi</span>
+    <p>26-darsdagi <code>toSql()</code> shu yerda ham javob beradi. Laravel pivot
+    ustunlarini <b>taxallus</b> bilan tortadi:</p>
+    <div class="natija">select "konikmalar".*,
+       "konikma_vakansiya"."vakansiya_id" as "pivot_vakansiya_id",
+       "konikma_vakansiya"."konikma_id"   as "pivot_konikma_id",
+       "konikma_vakansiya"."daraja"       as "pivot_daraja"
+from "konikmalar"
+inner join "konikma_vakansiya"
+       on "konikmalar"."id" = "konikma_vakansiya"."konikma_id"
+where "konikma_vakansiya"."vakansiya_id" = ?</div>
+    <p><code>pivot_</code> prefiksiga qarang — <code>$k-&gt;pivot</code> obyekti aynan
+    shu ustunlardan yasaladi. Va so'rovning o'zi — 22-darsdagi
+    <code>INNER JOIN</code>. Ya'ni siz o'rgangan SQL Laravel ichida <b>o'zgarmagan</b>
+    holda ishlaydi.</p>
+  </div>
+
+  <!-- ═══════════════ 3) HAR XIL HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir bir marta o'qib chiqing, keyin
+  kerak bo'lganda qaytib qarang.</p>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 1</span>
+    <h4>Nomlar taxminga mos kelganda — hech narsa yozmaymiz</h4>
+    <p>Pivot jadval <code>konikma_vakansiya</code>, kalitlar <code>vakansiya_id</code>
+    va <code>konikma_id</code>. Hammasi taxminga mos:</p>
+    <div class="natija">return $this-&gt;belongsToMany(Konikma::class);</div>
+    <p>Migration'ni siz yozgani uchun bu holatga <b>erishish mumkin</b> — jadvalni
+    shunchaki to'g'ri nomlash kifoya. Eng ko'p uchraydigan va eng oson holat.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 2</span>
+    <h4>Nom taxminga mos kelmaganda — barcha argumentlarni ko'rsatish</h4>
+    <p>Aytaylik pivot jadvalni <code>vakansiya_konikmalari</code> deb nomlagansiz
+    (yoki mavjud bazada shunday). Taxmin ishlamaydi va xato chiqadi:</p>
+    <div class="natija">SQLSTATE[HY000]: General error: 1 no such table: konikma_vakansiya</div>
+    <p>✅ Yechim — <b>to'rt argument</b>:</p>
+    <div class="natija">return $this-&gt;belongsToMany(
+    Konikma::class,
+    'vakansiya_konikmalari',   // pivot jadval nomi
+    'vakansiya_id',            // bu modelning kaliti
+    'konikma_id',              // u modelning kaliti
+);</div>
+    <p>Bu xato <b>ovoz chiqaradi</b> (26-darsdagi <code>belongsTo</code> dan farqli —
+    u jimgina <code>NULL</code> qaytarardi). Sababi: pivotda so'rov <b>albatta</b>
+    yuboriladi, jadval esa yo'q. Xatoni o'qish oson: xabar sizga Laravel <b>qaysi</b>
+    nomni izlaganini aytadi.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 3</span>
+    <h4>Bir juftlikni ikki marta qo'shish</h4>
+    <p><code>attach()</code> mavjudini <b>tekshirmaydi</b>. Bizda
+    <code>unique</code> indeks bor, shuning uchun baza rad etadi:</p>
+    <div class="natija">$v-&gt;konikmalar()-&gt;attach(1);   // birinchi marta — OK
+$v-&gt;konikmalar()-&gt;attach(1);   // ikkinchi marta:
+
+SQLSTATE[23000]: Integrity constraint violation: 19
+UNIQUE constraint failed: konikma_vakansiya.vakansiya_id, konikma_vakansiya.konikma_id</div>
+    <p>⚠️ <b>Agar <code>unique</code> indeks bo'lmasa</b> — xato <b>bo'lmaydi</b>, pivotga
+    <b>ikkinchi qator</b> qo'shiladi va sahifada «PHP» <b>ikki marta</b> ko'rinadi.
+    Aynan shu sababdan biz uni migration'ga yozdik: bu <b>ma'lumotning butunligini</b>
+    baza darajasida himoya qiladi.</p>
+    <p>✅ Xatoni <code>try/catch</code> bilan tutish emas, <b>to'g'ri metodni tanlash</b>
+    kerak:</p>
+    <div class="natija">$v-&gt;konikmalar()-&gt;syncWithoutDetaching([1]);   // bori bo'lsa — jim turadi</div>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 4</span>
+    <h4><code>withPivot</code> yozilmaganda — ⚠️ jimgina <code>NULL</code></h4>
+    <p>Pivotda <code>daraja</code> ustuni bor, ma'lumot ham bor, lekin modelda
+    <code>withPivot('daraja')</code> yozilmagan:</p>
+    <div class="natija">$k-&gt;pivot-&gt;daraja   →   NULL
+
+Xato:            yo'q
+Bazada qiymat:   BOR ('kuchli')</div>
+    <p>Bu 26-darsdagi «jimgina buzilish»ning ukasi. Sahifada shunchaki bo'sh joy
+    chiqadi va siz ma'lumotni bazada qidirib vaqt yo'qotasiz.</p>
+    <p>✅ <b>Tashxis:</b> <code>$k-&gt;pivot-&gt;toArray()</code> ni chiqarib ko'ring —
+    unda <b>faqat</b> <code>withPivot</code> da sanalgan ustunlar bo'ladi. Ustun
+    ro'yxatda yo'q bo'lsa, muammo modelda.</p>
+    <div class="natija">-&gt;withPivot('daraja', 'created_at')   // bir nechta ustun
+-&gt;withTimestamps()                    // pivotdagi vaqt muhrlarini boshqarish</div>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 5</span>
+    <h4><code>sync</code> · <code>syncWithoutDetaching</code> · <code>toggle</code></h4>
+    <p>Uchalasi ham ro'yxat qabul qiladi, lekin natijasi <b>butunlay boshqacha</b>.
+    Boshlang'ich holat: <code>PHP, SQL, Docker</code></p>
+    <div class="natija">sync([2, 4])                  → Laravel, Git
+   (2 va 4 qo'shildi, QOLGANLARI O'CHDI)
+
+syncWithoutDetaching([2, 4])  → PHP, SQL, Docker, Laravel, Git
+   (qo'shildi, hech narsa o'chmadi)
+
+toggle([2, 4])                → PHP, SQL, Docker, Laravel, Git
+   (yo'q edi — keldi; bori bo'lganda ketardi)</div>
+    <p><code>sync()</code> <b>hisobot</b> qaytaradi — nima qilganini aniq ko'rsatadi:</p>
+    <div class="natija">{"attached":[2,4],"detached":[1,3,5],"updated":[]}</div>
+    <p>Bu hisobot juda foydali: shubha bo'lsa uni chiqarib ko'ring va
+    <code>detached</code> ro'yxatiga qarang.</p>
+    <p><b>Qachon qaysi biri:</b> forma <b>butun ro'yxatni</b> yuborsa (checkbox'lar) —
+    <code>sync</code>; bitta narsa qo'shish kerak bo'lsa —
+    <code>syncWithoutDetaching</code>; «yoqish/o'chirish» tugmasi —
+    <code>toggle</code>.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 6</span>
+    <h4>Filtrlash — ikki tomondan ham</h4>
+    <p><code>whereHas</code> (26-dars) ko'pdan-ko'pgada ham xuddi shunday ishlaydi:</p>
+    <div class="natija">// PHP talab qiladigan vakansiyalar
+Vakansiya::whereHas('konikmalar', fn ($q) =&gt; $q-&gt;where('nom', 'PHP'))-&gt;pluck('nom')
+   → "Backend dasturchi, Laravel dasturchi"  (2 ta)
+
+// Hech qanday ko'nikma ko'rsatilmagan vakansiyalar
+Vakansiya::doesntHave('konikmalar')-&gt;count()   → 1
+
+// Bitta so'rovda ikkita shart: PHP VA SQL
+Vakansiya::whereHas('konikmalar', fn ($q) =&gt; $q-&gt;where('nom', 'PHP'))
+         -&gt;whereHas('konikmalar', fn ($q) =&gt; $q-&gt;where('nom', 'SQL'))
+         -&gt;pluck('nom')</div>
+    <p>Oxirgi misolga diqqat: «PHP <b>va</b> SQL» uchun <b>ikkita</b>
+    <code>whereHas</code> yoziladi. Bitta <code>whereHas</code> ichida
+    <code>where('nom','PHP')-&gt;where('nom','SQL')</code> yozsangiz — <b>hech narsa
+    topilmaydi</b>, chunki bitta qator ikki xil nomga ega bo'lolmaydi.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>Ikki tomonlama sanash — <code>withCount</code></h4>
+    <p><code>withCount</code> (26-dars) pivot ustida ham ishlaydi, va <b>ikki
+    tomondan</b> ham ma'noli:</p>
+    <div class="natija">// Har vakansiyada nechta ko'nikma
+Vakansiya::withCount('konikmalar')-&gt;get()   → $v-&gt;konikmalar_count
+
+// Eng ko'p talab qilinadigan ko'nikma — bitta so'rovda
+Konikma::withCount('vakansiyalar')-&gt;orderByDesc('vakansiyalar_count')-&gt;get()
+
+   PHP       2
+   Laravel   2
+   SQL       2
+   Git       2
+   Docker    1</div>
+    <p>Ikkinchisi — real hisobot: «bozorda qaysi ko'nikma ko'proq talab qilinadi».
+    22-darsda buni <code>JOIN</code> + <code>GROUP BY</code> bilan yozgan bo'lardik;
+    endi bitta qator.</p>
+  </div>
+
+  <!-- ═══════════════ N+1 ═══════════════ -->
+  <h2>⚡ N+1 — pivot bilan ham</h2>
+
+  <p>26-darsdagi muammo bu yerda ham bor, va yechim ham o'sha:</p>
+
+  <div class="natija">── with() SIZ
+   SO'ROVLAR SONI: 6      ← 1 + 5 (har vakansiya uchun bittadan)
+
+── with('konikmalar') BILAN
+   SO'ROVLAR SONI: 2
+   ... where "konikma_vakansiya"."vakansiya_id" in (1, 2, 3, 4, 5)
+
+── withCount('konikmalar')
+   SO'ROVLAR SONI: 1</div>
+
+  <p>Ikkinchi so'rovdagi <code>in (1, 2, 3, 4, 5)</code> — Laravel barcha
+  vakansiyalarning <code>id</code> larini yig'ib, pivotdan hammasini <b>bitta</b>
+  so'rovda oldi.</p>
+
+  <div class="codefile">
+    <div class="fname">bir necha bog'lanishni birga yuklash</div>
+    <code class="cmd" data-cmd="Vakansiya::with(['kompaniya', 'konikmalar'])-&gt;findOrFail($id);">Vakansiya::with(<span class="add">['kompaniya', 'konikmalar']</span>)-&gt;findOrFail($id);</code>
+  </div>
+
+  <p><code>with()</code> <b>massiv</b> ham qabul qiladi — bir necha bog'lanishni birga
+  yuklash uchun. Har biri uchun bittadan qo'shimcha so'rov ketadi, ya'ni 3 so'rov
+  jami — sikldagi o'nlab so'rovdan ancha yaxshi.</p>
+
+  <!-- ═══════════════ 4) AMALIYOT / MODE-HINT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    <span class="mode-hint-title">💻 Amaliy qism kompyuterda</span>
+    <p>Amaliyotda ikkita migration yozasiz (<code>konikmalar</code> va pivot), keyin
+    barcha amallarni skriptda sinab ko'rasiz — shu qatorda <code>sync()</code> nimani
+    o'chirganini <b>hisobot</b> bilan ko'rasiz. Oxirida vakansiya sahifasida
+    ko'nikmalar ro'yxati, ro'yxat sahifasida esa ko'nikma soni paydo bo'ladi.</p>
+    <button type="button" class="modebtn" data-set-mode="do">💻 Amaliyot rejimini ko'rish</button>
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <p>Ikkita migration yarating</p>
+        <p class="why-step">Tartib muhim: pivot ikkala jadvalga tayanadi, shuning uchun
+        <code>konikmalar</code> <b>oldin</b> yaratilishi kerak.</p>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+php artisan make:migration create_konikmalar_table
+php artisan make:migration create_konikma_vakansiya_table">cd ~/Projects/Learn/ishtop
+php artisan make:migration create_konikmalar_table
+php artisan make:migration create_konikma_vakansiya_table
+<span class="out">INFO  Migration [database/migrations/…_create_konikmalar_table.php] created successfully.</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> ikkita yangi fayl. Ikkinchisini oching —
+        Laravel <code>Schema::create('<b>konikma_vakansiya</b>', ...)</code> deb
+        yozgan, ya'ni jadval nomini fayl nomidan olgan.</p>
+      </li>
+
+      <li>
+        <p><code>konikmalar</code> migration'ini to'ldiring</p>
+        <div class="cmd" data-cmd="        Schema::create('konikmalar', function (Blueprint $table) {
+            $table-&gt;id();
+            $table-&gt;string('nom')-&gt;unique();
+            $table-&gt;timestamps();
+        });">        Schema::create('konikmalar', function (Blueprint $table) {
+            $table-&gt;id();
+            $table-&gt;string('nom')-&gt;unique();
+            $table-&gt;timestamps();
+        });</div>
+        <p class="expect"><b>Ya'ni:</b> bitta qator qo'shasiz.
+        <code>-&gt;unique()</code> — «PHP» ikki marta yozilmasin.</p>
+      </li>
+
+      <li>
+        <p>Pivot migration'ini to'ldiring</p>
+        <p class="why-step">Darsning eng muhim migration'i: ikki tashqi kalit, cascade
+        va takroriy juftlik taqiqi.</p>
+        <div class="cmd" data-cmd="        Schema::create('konikma_vakansiya', function (Blueprint $table) {
+            $table-&gt;id();
+            $table-&gt;foreignId('vakansiya_id')-&gt;constrained('vakansiyalar')-&gt;cascadeOnDelete();
+            $table-&gt;foreignId('konikma_id')-&gt;constrained('konikmalar')-&gt;cascadeOnDelete();
+            $table-&gt;string('daraja')-&gt;nullable();
+            $table-&gt;timestamps();
+
+            $table-&gt;unique(['vakansiya_id', 'konikma_id']);
+        });">        Schema::create('konikma_vakansiya', function (Blueprint $table) {
+            $table-&gt;id();
+            $table-&gt;foreignId('vakansiya_id')-&gt;constrained('vakansiyalar')-&gt;cascadeOnDelete();
+            $table-&gt;foreignId('konikma_id')-&gt;constrained('konikmalar')-&gt;cascadeOnDelete();
+            $table-&gt;string('daraja')-&gt;nullable();
+            $table-&gt;timestamps();
+
+            $table-&gt;unique(['vakansiya_id', 'konikma_id']);
+        });</div>
+        <p>Endi bajarishdan <b>oldin</b> SQL'ni ko'ring, keyin bajaring:</p>
+        <div class="cmd" data-cmd="php artisan migrate --pretend | tail -8
+php artisan migrate">php artisan migrate --pretend | tail -8
+php artisan migrate
+<span class="out">2026_…_create_konikmalar_table .. DONE</span>
+<span class="out">2026_…_create_konikma_vakansiya_table .. DONE</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> <code>--pretend</code> chiqishida
+        <code>on delete cascade</code> va <code>create unique index …</code> qatorlarini
+        ko'rasiz, keyin ikki migration bajariladi.</p>
+      </li>
+
+      <li>
+        <p>Modellarni yozing</p>
+        <div class="cmd" data-cmd="cat &gt; app/Models/Konikma.php &lt;&lt;'EOF'
+&lt;?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+
+class Konikma extends Model
+{
+    protected $table = 'konikmalar';
+
+    protected $fillable = ['nom'];
+
+    public function vakansiyalar(): BelongsToMany
+    {
+        return $this-&gt;belongsToMany(Vakansiya::class);
+    }
+}
+EOF
+php -l app/Models/Konikma.php">cat &gt; app/Models/Konikma.php &lt;&lt;'EOF'
+&lt;?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+
+class Konikma extends Model
+{
+    protected $table = 'konikmalar';
+
+    protected $fillable = ['nom'];
+
+    public function vakansiyalar(): BelongsToMany
+    {
+        return $this-&gt;belongsToMany(Vakansiya::class);
+    }
+}
+EOF
+php -l app/Models/Konikma.php
+<span class="out">No syntax errors detected</span></div>
+        <p><code>Vakansiya</code> modeliga esa <b>qo'shimcha</b> metod yozasiz —
+        mavjud <code>kompaniya()</code> metodidan keyin:</p>
+        <div class="cmd" data-cmd="    public function konikmalar(): BelongsToMany
+    {
+        return $this-&gt;belongsToMany(Konikma::class)-&gt;withPivot('daraja');
+    }">    public function konikmalar(): BelongsToMany
+    {
+        return $this-&gt;belongsToMany(Konikma::class)-&gt;withPivot('daraja');
+    }</div>
+        <p class="expect"><b>Diqqat:</b> <code>Vakansiya.php</code> ning yuqorisiga
+        <code>use Illuminate\Database\Eloquent\Relations\BelongsToMany;</code> qatorini
+        ham qo'shing (12-dars) — bo'lmasa «Class not found» chiqadi.</p>
+      </li>
+
+      <li>
+        <p>Ko'nikmalarni soling va taxminlarni tekshiring</p>
+        <div class="cmd" data-cmd="cat &gt; sql/09-konikma.php &lt;&lt;'EOF'
+&lt;?php
+
+use App\Models\Konikma;
+use App\Models\Vakansiya;
+
+require __DIR__ . '/../vendor/autoload.php';
+$app = require_once __DIR__ . '/../bootstrap/app.php';
+$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+
+foreach (['PHP', 'Laravel', 'SQL', 'Git', 'Docker'] as $nom) {
+    Konikma::firstOrCreate(['nom' =&gt; $nom]);
+}
+echo 'konikmalar: ', Konikma::count(), ' ta', PHP_EOL;
+
+$r = (new Vakansiya)-&gt;konikmalar();
+echo PHP_EOL, '── Taxminlar', PHP_EOL;
+echo '   pivot jadval  : ', $r-&gt;getTable(), PHP_EOL;
+echo '   FK (bu tomon) : ', $r-&gt;getForeignPivotKeyName(), PHP_EOL;
+echo '   FK (u tomon)  : ', $r-&gt;getRelatedPivotKeyName(), PHP_EOL;
+EOF
+php sql/09-konikma.php">cat &gt; sql/09-konikma.php &lt;&lt;'EOF'
+&lt;?php
+
+use App\Models\Konikma;
+use App\Models\Vakansiya;
+
+require __DIR__ . '/../vendor/autoload.php';
+$app = require_once __DIR__ . '/../bootstrap/app.php';
+$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+
+foreach (['PHP', 'Laravel', 'SQL', 'Git', 'Docker'] as $nom) {
+    Konikma::firstOrCreate(['nom' =&gt; $nom]);
+}
+echo 'konikmalar: ', Konikma::count(), ' ta', PHP_EOL;
+
+$r = (new Vakansiya)-&gt;konikmalar();
+echo PHP_EOL, '── Taxminlar', PHP_EOL;
+echo '   pivot jadval  : ', $r-&gt;getTable(), PHP_EOL;
+echo '   FK (bu tomon) : ', $r-&gt;getForeignPivotKeyName(), PHP_EOL;
+echo '   FK (u tomon)  : ', $r-&gt;getRelatedPivotKeyName(), PHP_EOL;
+EOF
+php sql/09-konikma.php
+<span class="out">konikmalar: 5 ta</span>
+<span class="out">   pivot jadval  : konikma_vakansiya</span>
+<span class="out">   FK (bu tomon) : vakansiya_id</span>
+<span class="out">   FK (u tomon)  : konikma_id</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> 5 ko'nikma va uchta to'g'ri taxmin.
+        <br><code>firstOrCreate</code> — «bo'lsa top, bo'lmasa yarat». Shuning uchun bu
+        skriptni <b>qayta ishga tushirish xavfsiz</b> (22-darsdagi muammo takrorlanmaydi).</p>
+      </li>
+
+      <li>
+        <p>🎯 Amallarni sinab ko'ring — <code>sync()</code> hisoboti bilan</p>
+        <p class="why-step">Darsning yuragi. Har amaldan keyin ro'yxat qanday
+        o'zgarganini ko'rasiz.</p>
+        <div class="cmd" data-cmd="cat &gt; sql/10-amallar.php &lt;&lt;'EOF'
+&lt;?php
+
+use App\Models\Vakansiya;
+
+require __DIR__ . '/../vendor/autoload.php';
+$app = require_once __DIR__ . '/../bootstrap/app.php';
+$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+
+$ko = function (string $izoh) {
+    $nomlar = Vakansiya::find(3)-&gt;konikmalar()-&gt;pluck('nom')-&gt;implode(', ');
+    echo '   ', str_pad($izoh, 26), ' → ', $nomlar, PHP_EOL;
+};
+
+$v = Vakansiya::find(3);
+$v-&gt;konikmalar()-&gt;detach();
+
+echo '── attach([1, 2, 3])', PHP_EOL;
+$v-&gt;konikmalar()-&gt;attach([1, 2, 3]);
+$ko('uchta qo\'shildi');
+
+echo PHP_EOL, '── attach(1) IKKINCHI marta', PHP_EOL;
+try {
+    $v-&gt;konikmalar()-&gt;attach(1);
+    echo '   o\'tib ketdi', PHP_EOL;
+} catch (Throwable $e) {
+    echo '   XATO: ', explode(' (Connection', $e-&gt;getMessage())[0], PHP_EOL;
+}
+
+echo PHP_EOL, '── detach(2)', PHP_EOL;
+$v-&gt;konikmalar()-&gt;detach(2);
+$ko('Laravel olib tashlandi');
+
+echo PHP_EOL, '── syncWithoutDetaching([1, 5])', PHP_EOL;
+$v-&gt;konikmalar()-&gt;syncWithoutDetaching([1, 5]);
+$ko('hech narsa o\'chmadi');
+
+echo PHP_EOL, '── sync([2, 4]) — DIQQAT', PHP_EOL;
+$hisobot = $v-&gt;konikmalar()-&gt;sync([2, 4]);
+$ko('faqat 2 va 4 qoldi');
+echo '   hisobot: ', json_encode($hisobot), PHP_EOL;
+
+echo PHP_EOL, '── attach(1, [daraja]) — pivot ustuni', PHP_EOL;
+$v-&gt;konikmalar()-&gt;attach(1, ['daraja' =&gt; 'kuchli']);
+foreach (Vakansiya::find(3)-&gt;konikmalar as $k) {
+    echo '   ', str_pad($k-&gt;nom, 10), 'daraja: ', var_export($k-&gt;pivot-&gt;daraja, true), PHP_EOL;
+}
+EOF
+php sql/10-amallar.php">cat &gt; sql/10-amallar.php &lt;&lt;'EOF'
+&lt;?php
+
+use App\Models\Vakansiya;
+
+require __DIR__ . '/../vendor/autoload.php';
+$app = require_once __DIR__ . '/../bootstrap/app.php';
+$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+
+$ko = function (string $izoh) {
+    $nomlar = Vakansiya::find(3)-&gt;konikmalar()-&gt;pluck('nom')-&gt;implode(', ');
+    echo '   ', str_pad($izoh, 26), ' → ', $nomlar, PHP_EOL;
+};
+
+$v = Vakansiya::find(3);
+$v-&gt;konikmalar()-&gt;detach();
+
+echo '── attach([1, 2, 3])', PHP_EOL;
+$v-&gt;konikmalar()-&gt;attach([1, 2, 3]);
+$ko('uchta qo\'shildi');
+
+echo PHP_EOL, '── attach(1) IKKINCHI marta', PHP_EOL;
+try {
+    $v-&gt;konikmalar()-&gt;attach(1);
+    echo '   o\'tib ketdi', PHP_EOL;
+} catch (Throwable $e) {
+    echo '   XATO: ', explode(' (Connection', $e-&gt;getMessage())[0], PHP_EOL;
+}
+
+echo PHP_EOL, '── detach(2)', PHP_EOL;
+$v-&gt;konikmalar()-&gt;detach(2);
+$ko('Laravel olib tashlandi');
+
+echo PHP_EOL, '── syncWithoutDetaching([1, 5])', PHP_EOL;
+$v-&gt;konikmalar()-&gt;syncWithoutDetaching([1, 5]);
+$ko('hech narsa o\'chmadi');
+
+echo PHP_EOL, '── sync([2, 4]) — DIQQAT', PHP_EOL;
+$hisobot = $v-&gt;konikmalar()-&gt;sync([2, 4]);
+$ko('faqat 2 va 4 qoldi');
+echo '   hisobot: ', json_encode($hisobot), PHP_EOL;
+
+echo PHP_EOL, '── attach(1, [daraja]) — pivot ustuni', PHP_EOL;
+$v-&gt;konikmalar()-&gt;attach(1, ['daraja' =&gt; 'kuchli']);
+foreach (Vakansiya::find(3)-&gt;konikmalar as $k) {
+    echo '   ', str_pad($k-&gt;nom, 10), 'daraja: ', var_export($k-&gt;pivot-&gt;daraja, true), PHP_EOL;
+}
+EOF
+php sql/10-amallar.php
+<span class="out">   uchta qo'shildi            → PHP, Laravel, SQL</span>
+<span class="out">   XATO: … UNIQUE constraint failed: konikma_vakansiya.vakansiya_id, …</span>
+<span class="out">   Laravel olib tashlandi     → PHP, SQL</span>
+<span class="out">   hech narsa o'chmadi        → PHP, SQL, Docker</span>
+<span class="out">   faqat 2 va 4 qoldi         → Laravel, Git</span>
+<span class="out">   hisobot: {&quot;attached&quot;:[2,4],&quot;detached&quot;:[1,3,5],&quot;updated&quot;:[]}</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> olti bo'lim.
+        <br>🔑 <b>Eng muhimi — <code>sync([2, 4])</code></b>: ro'yxatda
+        <code>PHP, SQL, Docker</code> bor edi, natijada <b>faqat</b>
+        <code>Laravel, Git</code> qoldi. Hisobot buni tasdiqlaydi:
+        <code>"detached":[1,3,5]</code>.
+        <br>Oxirgi bo'limda <code>PHP — daraja: 'kuchli'</code>, qolganlarida
+        <code>NULL</code>.</p>
+      </li>
+
+      <li>
+        <p>Realistik ma'lumot va N+1 o'lchovi</p>
+        <div class="cmd" data-cmd="cat &gt; sql/11-konikma-n1.php &lt;&lt;'EOF'
+&lt;?php
+
+use App\Models\Konikma;
+use App\Models\Vakansiya;
+use Illuminate\Support\Facades\DB;
+
+require __DIR__ . '/../vendor/autoload.php';
+$app = require_once __DIR__ . '/../bootstrap/app.php';
+$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+
+$xarita = [
+    1 =&gt; ['PHP', 'Laravel', 'SQL'],
+    2 =&gt; ['Git'],
+    3 =&gt; ['PHP', 'Laravel', 'Docker'],
+    4 =&gt; ['SQL', 'Git'],
+];
+foreach ($xarita as $vid =&gt; $nomlar) {
+    $ids = Konikma::whereIn('nom', $nomlar)-&gt;pluck('id')-&gt;all();
+    Vakansiya::find($vid)-&gt;konikmalar()-&gt;sync($ids);
+}
+foreach (Vakansiya::with('konikmalar')-&gt;get() as $v) {
+    echo '   ', str_pad($v-&gt;nom, 20), ' → ', $v-&gt;konikmalar-&gt;pluck('nom')-&gt;implode(', '), PHP_EOL;
+}
+
+function sanab(string $s, callable $f): void
+{
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+    $f();
+    echo PHP_EOL, '── ', $s, PHP_EOL, '   SO\'ROVLAR SONI: ', count(DB::getQueryLog()), PHP_EOL;
+    DB::disableQueryLog();
+}
+
+sanab('with() SIZ', function () {
+    foreach (Vakansiya::all() as $v) { $x = $v-&gt;konikmalar-&gt;pluck('nom'); }
+});
+sanab('with() BILAN', function () {
+    foreach (Vakansiya::with('konikmalar')-&gt;get() as $v) { $x = $v-&gt;konikmalar-&gt;pluck('nom'); }
+});
+sanab('withCount()', function () {
+    foreach (Vakansiya::withCount('konikmalar')-&gt;get() as $v) { $x = $v-&gt;konikmalar_count; }
+});
+
+echo PHP_EOL, '── Eng ko\'p talab qilinadigan ko\'nikma', PHP_EOL;
+foreach (Konikma::withCount('vakansiyalar')-&gt;orderByDesc('vakansiyalar_count')-&gt;get() as $k) {
+    echo '   ', str_pad($k-&gt;nom, 10), $k-&gt;vakansiyalar_count, PHP_EOL;
+}
+EOF
+php sql/11-konikma-n1.php">cat &gt; sql/11-konikma-n1.php &lt;&lt;'EOF'
+&lt;?php
+
+use App\Models\Konikma;
+use App\Models\Vakansiya;
+use Illuminate\Support\Facades\DB;
+
+require __DIR__ . '/../vendor/autoload.php';
+$app = require_once __DIR__ . '/../bootstrap/app.php';
+$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+
+$xarita = [
+    1 =&gt; ['PHP', 'Laravel', 'SQL'],
+    2 =&gt; ['Git'],
+    3 =&gt; ['PHP', 'Laravel', 'Docker'],
+    4 =&gt; ['SQL', 'Git'],
+];
+foreach ($xarita as $vid =&gt; $nomlar) {
+    $ids = Konikma::whereIn('nom', $nomlar)-&gt;pluck('id')-&gt;all();
+    Vakansiya::find($vid)-&gt;konikmalar()-&gt;sync($ids);
+}
+foreach (Vakansiya::with('konikmalar')-&gt;get() as $v) {
+    echo '   ', str_pad($v-&gt;nom, 20), ' → ', $v-&gt;konikmalar-&gt;pluck('nom')-&gt;implode(', '), PHP_EOL;
+}
+
+function sanab(string $s, callable $f): void
+{
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+    $f();
+    echo PHP_EOL, '── ', $s, PHP_EOL, '   SO\'ROVLAR SONI: ', count(DB::getQueryLog()), PHP_EOL;
+    DB::disableQueryLog();
+}
+
+sanab('with() SIZ', function () {
+    foreach (Vakansiya::all() as $v) { $x = $v-&gt;konikmalar-&gt;pluck('nom'); }
+});
+sanab('with() BILAN', function () {
+    foreach (Vakansiya::with('konikmalar')-&gt;get() as $v) { $x = $v-&gt;konikmalar-&gt;pluck('nom'); }
+});
+sanab('withCount()', function () {
+    foreach (Vakansiya::withCount('konikmalar')-&gt;get() as $v) { $x = $v-&gt;konikmalar_count; }
+});
+
+echo PHP_EOL, '── Eng ko\'p talab qilinadigan ko\'nikma', PHP_EOL;
+foreach (Konikma::withCount('vakansiyalar')-&gt;orderByDesc('vakansiyalar_count')-&gt;get() as $k) {
+    echo '   ', str_pad($k-&gt;nom, 10), $k-&gt;vakansiyalar_count, PHP_EOL;
+}
+EOF
+php sql/11-konikma-n1.php
+<span class="out">   Backend dasturchi    → PHP, Laravel, SQL</span>
+<span class="out">   DevOps injener       → </span>
+<span class="out">── with() SIZ</span>
+<span class="out">   SO'ROVLAR SONI: 6</span>
+<span class="out">── with() BILAN</span>
+<span class="out">   SO'ROVLAR SONI: 2</span>
+<span class="out">── withCount()</span>
+<span class="out">   SO'ROVLAR SONI: 1</span>
+<span class="out">── Eng ko'p talab qilinadigan ko'nikma</span>
+<span class="out">   PHP       2</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> <b>6 → 2 → 1</b>, va oxirida ko'nikmalar
+        talab bo'yicha saralangan hisobot.
+        <br>«DevOps injener» ning ro'yxati <b>bo'sh</b> — u <code>$xarita</code> da yo'q.
+        Bu keyingi qadamda kerak bo'ladi.</p>
+      </li>
+
+      <li>
+        <p>Controllerga ulash</p>
+        <div class="cmd" data-cmd="# index() metodida — withCount qo'shiladi:
+            'vakansiyalar' =&gt; Vakansiya::with('kompaniya')
+                -&gt;withCount('konikmalar')
+                -&gt;orderBy('maosh', 'desc')
+                -&gt;get(),
+
+# show() metodida — with() massiv qabul qiladi:
+        $v = Vakansiya::with(['kompaniya', 'konikmalar'])-&gt;findOrFail($id);"># index() metodida — withCount qo'shiladi:
+            'vakansiyalar' =&gt; Vakansiya::with('kompaniya')
+                <span class="add">-&gt;withCount('konikmalar')</span>
+                -&gt;orderBy('maosh', 'desc')
+                -&gt;get(),
+
+# show() metodida — with() massiv qabul qiladi:
+        $v = Vakansiya::with(<span class="add">['kompaniya', 'konikmalar']</span>)-&gt;findOrFail($id);</div>
+        <p class="expect"><b>Kutilgan natija:</b> ikki qator o'zgardi.
+        Tekshirish: <code>php -l app/Http/Controllers/VakansiyaController.php</code></p>
+      </li>
+
+      <li>
+        <p>View'larga qo'shing</p>
+        <p><code>show.blade.php</code> da, <code>&lt;/ul&gt;</code> dan keyin
+        («boshqa vakansiyalar» bo'limidan <b>oldin</b>):</p>
+        <div class="cmd" data-cmd="    &lt;h2&gt;Talab qilinadigan ko'nikmalar&lt;/h2&gt;
+    @forelse ($v-&gt;konikmalar as $k)
+        &lt;span&gt;{{ $k-&gt;nom }}@if ($k-&gt;pivot-&gt;daraja) ({{ $k-&gt;pivot-&gt;daraja }})@endif&lt;/span&gt;
+    @empty
+        &lt;p&gt;Ko'nikma ko'rsatilmagan.&lt;/p&gt;
+    @endforelse">    &lt;h2&gt;Talab qilinadigan ko'nikmalar&lt;/h2&gt;
+    @forelse ($v-&gt;konikmalar as $k)
+        &lt;span&gt;{{ $k-&gt;nom }}@if ($k-&gt;pivot-&gt;daraja) ({{ $k-&gt;pivot-&gt;daraja }})@endif&lt;/span&gt;
+    @empty
+        &lt;p&gt;Ko'nikma ko'rsatilmagan.&lt;/p&gt;
+    @endforelse</div>
+        <p><code>index.blade.php</code> da maosh va kompaniya qatoridan keyin:</p>
+        <div class="cmd" data-cmd="                · {{ $v-&gt;konikmalar_count }} ko'nikma">                · {{ $v-&gt;konikmalar_count }} ko'nikma</div>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik. <code>@forelse</code> ning
+        <code>@empty</code> qismi kompaniyasiz emas, <b>ko'nikmasiz</b> vakansiya uchun
+        ishlaydi.</p>
+      </li>
+
+      <li>
+        <p>🎉 Brauzerda uch holatni sinang</p>
+        <div class="cmd" data-cmd="php artisan serve">php artisan serve</div>
+        <p class="expect"><b>Kutilgan natija:</b>
+        <br><b>1)</b> <code>/vakansiyalar</code> — har bandda
+        <code>· 3 ko'nikma</code> kabi son. «DevOps injener» da
+        <code>· 0 ko'nikma</code>.
+        <br><b>2)</b> <code>/vakansiyalar/1</code> — ko'nikmalar ro'yxati, va
+        <code>PHP</code> yonida <b>daraja</b>:</p>
+        <div class="natija">Talab qilinadigan ko'nikmalar
+PHP (kuchli)   Laravel   SQL</div>
+        <p class="expect"><b>3)</b> <code>/vakansiyalar/5</code> (DevOps) —
+        <code>Ko'nikma ko'rsatilmagan.</code>
+        <br>Agar <code>daraja</code> ko'rinmasa — modelda
+        <code>-&gt;withPivot('daraja')</code> borligini tekshiring (HOLAT 4).</p>
+      </li>
+
+      <li>
+        <p>Ishni saqlang</p>
+        <div class="cmd" data-cmd="git add -A
+git commit -m &quot;27-dars: belongsToMany, pivot jadval va ko'nikmalar&quot;">git add -A
+git commit -m "27-dars: belongsToMany, pivot jadval va ko'nikmalar"</div>
+        <p class="expect"><b>Kutilgan natija:</b> commit haqida xabar.
+        <br><b>IshTop endi uchta jadvalga ega</b> va ular bir-biriga bog'langan. 🎓</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><input type="checkbox" id="d27c1"><label for="d27c1">Pivot jadval migration'ini yozdim (<code>constrained</code> · <code>cascadeOnDelete</code> · <code>unique</code>)</label></li>
+      <li><input type="checkbox" id="d27c2"><label for="d27c2"><code>--pretend</code> bilan cascade va unique indeks SQL'ini ko'rdim</label></li>
+      <li><input type="checkbox" id="d27c3"><label for="d27c3">Ikki modelga <code>belongsToMany</code> yozdim</label></li>
+      <li><input type="checkbox" id="d27c4"><label for="d27c4"><b>Pivot nomi <code>konikma_vakansiya</code> deb taxmin qilinganini tekshirdim</b></label></li>
+      <li><input type="checkbox" id="d27c5"><label for="d27c5"><code>attach</code> · <code>detach</code> · <code>syncWithoutDetaching</code> ni sinadim</label></li>
+      <li><input type="checkbox" id="d27c6"><label for="d27c6"><b><code>sync()</code> qolganlarini o'chirganini hisobotda ko'rdim</b> ⚠️</label></li>
+      <li><input type="checkbox" id="d27c7"><label for="d27c7">Takroriy <code>attach</code> da <code>UNIQUE constraint failed</code> ko'rdim</label></li>
+      <li><input type="checkbox" id="d27c8"><label for="d27c8"><code>withPivot</code> va <code>$k-&gt;pivot-&gt;daraja</code> ni ishlatdim</label></li>
+      <li><input type="checkbox" id="d27c9"><label for="d27c9"><b>N+1 ni o'lchadim: 6 → 2 → 1</b> ⚡</label></li>
+      <li><input type="checkbox" id="d27c10"><label for="d27c10">Sahifada ko'nikmalar va ko'nikma sonini ko'rdim</label></li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 5) TAXMIN + QUIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>«Laravel dasturchi» vakansiyasida uchta ko'nikma bor:
+    <b>PHP, Laravel, Docker</b>. Hamkasbingiz unga <b>SQL</b> ni ham qo'shmoqchi
+    bo'ldi. Hujjatda <code>sync</code> metodini ko'rdi va shunday yozdi:</p>
+    <div class="codefile">
+      <div class="fname">kod</div>
+      <code class="cmd" data-cmd="$v = Vakansiya::find(3);          // PHP, Laravel, Docker
+$sql = Konikma::where('nom', 'SQL')-&gt;first();
+
+$v-&gt;konikmalar()-&gt;sync([$sql-&gt;id]);
+
+echo $v-&gt;konikmalar()-&gt;pluck('nom')-&gt;implode(', ');">$v = Vakansiya::find(3);          // PHP, Laravel, Docker
+$sql = Konikma::where('nom', 'SQL')-&gt;first();
+
+$v-&gt;konikmalar()-&gt;<span class="add">sync([$sql-&gt;id])</span>;
+
+echo $v-&gt;konikmalar()-&gt;pluck('nom')-&gt;implode(', ');</code>
+    </div>
+    <p>Ekranda nima chiqadi? Va xato xabari bo'ladimi?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <div class="natija">SQL
+
+Xato:  yo'q
+Bazada: PHP, Laravel, Docker juftliklari O'CHIRILDI</div>
+        <p><b>Uchta ko'nikma yo'qoldi.</b> Sababi: <code>sync()</code> «qo'sh» degani
+        emas — u <b>ro'yxatni aynan moslashtiradi</b>. Siz bergan ro'yxatda faqat
+        <code>SQL</code> bor edi, demak qolganlari <b>ortiqcha</b> hisoblandi va
+        pivotdan o'chirildi.</p>
+        <p>Buni <code>sync()</code> qaytargan hisobot ochiq aytadi:</p>
+        <div class="natija">{"attached":[3],"detached":[1,2,5],"updated":[]}
+                    ↑ uchta juftlik o'chirildi</div>
+        <p class="expect">🔑 <b>Nega bu xatarli:</b> xato yo'q, ogohlantirish yo'q.
+        Kod «ishlaydi» — faqat ma'lumot yo'qoladi. Va agar bu forma orqali
+        bajarilsa, foydalanuvchi buni <b>ancha keyin</b> sezadi.</p>
+        <p><b>To'g'ri yechim — niyatga mos metod:</b></p>
+        <div class="natija">// «Qo'sh, boshqasiga tegma»
+$v-&gt;konikmalar()-&gt;syncWithoutDetaching([$sql-&gt;id]);
+   → PHP, Laravel, Docker, SQL   ✅
+
+// attach() ham qo'shadi, lekin bori bo'lsa UNIQUE xatosi beradi
+$v-&gt;konikmalar()-&gt;attach($sql-&gt;id);</div>
+        <p><code>sync()</code> <b>o'z joyida</b> to'g'ri: forma checkbox'lar bilan
+        <b>butun ro'yxatni</b> yuborganda («shu vakansiyaning ko'nikmalari — aynan
+        shular»). Ya'ni metod yomon emas, <b>niyatga mos kelmagan</b>.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span> Ko'pdan-ko'pga bog'lanish uchun
+    nima kerak?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Uchinchi jadval — pivot</button></li>
+      <li><button class="quiz-option">Ikkita qo'shimcha tashqi ustun</button></li>
+      <li><button class="quiz-option">Hech qanday qo'shimcha narsa</button></li>
+    </ul>
+    <div class="quiz-explain">Bog'lanish ikki tomonning <b>hech biriga</b> tegishli
+    emas — u ikkisining orasidagi fakt. Shuning uchun o'z jadvalida saqlanadi va har
+    juftlik <b>bitta qator</b> bo'ladi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span> <code>sync([5])</code> nima
+    qiladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Qolgan barcha bog'lanishlarni o'chiradi</button></li>
+      <li><button class="quiz-option">Faqat beshinchi ko'nikmani qo'shadi</button></li>
+      <li><button class="quiz-option">Takrorlanganini jimgina tashlab yuboradi</button></li>
+    </ul>
+    <div class="quiz-explain"><code>sync</code> ro'yxatni <b>aynan moslashtiradi</b>.
+    Faqat qo'shish kerak bo'lsa — <code>syncWithoutDetaching</code>. Hisobotdagi
+    <code>detached</code> ro'yxati nima o'chganini aytadi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span> Modelda
+    <code>withPivot('daraja')</code> yozilmasa nima bo'ladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">pivot-&gt;daraja doim null bo'ladi</button></li>
+      <li><button class="quiz-option">Darhol ustun topilmadi xatosi</button></li>
+      <li><button class="quiz-option">Laravel ustunni o'zi qo'shadi</button></li>
+    </ul>
+    <div class="quiz-explain">Bazada qiymat <b>bor</b>, lekin so'rovga qo'shilmaydi —
+    ya'ni yana <b>jimgina buzilish</b>. Tashxis:
+    <code>$k-&gt;pivot-&gt;toArray()</code> da ustun bor-yo'qligini ko'rish.</div>
+  </div>
+
+  <!-- ═══════════════ 6) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+    <p class="recall-intro">Avval o'zingiz javob bering, keyin ochib tekshiring.
+    Oxirgi ikkitasi — <a href="0026-boglanish-belongsto-hasmany.html">26-darsni</a>
+    takrorlash.</p>
+
+    <details class="recall">
+      <summary>Pivot jadval nomini Laravel qanday taxmin qiladi?</summary>
+      <div class="answer"><p>Ikki <b>model</b> nomini kichik harfga o'giradi,
+      <b>alifbo tartibida</b> qo'yadi va <code>_</code> bilan qo'shadi:
+      <code>Konikma</code> + <code>Vakansiya</code> → <code>konikma_vakansiya</code>.
+      <b>Ko'plik yasamaydi.</b></p></div>
+    </details>
+
+    <details class="recall">
+      <summary><code>attach</code>, <code>sync</code> va
+      <code>syncWithoutDetaching</code> farqi?</summary>
+      <div class="answer"><p><code>attach</code> — qo'shadi, mavjudini tekshirmaydi
+      (takroriy juftlik yoki <code>UNIQUE</code> xatosi);
+      <code>sync</code> — ro'yxatni <b>aynan moslashtiradi</b>, ortiqchasini
+      <b>o'chiradi</b>; <code>syncWithoutDetaching</code> — qo'shadi, hech narsa
+      o'chirmaydi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Pivotdagi qo'shimcha ustunga qanday yetib boriladi?</summary>
+      <div class="answer"><p>Modelda <code>-&gt;withPivot('daraja')</code>, ishlatishda
+      <code>$k-&gt;pivot-&gt;daraja</code>. Birinchisi yozilmasa — jimgina
+      <code>NULL</code>.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: qavssiz va qavs bilan farqi?</summary>
+      <div class="answer"><p>Qavssiz (<code>$v-&gt;konikmalar</code>) — so'rov
+      bajariladi, <b>Collection</b> qaytadi. Qavs bilan
+      (<code>$v-&gt;konikmalar()</code>) — <b>so'rov</b>, ustiga
+      <code>where</code>, <code>attach</code>, <code>sync</code> qo'shiladi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: N+1 nima va qanday o'lchanadi?</summary>
+      <div class="answer"><p>Sikl ichida bog'lanishga murojaat → <code>1 + N</code>
+      so'rov. O'lchash: <code>DB::enableQueryLog()</code> +
+      <code>count(DB::getQueryLog())</code>. Yechim — <code>with()</code>
+      (o'lchandi: <b>6 → 2</b>).</p></div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 7) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Cho'ntak xulosasi</span>
+    <ul>
+      <li>Ko'pdan-ko'pga bog'lanish <b>uchinchi jadvalda</b> saqlanadi — <b>pivot</b>.
+      Har qator = bitta juftlik.</li>
+      <li>Ikki tomon ham <b>bir xil</b> metod: <code>belongsToMany</code>.</li>
+      <li>🔑 Pivot nomi taxmini: ikki <b>model</b> nomi → kichik harf →
+      <b>alifbo tartibida</b> → <code>_</code> bilan.
+      <code>konikma_vakansiya</code>. Ko'plik <b>yasalmaydi</b>.</li>
+      <li>Migration'da: <code>foreignId()-&gt;constrained()</code> ·
+      <code>cascadeOnDelete()</code> · <code>unique([...])</code> — oxirgisi takroriy
+      juftlikni <b>baza darajasida</b> taqiqlaydi.</li>
+      <li>Amallar (hammasi <b>qavs bilan</b>): <code>attach</code> ·
+      <code>detach</code> · <code>sync</code> · <code>syncWithoutDetaching</code> ·
+      <code>toggle</code> · <code>updateExistingPivot</code>.</li>
+      <li>⚠️ <b><code>sync()</code> ro'yxatdan tashqarisini o'chiradi.</b> Faqat
+      qo'shish uchun — <code>syncWithoutDetaching</code>. Hisobotdagi
+      <code>detached</code> ga qarang.</li>
+      <li>⚠️ <code>detach()</code> argumentsiz — <b>hammasini</b> olib tashlaydi.</li>
+      <li>Pivotdagi qo'shimcha ustun: modelda <code>withPivot('daraja')</code>,
+      ishlatishda <code>$k-&gt;pivot-&gt;daraja</code>. Yozilmasa — <b>jimgina
+      <code>NULL</code></b>.</li>
+      <li>Nom taxminga mos kelmasa — <b>to'rt argument</b>:
+      <code>belongsToMany(Model::class, 'pivot', 'bu_id', 'u_id')</code>. Bu xato
+      <b>ovoz chiqaradi</b> («no such table»).</li>
+      <li>🔍 Pivot ustunlari SQL'da <code>pivot_</code> prefiksi bilan tortiladi, so'rov
+      esa 22-darsdagi <code>INNER JOIN</code>.</li>
+      <li>⚡ N+1 pivot bilan ham bor: <b>6 → 2 → 1</b>
+      (<code>with</code>, <code>withCount</code>). <code>with()</code> massiv ham
+      qabul qiladi.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p>Uchta jadval, uch xil bog'lanish — baza tayyor. Lekin bitta muammo qoldi:
+    <b>ma'lumotni har marta qo'lda solyapmiz</b>. <code>sql/05-malumot.php</code>,
+    <code>sql/09-konikma.php</code>, <code>sql/11-konikma-n1.php</code> — uchta skript,
+    va yangi ustun qo'shilsa uchalasini tuzatish kerak.</p>
+    <p>Va tez orada 5 ta vakansiya yetmaydi: <b>sahifalash</b> (pagination) ni sinash
+    uchun 50 ta, tezlikni o'lchash uchun 5000 ta kerak bo'ladi. Ularni qo'lda
+    yozib bo'lmaydi.</p>
+    <p>28-darsda <b>Factory va Seeder</b> bilan tanishamiz: Laravel <b>o'zi</b> yasab
+    beradigan realistik ma'lumot. Bitta buyruq — <code>php artisan db:seed</code> —
+    va baza to'ladi. Va shu asbob <b>Modul E</b> dagi testlar uchun ham asos bo'ladi.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel — Many To Many</b>:
+    <a href="https://laravel.com/docs/13.x/eloquent-relationships#many-to-many">laravel.com/docs/13.x/eloquent-relationships#many-to-many</a>
+    — pivot nomi qoidasi, <code>withPivot</code>, <code>withTimestamps</code>.<sup><a href="#fn1">1</a></sup><br>
+    <b>Bog'lanishni o'zgartirish</b>:
+    <a href="https://laravel.com/docs/13.x/eloquent-relationships#updating-many-to-many-relationships">Updating
+    Many To Many Relationships</a> — <code>attach</code>, <code>detach</code>,
+    <code>sync</code>, <code>toggle</code>.<sup><a href="#fn2">2</a></sup><br>
+    <b>Migration — indeks va tashqi kalit</b>:
+    <a href="https://laravel.com/docs/13.x/migrations#indexes">laravel.com/docs/13.x/migrations#indexes</a>.<sup><a href="#fn3">3</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b> «pivotga o'z modelini yozsam
+    bo'ladimi?» (<code>using()</code> va <code>Pivot</code> klassi),
+    «ariza ham pivotmi yoki alohida modelmi?», «checkbox'li forma bilan
+    <code>sync</code> ni qanday bog'laymiz?», «<code>withTimestamps()</code> nima
+    beradi?» — har qanday savol yaxshi. Ikkinchi savol IshTop uchun muhim: ariza
+    <b>o'z ma'lumotiga</b> ega (holat, rezyume), shuning uchun u pivot emas,
+    <b>to'liq model</b> bo'ladi — Modul D da ko'ramiz.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0026-boglanish-belongsto-hasmany.html">Oldingi: belongsTo va hasMany</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel 13 — <a href="https://laravel.com/docs/13.x/eloquent-relationships#many-to-many">Many To Many Relationships</a>.</li>
+      <li id="fn2">Laravel 13 — <a href="https://laravel.com/docs/13.x/eloquent-relationships#updating-many-to-many-relationships">Updating Many To Many Relationships</a>.</li>
+      <li id="fn3">Laravel 13 — <a href="https://laravel.com/docs/13.x/migrations#indexes">Migrations: Indexes</a>.</li>
+      <li id="fn4">Barchasi jonli o'lchangan (Laravel 13.25.0, SQLite 3.45.1):
+      pivot taxmini <code>konikma_vakansiya</code> + <code>vakansiya_id</code> /
+      <code>konikma_id</code> · <code>--pretend</code> da <code>on delete cascade</code>
+      va unique indeks · <code>attach([1,2,3])</code> → PHP, Laravel, SQL ·
+      takroriy <code>attach</code> → <code>UNIQUE constraint failed</code> ·
+      <code>detach(2)</code> · <code>syncWithoutDetaching([1,5])</code> →
+      PHP, SQL, Docker · <code>sync([2,4])</code> → Laravel, Git va hisobot
+      <code>{"attached":[2,4],"detached":[1,3,5],"updated":[]}</code> ·
+      <code>toggle</code> · <code>attach(1, ['daraja' =&gt; 'kuchli'])</code> →
+      <code>$k-&gt;pivot-&gt;daraja</code> · <code>withPivot</code> siz →
+      <b>NULL</b> va <code>pivot-&gt;toArray()</code> da ustun <b>yo'q</b> ·
+      so'rovlar soni <b>6 → 2 → 1</b> · <code>whereHas</code> → 2 ta ·
+      <code>doesntHave</code> → 1 ta · <code>Konikma::withCount('vakansiyalar')</code>
+      hisoboti · sahifada <code>PHP (kuchli)</code> va
+      <code>Ko'nikma ko'rsatilmagan.</code></li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

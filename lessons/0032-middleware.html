@@ -1,0 +1,1096 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 32 — Middleware: so'rov yo'lidagi qatlamlarni o'zimiz yozamiz</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 32 · MODUL D — FOYDALANUVCHI VA HUQUQLAR</p>
+  <h1>Middleware: qatlamlarni o'zimiz yozamiz</h1>
+  <p class="lead">17-darsda middleware'ni <b>piyoz qatlamlari</b> sifatida
+  ko'rgandik, 30-darsda esa <code>middleware('auth')</code> ni ishlatdik. Bugun
+  o'zimiz yozamiz — va piyoz naqshini <b>log faylida o'z ko'zimiz bilan</b>
+  ko'ramiz.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 15 daqiqa</span>
+    <span>💻 Amaliyot ≈ 24 daqiqa</span>
+    <span>Kerak: <a href="0031-starter-kit.html">Dars 31</a></span>
+  </p>
+
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b>Middleware nima va qachon kerak</b>
+        <span class="nima">Har so'rovda takrorlanadigan ish — tekshirish, o'lchash,
+        til tanlash — controllerda emas, <b>yo'lda</b> bajariladi.</span></li>
+      <li><b><code>make:middleware</code></b>
+        <span class="nima">Yasalgan klassning yagona metodi:
+        <code>handle(Request $request, Closure $next)</code>.</span></li>
+      <li><b>🔍 Piyoz naqshi — jonli isbot</b>
+        <span class="nima"><code>$next($request)</code> dan <b>oldin</b> va
+        <b>keyin</b> kod. Ikki middleware bilan log tartibi o'lchanadi.</span></li>
+      <li><b>⚠️ Laravel 11+ da <code>Kernel.php</code> YO'Q</b>
+        <span class="nima">Eski qo'llanmalar <code>app/Http/Kernel.php</code> haqida
+        yozadi — u <b>o'chirilgan</b>. Endi hammasi
+        <code>bootstrap/app.php</code> da (17-dars!).</span></li>
+      <li><b>Ro'yxatdan o'tkazishning uch usuli</b>
+        <span class="nima"><code>alias</code> (nom berish) ·
+        <code>append</code>/<code>prepend</code> (global) · guruhga qo'shish.</span></li>
+      <li><b>Qo'llashning uch shakli</b>
+        <span class="nima">Bitta route'ga · massiv bilan bir nechta ·
+        <code>Route::middleware([...])-&gt;group()</code>.</span></li>
+      <li><b>To'xtatuvchi middleware</b>
+        <span class="nima"><code>$next</code> chaqirilmasa controller <b>umuman
+        ishlamaydi</b> — <code>auth</code> aynan shunday ishlaydi.</span></li>
+      <li><b>Parametrli middleware</b>
+        <span class="nima"><code>'til:en'</code> · <code>'throttle:5,1'</code> —
+        ikki nuqtadan keyingi qiymat metodga argument bo'lib boradi.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima">Tartib · global middleware xavfi · <code>$next</code> ni
+        unutish · javobni o'zgartirish · <code>terminate()</code> ·
+        <code>route:list -v</code> · <code>guest</code> middleware.</span></li>
+      <li><b>IshTop'da natija</b>
+        <span class="nima">Har so'rovning vaqti o'lchanadi va javob sarlavhasiga
+        qo'shiladi; til <code>?til=en</code> bilan almashadi va sessiyada
+        eslab qolinadi.</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Nega bu muhim</span>
+    <p>Ba'zi ishlar <b>har so'rovda</b> takrorlanadi: «kirganmi?», «huquqi bormi?»,
+    «qaysi til?», «bu so'rov qancha vaqt oldi?». Ularni har controllerda yozish —
+    takrorlanish va unutish demak (bittasida yozmay qolsangiz, teshik ochiladi).</p>
+    <p><b>Middleware</b> shu ishlarni <b>yo'lga</b> qo'yadi: so'rov controllerga
+    yetib borgunicha va javob brauzerga qaytgunicha o'tadigan qatlam.</p>
+    <p>Siz uni allaqachon <b>ishlatgansiz</b> — <code>middleware('auth')</code>
+    (30-dars). Bugun uni <b>ichidan</b> ko'ramiz. Va bu bilim keyingi darslar uchun
+    ham kerak: huquqlar (33), rollar (34) — hammasi shu mexanizmga tayanadi.</p>
+  </div>
+
+  <!-- ═══════════════ 2) TUSHUNCHA ═══════════════ -->
+  <h2><code>make:middleware</code> — bitta metod</h2>
+
+  <div class="codefile">
+    <div class="fname">terminal</div>
+    <code class="cmd" data-cmd="php artisan make:middleware SoravniOlchash">php artisan make:middleware SoravniOlchash</code>
+  </div>
+
+  <div class="codefile">
+    <div class="fname">app/Http/Middleware/SoravniOlchash.php — yasalgani</div>
+    <code class="cmd" data-cmd="class SoravniOlchash
+{
+    public function handle(Request $request, Closure $next): Response
+    {
+        return $next($request);
+    }
+}">class SoravniOlchash
+{
+    public function handle(Request $request, Closure $next): Response
+    {
+        return $next($request);
+    }
+}</code>
+  </div>
+
+  <p>Butun mexanizm shu bitta qatorda. <code>$next</code> — <b>closure</b>
+  (16-dars): «zanjirning qolgan qismi». Uni chaqirsangiz so'rov <b>oldinga</b>
+  ketadi; chaqirmasangiz — <b>to'xtaydi</b>.</p>
+
+  <p>Va eng muhimi: <code>$next($request)</code> <b>javobni qaytaradi</b>. Ya'ni
+  kod yozish uchun ikkita joy bor:</p>
+
+  <div class="natija">public function handle(Request $request, Closure $next): Response
+{
+    // ── 1) BU YERDA: so'rov hali controllerga bormagan
+    //    $request ni o'qish, tekshirish, to'xtatish mumkin
+
+    $javob = $next($request);        ← controller shu yerda ishlaydi
+
+    // ── 2) BU YERDA: javob tayyor
+    //    $javob ni o'zgartirish, sarlavha qo'shish, o'lchash mumkin
+
+    return $javob;
+}</div>
+
+  <h2>🔍 Piyoz naqshi — jonli isbot</h2>
+
+  <p>17-darsda middleware'ni piyoz qatlamlari deb chizgandik. Endi buni
+  <b>o'lchaymiz</b>. Ikkita middleware yozamiz va har biri kirish-chiqishini logga
+  yozsin:</p>
+
+  <div class="codefile">
+    <div class="fname">app/Http/Middleware/SoravniOlchash.php</div>
+    <code class="cmd" data-cmd="public function handle(Request $request, Closure $next): Response
+{
+    $boshlandi = microtime(true);
+    Log::info('[olchash] KIRDI: ' . $request-&gt;method() . ' ' . $request-&gt;path());
+
+    $javob = $next($request);
+
+    $sarflandi = round((microtime(true) - $boshlandi) * 1000, 1);
+    Log::info('[olchash] CHIQDI: ' . $request-&gt;path() . ' — ' . $sarflandi . ' ms, status ' . $javob-&gt;getStatusCode());
+
+    $javob-&gt;headers-&gt;set('X-Sarflangan-Vaqt', $sarflandi . 'ms');
+
+    return $javob;
+}">public function handle(Request $request, Closure $next): Response
+{
+    <span class="add">$boshlandi = microtime(true);
+    Log::info('[olchash] KIRDI: ' . $request-&gt;method() . ' ' . $request-&gt;path());</span>
+
+    $javob = $next($request);
+
+    <span class="add">$sarflandi = round((microtime(true) - $boshlandi) * 1000, 1);
+    Log::info('[olchash] CHIQDI: ' . $request-&gt;path() . ' — ' . $sarflandi . ' ms, status ' . $javob-&gt;getStatusCode());
+
+    $javob-&gt;headers-&gt;set('X-Sarflangan-Vaqt', $sarflandi . 'ms');</span>
+
+    return $javob;
+}</code>
+  </div>
+
+  <p>Ikkalasini bitta route'ga qo'yib, log'ga qaraymiz:</p>
+
+  <div class="natija">Route::get('/vakansiyalar', ...)-&gt;middleware(['olchash', 'til']);
+
+── storage/logs/laravel.log
+[olchash] KIRDI: GET vakansiyalar          ← tashqi qatlam kirdi
+[til] kirdi — standart: uz                 ← ichki qatlam kirdi
+                                           ← CONTROLLER shu yerda ishladi
+[til] chiqdi — locale: uz                  ← ichki qatlam chiqdi
+[olchash] CHIQDI: vakansiyalar — 31.8 ms   ← tashqi qatlam chiqdi</div>
+
+  <p>🎯 <b>Mana piyoz.</b> Birinchi yozilgan middleware — <b>eng tashqi</b> qatlam:
+  u birinchi kiradi va <b>oxirgi</b> chiqadi. Javob middleware'lardan
+  <b>teskari tartibda</b> qaytadi.</p>
+
+  <p>Va javob sarlavhasida natija ko'rinadi:</p>
+
+  <div class="natija">$ curl -D - http://localhost:8000/vakansiyalar
+
+X-Sarflangan-Vaqt: 30.3ms</div>
+
+  <h2>⚠️ Laravel 11+ da <code>Kernel.php</code> yo'q</h2>
+
+  <p>Internetdagi ko'p qo'llanma «middleware'ni <code>app/Http/Kernel.php</code> ga
+  qo'shing» deydi. Laravel 11 dan boshlab bu fayl <b>umuman yo'q</b>:</p>
+
+  <div class="natija">$ ls app/Http/Kernel.php
+ls: cannot access 'app/Http/Kernel.php': No such file or directory</div>
+
+  <p>Uning o'rniga — <code>bootstrap/app.php</code>. 17-darsda uni ochib
+  ko'rgandik, va o'shanda <b>bo'sh</b> joy bor edi. Mana o'sha joy:</p>
+
+  <div class="codefile">
+    <div class="fname">bootstrap/app.php</div>
+    <code class="cmd" data-cmd="-&gt;withMiddleware(function (Middleware $middleware): void {
+    $middleware-&gt;alias([
+        'olchash' =&gt; \App\Http\Middleware\SoravniOlchash::class,
+        'til' =&gt; \App\Http\Middleware\TilniTanla::class,
+    ]);
+})">-&gt;withMiddleware(function (Middleware $middleware): void {
+    <span class="add">$middleware-&gt;alias([
+        'olchash' =&gt; \App\Http\Middleware\SoravniOlchash::class,
+        'til' =&gt; \App\Http\Middleware\TilniTanla::class,
+    ]);</span>
+})</code>
+  </div>
+
+  <p>🎯 17-darsda «bu bo'sh joy nima uchun?» degan savol tug'ilgandi — javobi shu.</p>
+
+  <h3>Uch xil ro'yxatdan o'tkazish</h3>
+
+  <table class="sheet">
+    <tr><th>Usul</th><th class="note-cell">Qachon</th></tr>
+    <tr><td><code>$middleware-&gt;alias([...])</code></td><td class="note-cell"><b>Nom</b> beradi, keyin route'da <code>middleware('olchash')</code>. Eng ko'p ishlatiladigan</td></tr>
+    <tr><td><code>$middleware-&gt;append(Klass::class)</code></td><td class="note-cell"><b>Global</b>: <b>har</b> so'rovda, oxirgi qatlam sifatida</td></tr>
+    <tr><td><code>$middleware-&gt;prepend(Klass::class)</code></td><td class="note-cell">Global, <b>birinchi</b> qatlam sifatida</td></tr>
+    <tr><td><code>$middleware-&gt;web(append: [...])</code></td><td class="note-cell">Faqat <code>web</code> guruhiga (sessiya, CSRF bor route'lar)</td></tr>
+  </table>
+
+  <h2>Qo'llashning uch shakli</h2>
+
+  <div class="codefile">
+    <div class="fname">routes/web.php</div>
+    <code class="cmd" data-cmd="// 1) bitta route'ga
+Route::get('/vakansiyalar', ...)-&gt;middleware('olchash');
+
+// 2) bir nechta — massiv bilan
+Route::get('/vakansiyalar', ...)-&gt;middleware(['olchash', 'til']);
+
+// 3) guruhga — ichidagi HAMMA route'ga qo'llanadi
+Route::middleware(['olchash', 'til'])-&gt;group(function () {
+    Route::get('/vakansiyalar', ...)-&gt;name('vakansiyalar.index');
+    Route::get('/vakansiyalar/{id}', ...)-&gt;name('vakansiyalar.show');
+});">// 1) bitta route'ga
+Route::get('/vakansiyalar', ...)-&gt;middleware('olchash');
+
+// 2) bir nechta — massiv bilan
+Route::get('/vakansiyalar', ...)-&gt;middleware(['olchash', 'til']);
+
+// 3) guruhga — ichidagi HAMMA route'ga qo'llanadi
+Route::middleware(['olchash', 'til'])-&gt;group(function () {
+    Route::get('/vakansiyalar', ...)-&gt;name('vakansiyalar.index');
+    Route::get('/vakansiyalar/{id}', ...)-&gt;name('vakansiyalar.show');
+});</code>
+  </div>
+
+  <p>Qaysi route'da qanday middleware borligini ko'rish — <code>route:list -v</code>
+  (24-darsdagi buyruqning batafsil shakli):</p>
+
+  <div class="natija">GET|HEAD vakansiyalar         vakansiyalar.index › VakansiyaController@index
+  ⇂ web
+  ⇂ olchash
+  ⇂ til
+POST     vakansiyalar         vakansiyalar.store › VakansiyaController@store
+  ⇂ web
+  ⇂ auth</div>
+
+  <p><code>web</code> — Laravel o'zi qo'yadigan guruh: sessiya, cookie, CSRF
+  (19-dars). Ya'ni har web so'rovda allaqachon bir nechta middleware ishlab
+  turibdi.</p>
+
+  <h2>To'xtatuvchi middleware</h2>
+
+  <p><code>$next($request)</code> ni chaqirmasangiz, so'rov <b>oldinga
+  ketmaydi</b> — controller <b>umuman ishlamaydi</b>. <code>auth</code> aynan
+  shunday ishlaydi (30-dars).</p>
+
+  <div class="codefile">
+    <div class="fname">app/Http/Middleware/FaqatIshVaqti.php</div>
+    <code class="cmd" data-cmd="public function handle(Request $request, Closure $next, int $boshi = 9, int $oxiri = 18): Response
+{
+    $soat = (int) now()-&gt;format('H');
+
+    if ($soat &lt; $boshi || $soat &gt;= $oxiri) {
+        return redirect()-&gt;route('vakansiyalar.index')
+            -&gt;with('xabar', &quot;Bu amal faqat {$boshi}:00–{$oxiri}:00 orasida mumkin.&quot;);
+    }
+
+    return $next($request);
+}">public function handle(Request $request, Closure $next, <span class="add">int $boshi = 9, int $oxiri = 18</span>): Response
+{
+    $soat = (int) now()-&gt;format('H');
+
+    if ($soat &lt; $boshi || $soat &gt;= $oxiri) {
+        <span class="add">return redirect()-&gt;route('vakansiyalar.index')
+            -&gt;with('xabar', "Bu amal faqat {$boshi}:00–{$oxiri}:00 orasida mumkin.");</span>
+    }
+
+    return $next($request);
+}</code>
+  </div>
+
+  <div class="natija">Route::post('/vakansiyalar', ...)-&gt;middleware(['auth', 'ishvaqti:0,1']);
+
+POST yuborilganda (soat 12 da):
+  status: 302 → /vakansiyalar
+  xabar:  Bu amal faqat 0:00–1:00 orasida mumkin.
+
+Controller CHAQIRILMADI — vakansiya qo'shilmadi.</div>
+
+  <h3>Parametrli middleware</h3>
+
+  <p>Yuqoridagi misolda <code>'ishvaqti:0,1'</code> yozildi. Ikki nuqtadan keyingi
+  qiymatlar <code>handle()</code> ga <b>qo'shimcha argument</b> bo'lib boradi:</p>
+
+  <div class="natija">'ishvaqti:0,1'
+          ↓  ↓
+handle($request, $next, $boshi = 0, $oxiri = 1)
+
+'til:en'   →  handle($request, $next, $standart = 'en')
+'throttle:5,1'  →  Laravel'ning o'z middleware'i (31-darsdagi rate limiting)</div>
+
+  <p>Parametr bo'lmasa, metoddagi <b>standart qiymat</b> ishlatiladi. Shuning uchun
+  <code>'til'</code> va <code>'til:en'</code> ikkalasi ham to'g'ri.</p>
+
+  <!-- ═══════════════ 3) HAR XIL HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir bir marta o'qib chiqing, keyin
+  kerak bo'lganda qaytib qarang.</p>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 1</span>
+    <h4>Tartib muhim</h4>
+    <p>Middleware'lar <b>yozilgan tartibda</b> kiradi va <b>teskari tartibda</b>
+    chiqadi:</p>
+    <div class="natija">middleware(['olchash', 'til'])
+
+olchash KIRDI
+  til KIRDI
+    controller
+  til CHIQDI
+olchash CHIQDI</div>
+    <p>Bu amalda muhim: <code>olchash</code> tashqarida bo'lgani uchun u
+    <code>til</code> ning vaqtini <b>ham</b> o'lchaydi. Agar tartibni almashtirsangiz,
+    o'lchov <code>til</code> ni hisobga olmaydi.</p>
+    <p>Xuddi shunday: <code>auth</code> dan <b>oldin</b> turgan middleware kirmagan
+    foydalanuvchi uchun ham ishlaydi; <b>keyin</b> turgani esa faqat kirganlar
+    uchun.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 2</span>
+    <h4><code>$next</code> ni unutish</h4>
+    <div class="natija">public function handle(Request $request, Closure $next): Response
+{
+    Log::info('kirdi');
+    // return $next($request);   ← UNUTILDI
+}</div>
+    <p>Natija: PHP <code>null</code> qaytaradi, Laravel esa <code>Response</code>
+    kutadi:</p>
+    <div class="natija">TypeError: ...::handle(): Return value must be of type
+Symfony\Component\HttpFoundation\Response, none returned</div>
+    <p>Xato <b>aniq</b> va darhol chiqadi — bu yaxshi. Lekin
+    <code>return</code> ni yozib, <code>$next</code> ni <b>shartli</b> chaqirsangiz
+    (masalan <code>if</code> ichida) va shart bajarilmasa — sahifa jimgina
+    to'xtaydi. Shuning uchun har tarmoqda <b>nimadir qaytishi</b> kerak.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 3</span>
+    <h4>Global middleware — ehtiyot bo'ling</h4>
+    <div class="natija">$middleware-&gt;append(\App\Http\Middleware\SoravniOlchash::class);</div>
+    <p>Endi u <b>har</b> so'rovda ishlaydi — shu qatorda:</p>
+    <ul>
+      <li>statik fayllar so'rovi;</li>
+      <li><code>/up</code> (sog'liq tekshiruvi);</li>
+      <li>API so'rovlari;</li>
+      <li>xato sahifalari.</li>
+    </ul>
+    <p>Agar middleware sekin bo'lsa yoki bazaga yozsa, bu <b>har</b> so'rovga
+    qo'shiladi. Log yozadigan middleware global qilinsa, log fayli tez
+    to'lib ketadi.</p>
+    <p>✅ <b>Qoida:</b> avval <code>alias</code> bilan aniq route'larga qo'ying.
+    Global qilish — faqat <b>haqiqatan hamma joyda</b> kerak bo'lsa
+    (masalan xavfsizlik sarlavhalari).</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 4</span>
+    <h4>Javobni o'zgartirish</h4>
+    <p><code>$next</code> dan keyin javob <b>obyekt</b> — uni o'zgartirish mumkin:</p>
+    <div class="natija">$javob = $next($request);
+
+$javob-&gt;headers-&gt;set('X-Sarflangan-Vaqt', $sarflandi . 'ms');   // sarlavha qo'shish
+$javob-&gt;setStatusCode(200);                                     // statusni almashtirish
+
+return $javob;</div>
+    <p>Bu naqsh real loyihalarda ko'p ishlatiladi: xavfsizlik sarlavhalari
+    (<code>X-Frame-Options</code>), kesh sarlavhalari, so'rov identifikatori.</p>
+    <p>⚠️ Lekin javob <b>allaqachon yuborilgan</b> bo'lsa (masalan fayl oqimi),
+    o'zgartirish ish bermaydi. Bunday hollarda <code>terminate()</code> ishlatiladi
+    (keyingi holat).</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 5</span>
+    <h4><code>terminate()</code> — javob yuborilgandan <b>keyin</b></h4>
+    <div class="natija">public function terminate(Request $request, Response $response): void
+{
+    // Javob foydalanuvchiga YUBORILGANDAN keyin ishlaydi
+    Log::info('so\'rov tugadi');
+}</div>
+    <p>Foydasi: og'ir ishni (statistika yozish, log yuborish) foydalanuvchi
+    <b>kutmaydi</b> — sahifa allaqachon ochilgan bo'ladi.</p>
+    <p>⚠️ Bu faqat <code>php artisan serve</code> yoki FPM kabi muhitlarda
+    kutilganidek ishlaydi. Sekin ishlar uchun to'g'riroq yechim — <b>navbat</b>
+    (queue), Modul H da ko'ramiz.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 6</span>
+    <h4><code>guest</code> middleware — <code>auth</code> ning teskarisi</h4>
+    <p>Kirgan odam kirish sahifasini ko'rishi mantiqsiz. Laravel'da tayyor
+    middleware bor:</p>
+    <div class="natija">Route::get('/kirish', ...)-&gt;name('login')-&gt;middleware('guest');
+Route::get('/royxatdan-otish', ...)-&gt;middleware('guest');
+
+Kirgan odam /kirish ga borsa  →  302  →  bosh sahifaga</div>
+    <p>31-darsdagi Breeze aynan shunday qiladi: barcha auth route'lari
+    <code>Route::middleware('guest')-&gt;group(...)</code> ichida.</p>
+    <p>Qayerga yuborishni <code>bootstrap/app.php</code> dagi
+    <code>$middleware-&gt;redirectUsersTo('/vakansiyalar')</code> belgilaydi.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>Middleware'ni ko'rish va tekshirish</h4>
+    <div class="natija">php artisan route:list -v            ← har route ostida middleware ro'yxati
+php artisan route:list --path=vakansiyalar -v
+
+  GET|HEAD vakansiyalar
+    ⇂ web        ← Laravel qo'ygan guruh (sessiya, CSRF)
+    ⇂ olchash    ← bizniki
+    ⇂ til        ← bizniki</div>
+    <p>Bu «nega bu sahifa 302 qaytaryapti?» degan savolga javob topishning eng tez
+    yo'li: route'da <code>auth</code> bormi? Kutilmagan middleware bormi?</p>
+    <p>Log ham foydali: har middleware kirish-chiqishini yozsa, tartib
+    <code>storage/logs/laravel.log</code> da ko'rinadi (bugungi amaliyotda
+    shunday qilamiz).</p>
+  </div>
+
+  <!-- ═══════════════ 4) AMALIYOT / MODE-HINT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    <span class="mode-hint-title">💻 Amaliy qism kompyuterda</span>
+    <p>Amaliyotda uchta middleware yozasiz: so'rov vaqtini o'lchaydigan, tilni
+    tanlaydigan (parametrli) va ish vaqtidan tashqarida <b>to'xtatadigan</b>.
+    Yo'lda piyoz tartibini log faylida <b>o'z ko'zingiz bilan</b> ko'rasiz.</p>
+    <button type="button" class="modebtn" data-set-mode="do">💻 Amaliyot rejimini ko'rish</button>
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <p>Tayyorgarlik</p>
+        <p class="why-step">31-darsda rate limiting qo'shgandik — sinovlar paytida
+        o'zingizni bloklab qo'ygan bo'lishingiz mumkin.</p>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+php artisan cache:clear
+ls app/Http/Kernel.php">cd ~/Projects/Learn/ishtop
+php artisan cache:clear
+ls app/Http/Kernel.php
+<span class="out">ls: cannot access 'app/Http/Kernel.php': No such file or directory</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> kesh tozalanadi, va
+        <code>Kernel.php</code> <b>topilmaydi</b> — Laravel 11 dan beri u yo'q.
+        Eski qo'llanmalarni o'qiyotganda buni eslang.</p>
+      </li>
+
+      <li>
+        <p>Birinchi middleware — so'rovni o'lchash</p>
+        <div class="cmd" data-cmd="php artisan make:middleware SoravniOlchash
+
+cat &gt; app/Http/Middleware/SoravniOlchash.php &lt;&lt;'EOF'
+&lt;?php
+
+namespace App\Http\Middleware;
+
+use Closure;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Symfony\Component\HttpFoundation\Response;
+
+class SoravniOlchash
+{
+    public function handle(Request $request, Closure $next): Response
+    {
+        // ── $next dan OLDIN: so'rov hali controllerga bormagan
+        $boshlandi = microtime(true);
+        Log::info('[olchash] KIRDI: ' . $request-&gt;method() . ' ' . $request-&gt;path());
+
+        $javob = $next($request);
+
+        // ── $next dan KEYIN: javob tayyor
+        $sarflandi = round((microtime(true) - $boshlandi) * 1000, 1);
+        Log::info('[olchash] CHIQDI: ' . $request-&gt;path() . ' — ' . $sarflandi . ' ms, status ' . $javob-&gt;getStatusCode());
+
+        $javob-&gt;headers-&gt;set('X-Sarflangan-Vaqt', $sarflandi . 'ms');
+
+        return $javob;
+    }
+}
+EOF
+php -l app/Http/Middleware/SoravniOlchash.php">php artisan make:middleware SoravniOlchash
+
+cat &gt; app/Http/Middleware/SoravniOlchash.php &lt;&lt;'EOF'
+&lt;?php
+
+namespace App\Http\Middleware;
+
+use Closure;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Symfony\Component\HttpFoundation\Response;
+
+class SoravniOlchash
+{
+    public function handle(Request $request, Closure $next): Response
+    {
+        // ── $next dan OLDIN: so'rov hali controllerga bormagan
+        $boshlandi = microtime(true);
+        Log::info('[olchash] KIRDI: ' . $request-&gt;method() . ' ' . $request-&gt;path());
+
+        $javob = $next($request);
+
+        // ── $next dan KEYIN: javob tayyor
+        $sarflandi = round((microtime(true) - $boshlandi) * 1000, 1);
+        Log::info('[olchash] CHIQDI: ' . $request-&gt;path() . ' — ' . $sarflandi . ' ms, status ' . $javob-&gt;getStatusCode());
+
+        $javob-&gt;headers-&gt;set('X-Sarflangan-Vaqt', $sarflandi . 'ms');
+
+        return $javob;
+    }
+}
+EOF
+php -l app/Http/Middleware/SoravniOlchash.php
+<span class="out">No syntax errors detected</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> «No syntax errors detected».</p>
+      </li>
+
+      <li>
+        <p>Ikkinchi middleware — tilni tanlash (parametrli)</p>
+        <p class="why-step">31-darsda <code>lang/uz</code> bilan tanishgandik; endi
+        tilni <b>so'rovga qarab</b> almashtiramiz.</p>
+        <div class="cmd" data-cmd="php artisan make:middleware TilniTanla
+
+cat &gt; app/Http/Middleware/TilniTanla.php &lt;&lt;'EOF'
+&lt;?php
+
+namespace App\Http\Middleware;
+
+use Closure;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\App;
+use Illuminate\Support\Facades\Log;
+use Symfony\Component\HttpFoundation\Response;
+
+class TilniTanla
+{
+    public function handle(Request $request, Closure $next, string $standart = 'uz'): Response
+    {
+        Log::info('[til] kirdi — standart: ' . $standart);
+
+        $til = $request-&gt;query('til') ?? $request-&gt;session()-&gt;get('til', $standart);
+
+        if (in_array($til, ['uz', 'en'], true)) {
+            App::setLocale($til);
+            $request-&gt;session()-&gt;put('til', $til);
+        }
+
+        $javob = $next($request);
+
+        Log::info('[til] chiqdi — locale: ' . App::getLocale());
+
+        return $javob;
+    }
+}
+EOF
+php -l app/Http/Middleware/TilniTanla.php">php artisan make:middleware TilniTanla
+
+cat &gt; app/Http/Middleware/TilniTanla.php &lt;&lt;'EOF'
+&lt;?php
+
+namespace App\Http\Middleware;
+
+use Closure;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\App;
+use Illuminate\Support\Facades\Log;
+use Symfony\Component\HttpFoundation\Response;
+
+class TilniTanla
+{
+    public function handle(Request $request, Closure $next, <span class="add">string $standart = 'uz'</span>): Response
+    {
+        Log::info('[til] kirdi — standart: ' . $standart);
+
+        $til = $request-&gt;query('til') ?? $request-&gt;session()-&gt;get('til', $standart);
+
+        if (in_array($til, ['uz', 'en'], true)) {
+            App::setLocale($til);
+            $request-&gt;session()-&gt;put('til', $til);
+        }
+
+        $javob = $next($request);
+
+        Log::info('[til] chiqdi — locale: ' . App::getLocale());
+
+        return $javob;
+    }
+}
+EOF
+php -l app/Http/Middleware/TilniTanla.php
+<span class="out">No syntax errors detected</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> «No syntax errors detected».
+        <br>Uchinchi parametr — <code>string $standart = 'uz'</code>. Route'da
+        <code>'til:en'</code> deb yozsangiz, u shu argumentga tushadi.</p>
+      </li>
+
+      <li>
+        <p>Ularga <b>nom</b> bering (alias)</p>
+        <p class="why-step">17-darsdagi bo'sh joy nihoyat to'ladi.</p>
+        <p><code>bootstrap/app.php</code> da <code>withMiddleware</code> ichini
+        shunday qiling:</p>
+        <div class="cmd" data-cmd="    -&gt;withMiddleware(function (Middleware $middleware): void {
+        $middleware-&gt;alias([
+            'olchash' =&gt; \App\Http\Middleware\SoravniOlchash::class,
+            'til' =&gt; \App\Http\Middleware\TilniTanla::class,
+        ]);
+    })">    -&gt;withMiddleware(function (Middleware $middleware): void {
+        $middleware-&gt;alias([
+            'olchash' =&gt; \App\Http\Middleware\SoravniOlchash::class,
+            'til' =&gt; \App\Http\Middleware\TilniTanla::class,
+        ]);
+    })</div>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik. Tekshirish:
+        <code>php -l bootstrap/app.php</code></p>
+      </li>
+
+      <li>
+        <p>Route'larga guruh bilan qo'llang</p>
+        <div class="cmd" data-cmd="cat &gt; routes/web.php &lt;&lt;'EOF'
+&lt;?php
+
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\VakansiyaController;
+use Illuminate\Support\Facades\Route;
+
+Route::middleware(['olchash', 'til'])-&gt;group(function () {
+    Route::get('/vakansiyalar', [VakansiyaController::class, 'index'])-&gt;name('vakansiyalar.index');
+    Route::get('/vakansiyalar/{id}', [VakansiyaController::class, 'show'])-&gt;name('vakansiyalar.show');
+});
+
+Route::post('/vakansiyalar', [VakansiyaController::class, 'store'])
+    -&gt;name('vakansiyalar.store')
+    -&gt;middleware('auth');
+
+Route::get('/royxatdan-otish', [AuthController::class, 'royxatForma'])-&gt;name('royxat.forma');
+Route::post('/royxatdan-otish', [AuthController::class, 'royxat'])-&gt;name('royxat');
+Route::get('/kirish', [AuthController::class, 'kirishForma'])-&gt;name('login');
+Route::post('/kirish', [AuthController::class, 'kirish']);
+Route::post('/chiqish', [AuthController::class, 'chiqish'])-&gt;name('chiqish');
+EOF
+php artisan route:list --path=vakansiyalar -v">cat &gt; routes/web.php &lt;&lt;'EOF'
+&lt;?php
+
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\VakansiyaController;
+use Illuminate\Support\Facades\Route;
+
+<span class="add">Route::middleware(['olchash', 'til'])-&gt;group(function () {</span>
+    Route::get('/vakansiyalar', [VakansiyaController::class, 'index'])-&gt;name('vakansiyalar.index');
+    Route::get('/vakansiyalar/{id}', [VakansiyaController::class, 'show'])-&gt;name('vakansiyalar.show');
+<span class="add">});</span>
+
+Route::post('/vakansiyalar', [VakansiyaController::class, 'store'])
+    -&gt;name('vakansiyalar.store')
+    -&gt;middleware('auth');
+
+Route::get('/royxatdan-otish', [AuthController::class, 'royxatForma'])-&gt;name('royxat.forma');
+Route::post('/royxatdan-otish', [AuthController::class, 'royxat'])-&gt;name('royxat');
+Route::get('/kirish', [AuthController::class, 'kirishForma'])-&gt;name('login');
+Route::post('/kirish', [AuthController::class, 'kirish']);
+Route::post('/chiqish', [AuthController::class, 'chiqish'])-&gt;name('chiqish');
+EOF
+php artisan route:list --path=vakansiyalar -v
+<span class="out">GET|HEAD vakansiyalar    vakansiyalar.index › VakansiyaController@index</span>
+<span class="out">  ⇂ web</span>
+<span class="out">  ⇂ olchash</span>
+<span class="out">  ⇂ til</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> <code>index</code> va
+        <code>show</code> ostida <code>olchash</code> va <code>til</code> ko'rinadi,
+        <code>store</code> ostida esa <code>auth</code>.
+        <br><code>web</code> — Laravel o'zi qo'ygan guruh (sessiya, CSRF).</p>
+      </li>
+
+      <li>
+        <p>🔍 Piyoz tartibini o'lchang</p>
+        <p class="why-step">Darsning eng muhim qadami — 17-darsdagi chizma endi
+        <b>haqiqiy log</b> bo'ladi.</p>
+        <div class="cmd" data-cmd=": &gt; storage/logs/laravel.log
+php artisan serve">: &gt; storage/logs/laravel.log
+php artisan serve</div>
+        <p>Yangi oynada:</p>
+        <div class="cmd" data-cmd="curl -s -D - -o /dev/null http://localhost:8000/vakansiyalar | grep -i x-sarflangan
+grep -oE '\[(olchash|til)\].*' storage/logs/laravel.log">curl -s -D - -o /dev/null http://localhost:8000/vakansiyalar | grep -i x-sarflangan
+grep -oE '\[(olchash|til)\].*' storage/logs/laravel.log
+<span class="out">X-Sarflangan-Vaqt: 30.3ms</span>
+<span class="out">[olchash] KIRDI: GET vakansiyalar</span>
+<span class="out">[til] kirdi — standart: uz</span>
+<span class="out">[til] chiqdi — locale: uz</span>
+<span class="out">[olchash] CHIQDI: vakansiyalar — 31.8 ms, status 200</span></div>
+        <p class="expect">🎯 <b>Mana piyoz:</b> <code>olchash</code> birinchi kirdi va
+        <b>oxirgi</b> chiqdi; <code>til</code> uning <b>ichida</b>.
+        <br>Javob sarlavhasida esa o'lchov natijasi — uni middleware
+        <code>$next</code> dan <b>keyin</b> qo'shdi.
+        <br><i>Millisekundlar sizda boshqacha bo'ladi.</i></p>
+      </li>
+
+      <li>
+        <p>Til almashuvini sinang</p>
+        <div class="cmd" data-cmd="curl -s -c /tmp/jar -b /tmp/jar -o /dev/null 'http://localhost:8000/vakansiyalar?til=en'
+grep -o '\[til\] chiqdi.*' storage/logs/laravel.log | tail -1
+
+curl -s -c /tmp/jar -b /tmp/jar -o /dev/null 'http://localhost:8000/vakansiyalar'
+grep -o '\[til\] chiqdi.*' storage/logs/laravel.log | tail -1">curl -s -c /tmp/jar -b /tmp/jar -o /dev/null 'http://localhost:8000/vakansiyalar?til=en'
+grep -o '\[til\] chiqdi.*' storage/logs/laravel.log | tail -1
+
+curl -s -c /tmp/jar -b /tmp/jar -o /dev/null 'http://localhost:8000/vakansiyalar'
+grep -o '\[til\] chiqdi.*' storage/logs/laravel.log | tail -1
+<span class="out">[til] chiqdi — locale: en</span>
+<span class="out">[til] chiqdi — locale: en</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> birinchisida <code>?til=en</code>
+        tufayli <code>en</code>; ikkinchisida parametr <b>yo'q</b>, lekin baribir
+        <code>en</code> — chunki middleware uni <b>sessiyaga</b> yozib qo'ygan
+        (13-dars).
+        <br>Brauzerda ham sinang: <code>?til=en</code>, keyin oddiy
+        <code>/vakansiyalar</code>.</p>
+      </li>
+
+      <li>
+        <p>🔒 To'xtatuvchi middleware</p>
+        <p class="why-step"><code>auth</code> qanday ishlashini ichidan ko'rish.</p>
+        <div class="cmd" data-cmd="php artisan make:middleware FaqatIshVaqti
+
+cat &gt; app/Http/Middleware/FaqatIshVaqti.php &lt;&lt;'EOF'
+&lt;?php
+
+namespace App\Http\Middleware;
+
+use Closure;
+use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
+
+class FaqatIshVaqti
+{
+    public function handle(Request $request, Closure $next, int $boshi = 9, int $oxiri = 18): Response
+    {
+        $soat = (int) now()-&gt;format('H');
+
+        if ($soat &lt; $boshi || $soat &gt;= $oxiri) {
+            return redirect()-&gt;route('vakansiyalar.index')
+                -&gt;with('xabar', &quot;Bu amal faqat {$boshi}:00-{$oxiri}:00 orasida mumkin.&quot;);
+        }
+
+        return $next($request);
+    }
+}
+EOF
+php -l app/Http/Middleware/FaqatIshVaqti.php">php artisan make:middleware FaqatIshVaqti
+
+cat &gt; app/Http/Middleware/FaqatIshVaqti.php &lt;&lt;'EOF'
+&lt;?php
+
+namespace App\Http\Middleware;
+
+use Closure;
+use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
+
+class FaqatIshVaqti
+{
+    public function handle(Request $request, Closure $next, int $boshi = 9, int $oxiri = 18): Response
+    {
+        $soat = (int) now()-&gt;format('H');
+
+        if ($soat &lt; $boshi || $soat &gt;= $oxiri) {
+            <span class="add">return redirect()-&gt;route('vakansiyalar.index')
+                -&gt;with('xabar', "Bu amal faqat {$boshi}:00-{$oxiri}:00 orasida mumkin.");</span>
+        }
+
+        return $next($request);
+    }
+}
+EOF
+php -l app/Http/Middleware/FaqatIshVaqti.php
+<span class="out">No syntax errors detected</span></div>
+        <p>Alias qo'shing va <b>hozirgi soatni chetlab o'tadigan</b> oraliq bilan
+        qo'llang:</p>
+        <div class="cmd" data-cmd="# bootstrap/app.php dagi alias ro'yxatiga:
+#     'ishvaqti' =&gt; \App\Http\Middleware\FaqatIshVaqti::class,
+
+# routes/web.php da store route'iga:
+#     -&gt;middleware(['auth', 'ishvaqti:0,1']);"># bootstrap/app.php dagi alias ro'yxatiga:
+#     'ishvaqti' =&gt; \App\Http\Middleware\FaqatIshVaqti::class,
+
+# routes/web.php da store route'iga:
+#     -&gt;middleware(['auth', 'ishvaqti:0,1']);</div>
+        <p class="expect"><b>Kutilgan natija:</b> kiring va vakansiya qo'shishga
+        urinib ko'ring (soat 0:00–1:00 orasida bo'lmasangiz):</p>
+        <div class="natija">302 → /vakansiyalar
+xabar: Bu amal faqat 0:00-1:00 orasida mumkin.
+
+Vakansiya QO'SHILMADI — controller umuman ishlamadi.</div>
+        <p class="expect">🔑 <code>auth</code> aynan shunday ishlaydi: shart
+        bajarilmasa <code>$next</code> chaqirilmaydi va <code>redirect</code>
+        qaytariladi.
+        <br>Sinab bo'lgach, <code>ishvaqti:0,1</code> ni olib tashlang (yoki
+        <code>ishvaqti:0,24</code> qiling) — aks holda vakansiya qo'sha
+        olmaysiz.</p>
+      </li>
+
+      <li>
+        <p>Ishni saqlang</p>
+        <div class="cmd" data-cmd="git add -A
+git commit -m &quot;32-dars: middleware — o'lchash, til va to'xtatish&quot;">git add -A
+git commit -m "32-dars: middleware — o'lchash, til va to'xtatish"</div>
+        <p class="expect"><b>Kutilgan natija:</b> commit haqida xabar.</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><input type="checkbox" id="d32c1"><label for="d32c1"><code>app/Http/Kernel.php</code> yo'qligini o'z ko'zim bilan ko'rdim</label></li>
+      <li><input type="checkbox" id="d32c2"><label for="d32c2">Ikkita middleware yozdim va <code>alias</code> berdim</label></li>
+      <li><input type="checkbox" id="d32c3"><label for="d32c3"><b>Piyoz tartibini logda ko'rdim (KIRDI/CHIQDI)</b> 🔍</label></li>
+      <li><input type="checkbox" id="d32c4"><label for="d32c4">Javob sarlavhasida <code>X-Sarflangan-Vaqt</code> ni ko'rdim</label></li>
+      <li><input type="checkbox" id="d32c5"><label for="d32c5"><code>Route::middleware([...])-&gt;group()</code> ni ishlatdim</label></li>
+      <li><input type="checkbox" id="d32c6"><label for="d32c6"><code>route:list -v</code> da middleware ro'yxatini ko'rdim</label></li>
+      <li><input type="checkbox" id="d32c7"><label for="d32c7"><b>Parametrli middleware ishlaganini ko'rdim</b> (<code>til:en</code>)</label></li>
+      <li><input type="checkbox" id="d32c8"><label for="d32c8">Til sessiyada eslab qolinishini tekshirdim</label></li>
+      <li><input type="checkbox" id="d32c9"><label for="d32c9"><b>To'xtatuvchi middleware controllerni chaqirmasligini ko'rdim</b> 🔒</label></li>
+      <li><input type="checkbox" id="d32c10"><label for="d32c10">Ishni commit qildim</label></li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 5) TAXMIN + QUIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Ikkita middleware, har biri kirish va chiqishini logga yozadi:</p>
+    <div class="codefile">
+      <div class="fname">kod</div>
+      <code class="cmd" data-cmd="// SoravniOlchash
+Log::info('A kirdi');
+$javob = $next($request);
+Log::info('A chiqdi');
+
+// TilniTanla
+Log::info('B kirdi');
+$javob = $next($request);
+Log::info('B chiqdi');
+
+// routes/web.php
+Route::get('/vakansiyalar', ...)-&gt;middleware(['olchash', 'til']);">// SoravniOlchash
+Log::info('A kirdi');
+$javob = $next($request);
+Log::info('A chiqdi');
+
+// TilniTanla
+Log::info('B kirdi');
+$javob = $next($request);
+Log::info('B chiqdi');
+
+// routes/web.php
+Route::get('/vakansiyalar', ...)-&gt;middleware(['olchash', 'til']);</code>
+    </div>
+    <p>Sahifa ochilganda log faylida <b>qanday tartibda</b> to'rt qator paydo
+    bo'ladi?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <div class="natija">A kirdi
+  B kirdi
+    ← controller shu yerda ishlaydi
+  B chiqdi
+A chiqdi</div>
+        <p>Ko'pchilik «A kirdi, A chiqdi, B kirdi, B chiqdi» deb o'ylaydi — go'yo
+        ular <b>navbat bilan</b> ishlaydigandek. Aslida ular <b>bir-birining
+        ichida</b>.</p>
+        <p>Sabab <code>$next($request)</code> ning tabiatida: u «keyingi qadamni
+        bajar <b>va natijasini qaytar</b>» degani. A ning
+        <code>$next</code> i — <b>butun qolgan zanjir</b> (B + controller). Shuning
+        uchun A ning ikkinchi qismi faqat hammasi tugagandan <b>keyin</b>
+        ishlaydi.</p>
+        <p class="expect">🔑 <b>Amaliy natija:</b> birinchi yozilgan middleware —
+        <b>eng tashqi</b> qatlam:</p>
+        <ul>
+          <li>u <b>birinchi</b> ko'radi so'rovni (tekshirish uchun qulay);</li>
+          <li>u <b>oxirgi</b> ko'radi javobni (o'lchash va o'zgartirish uchun
+          qulay);</li>
+          <li>uning vaqt o'lchovi <b>ichkaridagilarni ham</b> qamrab oladi.</li>
+        </ul>
+        <p>Jonli o'lchandi (17-darsdagi «piyoz» chizmasining isboti):</p>
+        <div class="natija">[olchash] KIRDI: GET vakansiyalar
+[til] kirdi — standart: uz
+[til] chiqdi — locale: uz
+[olchash] CHIQDI: vakansiyalar — 31.8 ms, status 200</div>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span> Laravel 11+ da middleware
+    qayerda ro'yxatdan o'tkaziladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">bootstrap/app.php faylida ro'yxatdan o'tadi</button></li>
+      <li><button class="quiz-option">app/Http/Kernel.php faylida ro'yxatdan o'tadi</button></li>
+      <li><button class="quiz-option">Har controllerda alohida yoziladi</button></li>
+    </ul>
+    <div class="quiz-explain"><code>app/Http/Kernel.php</code> Laravel 11 dan beri
+    <b>umuman yo'q</b> — eski qo'llanmalar shu sababdan chalkashtiradi. 17-darsda
+    ko'rgan <code>withMiddleware</code> bo'sh joyi aynan shu uchun edi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span>
+    <code>$next($request)</code> dan <b>keyingi</b> kod qachon ishlaydi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Javob tayyor bo'lgandan keyin ishlaydi</button></li>
+      <li><button class="quiz-option">Controllerdan oldin darhol ishga tushadi</button></li>
+      <li><button class="quiz-option">Hech qachon ishlamaydi, e'tiborsiz qoladi</button></li>
+    </ul>
+    <div class="quiz-explain"><code>$next($request)</code> — «qolgan zanjirni bajar
+    va javobni qaytar». Shuning uchun undan keyingi kod javob <b>tayyor</b> bo'lganda
+    ishlaydi: o'lchash, sarlavha qo'shish uchun aynan shu joy.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span> Middleware
+    <code>$next</code> ni chaqirmasa nima bo'ladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Controller umuman chaqirilmay qoladi</button></li>
+      <li><button class="quiz-option">Controller baribir ishga tushadi</button></li>
+      <li><button class="quiz-option">Laravel avtomatik xato qaytaradi</button></li>
+    </ul>
+    <div class="quiz-explain">Aynan shu <code>auth</code> ning ishlash usuli: shart
+    bajarilmasa <code>redirect</code> qaytariladi va so'rov <b>oldinga
+    ketmaydi</b>. Lekin biror narsa <b>qaytishi</b> shart — aks holda
+    <code>TypeError</code>.</div>
+  </div>
+
+  <!-- ═══════════════ 6) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+    <p class="recall-intro">Avval o'zingiz javob bering, keyin ochib tekshiring.
+    Oxirgi ikkitasi — <a href="0031-starter-kit.html">31-darsni</a> takrorlash.</p>
+
+    <details class="recall">
+      <summary>Middleware'da kod yozish uchun nechta joy bor?</summary>
+      <div class="answer"><p><b>Ikkita:</b> <code>$next($request)</code> dan
+      <b>oldin</b> (so'rovni tekshirish, to'xtatish) va <b>keyin</b> (javobni
+      o'zgartirish, o'lchash).</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Birinchi yozilgan middleware qaysi qatlam bo'ladi?</summary>
+      <div class="answer"><p><b>Eng tashqi</b>: birinchi kiradi, <b>oxirgi</b>
+      chiqadi. Uning vaqt o'lchovi ichkaridagilarni ham qamrab oladi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Parametr middleware'ga qanday uzatiladi?</summary>
+      <div class="answer"><p>Ikki nuqta bilan: <code>'til:en'</code> →
+      <code>handle($request, $next, $standart = 'en')</code>. Bir nechta parametr
+      vergul bilan: <code>'ishvaqti:0,1'</code>.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: <code>breeze:install</code> mavjud loyihaga nima qiladi?</summary>
+      <div class="answer"><p><code>routes/web.php</code> ni <b>butunlay
+      almashtiradi</b> (o'lchandi: 5 → 0). Shuning uchun nusxada sinaladi yoki avval
+      commit qilinadi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: rate limiting kaliti nimadan tuziladi?</summary>
+      <div class="answer"><p><b>Email + IP</b> juftligidan — faqat bittasi
+      yetarli emas.</p></div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 7) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Cho'ntak xulosasi</span>
+    <ul>
+      <li><code>php artisan make:middleware Nomi</code> — yagona metod:
+      <code>handle(Request $request, Closure $next)</code>.</li>
+      <li>🔑 Kod yozish uchun <b>ikki joy</b>: <code>$next($request)</code> dan
+      <b>oldin</b> va <b>keyin</b>. <code>$next</code> javobni <b>qaytaradi</b>.</li>
+      <li>🔍 <b>Piyoz:</b> birinchi middleware — eng tashqi qatlam, birinchi kiradi
+      va <b>oxirgi</b> chiqadi. Logda o'lchandi.</li>
+      <li>⚠️ <b>Laravel 11+ da <code>app/Http/Kernel.php</code> YO'Q.</b> Hammasi
+      <code>bootstrap/app.php</code> dagi <code>withMiddleware</code> da.</li>
+      <li>Ro'yxatdan o'tkazish: <code>alias([...])</code> (nom) ·
+      <code>append</code>/<code>prepend</code> (global) ·
+      <code>web(append: [...])</code> (guruh).</li>
+      <li>Qo'llash: <code>-&gt;middleware('nom')</code> ·
+      <code>-&gt;middleware(['a', 'b'])</code> ·
+      <code>Route::middleware([...])-&gt;group(...)</code>.</li>
+      <li>🔒 <code>$next</code> chaqirilmasa — <b>controller ishlamaydi</b>.
+      <code>auth</code> aynan shunday. Lekin biror narsa <b>qaytishi shart</b>.</li>
+      <li>Parametr: <code>'til:en'</code> · <code>'ishvaqti:0,1'</code> →
+      <code>handle(..., $a, $b)</code>. Berilmasa standart qiymat ishlaydi.</li>
+      <li>Javobni o'zgartirish: <code>$javob-&gt;headers-&gt;set(...)</code>.
+      Javob yuborilgandan <b>keyin</b> ishlash — <code>terminate()</code>.</li>
+      <li><code>route:list -v</code> — har route ostida middleware ro'yxati.
+      «Nega 302?» savoliga eng tez javob.</li>
+      <li>⚠️ Global middleware <b>har</b> so'rovda ishlaydi — avval
+      <code>alias</code> bilan aniq route'larga qo'ying.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p>Endi «kirganmi?» degan savolga javob bera olamiz. Lekin tez orada boshqa
+    savol keladi: <b>«bu vakansiyani kim tahrirlashi mumkin?»</b> Javob
+    «kirgan har qanday odam» bo'lsa — bir foydalanuvchi boshqasining e'lonini
+    o'chirib yuboradi.</p>
+    <p>Middleware bunga to'liq javob bera olmaydi: u <b>route</b> darajasida
+    ishlaydi, savol esa <b>aniq yozuv</b> haqida («<i>shu</i> vakansiya
+    <i>shu</i> odamniki-mi?»).</p>
+    <p>33-darsda <b>Gate va Policy</b> bilan tanishamiz — Laravel'ning huquq
+    tekshirish mexanizmi. <code>@can</code> Blade direktivasi, controllerdagi
+    <code>authorize()</code> va <b>403</b> javobi.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel — Middleware</b>:
+    <a href="https://laravel.com/docs/13.x/middleware">laravel.com/docs/13.x/middleware</a>
+    — yaratish, ro'yxatdan o'tkazish, parametrlar,
+    <code>terminate</code>.<sup><a href="#fn1">1</a></sup><br>
+    <b>Laravel 11 o'zgarishlari</b> (<code>Kernel.php</code> nima uchun yo'q):
+    <a href="https://laravel.com/docs/13.x/upgrade">Upgrade Guide</a> va
+    <a href="https://laravel.com/docs/13.x/lifecycle">Request Lifecycle</a>
+    (17-dars).<sup><a href="#fn2">2</a></sup><br>
+    <b>Localization</b> (<code>App::setLocale</code>):
+    <a href="https://laravel.com/docs/13.x/localization">laravel.com/docs/13.x/localization</a>.<sup><a href="#fn3">3</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b> «middleware'ni faqat ba'zi
+    metodlarga qo'llasa bo'ladimi?» (controllerda
+    <code>$this-&gt;middleware(...)-&gt;only([...])</code>), «middleware ichida
+    bazaga murojaat qilish yaxshimi?», «tartibni majburan belgilash mumkinmi?»
+    (<code>$middleware-&gt;priority([...])</code>), «tilni URL'ga qo'ysam-chi?»
+    (<code>/uz/vakansiyalar</code>) — har qanday savol yaxshi. Oxirgisi ko'p
+    saytlarda ishlatiladi va route prefiksi bilan hal qilinadi.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0031-starter-kit.html">Oldingi: Starter kit</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel 13 — <a href="https://laravel.com/docs/13.x/middleware">Middleware</a>.</li>
+      <li id="fn2">Laravel 13 — <a href="https://laravel.com/docs/13.x/lifecycle">Request Lifecycle</a>.</li>
+      <li id="fn3">Laravel 13 — <a href="https://laravel.com/docs/13.x/localization">Localization</a>.</li>
+      <li id="fn4">Barchasi jonli o'lchangan (Laravel 13.25.0):
+      <code>app/Http/Kernel.php</code> — <b>yo'q</b> ·
+      <code>make:middleware</code> yasagan klass ·
+      piyoz tartibi: <code>[olchash] KIRDI</code> → <code>[til] kirdi</code> →
+      <code>[til] chiqdi</code> → <code>[olchash] CHIQDI</code> ·
+      javob sarlavhasi <code>X-Sarflangan-Vaqt: 30.3ms</code> (middleware'siz
+      route'da <b>yo'q</b>) · guruh ikkala route'ga qo'llandi, guruhdan tashqaridagiga
+      <b>yo'q</b> · <code>route:list -v</code> da <code>web</code>,
+      <code>olchash</code>, <code>til</code> ·
+      <code>?til=en</code> → <code>locale: en</code>, keyingi so'rovda sessiyadan
+      yana <code>en</code> · <code>'til:en'</code> parametri →
+      <code>standart: en</code> ·
+      to'xtatuvchi middleware: POST → <b>302</b> +
+      <code>Bu amal faqat 0:00–1:00 orasida mumkin.</code>, controller
+      <b>chaqirilmadi</b>.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

@@ -842,6 +842,94 @@ body.mode-read .cmd { padding-right: 1.1rem; font-size: 0.9rem; }
 .lesson-nav .prev::before { content: "← "; }
 
 /* ==========================================================================
+   10b) DARS QAMROVI (qamrov) VA HOLATLAR (holat) — 26-darsdan boshlab
+   ========================================================================== */
+
+/* ----- «Bu darsda nimalar bor» — darsning boshidagi qamrov ro'yxati ------ */
+.qamrov {
+  margin: 1.8rem 0 2.2rem;
+  padding: 1.1rem 1.3rem 1.2rem;
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  background: var(--card);
+}
+.qamrov > .label {
+  display: block;
+  font-family: var(--sans);
+  font-size: 0.7rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--accent-ink);
+  margin-bottom: 0.7rem;
+}
+.qamrov ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: qamrov;
+}
+.qamrov ol > li {
+  counter-increment: qamrov;
+  position: relative;
+  padding: 0.42rem 0 0.42rem 2.1rem;
+  border-top: 1px solid var(--rule);
+  font-size: 0.95rem;
+}
+.qamrov ol > li:first-child { border-top: 0; }
+.qamrov ol > li::before {
+  content: counter(qamrov);
+  position: absolute;
+  left: 0; top: 0.45rem;
+  width: 1.5rem;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-align: center;
+  color: var(--accent-ink);
+  background: var(--note-bg);
+  border-radius: 4px;
+  padding: 0.05rem 0;
+}
+.qamrov b { font-weight: 700; }
+.qamrov .nima {
+  display: block;
+  margin-top: 0.12rem;
+  font-size: 0.86rem;
+  color: var(--ink-soft);
+}
+.qamrov .nima code { font-size: 0.8rem; }
+
+/* ----- Holatlar: bir mavzuning har xil yozilish shakllari ---------------- */
+.holat {
+  margin: 1.4rem 0;
+  padding: 0.9rem 1.1rem 1rem;
+  border: 1px solid var(--rule);
+  border-left: 4px solid var(--accent);
+  border-radius: 8px;
+  background: var(--card);
+}
+.holat > .holat-n {
+  display: inline-block;
+  font-family: var(--sans);
+  font-size: 0.64rem; font-weight: 700;
+  letter-spacing: 0.09em; text-transform: uppercase;
+  color: var(--accent-ink);
+  background: var(--note-bg);
+  border-radius: 4px;
+  padding: 0.12rem 0.45rem;
+  margin-bottom: 0.5rem;
+}
+.holat > h4 {
+  margin: 0.15rem 0 0.5rem;
+  font-size: 1rem;
+  line-height: 1.35;
+}
+.holat > p { margin: 0.5rem 0; font-size: 0.94rem; }
+.holat > p:last-child { margin-bottom: 0; }
+.holat .codefile, .holat .natija { margin: 0.6rem 0; }
+.holat.yaxshi { border-left-color: #16a34a; }
+.holat.yomon { border-left-color: #dc2626; }
+
+/* ==========================================================================
    11) REFERENCE HUJJATLARI (glossary, cheat sheet)
    ========================================================================== */
 .glossary dl { margin: 0; }
@@ -1217,6 +1305,15 @@ body.mode-do { font-size: 18.5px; line-height: 1.58; }
    15) CHOP ETISH (print) — konspekt sifatida bosib olish uchun
    ========================================================================== */
 @media print {
+  /* qamrov va holatlar konspektning eng foydali qismi — albatta chiqadi */
+  .qamrov, .holat {
+    break-inside: avoid;
+    background: #fff !important;
+    border-color: #bbb !important;
+  }
+  .qamrov ol > li::before { background: #eee !important; }
+  .holat > .holat-n { background: #eee !important; }
+
   :root {
     --bg:#fff; --card:#fff; --ink:#000; --ink-mid:#222; --ink-soft:#555;
     --rule:#ccc; --rule-firm:#bbb; --code-bg:#f4f2ea; --code-fg:#111;

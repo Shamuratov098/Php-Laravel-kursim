@@ -1,0 +1,852 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 24 — Route parametri, nomlangan route va resource</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 24 · MODUL C — MA'LUMOTLAR</p>
+  <h1>Manzildagi raqam: <code>/vakansiyalar/3</code></h1>
+  <p class="lead">Bazada 5 ta vakansiya bor, lekin sahifa hali ham 19-darsda qo'lda
+  yozilgan massivni ko'rsatadi. Bugun ikkisini <b>ulaymiz</b> — va har vakansiyaga
+  <b>o'z manzili</b> beramiz. Yo'lda chiroyli bog'lanish chiqadi:
+  manzildagi <code>{id}</code> to'g'ri <code>WHERE id = ?</code> ga aylanadi.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 12 daqiqa</span>
+    <span>💻 Amaliyot ≈ 22 daqiqa</span>
+    <span>Kerak: <a href="0023-migration.html">Dars 23</a></span>
+  </p>
+
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b>Route parametri <code>{id}</code></b>
+        <span class="nima">Manzilning o'zgaruvchi qismi controller metodiga <b>argument</b> bo'lib boradi.</span></li>
+      <li><b>🔑 Route parametri → SQL parametri</b>
+        <span class="nima">URL'ni istalgan odam o'zgartiradi, shuning uchun <code>WHERE id = ?</code> majburiy.</span></li>
+      <li><b><code>abort(404)</code></b>
+        <span class="nima">Topilmasa nima qilish kerak; bo'sh sahifa va 500 nima uchun xato yechim.</span></li>
+      <li><b>Nomlangan route</b>
+        <span class="nima"><code>-&gt;name()</code> + <code>route()</code> — manzil <b>bitta joyda</b> yoziladi.</span></li>
+      <li><b><code>route()</code> ning xatolari</b>
+        <span class="nima">«Missing required parameter» va «Route not defined» — xato <b>ovoz chiqaradi</b>.</span></li>
+      <li><b>🔑 Route tartibi</b>
+        <span class="nima">Aniq yo'llar parametrlilardan <b>oldin</b>: <code>/create</code> va <code>/{id}</code> tuzog'i.</span></li>
+      <li><b><code>Route::resource</code></b>
+        <span class="nima">Bitta qatordan <b>7 route</b>, standart nomlar bilan.</span></li>
+      <li><b>🎯 Sahifa bazaga ulanadi</b>
+        <span class="nima">Qo'lda yozilgan massiv ketadi; forma <b>haqiqatan</b> saqlaydi.</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Nega bu muhim</span>
+    <p>Har vakansiya <b>o'z manzili</b>ga ega bo'lishi kerak. Sababi shunchaki qulaylik
+    emas:</p>
+    <ul>
+      <li>Havolani <b>do'stingizga yuborish</b> mumkin bo'ladi.</li>
+      <li>Google uni <b>alohida sahifa</b> sifatida indekslaydi.</li>
+      <li>Brauzerning «ortga» tugmasi <b>to'g'ri ishlaydi</b>.</li>
+    </ul>
+    <p>Ikkinchi muammo esa <b>havolalarni qo'lda yozish</b>. Bugun 5 joyda
+    <code>href="/vakansiyalar/{{ $v->id }}"</code> yozasiz. Ertaga manzilni
+    <code>/ishlar/…</code> ga o'zgartirsangiz — 5 joyni topib tuzatish kerak, va bittasi
+    <b>albatta</b> qolib ketadi. <b>Nomlangan route</b> shu muammoni yechadi: manzil
+    bitta joyda yoziladi, qolgan joylarda uning <b>nomi</b> ishlatiladi.</p>
+  </div>
+
+  <!-- ═══════════════ 2) TUSHUNCHA ═══════════════ -->
+  <h2>Route parametri: manzilning o'zgaruvchi qismi</h2>
+
+  <div class="codefile">
+    <div class="fname">routes/web.php</div>
+    <code class="cmd" data-cmd="Route::get('/vakansiyalar/{id}', [VakansiyaController::class, 'show']);">Route::get('/vakansiyalar/<span class="add">{id}</span>', [VakansiyaController::class, 'show']);</code>
+  </div>
+
+  <p>Jingalak qavs — «bu yerda <b>istalgan qiymat</b> bo'lishi mumkin». Laravel uni
+  ushlab olib controller metodiga <b>argument sifatida</b> beradi:</p>
+
+  <div class="codefile">
+    <div class="fname">app/Http/Controllers/VakansiyaController.php</div>
+    <code class="cmd" data-cmd="public function show(string $id): View
+{
+    $qatorlar = DB::select('
+        SELECT v.*, k.nom AS kompaniya
+        FROM vakansiyalar v
+        LEFT JOIN kompaniyalar k ON k.id = v.kompaniya_id
+        WHERE v.id = ?
+    ', [$id]);
+
+    if ($qatorlar === []) {
+        abort(404);
+    }
+
+    return view('vakansiyalar.show', ['v' =&gt; $qatorlar[0]]);
+}">public function show(<span class="add">string $id</span>): View
+{
+    $qatorlar = DB::select('
+        SELECT v.*, k.nom AS kompaniya
+        FROM vakansiyalar v
+        LEFT JOIN kompaniyalar k ON k.id = v.kompaniya_id
+        WHERE v.id = <span class="add">?</span>
+    ', <span class="add">[$id]</span>);
+
+    if ($qatorlar === []) {
+        <span class="add">abort(404);</span>
+    }
+
+    return view('vakansiyalar.show', ['v' =&gt; $qatorlar[0]]);
+}</code>
+  </div>
+
+  <div class="callout note">
+    <span class="label">🔑 Route parametri → SQL parametri</span>
+    <p>Diqqat qiling: URL'dan kelgan qiymat SQL satriga <b>qo'shilmaydi</b>,
+    <code>?</code> orqali beriladi. Bu 21-darsdagi qoidaning aynan o'zi — va bu yerda
+    u <b>ayniqsa</b> muhim, chunki <code>{id}</code> ni <b>istalgan odam</b> o'zgartira
+    oladi: manzil qatoriga nima yozsa, shu keladi.</p>
+    <p>Agar SQL'ga qo'shib yozganingizda, kimdir manzilga SQL bo'lagini yozib butun
+    bazani o'qib olishi mumkin edi. Parametr esa qiymatni <b>ma'lumot</b> deb ishlaydi —
+    u qanday ko'rinishda bo'lishidan qat'i nazar.</p>
+  </div>
+
+  <h3>Topilmasa — <code>abort(404)</code></h3>
+
+  <p><code>/vakansiyalar/999</code> — bunday yozuv yo'q. <code>DB::select</code>
+  <b>bo'sh massiv</b> qaytaradi, va bu holatni <b>siz</b> hal qilishingiz kerak:</p>
+
+  <table class="sheet">
+    <tr><th>Yechim</th><th class="note-cell">Natija</th></tr>
+    <tr><td><code>abort(404)</code></td><td class="note-cell">✅ To'g'ri: brauzer <b>404 Not Found</b> oladi</td></tr>
+    <tr><td>Hech narsa qilmaslik</td><td class="note-cell">❌ <code>$qatorlar[0]</code> xato beradi — <b>500</b>, ya'ni «bizning aybimiz»</td></tr>
+    <tr><td>Bo'sh sahifa ko'rsatish</td><td class="note-cell">❌ Brauzer «sahifa bor» deb o'ylaydi, Google ham</td></tr>
+  </table>
+
+  <p><code>abort(404)</code> — 11-darsdagi <code>throw</code> ning Laravel shakli:
+  funksiyani <b>darhol to'xtatadi</b> va javobni Laravel'ning o'zi yasaydi
+  (<code>&lt;title&gt;Not Found&lt;/title&gt;</code>). <code>return</code> yozish
+  <b>shart emas</b>.</p>
+
+  <h2>Nomlangan route va <code>route()</code></h2>
+
+  <div class="codefile">
+    <div class="fname">routes/web.php</div>
+    <code class="cmd" data-cmd="Route::get('/vakansiyalar', [VakansiyaController::class, 'index'])-&gt;name('vakansiyalar.index');
+Route::post('/vakansiyalar', [VakansiyaController::class, 'store'])-&gt;name('vakansiyalar.store');
+Route::get('/vakansiyalar/{id}', [VakansiyaController::class, 'show'])-&gt;name('vakansiyalar.show');">Route::get('/vakansiyalar', [VakansiyaController::class, 'index'])<span class="add">-&gt;name('vakansiyalar.index')</span>;
+Route::post('/vakansiyalar', [VakansiyaController::class, 'store'])<span class="add">-&gt;name('vakansiyalar.store')</span>;
+Route::get('/vakansiyalar/{id}', [VakansiyaController::class, 'show'])<span class="add">-&gt;name('vakansiyalar.show')</span>;</code>
+  </div>
+
+  <p>Nom berilgach, manzilni <b>hech qayerda qo'lda yozmaysiz</b>:</p>
+
+  <table class="sheet">
+    <tr><th>Qayerda</th><th class="note-cell">Kod</th></tr>
+    <tr><td>Blade'da havola</td><td class="note-cell"><code>&lt;a href="{{ route('vakansiyalar.show', $v-&gt;id) }}"&gt;</code></td></tr>
+    <tr><td>Blade'da forma</td><td class="note-cell"><code>&lt;form action="{{ route('vakansiyalar.store') }}"&gt;</code></td></tr>
+    <tr><td>Controller'da redirect</td><td class="note-cell"><code>redirect()-&gt;route('vakansiyalar.index')</code></td></tr>
+  </table>
+
+  <p><b>Nom qolipi</b> — <code>resurs.amal</code>: <code>vakansiyalar.index</code>,
+  <code>vakansiyalar.show</code>. Bu Laravel'ning kelishuvi, va keyingi bo'limda nima
+  uchun aynan shunday ekani ochiladi.</p>
+
+  <div class="natija">route('vakansiyalar.index')      → http://localhost:8000/vakansiyalar
+route('vakansiyalar.show', 3)   → http://localhost:8000/vakansiyalar/3</div>
+
+  <p><code>route()</code> <b>to'liq</b> manzil qaytaradi (domen bilan) — bu email va
+  bildirishnomalarda ham to'g'ri ishlashi uchun.</p>
+
+  <table class="sheet">
+    <tr><th>Xato</th><th class="note-cell">Xabar</th></tr>
+    <tr><td>Parametr berilmasa</td><td class="note-cell"><code>Missing required parameter for [Route: vakansiyalar.show] … [Missing parameter: id]</code></td></tr>
+    <tr><td>Nom xato yozilsa</td><td class="note-cell"><code>Route [vakansiyalar.yoq] not defined.</code></td></tr>
+  </table>
+
+  <p>Ikkalasi ham <b>darhol</b> va <b>aniq</b> aytadi — qo'lda yozilgan havola esa jimgina
+  buzuq qoladi. Bu nomlangan route'ning yashirin foydasi: xato <b>ovoz chiqaradi</b>.</p>
+
+  <h2><code>Route::resource</code> — yetti route bitta qatorda</h2>
+
+  <p>Har resurs (vakansiya, kompaniya, ariza) uchun bir xil yettita amal kerak bo'ladi.
+  Laravel ularni bitta qatorda yasaydi:</p>
+
+  <div class="codefile">
+    <div class="fname">routes/web.php</div>
+    <code class="cmd" data-cmd="Route::resource('vakansiyalar', VakansiyaController::class);">Route::resource('vakansiyalar', VakansiyaController::class);</code>
+  </div>
+
+  <div class="natija">GET|HEAD   vakansiyalar                 vakansiyalar.index   › index
+POST       vakansiyalar                 vakansiyalar.store   › store
+GET|HEAD   vakansiyalar/create          vakansiyalar.create  › create
+GET|HEAD   vakansiyalar/{vakansiyalar}  vakansiyalar.show    › show
+PUT|PATCH  vakansiyalar/{vakansiyalar}  vakansiyalar.update  › update
+DELETE     vakansiyalar/{vakansiyalar}  vakansiyalar.destroy › destroy
+GET|HEAD   vakansiyalar/{vakansiyalar}/edit  vakansiyalar.edit › edit
+
+Showing [7] routes</div>
+
+  <ul>
+    <li>Nomlar <b>o'sha qolipda</b> — endi <code>vakansiyalar.index</code> nomini
+    o'zimiz o'ylab topmaganimiz ma'lum bo'ldi.</li>
+    <li><code>create</code> — forma sahifasi, <code>store</code> — saqlash;
+    <code>edit</code> — tahrir formasi, <code>update</code> — saqlash;
+    <code>destroy</code> — o'chirish. <code>@method</code> (19-dars) shu yerda kerak
+    bo'ladi.</li>
+    <li>Faqat bir qismi kerak bo'lsa:
+    <code>Route::resource(...)-&gt;only(['index', 'show', 'store'])</code>.</li>
+  </ul>
+
+  <div class="callout tip">
+    <span class="label">Hozircha uni ishlatmaymiz</span>
+    <p>Bizda hali <code>create</code>, <code>edit</code>, <code>update</code>,
+    <code>destroy</code> metodlari yo'q — <code>resource</code> yozsak, bor bo'lmagan
+    metodlarga ishora qiluvchi route'lar paydo bo'ladi. Shuning uchun bugun uni
+    <b>faqat ko'rib chiqamiz</b>, keyin <b>uch route'ni qo'lda</b> qoldiramiz.
+    To'liq CRUD tayyor bo'lganda unga o'tamiz.</p>
+  </div>
+
+  <!-- ═══════════════ 4) AMALIYOT / MODE-HINT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    <span class="mode-hint-title">💻 Amaliy qism kompyuterda</span>
+    <p>Amaliyotda IshTop nihoyat <b>bazadan o'qiy boshlaydi</b>: ro'yxatdagi har
+    vakansiya bosiladigan havolaga aylanadi, har biri o'z sahifasini ochadi, mavjud
+    bo'lmagan raqam esa 404 beradi. Va forma <b>haqiqatan saqlaydi</b> — endi
+    «Qo'shildi» degani rost bo'ladi.</p>
+    <button type="button" class="modebtn" data-set-mode="do">💻 Amaliyot rejimini ko'rish</button>
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <p>Toza va ma'lum holatdan boshlang</p>
+        <p class="why-step">23-darsdan keyin eski <code>sql/01-jadval.php</code> ni ishga
+        tushirgan bo'lsangiz, jadval migration yasagan holatda emas. Bu buyruq har
+        holatdan to'g'ri holatga qaytaradi.</p>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+php artisan migrate:fresh &amp;&amp; php sql/05-malumot.php">cd ~/Projects/Learn/ishtop
+php artisan migrate:fresh &amp;&amp; php sql/05-malumot.php
+<span class="out">Ma'lumot solindi: 3 kompaniya, 5 vakansiya.</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> migration'lar bajariladi, keyin tasdiq
+        xabari.</p>
+      </li>
+
+      <li>
+        <p>Route'larga nom va parametr qo'shing</p>
+        <div class="cmd" data-cmd="cat &gt; routes/web.php &lt;&lt;'EOF'
+&lt;?php
+
+use App\Http\Controllers\VakansiyaController;
+use Illuminate\Support\Facades\Route;
+
+Route::get('/vakansiyalar', [VakansiyaController::class, 'index'])-&gt;name('vakansiyalar.index');
+Route::post('/vakansiyalar', [VakansiyaController::class, 'store'])-&gt;name('vakansiyalar.store');
+Route::get('/vakansiyalar/{id}', [VakansiyaController::class, 'show'])-&gt;name('vakansiyalar.show');
+EOF
+php artisan route:list --path=vakansiyalar">cat &gt; routes/web.php &lt;&lt;'EOF'
+&lt;?php
+
+use App\Http\Controllers\VakansiyaController;
+use Illuminate\Support\Facades\Route;
+
+Route::get('/vakansiyalar', [VakansiyaController::class, 'index'])-&gt;name('vakansiyalar.index');
+Route::post('/vakansiyalar', [VakansiyaController::class, 'store'])-&gt;name('vakansiyalar.store');
+Route::get('/vakansiyalar/{id}', [VakansiyaController::class, 'show'])-&gt;name('vakansiyalar.show');
+EOF
+php artisan route:list --path=vakansiyalar
+<span class="out">GET|HEAD  vakansiyalar        vakansiyalar.index › VakansiyaController@index</span>
+<span class="out">POST      vakansiyalar        vakansiyalar.store › VakansiyaController@store</span>
+<span class="out">GET|HEAD  vakansiyalar/{id}   vakansiyalar.show  › VakansiyaController@show</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> uchta route, va endi ularning
+        <b>nomi</b> ko'rinadi (o'rtadagi ustun).</p>
+      </li>
+
+      <li>
+        <p>Controller'ni bazaga ulang</p>
+        <p class="why-step">Qo'lda yozilgan massiv o'rniga — haqiqiy ma'lumot.
+        22-darsdagi <code>LEFT JOIN</code> shu yerda ish beradi.</p>
+        <div class="cmd" data-cmd="cat &gt; app/Http/Controllers/VakansiyaController.php &lt;&lt;'EOF'
+&lt;?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\View\View;
+
+class VakansiyaController extends Controller
+{
+    public function index(): View
+    {
+        $vakansiyalar = DB::select('
+            SELECT v.id, v.nom, v.maosh, k.nom AS kompaniya
+            FROM vakansiyalar v
+            LEFT JOIN kompaniyalar k ON k.id = v.kompaniya_id
+            ORDER BY v.maosh DESC
+        ');
+
+        return view('vakansiyalar.index', ['vakansiyalar' =&gt; $vakansiyalar]);
+    }
+
+    public function show(string $id): View
+    {
+        $qatorlar = DB::select('
+            SELECT v.*, k.nom AS kompaniya
+            FROM vakansiyalar v
+            LEFT JOIN kompaniyalar k ON k.id = v.kompaniya_id
+            WHERE v.id = ?
+        ', [$id]);
+
+        if ($qatorlar === []) {
+            abort(404);
+        }
+
+        return view('vakansiyalar.show', ['v' =&gt; $qatorlar[0]]);
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        $tekshirilgan = $request-&gt;validate([
+            'nom' =&gt; 'required|string|min:5|max:100',
+            'maosh' =&gt; 'required|integer|min:1',
+        ], [
+            'nom.required' =&gt; 'Vakansiya nomi kiritilishi shart.',
+            'nom.min' =&gt; 'Vakansiya nomi kamida :min belgidan iborat bo\'lsin.',
+            'maosh.required' =&gt; 'Maosh kiritilishi shart.',
+            'maosh.integer' =&gt; 'Maosh butun son bo\'lishi kerak.',
+        ]);
+
+        DB::insert(
+            'INSERT INTO vakansiyalar (nom, maosh, created_at, updated_at) VALUES (?, ?, ?, ?)',
+            [$tekshirilgan['nom'], $tekshirilgan['maosh'], now(), now()]
+        );
+
+        return redirect()-&gt;route('vakansiyalar.index')
+            -&gt;with('xabar', &quot;Qo'shildi: {$tekshirilgan['nom']}&quot;);
+    }
+}
+EOF
+php -l app/Http/Controllers/VakansiyaController.php">cat &gt; app/Http/Controllers/VakansiyaController.php &lt;&lt;'EOF'
+&lt;?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\View\View;
+
+class VakansiyaController extends Controller
+{
+    public function index(): View
+    {
+        $vakansiyalar = DB::select('
+            SELECT v.id, v.nom, v.maosh, k.nom AS kompaniya
+            FROM vakansiyalar v
+            LEFT JOIN kompaniyalar k ON k.id = v.kompaniya_id
+            ORDER BY v.maosh DESC
+        ');
+
+        return view('vakansiyalar.index', ['vakansiyalar' =&gt; $vakansiyalar]);
+    }
+
+    public function show(string $id): View
+    {
+        $qatorlar = DB::select('
+            SELECT v.*, k.nom AS kompaniya
+            FROM vakansiyalar v
+            LEFT JOIN kompaniyalar k ON k.id = v.kompaniya_id
+            WHERE v.id = ?
+        ', [$id]);
+
+        if ($qatorlar === []) {
+            abort(404);
+        }
+
+        return view('vakansiyalar.show', ['v' =&gt; $qatorlar[0]]);
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        $tekshirilgan = $request-&gt;validate([
+            'nom' =&gt; 'required|string|min:5|max:100',
+            'maosh' =&gt; 'required|integer|min:1',
+        ], [
+            'nom.required' =&gt; 'Vakansiya nomi kiritilishi shart.',
+            'nom.min' =&gt; 'Vakansiya nomi kamida :min belgidan iborat bo\'lsin.',
+            'maosh.required' =&gt; 'Maosh kiritilishi shart.',
+            'maosh.integer' =&gt; 'Maosh butun son bo\'lishi kerak.',
+        ]);
+
+        <span class="add">DB::insert(
+            'INSERT INTO vakansiyalar (nom, maosh, created_at, updated_at) VALUES (?, ?, ?, ?)',
+            [$tekshirilgan['nom'], $tekshirilgan['maosh'], now(), now()]
+        );</span>
+
+        return redirect()<span class="add">-&gt;route('vakansiyalar.index')</span>
+            -&gt;with('xabar', "Qo'shildi: {$tekshirilgan['nom']}");
+    }
+}
+EOF
+php -l app/Http/Controllers/VakansiyaController.php
+<span class="out">No syntax errors detected</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> «No syntax errors detected».
+        <br>Diqqat: <code>now()</code> — hozirgi vaqtni beradigan Laravel yordamchisi.
+        Xom SQL bilan <code>created_at</code> ni <b>o'zingiz</b> to'ldirishingiz kerak.
+        Buni eslab qoling — keyingi darsda kerak bo'ladi.</p>
+      </li>
+
+      <li>
+        <p>Bitta vakansiya sahifasini yasang</p>
+        <div class="cmd" data-cmd="cat &gt; resources/views/vakansiyalar/show.blade.php &lt;&lt;'EOF'
+@extends('layouts.asosiy')
+
+@section('sarlavha', $v-&gt;nom . ' — IshTop')
+
+@section('mazmun')
+    &lt;p&gt;&lt;a href=&quot;{{ route('vakansiyalar.index') }}&quot;&gt;&amp;larr; Ro'yxatga qaytish&lt;/a&gt;&lt;/p&gt;
+
+    &lt;h1&gt;{{ $v-&gt;nom }}&lt;/h1&gt;
+
+    &lt;ul&gt;
+        &lt;li&gt;Maosh: {{ $v-&gt;maosh ?? '—' }}&lt;/li&gt;
+        &lt;li&gt;Shahar: {{ $v-&gt;shahar ?? '—' }}&lt;/li&gt;
+        &lt;li&gt;Kompaniya: {{ $v-&gt;kompaniya ?? '—' }}&lt;/li&gt;
+        &lt;li&gt;Holat: {{ $v-&gt;faol ? 'faol' : 'yopiq' }}&lt;/li&gt;
+        &lt;li&gt;Yaratilgan: {{ $v-&gt;created_at ?? '—' }}&lt;/li&gt;
+    &lt;/ul&gt;
+@endsection
+EOF">cat &gt; resources/views/vakansiyalar/show.blade.php &lt;&lt;'EOF'
+@extends('layouts.asosiy')
+
+@section('sarlavha', $v-&gt;nom . ' — IshTop')
+
+@section('mazmun')
+    &lt;p&gt;&lt;a href="{{ route('vakansiyalar.index') }}"&gt;&amp;larr; Ro'yxatga qaytish&lt;/a&gt;&lt;/p&gt;
+
+    &lt;h1&gt;{{ $v-&gt;nom }}&lt;/h1&gt;
+
+    &lt;ul&gt;
+        &lt;li&gt;Maosh: {{ $v-&gt;maosh ?? '—' }}&lt;/li&gt;
+        &lt;li&gt;Shahar: {{ $v-&gt;shahar ?? '—' }}&lt;/li&gt;
+        &lt;li&gt;Kompaniya: {{ $v-&gt;kompaniya ?? '—' }}&lt;/li&gt;
+        &lt;li&gt;Holat: {{ $v-&gt;faol ? 'faol' : 'yopiq' }}&lt;/li&gt;
+        &lt;li&gt;Yaratilgan: {{ $v-&gt;created_at ?? '—' }}&lt;/li&gt;
+    &lt;/ul&gt;
+@endsection
+EOF</div>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik.
+        <br>⚠️ Diqqat: <code>$v<b>-&gt;</b>nom</code>, <code>$v['nom']</code> emas!
+        <code>DB::select</code> massiv emas, <b>obyekt</b> qaytaradi (7-dars), shuning
+        uchun <code>-&gt;</code> ishlatiladi.
+        <br><code>??</code> — «chapdagisi bo'sh bo'lsa, o'ngdagisini ol». Bo'sh ustunlar
+        uchun (<code>NULL</code>, 21-dars) qulay.</p>
+      </li>
+
+      <li>
+        <p>Ro'yxatni bosiladigan havolalarga aylantiring</p>
+        <p class="why-step">Bu qadamda <code>route()</code> ishga tushadi.</p>
+        <div class="cmd" data-cmd="cat &gt; resources/views/vakansiyalar/index.blade.php &lt;&lt;'EOF'
+@extends('layouts.asosiy')
+
+@section('mazmun')
+    &lt;h1&gt;Vakansiyalar&lt;/h1&gt;
+
+    @if (session('xabar'))
+        &lt;p style=&quot;color:green&quot;&gt;{{ session('xabar') }}&lt;/p&gt;
+    @endif
+
+    @if ($errors-&gt;any())
+        &lt;ul style=&quot;color:red&quot;&gt;
+            @foreach ($errors-&gt;all() as $xato)
+                &lt;li&gt;{{ $xato }}&lt;/li&gt;
+            @endforeach
+        &lt;/ul&gt;
+    @endif
+
+    &lt;ul&gt;
+        @forelse ($vakansiyalar as $v)
+            &lt;li&gt;
+                &lt;a href=&quot;{{ route('vakansiyalar.show', $v-&gt;id) }}&quot;&gt;{{ $v-&gt;nom }}&lt;/a&gt;
+                — {{ $v-&gt;maosh }} · {{ $v-&gt;kompaniya ?? 'kompaniya ko\'rsatilmagan' }}
+            &lt;/li&gt;
+        @empty
+            &lt;li&gt;Hozircha vakansiya yo'q.&lt;/li&gt;
+        @endforelse
+    &lt;/ul&gt;
+
+    &lt;form method=&quot;POST&quot; action=&quot;{{ route('vakansiyalar.store') }}&quot;&gt;
+        @csrf
+        &lt;p&gt;
+            &lt;input type=&quot;text&quot; name=&quot;nom&quot; placeholder=&quot;Nom&quot; value=&quot;{{ old('nom') }}&quot;&gt;
+            @error('nom') &lt;span style=&quot;color:red&quot;&gt;{{ $message }}&lt;/span&gt; @enderror
+        &lt;/p&gt;
+        &lt;p&gt;
+            &lt;input type=&quot;text&quot; name=&quot;maosh&quot; placeholder=&quot;Maosh&quot; value=&quot;{{ old('maosh') }}&quot;&gt;
+            @error('maosh') &lt;span style=&quot;color:red&quot;&gt;{{ $message }}&lt;/span&gt; @enderror
+        &lt;/p&gt;
+        &lt;button type=&quot;submit&quot;&gt;Saqlash&lt;/button&gt;
+    &lt;/form&gt;
+@endsection
+EOF">cat &gt; resources/views/vakansiyalar/index.blade.php &lt;&lt;'EOF'
+@extends('layouts.asosiy')
+
+@section('mazmun')
+    &lt;h1&gt;Vakansiyalar&lt;/h1&gt;
+
+    @if (session('xabar'))
+        &lt;p style="color:green"&gt;{{ session('xabar') }}&lt;/p&gt;
+    @endif
+
+    @if ($errors-&gt;any())
+        &lt;ul style="color:red"&gt;
+            @foreach ($errors-&gt;all() as $xato)
+                &lt;li&gt;{{ $xato }}&lt;/li&gt;
+            @endforeach
+        &lt;/ul&gt;
+    @endif
+
+    &lt;ul&gt;
+        @forelse ($vakansiyalar as $v)
+            &lt;li&gt;
+                &lt;a href="<span class="add">{{ route('vakansiyalar.show', $v-&gt;id) }}</span>"&gt;{{ $v-&gt;nom }}&lt;/a&gt;
+                — {{ $v-&gt;maosh }} · {{ $v-&gt;kompaniya ?? 'kompaniya ko\'rsatilmagan' }}
+            &lt;/li&gt;
+        @empty
+            &lt;li&gt;Hozircha vakansiya yo'q.&lt;/li&gt;
+        @endforelse
+    &lt;/ul&gt;
+
+    &lt;form method="POST" action="<span class="add">{{ route('vakansiyalar.store') }}</span>"&gt;
+        @csrf
+        &lt;p&gt;
+            &lt;input type="text" name="nom" placeholder="Nom" value="{{ old('nom') }}"&gt;
+            @error('nom') &lt;span style="color:red"&gt;{{ $message }}&lt;/span&gt; @enderror
+        &lt;/p&gt;
+        &lt;p&gt;
+            &lt;input type="text" name="maosh" placeholder="Maosh" value="{{ old('maosh') }}"&gt;
+            @error('maosh') &lt;span style="color:red"&gt;{{ $message }}&lt;/span&gt; @enderror
+        &lt;/p&gt;
+        &lt;button type="submit"&gt;Saqlash&lt;/button&gt;
+    &lt;/form&gt;
+@endsection
+EOF</div>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik.</p>
+      </li>
+
+      <li>
+        <p>🎉 Brauzerda sinab ko'ring</p>
+        <div class="cmd" data-cmd="php artisan serve">php artisan serve</div>
+        <p class="expect"><b>Kutilgan natija:</b> <code>localhost:8000/vakansiyalar</code>
+        ni ochsangiz — <b>bazadagi 5 ta</b> vakansiya, maosh bo'yicha kamayish tartibida:</p>
+        <div class="natija">DevOps injener — 1500 · kompaniya ko'rsatilmagan
+Laravel dasturchi — 1200 · Startup XYZ
+Backend dasturchi — 800 · Uzum
+Frontend dasturchi — 700 · Uzum
+QA muhandis — 500 · EPAM</div>
+        <p class="expect">Endi <b>uch narsani</b> sinang:
+        <br>1) <b>«Laravel dasturchi» ga bosing</b> — manzil <code>/vakansiyalar/3</code>
+        bo'ladi, sarlavhada (brauzer yorlig'ida) vakansiya nomi chiqadi.
+        <br>2) Manzilga <code>/vakansiyalar/999</code> yozing — <b>404 Not Found</b>.
+        <br>3) <code>/vakansiyalar/abc</code> ham 404 — chunki <code>WHERE id = 'abc'</code>
+        hech narsa topmaydi.</p>
+      </li>
+
+      <li>
+        <p>Formani sinang — endi u <b>haqiqatan</b> saqlaydi</p>
+        <p class="why-step">20-darsda forma «Qo'shildi» deb yozardi, lekin hech narsa
+        saqlanmasdi. Endi rost bo'ladi.</p>
+        <div class="cmd" data-cmd="# formaga: nom = Python dasturchi, maosh = 1100"># formaga: nom = Python dasturchi, maosh = 1100</div>
+        <p class="expect"><b>Kutilgan natija:</b> yashil <code>Qo'shildi: Python
+        dasturchi</code>, va u <b>ro'yxatda paydo bo'ladi</b> — bosiladigan havola
+        bilan. Uni bosing: <code>Yaratilgan</code> qatorida <b>vaqt</b> turadi
+        (<code>now()</code> ishlagani).
+        <br>Eski yozuvlarda esa <code>Yaratilgan: —</code> — chunki ular
+        <code>05-malumot.php</code> orqali <code>created_at</code> siz solingan.
+        <br>Noto'g'ri ma'lumot ham sinang (<code>ab</code>) — 20-darsdagi validatsiya
+        <b>joyida</b>: xatolar chiqadi, <code>old()</code> qiymatni saqlaydi.</p>
+      </li>
+
+      <li>
+        <p>🔍 <code>Route::resource</code> nima yasashini ko'ring</p>
+        <p class="why-step">Nomlar qolipi qayerdan kelganini bilib olasiz. Ko'rgandan
+        keyin o'z route'laringizni qaytaramiz.</p>
+        <div class="cmd" data-cmd="cp routes/web.php /tmp/web-nusxa.php
+
+cat &gt; routes/web.php &lt;&lt;'EOF'
+&lt;?php
+
+use App\Http\Controllers\VakansiyaController;
+use Illuminate\Support\Facades\Route;
+
+Route::resource('vakansiyalar', VakansiyaController::class);
+EOF
+php artisan route:list --path=vakansiyalar
+
+cp /tmp/web-nusxa.php routes/web.php">cp routes/web.php /tmp/web-nusxa.php
+
+cat &gt; routes/web.php &lt;&lt;'EOF'
+&lt;?php
+
+use App\Http\Controllers\VakansiyaController;
+use Illuminate\Support\Facades\Route;
+
+Route::resource('vakansiyalar', VakansiyaController::class);
+EOF
+php artisan route:list --path=vakansiyalar
+
+cp /tmp/web-nusxa.php routes/web.php
+<span class="out">Showing [7] routes</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> <b>7 ta</b> route — bitta qatordan.
+        Nomlariga qarang: <code>vakansiyalar.index</code>, <code>vakansiyalar.show</code> —
+        biz qo'lda yozgan nomlar bilan <b>aynan bir xil</b>.
+        <br>Oxirgi buyruq o'z route'laringizni qaytaradi, ya'ni loyiha
+        avvalgi holatda qoladi.</p>
+      </li>
+
+      <li>
+        <p>Ishni saqlang</p>
+        <div class="cmd" data-cmd="git add -A
+git commit -m &quot;24-dars: route parametri, nomlangan route, sahifa bazaga ulandi&quot;">git add -A
+git commit -m "24-dars: route parametri, nomlangan route, sahifa bazaga ulandi"</div>
+        <p class="expect"><b>Kutilgan natija:</b> commit haqida xabar. IshTop endi
+        <b>haqiqiy</b> ilova: bazadan o'qiydi va bazaga yozadi.</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><input type="checkbox" id="d24c1"><label for="d24c1">Route'larga <code>-&gt;name(...)</code> qo'shdim va <code>route:list</code> da ko'rdim</label></li>
+      <li><input type="checkbox" id="d24c2"><label for="d24c2"><b>Sahifa bazadan o'qiy boshladi</b> (qo'lda yozilgan massiv ketdi) 🎉</label></li>
+      <li><input type="checkbox" id="d24c3"><label for="d24c3"><code>{id}</code> ni <code>WHERE id = ?</code> ga uzatdim</label></li>
+      <li><input type="checkbox" id="d24c4"><label for="d24c4"><b>Bitta vakansiya sahifasini ochdim</b> (<code>/vakansiyalar/3</code>)</label></li>
+      <li><input type="checkbox" id="d24c5"><label for="d24c5"><code>/vakansiyalar/999</code> da <b>404</b> ko'rdim</label></li>
+      <li><input type="checkbox" id="d24c6"><label for="d24c6">Havola va formani <code>route()</code> bilan yozdim</label></li>
+      <li><input type="checkbox" id="d24c7"><label for="d24c7"><b>Forma haqiqatan saqladi</b> va ro'yxatda paydo bo'ldi</label></li>
+      <li><input type="checkbox" id="d24c8"><label for="d24c8"><code>Route::resource</code> 7 route yasashini ko'rdim</label></li>
+      <li><input type="checkbox" id="d24c9"><label for="d24c9">Ishni commit qildim</label></li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 5) TAXMIN + QUIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>«Yangi vakansiya» uchun alohida sahifa kerak bo'ldi va route <b>oxiriga</b>
+    qo'shildi:</p>
+    <div class="codefile">
+      <div class="fname">routes/web.php</div>
+      <code class="cmd" data-cmd="Route::get('/vakansiyalar', [VakansiyaController::class, 'index'])-&gt;name('vakansiyalar.index');
+Route::post('/vakansiyalar', [VakansiyaController::class, 'store'])-&gt;name('vakansiyalar.store');
+Route::get('/vakansiyalar/{id}', [VakansiyaController::class, 'show'])-&gt;name('vakansiyalar.show');
+Route::get('/vakansiyalar/create', function () {
+    return 'YANGI VAKANSIYA FORMASI';
+})-&gt;name('vakansiyalar.create');">Route::get('/vakansiyalar', [VakansiyaController::class, 'index'])-&gt;name('vakansiyalar.index');
+Route::post('/vakansiyalar', [VakansiyaController::class, 'store'])-&gt;name('vakansiyalar.store');
+Route::get('/vakansiyalar/{id}', [VakansiyaController::class, 'show'])-&gt;name('vakansiyalar.show');
+<span class="add">Route::get('/vakansiyalar/create', function () {
+    return 'YANGI VAKANSIYA FORMASI';
+})-&gt;name('vakansiyalar.create');</span></code>
+    </div>
+    <p><code>/vakansiyalar/create</code> ni ochsangiz nima ko'rasiz?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <div class="natija">404 Not Found</div>
+        <p>Forma <b>umuman ko'rinmaydi</b>. Sababi: Laravel route'larni <b>yozilgan
+        tartibda</b> tekshiradi va <b>birinchi mos kelganida to'xtaydi</b>.</p>
+        <p><code>/vakansiyalar/{id}</code> yuqorida turadi va <code>{id}</code>
+        «istalgan qiymat» degani — demak <code>create</code> so'zi ham unga <b>mos
+        keladi</b>. So'rov <code>show</code> metodiga tushadi, u
+        <code>WHERE id = 'create'</code> ni bajaradi, hech narsa topmaydi va
+        <code>abort(404)</code> qiladi.</p>
+        <p class="expect">🔑 <b>Yechim — tartibni almashtirish:</b> <b>aniq</b>
+        (qat'iy) yo'llar <b>parametrli</b> yo'llardan <b>oldin</b> turishi kerak:</p>
+        <div class="natija">Route::get('/vakansiyalar/create', ...);   ← aniq, oldin
+Route::get('/vakansiyalar/{id}', ...);     ← parametrli, keyin
+→ /vakansiyalar/create ochiladi, /vakansiyalar/3 ham ishlaydi</div>
+        <p>Aynan shu sababdan <code>Route::resource</code> <code>create</code> ni
+        <code>{vakansiyalar}</code> dan <b>oldin</b> qo'yadi — yuqoridagi ro'yxatga
+        qaytib qarang. U bu tuzoqni <b>siz uchun</b> hal qilgan.</p>
+        <p>Xato juda chalg'ituvchi: kod to'g'ri, route bor, lekin 404. Endi buni
+        <b>bir ko'rishda</b> taniysiz.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span> Nega
+    <code>route('vakansiyalar.show', 3)</code> yoziladi, <code>/vakansiyalar/3</code>
+    emas?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Manzil o'zgarsa bitta joyda tuzatiladi</button></li>
+      <li><button class="quiz-option">Bunday yozish sahifani tezroq ochadi</button></li>
+      <li><button class="quiz-option">Laravel boshqa shaklni umuman tushunmaydi</button></li>
+    </ul>
+    <div class="quiz-explain">Manzil faqat <code>routes/web.php</code> da yoziladi;
+    qolgan hamma joyda uning <b>nomi</b> ishlatiladi. Bundan tashqari xato yozilsa
+    <code>Route [...] not defined</code> deb <b>darhol</b> aytadi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span> <code>/vakansiyalar/create</code>
+    route'i <code>{id}</code> dan <b>keyin</b> yozilsa nima bo'ladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">So'rov show metodiga tushib ketadi</button></li>
+      <li><button class="quiz-option">Laravel tartibni o'zi to'g'rilab qo'yadi</button></li>
+      <li><button class="quiz-option">Ikkalasi ham bir vaqtda ishlaydi</button></li>
+    </ul>
+    <div class="quiz-explain">Route'lar <b>tartib bilan</b> tekshiriladi va birinchi
+    mos kelgani ishlaydi. <code>{id}</code> «create» so'ziga ham mos keladi. Aniq
+    yo'llar parametrlilardan oldin turishi kerak.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span> Bazada topilmagan
+    <code>id</code> uchun nima qilinadi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">abort(404) bilan sahifa qaytariladi</button></li>
+      <li><button class="quiz-option">Bo'sh sahifa foydalanuvchiga ko'rsatiladi</button></li>
+      <li><button class="quiz-option">So'rov ro'yxatga qayta yo'naltiriladi</button></li>
+    </ul>
+    <div class="quiz-explain">Bo'sh sahifa brauzerga va Google'ga «bu sahifa bor» deb
+    aytadi — bu noto'g'ri. Hech narsa qilmaslik esa <b>500</b> beradi, ya'ni
+    «serverda xato» — foydalanuvchining aybini o'zimizga olamiz.</div>
+  </div>
+
+  <!-- ═══════════════ 6) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+    <p class="recall-intro">Avval o'zingiz javob bering, keyin ochib tekshiring.
+    Oxirgi ikkitasi — <a href="0023-migration.html">23-darsni</a> takrorlash.</p>
+
+    <details class="recall">
+      <summary>URL'dagi <code>{id}</code> controllerga qanday yetib boradi?</summary>
+      <div class="answer"><p>Laravel uni <b>argument sifatida</b> metodga uzatadi:
+      <code>show(string $id)</code>. Undan keyin u SQL'ga <b>parametr</b> bo'lib
+      boradi — <code>WHERE id = ?</code>, hech qachon satrga qo'shib emas.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary><code>abort(404)</code> dan keyin <code>return</code> kerakmi?</summary>
+      <div class="answer"><p><b>Yo'q.</b> U exception otadi va funksiyani darhol
+      to'xtatadi (11-dars). Javobni Laravel o'zi yasaydi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Route'lar qanday tartibda tekshiriladi?</summary>
+      <div class="answer"><p><b>Yozilgan tartibda</b>, va birinchi mos kelganida
+      <b>to'xtaydi</b>. Shuning uchun aniq yo'llar (<code>/create</code>) parametrli
+      yo'llardan (<code>/{id}</code>) <b>oldin</b> turishi kerak.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: <code>migrate --pretend</code> nima qiladi?</summary>
+      <div class="answer"><p>Migration'ni <b>bajarmaydi</b> — faqat u yuboradigan SQL'ni
+      ko'rsatadi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: bajarilgan migration tahrirlansa nima bo'ladi?</summary>
+      <div class="answer"><p><b>Hech narsa</b> — Laravel <code>migrations</code>
+      jadvalidagi fayl <b>nomiga</b> qaraydi. Yangi migration kerak (yoki o'z
+      kompyuteringizda <code>migrate:fresh</code>).</p></div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 7) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Cho'ntak xulosasi</span>
+    <ul>
+      <li><code>Route::get('/vakansiyalar/{id}', ...)</code> — jingalak qavs
+      «istalgan qiymat»; controller metodi uni <b>argument</b> sifatida oladi.</li>
+      <li>🔑 <b>Route parametri → SQL parametri</b>:
+      <code>WHERE id = ?</code>, <code>[$id]</code>. URL'ni istalgan odam
+      o'zgartiradi — qo'shib yozish <b>injection</b> teshigi.</li>
+      <li><code>abort(404)</code> — topilmasa. <code>return</code> shart emas.
+      Bo'sh sahifa ❌, hech narsa qilmaslik → <b>500</b> ❌.</li>
+      <li><code>-&gt;name('vakansiyalar.show')</code> + <code>route('...', $id)</code> —
+      manzil <b>bitta joyda</b>. Nom qolipi: <code>resurs.amal</code>.</li>
+      <li><code>route()</code> <b>to'liq</b> manzil qaytaradi; xato bo'lsa
+      <code>Missing required parameter</code> yoki <code>Route [...] not defined</code>
+      deb <b>darhol</b> aytadi.</li>
+      <li>🔑 Route'lar <b>tartib bilan</b> tekshiriladi: aniq yo'llar parametrlilardan
+      <b>oldin</b>.</li>
+      <li><code>Route::resource</code> — <b>7 route</b> bir qatorda, to'g'ri tartibda va
+      standart nomlar bilan. Cheklash — <code>-&gt;only([...])</code>.</li>
+      <li><code>DB::select</code> <b>obyekt</b> qaytaradi:
+      <code>$v-&gt;nom</code>, <code>$v['nom']</code> emas.</li>
+      <li>Xom SQL bilan <code>created_at</code> ni <b>o'zingiz</b> to'ldirasiz
+      (<code>now()</code>).</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p>Endi controllerga qarang: <code>show</code> metodi 14 qator, ularning yarmi SQL.
+    Har jadval uchun shunday yozish kerakmi? Har <code>WHERE id = ?</code> ni qo'lda,
+    har <code>created_at</code> ni qo'lda?</p>
+    <p>25-darsda <b>Eloquent</b> bilan tanishamiz — har jadvalga bitta <b>klass</b>
+    (7-darsdagi klass!). O'sha 14 qator <b>uch qatorga</b> tushadi va topilmasa
+    404 ni <b>o'zi</b> qaytaradi. Va u ham sehr emas: <code>toSql()</code> chaqirsangiz,
+    Eloquent yozgan SQL'ni <b>o'z ko'zingiz bilan</b> ko'rasiz — 21-darsdagi
+    <code>?</code> parametrlari bilan birga.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel — Routing</b>:
+    <a href="https://laravel.com/docs/13.x/routing">laravel.com/docs/13.x/routing</a> —
+    «Route Parameters» va «Named Routes» bo'limlari.<sup><a href="#fn1">1</a></sup><br>
+    <b>Resource controllers</b>:
+    <a href="https://laravel.com/docs/13.x/controllers#resource-controllers">laravel.com/docs/13.x/controllers</a>
+    — yettita amalning jadvali.<sup><a href="#fn2">2</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b> «<code>{id}</code> faqat raqam
+    bo'lishini talab qilsam bo'ladimi?», «manzilda raqam emas, nom bo'lsin desam?»
+    (masalan <code>/vakansiyalar/laravel-dasturchi</code>), «404 sahifasini o'zim
+    chizsam bo'ladimi?», «ikkita parametr bo'lsa-chi?» — har qanday savol yaxshi.
+    Birinchi ikkitasining javobi bor: <code>-&gt;whereNumber('id')</code> va
+    <b>slug</b> — xohlasangiz birga qo'shamiz.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0023-migration.html">Oldingi: Migration</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel 13 — <a href="https://laravel.com/docs/13.x/routing">Routing</a>
+      (Route Parameters, Named Routes).</li>
+      <li id="fn2">Laravel 13 — <a href="https://laravel.com/docs/13.x/controllers#resource-controllers">Resource Controllers</a>.</li>
+      <li id="fn3">Barchasi jonli sinab ko'rilgan (Laravel 13.25.0):
+      ro'yxat bazadan 5 qator · <code>/vakansiyalar/3</code> →
+      <code>&lt;h1&gt;Laravel dasturchi&lt;/h1&gt;</code> ·
+      <code>/vakansiyalar/999</code> va <code>/vakansiyalar/abc</code> → <b>404</b> ·
+      forma → <b>302</b> + yangi yozuv <code>created_at</code> bilan ·
+      <code>route:list</code> nomlar bilan · <code>Route::resource</code> → <b>7</b> route ·
+      va taxmin mashqi: <code>{id}</code> oldin turganda
+      <code>/vakansiyalar/create</code> → <b>404</b>, tartib almashtirilgach → <b>200</b>.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

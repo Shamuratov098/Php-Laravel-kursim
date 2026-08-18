@@ -1,0 +1,950 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 25 — Eloquent: har jadvalga bitta klass</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 25 · MODUL C — MA'LUMOTLAR</p>
+  <h1>Eloquent: <code>Vakansiya::find(3)</code></h1>
+  <p class="lead">Uch darsda SQL'ni o'z qo'lingiz bilan yozdingiz. Endi Laravel'ning
+  <b>Eloquent</b> qismi bilan tanishamiz: har jadvalga <b>bitta klass</b>, va o'sha SQL
+  sizning nomingizdan yoziladi. Bu <b>sehr emas</b> — darsning o'rtasida Eloquent yozgan
+  SQL'ni o'z ko'zingiz bilan ko'rasiz.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 13 daqiqa</span>
+    <span>💻 Amaliyot ≈ 20 daqiqa</span>
+    <span>Kerak: <a href="0024-route-parametri-va-nomlangan-route.html">Dars 24</a></span>
+  </p>
+
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b>Model — jadvalni ifodalovchi klass</b>
+        <span class="nima"><code>make:model</code>; bo'sh klass nima uchun allaqachon ishlaydi (meros).</span></li>
+      <li><b>⚠️ <code>$table</code> majburiy</b>
+        <span class="nima">Laravel <code>Vakansiya</code> → <code>vakansiyas</code> deb taxmin qiladi (inglizcha ko'plik).</span></li>
+      <li><b><code>getTable()</code></b>
+        <span class="nima">Modeldan «sen qaysi jadvalni izlayapsan?» deb so'rash usuli.</span></li>
+      <li><b>🔒 <code>$fillable</code></b>
+        <span class="nima">Mass assignment himoyasi; ro'yxatda yo'q maydon <b>jimgina tashlanadi</b>.</span></li>
+      <li><b>O'qish metodlari</b>
+        <span class="nima"><code>all</code> · <code>find</code> · <code>findOrFail</code> · <code>where</code> · <code>orderBy</code> · <code>count</code> · <code>value</code>.</span></li>
+      <li><b>Yozish metodlari</b>
+        <span class="nima"><code>create</code> · <code>save</code> · <code>delete</code>; <code>created_at</code> 🎁 <b>avtomatik</b>.</span></li>
+      <li><b><code>find</code> va <code>findOrFail</code></b>
+        <span class="nima">Biri <code>NULL</code>, ikkinchisi <b>404</b> — controllerda qaysi biri.</span></li>
+      <li><b>🔍 <code>toSql()</code></b>
+        <span class="nima">Eloquent yozgan SQL'ni ko'rish; <code>?</code> parametrlari — injection himoyasi o'z-o'zidan.</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Nega bu muhim</span>
+    <p>24-darsdagi <code>show</code> metodiga qarang: 14 qator, yarmi SQL. Va u faqat
+    <b>bitta</b> jadval, <b>bitta</b> amal. IshTop'da kompaniya, ariza, ko'nikma ham
+    bo'ladi — har biri uchun <code>SELECT</code>, <code>INSERT</code>,
+    <code>UPDATE</code>, <code>DELETE</code> ni qo'lda yozish minglab qator degani.</p>
+    <p><b>Eloquent</b> — Laravel'ning ORM'i (<i>object-relational mapper</i>):
+    jadvalni <b>klass</b>, qatorni <b>obyekt</b> qilib ko'rsatadi (7-dars!). O'sha 14
+    qator <b>uch qatorga</b> tushadi.</p>
+    <p>Va bu bilim <b>ish uchun majburiy</b>: Laravel vakansiyalarida «Eloquent» deyarli
+    har doim talab sifatida yoziladi. Lekin siz uni <b>SQL'dan keyin</b> o'rganyapsiz —
+    demak nima sodir bo'layotganini bilib ishlatasiz. Aynan shu farq junior'ni
+    «faqat Eloquent biladigan» junior'dan ajratadi.</p>
+  </div>
+
+  <!-- ═══════════════ 2) TUSHUNCHA ═══════════════ -->
+  <h2>Model — jadvalni ifodalovchi klass</h2>
+
+  <div class="codefile">
+    <div class="fname">terminal</div>
+    <code class="cmd" data-cmd="php artisan make:model Vakansiya">php artisan make:model Vakansiya</code>
+  </div>
+
+  <div class="codefile">
+    <div class="fname">app/Models/Vakansiya.php — yaratilgani</div>
+    <code class="cmd" data-cmd="&lt;?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Vakansiya extends Model
+{
+    //
+}">&lt;?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Vakansiya extends Model
+{
+    //
+}</code>
+  </div>
+
+  <p><b>Bo'sh</b>. Hech qanday metod yozilmagan, lekin <code>Vakansiya::find(3)</code>
+  allaqachon ishlaydi. Nega? Chunki <code>extends Model</code> — 9-darsdagi
+  <b>meros</b>. Barcha metodlar ota klassdan keladi.</p>
+
+  <div class="callout warning">
+    <span class="label">⚠️ O'zbekcha nomlar bilan birinchi tuzoq: jadval nomi</span>
+    <p>Model qaysi jadvalga qarashini <b>o'zi taxmin qiladi</b> — klass nomini
+    <b>inglizcha qoida</b> bo'yicha ko'plikka aylantirib:</p>
+    <div class="natija">Vakansiya  →  vakansiyas     ❌
+Kompaniya  →  kompaniyas     ❌
+User       →  users          ✅ (inglizcha so'z)</div>
+    <p>Bizning jadval esa <code>vakansiyalar</code>. Natijada:</p>
+    <div class="natija">SQLSTATE[HY000]: General error: 1 no such table: vakansiyas</div>
+    <p>Yechim — jadval nomini <b>o'zingiz</b> aytish. O'zbekcha nomli loyihada bu
+    <b>har model uchun</b> kerak bo'ladi:</p>
+    <div class="natija">protected $table = 'vakansiyalar';</div>
+    <p>Bu «sehr yo'q»ning yana bir ko'rinishi: Laravel taxmin qiladi, taxmin esa
+    <b>inglizcha</b> til qoidasiga asoslangan. Xato chiqsa — <code>no such table</code>
+    xabaridagi nomga qarang, u sizga nimani taxmin qilganini aytadi.</p>
+  </div>
+
+  <div class="codefile">
+    <div class="fname">app/Models/Vakansiya.php — to'ldirilgani</div>
+    <code class="cmd" data-cmd="&lt;?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Vakansiya extends Model
+{
+    protected $table = 'vakansiyalar';
+
+    protected $fillable = ['nom', 'maosh', 'shahar', 'faol', 'kompaniya_id'];
+}">&lt;?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Vakansiya extends Model
+{
+    <span class="add">protected $table = 'vakansiyalar';</span>
+
+    <span class="add">protected $fillable = ['nom', 'maosh', 'shahar', 'faol', 'kompaniya_id'];</span>
+}</code>
+  </div>
+
+  <p><code>$fillable</code> — «formadan kelgan ma'lumot bilan <b>to'ldirishga ruxsat
+  berilgan</b> ustunlar». Bu 20-darsda boshlagan gapning davomi: u yerda
+  <code>validate()</code> faqat qoidadagi maydonlarni qaytarardi, bu esa
+  <b>ikkinchi qatlam</b>. <code>id</code> va <code>created_at</code> ro'yxatda
+  <b>yo'q</b> — ularni tashqaridan o'zgartirishga ruxsat bermaymiz.</p>
+
+  <h2>O'qish</h2>
+
+  <table class="sheet">
+    <tr><th>Eloquent</th><th class="note-cell">Ma'nosi (va SQL'dagi shakli)</th></tr>
+    <tr><td><code>Vakansiya::all()</code></td><td class="note-cell">Hammasi — <code>SELECT * FROM vakansiyalar</code></td></tr>
+    <tr><td><code>Vakansiya::find(3)</code></td><td class="note-cell">Bitta, <code>id</code> bo'yicha. Topilmasa — <code>NULL</code></td></tr>
+    <tr><td><code>Vakansiya::findOrFail(3)</code></td><td class="note-cell">Xuddi shu, lekin topilmasa <b>404</b> qaytaradi</td></tr>
+    <tr><td><code>Vakansiya::where('maosh', '&gt;', 700)-&gt;get()</code></td><td class="note-cell"><code>WHERE maosh &gt; 700</code></td></tr>
+    <tr><td><code>-&gt;orderBy('maosh', 'desc')</code></td><td class="note-cell"><code>ORDER BY maosh DESC</code></td></tr>
+    <tr><td><code>-&gt;first()</code></td><td class="note-cell">Birinchi qator (<code>LIMIT 1</code>)</td></tr>
+    <tr><td><code>Vakansiya::count()</code></td><td class="note-cell"><code>COUNT(*)</code></td></tr>
+    <tr><td><code>-&gt;value('nom')</code></td><td class="note-cell">Faqat bitta ustunning qiymati</td></tr>
+  </table>
+
+  <p><b>Zanjir</b> — metodlar ketma-ket ulanadi (23-darsdagi
+  <code>$table-&gt;string(...)-&gt;nullable()</code> kabi):</p>
+
+  <div class="codefile">
+    <div class="fname">misol</div>
+    <code class="cmd" data-cmd="Vakansiya::where('faol', 1)
+    -&gt;where('maosh', '&gt;', 700)
+    -&gt;orderBy('maosh', 'desc')
+    -&gt;get();">Vakansiya::where('faol', 1)
+    -&gt;where('maosh', '&gt;', 700)
+    -&gt;orderBy('maosh', 'desc')
+    -&gt;get();</code>
+  </div>
+
+  <p>Ikki <code>where</code> — SQL'dagi <code>AND</code> (22-dars).
+  <code>-&gt;get()</code> — «endi bajar». Undan <b>oldin</b> hech qanday so'rov
+  yuborilmaydi; siz shunchaki so'rovni <b>yig'yapsiz</b>.</p>
+
+  <div class="callout note">
+    <span class="label"><code>find()</code> obyekt, <code>get()</code> to'plam qaytaradi</span>
+    <p><code>Vakansiya::find(3)</code> → bitta <b>obyekt</b>
+    (<code>App\Models\Vakansiya</code>), ustunlar esa uning xossalari:
+    <code>$v-&gt;nom</code>, <code>$v-&gt;maosh</code>.</p>
+    <p><code>-&gt;get()</code> → <b>Collection</b>. Massivga o'xshaydi
+    (<code>@foreach</code> ishlaydi, <code>count()</code> bor), lekin ancha ko'p
+    imkoniyati bor. Uni <b>Modul G</b> da alohida ko'ramiz — hozircha massiv deb
+    o'ylash yetarli.</p>
+  </div>
+
+  <h2>Yozish</h2>
+
+  <table class="sheet">
+    <tr><th>Eloquent</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>Vakansiya::create([...])</code></td><td class="note-cell"><code>INSERT</code> + obyektni qaytaradi. <code>$fillable</code> ga bo'ysunadi</td></tr>
+    <tr><td><code>$v-&gt;maosh = 1400; $v-&gt;save();</code></td><td class="note-cell"><code>UPDATE ... WHERE id = ?</code></td></tr>
+    <tr><td><code>$v-&gt;delete()</code></td><td class="note-cell"><code>DELETE ... WHERE id = ?</code></td></tr>
+    <tr><td><code>$v-&gt;toArray()</code></td><td class="note-cell">Obyektni massivga aylantirish (tekshirish uchun qulay)</td></tr>
+  </table>
+
+  <div class="callout tip">
+    <span class="label">🎁 Bepul keladigan narsa: <code>created_at</code></span>
+    <p>24-darsda <code>created_at</code> ni <b>qo'lda</b> to'ldirdik:</p>
+    <div class="natija">DB::insert(
+    'INSERT INTO vakansiyalar (nom, maosh, created_at, updated_at) VALUES (?, ?, ?, ?)',
+    [$t['nom'], $t['maosh'], now(), now()]
+);</div>
+    <p>Eloquent'da esa:</p>
+    <div class="natija">Vakansiya::create($tekshirilgan);</div>
+    <p><code>created_at</code> va <code>updated_at</code> <b>avtomatik</b> to'ldiriladi —
+    23-darsda migration'ga <code>$table-&gt;timestamps()</code> yozganimiz uchun.
+    Yozuvni o'zgartirsangiz <code>updated_at</code> <b>o'zi</b> yangilanadi. Bu
+    kelishuvning foydasi: nom to'g'ri bo'lsa, ish o'zi bajariladi.</p>
+  </div>
+
+  <h2>🔍 Sehr yo'q: <code>toSql()</code></h2>
+
+  <p>Eloquent nima yozayotganini <b>ko'rsatib beradi</b>. <code>get()</code> o'rniga
+  <code>toSql()</code> chaqiring:</p>
+
+  <div class="codefile">
+    <div class="fname">tekshirish</div>
+    <code class="cmd" data-cmd="Vakansiya::where('maosh', '&gt;', 700)-&gt;orderBy('maosh', 'desc')-&gt;toSql()">Vakansiya::where('maosh', '&gt;', 700)-&gt;orderBy('maosh', 'desc')-&gt;toSql()</code>
+  </div>
+
+  <div class="natija">select * from "vakansiyalar" where "maosh" &gt; ? order by "maosh" desc</div>
+
+  <p>Aynan 21 va 22-darslarda qo'lda yozgan SQL. Va eng muhim tafsilot —
+  <b><code>?</code></b>. Eloquent qiymatni SQL satriga <b>qo'shmaydi</b>, parametr
+  qilib beradi. Ya'ni u <b>SQL injection'dan o'zi himoya qiladi</b> (21-dars).</p>
+
+  <p>Shuning uchun tartib shunday edi: SQL avval, Eloquent keyin. Endi
+  <code>toSql()</code> ni o'qiy olasiz — va bu Modul H dagi sekin so'rovlarni tuzatish
+  darsida asosiy quroliga aylanadi.</p>
+
+  <h2>Yonma-yon: xom SQL va Eloquent</h2>
+
+  <div class="codefile">
+    <div class="fname">24-dars — xom SQL</div>
+    <code class="cmd" data-cmd="public function show(string $id): View
+{
+    $qatorlar = DB::select('
+        SELECT v.*, k.nom AS kompaniya
+        FROM vakansiyalar v
+        LEFT JOIN kompaniyalar k ON k.id = v.kompaniya_id
+        WHERE v.id = ?
+    ', [$id]);
+
+    if ($qatorlar === []) {
+        abort(404);
+    }
+
+    return view('vakansiyalar.show', ['v' =&gt; $qatorlar[0]]);
+}">public function show(string $id): View
+{
+    $qatorlar = DB::select('
+        SELECT v.*, k.nom AS kompaniya
+        FROM vakansiyalar v
+        LEFT JOIN kompaniyalar k ON k.id = v.kompaniya_id
+        WHERE v.id = ?
+    ', [$id]);
+
+    if ($qatorlar === []) {
+        abort(404);
+    }
+
+    return view('vakansiyalar.show', ['v' =&gt; $qatorlar[0]]);
+}</code>
+  </div>
+
+  <div class="codefile">
+    <div class="fname">25-dars — Eloquent</div>
+    <code class="cmd" data-cmd="public function show(string $id): View
+{
+    $v = Vakansiya::findOrFail($id);
+
+    return view('vakansiyalar.show', ['v' =&gt; $v]);
+}">public function show(string $id): View
+{
+    <span class="add">$v = Vakansiya::findOrFail($id);</span>
+
+    return view('vakansiyalar.show', ['v' =&gt; $v]);
+}</code>
+  </div>
+
+  <p><code>findOrFail</code> ichida <b>ikkita</b> ish bor: topish va topilmasa
+  <code>abort(404)</code>. Ya'ni <code>if</code> ham yo'qoldi. Xato tashlanganda
+  <code>ModelNotFoundException</code> otiladi, Laravel esa uni <b>404</b> ga aylantiradi
+  (17-darsdagi <code>withExceptions</code>).</p>
+
+  <div class="callout note">
+    <span class="label">Bitta narsa yo'qoladi: <code>JOIN</code></span>
+    <p>Xom SQL'da bitta so'rovda kompaniya nomini ham olardik.
+    <code>Vakansiya::findOrFail($id)</code> esa <b>faqat vakansiyani</b> oladi —
+    kompaniya nomi yo'q.</p>
+    <p>Hozircha uni <b>alohida</b> olamiz: <code>Kompaniya::find($v-&gt;kompaniya_id)</code>.
+    Bu to'g'ri, lekin qo'pol. <b>26-darsda</b> Eloquent'ning haqiqiy kuchi ochiladi:
+    <code>$v-&gt;kompaniya-&gt;nom</code> deb yozish. Shu sababdan ro'yxat sahifasidan
+    kompaniya ustunini <b>vaqtincha olib qo'yamiz</b> — keyingi darsda chiroyli shaklda
+    qaytadi.</p>
+  </div>
+
+  <!-- ═══════════════ 4) AMALIYOT / MODE-HINT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    <span class="mode-hint-title">💻 Amaliy qism kompyuterda</span>
+    <p>Amaliyotda ikkita model yasaysiz, <code>$table</code> ni ataylab
+    <b>yozmasdan</b> xatoni ko'rasiz, keyin barcha Eloquent amallarini bitta skriptda
+    sinab ko'rasiz. Oxirida 24-darsdagi controllerni Eloquent'ga o'tkazasiz — sahifa
+    <b>aynan avvalgidek</b> ishlaydi, lekin kod ancha qisqa bo'ladi.</p>
+    <button type="button" class="modebtn" data-set-mode="do">💻 Amaliyot rejimini ko'rish</button>
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <p>Ikkita model yasang</p>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+php artisan make:model Vakansiya
+php artisan make:model Kompaniya
+cat app/Models/Vakansiya.php">cd ~/Projects/Learn/ishtop
+php artisan make:model Vakansiya
+php artisan make:model Kompaniya
+cat app/Models/Vakansiya.php
+<span class="out">INFO  Model [app/Models/Vakansiya.php] created successfully.</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> ikkita fayl. Ochib qarasangiz —
+        <b>bo'sh</b> klass, faqat <code>extends Model</code>. Metodlar merosdan keladi
+        (9-dars).</p>
+      </li>
+
+      <li>
+        <p>⚠️ <code>$table</code> siz sinab ko'ring</p>
+        <p class="why-step">Xatoni <b>oldin</b> ko'rish — keyin uni tanib olish uchun.</p>
+        <div class="cmd" data-cmd="cat &gt; sql/06-eloquent.php &lt;&lt;'EOF'
+&lt;?php
+
+use App\Models\Vakansiya;
+
+require __DIR__ . '/../vendor/autoload.php';
+$app = require_once __DIR__ . '/../bootstrap/app.php';
+$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+
+echo 'Model qaysi jadvalni izlaydi: ', (new Vakansiya)-&gt;getTable(), PHP_EOL;
+
+try {
+    Vakansiya::all();
+} catch (Throwable $e) {
+    echo 'XATO: ', explode(' (Connection', $e-&gt;getMessage())[0], PHP_EOL;
+}
+EOF
+php sql/06-eloquent.php">cat &gt; sql/06-eloquent.php &lt;&lt;'EOF'
+&lt;?php
+
+use App\Models\Vakansiya;
+
+require __DIR__ . '/../vendor/autoload.php';
+$app = require_once __DIR__ . '/../bootstrap/app.php';
+$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+
+echo 'Model qaysi jadvalni izlaydi: ', (new Vakansiya)-&gt;getTable(), PHP_EOL;
+
+try {
+    Vakansiya::all();
+} catch (Throwable $e) {
+    echo 'XATO: ', explode(' (Connection', $e-&gt;getMessage())[0], PHP_EOL;
+}
+EOF
+php sql/06-eloquent.php
+<span class="out">Model qaysi jadvalni izlaydi: vakansiyas</span>
+<span class="out">XATO: SQLSTATE[HY000]: General error: 1 no such table: vakansiyas</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> aynan yuqoridagi ikki qator.
+        <br>🔑 <code>getTable()</code> — modeldan «sen qaysi jadvalni izlayapsan?» deb
+        so'rash usuli. <b>vakansiyas</b> — Laravel inglizcha ko'plik yasagan. Bu xato
+        o'zbekcha nomli loyihada <b>doim</b> uchraydi, va endi siz uni birinchi
+        qarashda taniysiz.</p>
+      </li>
+
+      <li>
+        <p>Modellarni to'ldiring</p>
+        <div class="cmd" data-cmd="cat &gt; app/Models/Vakansiya.php &lt;&lt;'EOF'
+&lt;?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Vakansiya extends Model
+{
+    protected $table = 'vakansiyalar';
+
+    protected $fillable = ['nom', 'maosh', 'shahar', 'faol', 'kompaniya_id'];
+}
+EOF
+
+cat &gt; app/Models/Kompaniya.php &lt;&lt;'EOF'
+&lt;?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Kompaniya extends Model
+{
+    protected $table = 'kompaniyalar';
+
+    protected $fillable = ['nom', 'shahar'];
+}
+EOF
+php sql/06-eloquent.php">cat &gt; app/Models/Vakansiya.php &lt;&lt;'EOF'
+&lt;?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Vakansiya extends Model
+{
+    protected $table = 'vakansiyalar';
+
+    protected $fillable = ['nom', 'maosh', 'shahar', 'faol', 'kompaniya_id'];
+}
+EOF
+
+cat &gt; app/Models/Kompaniya.php &lt;&lt;'EOF'
+&lt;?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Kompaniya extends Model
+{
+    protected $table = 'kompaniyalar';
+
+    protected $fillable = ['nom', 'shahar'];
+}
+EOF
+php sql/06-eloquent.php
+<span class="out">Model qaysi jadvalni izlaydi: vakansiyalar</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> endi <code>vakansiyalar</code>, va
+        xato <b>yo'q</b>.</p>
+      </li>
+
+      <li>
+        <p>Barcha amallarni bir skriptda sinang</p>
+        <p class="why-step">Darsning yuragi. Har amalni bajarib, natijasini ko'rasiz.</p>
+        <div class="cmd" data-cmd="cat &gt; sql/06-eloquent.php &lt;&lt;'EOF'
+&lt;?php
+
+use App\Models\Vakansiya;
+
+require __DIR__ . '/../vendor/autoload.php';
+$app = require_once __DIR__ . '/../bootstrap/app.php';
+$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+
+echo '── all()', PHP_EOL;
+echo '   ', Vakansiya::all()-&gt;count(), ' ta', PHP_EOL;
+
+echo PHP_EOL, '── find(3)', PHP_EOL;
+$v = Vakansiya::find(3);
+echo '   ', $v-&gt;nom, ' | ', $v-&gt;maosh, ' | ', get_class($v), PHP_EOL;
+
+echo PHP_EOL, '── find(999) — topilmasa', PHP_EOL;
+echo '   ', var_export(Vakansiya::find(999), true), PHP_EOL;
+
+echo PHP_EOL, '── where + orderBy + get', PHP_EOL;
+foreach (Vakansiya::where('maosh', '&gt;', 700)-&gt;orderBy('maosh', 'desc')-&gt;get() as $q) {
+    echo '   ', $q-&gt;nom, ' | ', $q-&gt;maosh, PHP_EOL;
+}
+
+echo PHP_EOL, '── create() — timestamps avtomatikmi?', PHP_EOL;
+$yangi = Vakansiya::create(['nom' =&gt; 'Go dasturchi', 'maosh' =&gt; 1300, 'shahar' =&gt; 'Toshkent']);
+echo '   id=', $yangi-&gt;id, '  created_at=', $yangi-&gt;created_at, PHP_EOL;
+
+echo PHP_EOL, '── save() bilan o\'zgartirish', PHP_EOL;
+$yangi-&gt;maosh = 1400;
+$yangi-&gt;save();
+echo '   ', Vakansiya::find($yangi-&gt;id)-&gt;maosh, PHP_EOL;
+
+echo PHP_EOL, '── delete()', PHP_EOL;
+$yangi-&gt;delete();
+echo '   qolgan: ', Vakansiya::count(), ' ta', PHP_EOL;
+
+echo PHP_EOL, '── SEHR YO\'Q: toSql()', PHP_EOL;
+echo '   ', Vakansiya::where('maosh', '&gt;', 700)-&gt;orderBy('maosh', 'desc')-&gt;toSql(), PHP_EOL;
+EOF
+php sql/06-eloquent.php">cat &gt; sql/06-eloquent.php &lt;&lt;'EOF'
+&lt;?php
+
+use App\Models\Vakansiya;
+
+require __DIR__ . '/../vendor/autoload.php';
+$app = require_once __DIR__ . '/../bootstrap/app.php';
+$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+
+echo '── all()', PHP_EOL;
+echo '   ', Vakansiya::all()-&gt;count(), ' ta', PHP_EOL;
+
+echo PHP_EOL, '── find(3)', PHP_EOL;
+$v = Vakansiya::find(3);
+echo '   ', $v-&gt;nom, ' | ', $v-&gt;maosh, ' | ', get_class($v), PHP_EOL;
+
+echo PHP_EOL, '── find(999) — topilmasa', PHP_EOL;
+echo '   ', var_export(Vakansiya::find(999), true), PHP_EOL;
+
+echo PHP_EOL, '── where + orderBy + get', PHP_EOL;
+foreach (Vakansiya::where('maosh', '&gt;', 700)-&gt;orderBy('maosh', 'desc')-&gt;get() as $q) {
+    echo '   ', $q-&gt;nom, ' | ', $q-&gt;maosh, PHP_EOL;
+}
+
+echo PHP_EOL, '── create() — timestamps avtomatikmi?', PHP_EOL;
+$yangi = Vakansiya::create(['nom' =&gt; 'Go dasturchi', 'maosh' =&gt; 1300, 'shahar' =&gt; 'Toshkent']);
+echo '   id=', $yangi-&gt;id, '  created_at=', $yangi-&gt;created_at, PHP_EOL;
+
+echo PHP_EOL, '── save() bilan o\'zgartirish', PHP_EOL;
+$yangi-&gt;maosh = 1400;
+$yangi-&gt;save();
+echo '   ', Vakansiya::find($yangi-&gt;id)-&gt;maosh, PHP_EOL;
+
+echo PHP_EOL, '── delete()', PHP_EOL;
+$yangi-&gt;delete();
+echo '   qolgan: ', Vakansiya::count(), ' ta', PHP_EOL;
+
+echo PHP_EOL, '── SEHR YO\'Q: toSql()', PHP_EOL;
+echo '   ', Vakansiya::where('maosh', '&gt;', 700)-&gt;orderBy('maosh', 'desc')-&gt;toSql(), PHP_EOL;
+EOF
+php sql/06-eloquent.php
+<span class="out">── find(3)</span>
+<span class="out">   Laravel dasturchi | 1200 | App\Models\Vakansiya</span>
+<span class="out">── create() — timestamps avtomatikmi?</span>
+<span class="out">   id=6  created_at=2026-08-17 05:39:28</span>
+<span class="out">── SEHR YO'Q: toSql()</span>
+<span class="out">   select * from "vakansiyalar" where "maosh" &gt; ? order by "maosh" desc</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> sakkiz bo'lim. Uchtasiga alohida
+        diqqat qiling:
+        <br>1) <code>find(3)</code> qaytargan narsaning <b>klassi</b> —
+        <code>App\Models\Vakansiya</code>. Ya'ni bu <b>obyekt</b> (7-dars), massiv emas.
+        <br>2) <code>find(999)</code> → <code>NULL</code>. Xato <b>emas</b>! Shuning
+        uchun controllerda <code>findOrFail</code> ishlatiladi.
+        <br>3) 🎉 <code>create()</code> dan keyin <code>created_at</code> <b>to'ldirilgan</b> —
+        siz yozmagan holda. 24-darsda buni <code>now()</code> bilan qo'lda yozgandik.
+        <br>4) 🔍 Oxirgi qator — Eloquent yozgan <b>haqiqiy SQL</b>. Qiymat o'rnida
+        <code>?</code> turishiga qarang: parametr, ya'ni <b>injection'dan himoya</b>.</p>
+        <p class="expect"><i>Eslatma: <code>id</code> raqami va vaqt sizda boshqacha
+        bo'ladi — ular bazaning holatiga bog'liq. Qolgan hamma narsa bir xil.</i></p>
+      </li>
+
+      <li>
+        <p>Controllerni Eloquent'ga o'tkazing</p>
+        <p class="why-step">Sahifa <b>aynan avvalgidek</b> ishlaydi — lekin kod
+        qisqaradi. Bu refactoring'ning ta'rifi.</p>
+        <div class="cmd" data-cmd="cat &gt; app/Http/Controllers/VakansiyaController.php &lt;&lt;'EOF'
+&lt;?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Kompaniya;
+use App\Models\Vakansiya;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\View\View;
+
+class VakansiyaController extends Controller
+{
+    public function index(): View
+    {
+        return view('vakansiyalar.index', [
+            'vakansiyalar' =&gt; Vakansiya::orderBy('maosh', 'desc')-&gt;get(),
+        ]);
+    }
+
+    public function show(string $id): View
+    {
+        $v = Vakansiya::findOrFail($id);
+
+        $kompaniya = null;
+        if ($v-&gt;kompaniya_id !== null) {
+            $kompaniya = Kompaniya::find($v-&gt;kompaniya_id);
+        }
+
+        return view('vakansiyalar.show', ['v' =&gt; $v, 'kompaniya' =&gt; $kompaniya]);
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        $tekshirilgan = $request-&gt;validate([
+            'nom' =&gt; 'required|string|min:5|max:100',
+            'maosh' =&gt; 'required|integer|min:1',
+        ], [
+            'nom.required' =&gt; 'Vakansiya nomi kiritilishi shart.',
+            'nom.min' =&gt; 'Vakansiya nomi kamida :min belgidan iborat bo\'lsin.',
+            'maosh.required' =&gt; 'Maosh kiritilishi shart.',
+            'maosh.integer' =&gt; 'Maosh butun son bo\'lishi kerak.',
+        ]);
+
+        Vakansiya::create($tekshirilgan);
+
+        return redirect()-&gt;route('vakansiyalar.index')
+            -&gt;with('xabar', &quot;Qo'shildi: {$tekshirilgan['nom']}&quot;);
+    }
+}
+EOF
+php -l app/Http/Controllers/VakansiyaController.php">cat &gt; app/Http/Controllers/VakansiyaController.php &lt;&lt;'EOF'
+&lt;?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Kompaniya;
+use App\Models\Vakansiya;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\View\View;
+
+class VakansiyaController extends Controller
+{
+    public function index(): View
+    {
+        return view('vakansiyalar.index', [
+            'vakansiyalar' =&gt; <span class="add">Vakansiya::orderBy('maosh', 'desc')-&gt;get()</span>,
+        ]);
+    }
+
+    public function show(string $id): View
+    {
+        <span class="add">$v = Vakansiya::findOrFail($id);</span>
+
+        $kompaniya = null;
+        if ($v-&gt;kompaniya_id !== null) {
+            $kompaniya = Kompaniya::find($v-&gt;kompaniya_id);
+        }
+
+        return view('vakansiyalar.show', ['v' =&gt; $v, 'kompaniya' =&gt; $kompaniya]);
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        $tekshirilgan = $request-&gt;validate([
+            'nom' =&gt; 'required|string|min:5|max:100',
+            'maosh' =&gt; 'required|integer|min:1',
+        ], [
+            'nom.required' =&gt; 'Vakansiya nomi kiritilishi shart.',
+            'nom.min' =&gt; 'Vakansiya nomi kamida :min belgidan iborat bo\'lsin.',
+            'maosh.required' =&gt; 'Maosh kiritilishi shart.',
+            'maosh.integer' =&gt; 'Maosh butun son bo\'lishi kerak.',
+        ]);
+
+        <span class="add">Vakansiya::create($tekshirilgan);</span>
+
+        return redirect()-&gt;route('vakansiyalar.index')
+            -&gt;with('xabar', "Qo'shildi: {$tekshirilgan['nom']}");
+    }
+}
+EOF
+php -l app/Http/Controllers/VakansiyaController.php
+<span class="out">No syntax errors detected</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> «No syntax errors detected».
+        <br>Diqqat: <code>use Illuminate\Support\Facades\DB;</code> <b>butunlay
+        yo'qoldi</b> — bu controllerda endi SQL yo'q.</p>
+      </li>
+
+      <li>
+        <p>View'larni moslang</p>
+        <p class="why-step">Ro'yxatdan kompaniya ustuni <b>vaqtincha</b> ketadi
+        (26-darsda chiroyli qaytadi), <code>show</code> esa alohida olingan
+        kompaniyani ko'rsatadi.</p>
+        <div class="cmd" data-cmd="# index.blade.php — havola qatorini shunday qiling:
+                &lt;a href=&quot;{{ route('vakansiyalar.show', $v-&gt;id) }}&quot;&gt;{{ $v-&gt;nom }}&lt;/a&gt;
+                — {{ $v-&gt;maosh }}
+
+# show.blade.php — Kompaniya qatorini shunday qiling:
+        &lt;li&gt;Kompaniya: @if ($kompaniya) {{ $kompaniya-&gt;nom }} @else — @endif&lt;/li&gt;"># index.blade.php — havola qatorini shunday qiling:
+                &lt;a href="{{ route('vakansiyalar.show', $v-&gt;id) }}"&gt;{{ $v-&gt;nom }}&lt;/a&gt;
+                — {{ $v-&gt;maosh }}
+
+# show.blade.php — Kompaniya qatorini shunday qiling:
+        &lt;li&gt;Kompaniya: @if ($kompaniya) {{ $kompaniya-&gt;nom }} @else — @endif&lt;/li&gt;</div>
+        <p class="expect"><b>Ya'ni:</b> <code>index.blade.php</code> da
+        <code>· {{ $v-&gt;kompaniya ?? ... }}</code> qismini o'chirasiz;
+        <code>show.blade.php</code> da <code>Kompaniya</code> qatorini almashtirasiz.
+        <br>Qolgan hamma narsa <b>o'zgarmaydi</b> — Eloquent obyekt qaytargani uchun
+        <code>$v-&gt;nom</code> shakli bir xil.</p>
+      </li>
+
+      <li>
+        <p>🎉 Brauzerda tekshiring — hech narsa buzilmadi</p>
+        <div class="cmd" data-cmd="php artisan serve">php artisan serve</div>
+        <p class="expect"><b>Kutilgan natija:</b> <code>/vakansiyalar</code> —
+        avvalgidek ro'yxat; havolalar ishlaydi; <code>/vakansiyalar/3</code> —
+        vakansiya sahifasi, kompaniyasi bilan; <code>/vakansiyalar/999</code> —
+        <b>404</b> (endi <code>abort()</code> siz, <code>findOrFail</code> o'zi qildi).
+        <br>Formaga to'g'ri ma'lumot yuboring — saqlanadi va <b>Yaratilgan</b> qatorida
+        vaqt turadi. <code>now()</code> yozmaganingizga qaramay.
+        <br>Noto'g'ri ma'lumot ham sinang — 20-darsdagi validatsiya joyida.</p>
+      </li>
+
+      <li>
+        <p>Ishni saqlang</p>
+        <div class="cmd" data-cmd="git add -A
+git commit -m &quot;25-dars: Eloquent modellari va CRUD&quot;">git add -A
+git commit -m "25-dars: Eloquent modellari va CRUD"</div>
+        <p class="expect"><b>Kutilgan natija:</b> commit haqida xabar.</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><input type="checkbox" id="d25c1"><label for="d25c1">Ikkita model yasadim</label></li>
+      <li><input type="checkbox" id="d25c2"><label for="d25c2"><b><code>no such table: vakansiyas</code> xatosini ko'rdim</b> va sababini bilaman</label></li>
+      <li><input type="checkbox" id="d25c3"><label for="d25c3"><code>$table</code> va <code>$fillable</code> ni yozdim</label></li>
+      <li><input type="checkbox" id="d25c4"><label for="d25c4"><code>all</code> · <code>find</code> · <code>where</code> · <code>orderBy</code> · <code>count</code> ni sinadim</label></li>
+      <li><input type="checkbox" id="d25c5"><label for="d25c5"><b><code>create()</code> dan keyin <code>created_at</code> o'zi to'ldirilganini ko'rdim</b> 🎁</label></li>
+      <li><input type="checkbox" id="d25c6"><label for="d25c6"><b><code>toSql()</code> bilan Eloquent yozgan SQL'ni ko'rdim</b> 🔍</label></li>
+      <li><input type="checkbox" id="d25c7"><label for="d25c7">Controllerni Eloquent'ga o'tkazdim va <code>DB</code> ni butunlay olib tashladim</label></li>
+      <li><input type="checkbox" id="d25c8"><label for="d25c8">Sahifa avvalgidek ishlashini tasdiqladim (404 ham)</label></li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 5) TAXMIN + QUIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Modelda <code>$fillable</code> shunday:</p>
+    <div class="natija">protected $fillable = ['nom', 'maosh', 'shahar', 'faol', 'kompaniya_id'];</div>
+    <p>Diqqat: <code>masofadan</code> ustuni <b>ro'yxatda yo'q</b> (u 23-darsda
+    migration bilan qo'shilgan va standart qiymati <code>0</code>). Endi:</p>
+    <div class="codefile">
+      <div class="fname">sinov</div>
+      <code class="cmd" data-cmd="$v = Vakansiya::create([
+    'nom' =&gt; 'Rust dasturchi',
+    'maosh' =&gt; 1600,
+    'masofadan' =&gt; 1,      // $fillable da YO'Q
+]);
+
+echo $v-&gt;nom, ' ', $v-&gt;maosh, ' ', Vakansiya::find($v-&gt;id)-&gt;masofadan;">$v = Vakansiya::create([
+    'nom' =&gt; 'Rust dasturchi',
+    'maosh' =&gt; 1600,
+    'masofadan' =&gt; 1,      // $fillable da YO'Q
+]);
+
+echo $v-&gt;nom, ' ', $v-&gt;maosh, ' ', Vakansiya::find($v-&gt;id)-&gt;masofadan;</code>
+    </div>
+    <p>Nima chiqadi — xato otiladimi, yoki <code>masofadan</code> <code>1</code>
+    bo'ladimi?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <div class="natija">Rust dasturchi 1600 0</div>
+        <p><b>Xato yo'q, lekin <code>masofadan</code> ham yozilmadi</b> — u
+        <code>0</code>, ya'ni migration'dagi standart qiymatda qoldi. Eloquent
+        <code>$fillable</code> da bo'lmagan maydonni <b>jimgina tashlab yubordi</b>.</p>
+        <p>🔒 <b>Nega shunday?</b> Aynan shu — <b>mass assignment</b> himoyasi.
+        Tasavvur qiling, <code>User</code> modelida <code>admin</code> ustuni bor.
+        Foydalanuvchi ro'yxatdan o'tish formasiga yashirincha <code>admin=1</code>
+        qo'shib yuborsa-chi? <code>$fillable</code> bo'lmasa, u <b>o'zini admin
+        qilib qo'yardi</b>. Shu sababdan Eloquent «ruxsat berilmagan» maydonni
+        <b>o'tkazmaydi</b>.</p>
+        <p class="expect">⚠️ <b>Va agar <code>$fillable</code> ni butunlay
+        yozmasangiz?</b> Unda Eloquent hech nimaga ishonmaydi va exception otadi:</p>
+        <div class="natija">Illuminate\Database\Eloquent\MassAssignmentException
+Add [nom] to fillable property to allow mass assignment on [Vakansiya].</div>
+        <p>Ya'ni ikki holat bor: <b>ro'yxat yo'q</b> → xato (ovoz chiqaradi);
+        <b>ro'yxat bor, maydon unda yo'q</b> → jimgina tashlanadi. Ikkinchisi
+        chalg'ituvchi bo'lishi mumkin: «nega saqlanmadi?» degan savolda birinchi
+        qaraydigan joy — <code>$fillable</code>.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span> <code>Vakansiya</code> modeli
+    <code>$table</code> yozilmasa qaysi jadvalni izlaydi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">vakansiyas — inglizcha ko'plik yasaydi</button></li>
+      <li><button class="quiz-option">vakansiyalar — nom aynan olinadi</button></li>
+      <li><button class="quiz-option">vakansiya — nom o'zgarmay qoladi</button></li>
+    </ul>
+    <div class="quiz-explain">Laravel klass nomini <b>inglizcha</b> qoida bilan ko'plikka
+    aylantiradi. O'zbekcha nomlarda bu deyarli har doim xato bo'ladi, shuning uchun
+    <code>protected $table</code> yozish kerak. Tekshirish usuli —
+    <code>(new Vakansiya)-&gt;getTable()</code>.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span> <code>$fillable</code> da
+    bo'lmagan maydon <code>create()</code> ga berilsa nima bo'ladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Jimgina tashlab yuboriladi, xato yo'q</button></li>
+      <li><button class="quiz-option">Darhol MassAssignmentException degan xato otiladi</button></li>
+      <li><button class="quiz-option">Bazaga standart qiymat bilan yoziladi</button></li>
+    </ul>
+    <div class="quiz-explain">Maydon shunchaki o'tkazilmaydi — bu <b>mass assignment</b>
+    himoyasi. <code>MassAssignmentException</code> esa boshqa holatda otiladi:
+    <code>$fillable</code> <b>umuman</b> yozilmaganda.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span> <code>findOrFail()</code> ning
+    <code>find()</code> dan farqi nimada?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">findOrFail topilmasa 404 qaytaradi</button></li>
+      <li><button class="quiz-option">findOrFail doim massiv qaytaradi</button></li>
+      <li><button class="quiz-option">findOrFail so'rovni ancha tezlashtiradi</button></li>
+    </ul>
+    <div class="quiz-explain"><code>find()</code> topilmasa <code>NULL</code> beradi va
+    keyingi qator xato bilan yiqiladi (<b>500</b>). <code>findOrFail()</code>
+    <code>ModelNotFoundException</code> otadi, Laravel uni <b>404</b> ga aylantiradi —
+    ya'ni <code>abort(404)</code> yozish shart emas.</div>
+  </div>
+
+  <!-- ═══════════════ 6) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+    <p class="recall-intro">Avval o'zingiz javob bering, keyin ochib tekshiring.
+    Oxirgi ikkitasi — <a href="0024-route-parametri-va-nomlangan-route.html">24-darsni</a>
+    takrorlash.</p>
+
+    <details class="recall">
+      <summary>Model bo'sh bo'lsa ham nega ishlaydi?</summary>
+      <div class="answer"><p><code>extends Model</code> — <b>meros</b> (9-dars).
+      <code>find</code>, <code>where</code>, <code>create</code> kabi barcha metodlar
+      ota klassdan keladi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Eloquent yozgan SQL'ni qanday ko'rish mumkin?</summary>
+      <div class="answer"><p><code>get()</code> o'rniga <code>toSql()</code>:
+      <code>Vakansiya::where(...)-&gt;toSql()</code>. Qiymatlar o'rnida <code>?</code>
+      turadi — ya'ni parametr, demak injection'dan himoyalangan.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary><code>created_at</code> kim to'ldiradi?</summary>
+      <div class="answer"><p><b>Eloquent o'zi</b> — migration'da
+      <code>$table-&gt;timestamps()</code> bo'lgani uchun. Xom SQL'da esa
+      <code>now()</code> bilan qo'lda yozgandik (24-dars).</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: route'lar qanday tartibda tekshiriladi?</summary>
+      <div class="answer"><p><b>Yozilgan tartibda</b>, birinchi mos kelganida to'xtaydi.
+      Shuning uchun <code>/vakansiyalar/create</code> <code>/vakansiyalar/{id}</code> dan
+      <b>oldin</b> turishi kerak.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: nega <code>route('vakansiyalar.show', 3)</code>?</summary>
+      <div class="answer"><p>Manzil <b>bitta joyda</b> (routes faylida) yozilishi uchun.
+      Manzil o'zgarsa, qolgan hamma joy o'zi to'g'ri ishlaydi. Xato nom yozilsa —
+      <code>Route [...] not defined</code> deb darhol aytadi.</p></div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 7) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Cho'ntak xulosasi</span>
+    <ul>
+      <li><code>php artisan make:model Vakansiya</code> — <code>app/Models/</code> ga
+      bo'sh klass. Metodlar <code>extends Model</code> dan keladi (meros).</li>
+      <li>⚠️ <b>O'zbekcha nomda <code>$table</code> majburiy</b>: Laravel
+      <code>Vakansiya</code> → <code>vakansiyas</code> deb taxmin qiladi.
+      Xato: <code>no such table: vakansiyas</code>. Tekshirish:
+      <code>(new Vakansiya)-&gt;getTable()</code>.</li>
+      <li>🔒 <code>$fillable</code> — formadan to'ldirishga <b>ruxsat berilgan</b>
+      ustunlar. Ro'yxatda yo'q maydon <b>jimgina tashlanadi</b>; ro'yxat butunlay
+      yo'q bo'lsa — <code>MassAssignmentException</code>.</li>
+      <li>O'qish: <code>all()</code> · <code>find($id)</code> ·
+      <code>findOrFail($id)</code> · <code>where(...)-&gt;get()</code> ·
+      <code>orderBy(...)</code> · <code>first()</code> · <code>count()</code> ·
+      <code>value('nom')</code>.</li>
+      <li><code>find()</code> topilmasa <b><code>NULL</code></b>,
+      <code>findOrFail()</code> esa <b>404</b>. Controllerda — <code>findOrFail</code>.</li>
+      <li>Yozish: <code>create([...])</code> · <code>$v-&gt;save()</code> ·
+      <code>$v-&gt;delete()</code>.</li>
+      <li>🎁 <code>created_at</code> va <code>updated_at</code> — <b>avtomatik</b>
+      (migration'dagi <code>timestamps()</code> tufayli).</li>
+      <li>🔍 <code>toSql()</code> — Eloquent yozgan SQL. Qiymatlar <code>?</code> bilan,
+      ya'ni <b>parametr</b> — SQL injection'dan himoya <b>o'z-o'zidan</b> keladi.</li>
+      <li><code>find()</code> <b>obyekt</b>, <code>get()</code> <b>Collection</b>
+      qaytaradi (massivga o'xshaydi; Modul G da chuqur).</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p>Bugun kod qisqardi, lekin bitta narsa <b>qo'polroq</b> bo'ldi: kompaniya nomini
+    olish uchun ikkinchi so'rov yozdik va ro'yxatdan uni butunlay olib qo'ydik.
+    Xom SQL'da bu bitta <code>JOIN</code> edi.</p>
+    <p>26-darsda Eloquent'ning <b>haqiqiy kuchi</b> ochiladi — <b>bog'lanishlar</b>.
+    Modelga bir marta shunday yozasiz:</p>
+    <div class="natija">public function kompaniya()
+{
+    return $this->belongsTo(Kompaniya::class);
+}</div>
+    <p>Shundan keyin butun ilovada <code>$v-&gt;kompaniya-&gt;nom</code> deb yozish
+    kifoya. Va teskarisi ham ishlaydi:
+    <code>$kompaniya-&gt;vakansiyalar</code> — o'sha kompaniyaning barcha vakansiyalari.
+    22-darsdagi <code>JOIN</code> shu yerda <b>kodga aylanadi</b>.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel — Eloquent: Getting Started</b>:
+    <a href="https://laravel.com/docs/13.x/eloquent">laravel.com/docs/13.x/eloquent</a> —
+    «Model Conventions» (jadval nomi, <code>timestamps</code>) va «Mass Assignment»
+    bo'limlari.<sup><a href="#fn1">1</a></sup><br>
+    Rasmiy bepul video:
+    <a href="https://laravel.com/learn/getting-started-with-laravel">Getting Started with Laravel</a>
+    — Eloquent qismi.<sup><a href="#fn2">2</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b> «<code>$fillable</code> o'rniga
+    <code>$guarded</code> nima?», «<code>updateOrCreate</code> bormi?»,
+    «<code>faol</code> ustuni <code>1</code> emas, <code>true</code> bo'lishini
+    xohlasam?» (javob: <code>$casts</code>), «modelni <code>tinker</code> da sinasam
+    bo'ladimi?» (javob: <b>ha</b>, va u juda qulay) — har qanday savol yaxshi.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0024-route-parametri-va-nomlangan-route.html">Oldingi: Route parametri</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel 13 — <a href="https://laravel.com/docs/13.x/eloquent">Eloquent: Getting Started</a>.</li>
+      <li id="fn2">Laravel — <a href="https://laravel.com/learn/getting-started-with-laravel">Getting Started with Laravel</a> (bepul rasmiy video kurs).</li>
+      <li id="fn3">Barchasi jonli o'lchangan (Laravel 13.25.0):
+      <code>getTable()</code> → <b>vakansiyas</b> · <code>no such table: vakansiyas</code> ·
+      <code>find(3)</code> → <code>App\Models\Vakansiya</code> obyekti ·
+      <code>find(999)</code> → <b>NULL</b> · <code>create()</code> → <code>created_at</code>
+      to'ldirilgan · <code>toSql()</code> →
+      <code>select * from "vakansiyalar" where "maosh" &gt; ? order by "maosh" desc</code> ·
+      <code>findOrFail</code> HTTP'da → <b>404</b> ·
+      <code>ModelNotFoundException: No query results for model [App\Models\Vakansiya] 999</code> ·
+      taxmin mashqi: <code>masofadan</code> → <b>0</b> (jimgina tashlandi) va
+      <code>$fillable</code> siz →
+      <code>MassAssignmentException</code>.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

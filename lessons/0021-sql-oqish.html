@@ -23,6 +23,27 @@
     <span>Kerak: <a href="0020-validation.html">Dars 20</a></span>
   </p>
 
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b>SQL'ni qanday ishga tushiramiz</b>
+        <span class="nima"><code>php artisan db</code> ishlamaydi — Laravel'ni <b>qo'lda yuklovchi</b> skript yozamiz.</span></li>
+      <li><b>«A facade root has not been set»</b>
+        <span class="nima">Uchinchi qatorni unutganda chiqadigan xato va uning ma'nosi (15-dars).</span></li>
+      <li><b><code>DB::statement</code> va <code>DB::select</code></b>
+        <span class="nima">Natija qaytarmaydigan va qaytaradigan so'rovlar.</span></li>
+      <li><b>Jadval yasash</b>
+        <span class="nima"><code>CREATE TABLE</code> · <code>PRIMARY KEY</code> · <code>NOT NULL</code> · <code>DEFAULT</code>.</span></li>
+      <li><b><code>SELECT</code> ning barcha shakllari</b>
+        <span class="nima"><code>WHERE</code> · <code>AND</code>/<code>OR</code> · <code>ORDER BY</code> · <code>LIMIT</code> · <code>COUNT</code> · <code>AS</code>.</span></li>
+      <li><b>🔑 <code>NULL</code> — «noma'lum»</b>
+        <span class="nima"><code>= NULL</code> <b>ishlamaydi</b>; <code>!=</code> shartlari <code>NULL</code> qatorlarni jimgina tashlaydi.</span></li>
+      <li><b>🔒 SQL injection</b>
+        <span class="nima">Foydalanuvchi qiymati faqat <code>?</code> parametr bilan.</span></li>
+    </ol>
+  </div>
+
   <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
   <div class="callout why">
     <span class="label">Nega SQL Eloquent'dan oldin</span>

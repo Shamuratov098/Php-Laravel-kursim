@@ -1,0 +1,1215 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 33 — Gate va Policy: kim nima qila oladi</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 33 · MODUL D — FOYDALANUVCHI VA HUQUQLAR</p>
+  <h1>Gate va Policy: «bu yozuv kimniki?»</h1>
+  <p class="lead">32-darsda middleware «kirganmi?» degan savolga javob berdi. Lekin
+  hozir <b>kirgan har qanday odam</b> istalgan vakansiyani o'chira oladi. Bugun
+  vakansiyaga <b>egasi</b> qo'shamiz va Laravel'ning huquq tekshirish mexanizmini
+  o'rganamiz — <b>403</b> javobi bilan birga.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 16 daqiqa</span>
+    <span>💻 Amaliyot ≈ 26 daqiqa</span>
+    <span>Kerak: <a href="0032-middleware.html">Dars 32</a></span>
+  </p>
+
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b>Nega middleware yetmaydi</b>
+        <span class="nima">Middleware <b>route</b> darajasida ishlaydi; savol esa
+        <b>aniq yozuv</b> haqida: «shu vakansiya shu odamnikimi?»</span></li>
+      <li><b>Vakansiyaga egasi</b>
+        <span class="nima">Migration bilan <code>user_id</code> ustuni va
+        <code>egasi()</code> bog'lanishi. ⚠️ 26-darsdagi tuzoq qaytadi.</span></li>
+      <li><b><code>make:policy --model=</code></b>
+        <span class="nima">Yasalgan skelet: <code>viewAny</code> ·
+        <code>view</code> · <code>create</code> · <code>update</code> ·
+        <code>delete</code>. Hammasi <code>false</code> qaytaradi.</span></li>
+      <li><b>Policy avtomatik topiladi</b>
+        <span class="nima"><code>Models\Vakansiya</code> →
+        <code>Policies\VakansiyaPolicy</code>. O'zbekcha nomda ham
+        <b>ishlaydi</b> — ko'plik yasalmaydi.</span></li>
+      <li><b>⚠️ <code>AuthorizesRequests</code> trait'i</b>
+        <span class="nima">Laravel 11+ da bazaviy <code>Controller</code>
+        <b>bo'sh</b> — <code>$this-&gt;authorize()</code> ishlamaydi. Aniq xato va
+        bir qatorli yechim.</span></li>
+      <li><b><code>authorize()</code> → 403</b>
+        <span class="nima">Ruxsat bo'lmasa <b>403 Forbidden</b>. Egasi uchun esa
+        oddiy 302. O'lchandi.</span></li>
+      <li><b><code>@can</code> Blade direktivasi</b>
+        <span class="nima">Tugmani faqat huquqi borga ko'rsatish. 🔒 Lekin
+        <b>yashirish himoya emas</b> — uchinchi marta.</span></li>
+      <li><b><code>can:</code> middleware</b>
+        <span class="nima">Controllerda kod yozmasdan route darajasida tekshirish:
+        <code>'can:delete,vakansiya'</code>.</span></li>
+      <li><b><code>Gate::define</code> va <code>Gate::before</code></b>
+        <span class="nima">Modelsiz oddiy qoidalar va «hamma narsaga ruxsat»
+        beruvchi ustun qoida (superuser).</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima">Metod yo'qligi · mehmon holati · <code>Response::deny</code>
+        bilan sabab · <code>inspect()</code> · <code>can</code> va <code>cannot</code> ·
+        policy'ni qo'lda bog'lash · 403 sahifasini o'zgartirish.</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Nega middleware yetmaydi</span>
+    <p><code>middleware('auth')</code> bitta savolga javob beradi:
+    <b>«kirganmi?»</b> Bu route darajasidagi savol — u <b>hamma</b> so'rov uchun
+    bir xil.</p>
+    <p>Lekin haqiqiy savol boshqacha: <b>«<i>shu</i> vakansiyani <i>shu</i> odam
+    o'chira oladimi?»</b> Javob <b>aniq yozuvga</b> bog'liq — birida «ha», boshqasida
+    «yo'q».</p>
+    <div class="natija">middleware:  «kirganmi?»              → route darajasida
+policy:      «bu yozuv seniki-mi?»    → yozuv darajasida</div>
+    <p>Bu farqni bilmaslik jiddiy zaiflik keltiradi: hozirgi IshTop'da <b>kirgan
+    har qanday odam</b> boshqa odamning e'lonini o'chira oladi. Real saytda bu
+    bir kunda seziladi.</p>
+  </div>
+
+  <!-- ═══════════════ 2) TUSHUNCHA ═══════════════ -->
+  <h2>Avval — vakansiyaga egasi kerak</h2>
+
+  <p>«Kimniki?» degan savolga javob berish uchun jadvalda <b>egasi</b> bo'lishi
+  kerak. 23-darsdagi migration mexanizmi bilan qo'shamiz:</p>
+
+  <div class="codefile">
+    <div class="fname">database/migrations/…_add_user_id_to_vakansiyalar_table.php</div>
+    <code class="cmd" data-cmd="public function up(): void
+{
+    Schema::table('vakansiyalar', function (Blueprint $table) {
+        $table-&gt;foreignId('user_id')-&gt;nullable()-&gt;constrained()-&gt;nullOnDelete();
+    });
+}
+
+public function down(): void
+{
+    Schema::table('vakansiyalar', function (Blueprint $table) {
+        $table-&gt;dropForeign(['user_id']);
+        $table-&gt;dropColumn('user_id');
+    });
+}">public function up(): void
+{
+    Schema::table('vakansiyalar', function (Blueprint $table) {
+        $table-&gt;foreignId('user_id')-&gt;nullable()-&gt;constrained()-&gt;<span class="add">nullOnDelete()</span>;
+    });
+}
+
+public function down(): void
+{
+    Schema::table('vakansiyalar', function (Blueprint $table) {
+        $table-&gt;dropForeign(['user_id']);
+        $table-&gt;dropColumn('user_id');
+    });
+}</code>
+  </div>
+
+  <table class="sheet">
+    <tr><th>Qism</th><th class="note-cell">Nima uchun</th></tr>
+    <tr><td><code>foreignId('user_id')-&gt;constrained()</code></td><td class="note-cell">Tashqi kalit (23-dars). Jadval nomi <code>users</code> deb <b>taxmin qilinadi</b> — inglizcha nom, shuning uchun to'g'ri chiqadi</td></tr>
+    <tr><td><code>-&gt;nullable()</code></td><td class="note-cell">Eski vakansiyalarda egasi yo'q — <code>NULL</code> ruxsat</td></tr>
+    <tr><td><code>-&gt;nullOnDelete()</code></td><td class="note-cell">🆕 Foydalanuvchi o'chsa, vakansiya <b>qolsin</b>, faqat egasi <code>NULL</code> bo'lsin (27-darsdagi <code>cascadeOnDelete</code> ning yumshoq varianti)</td></tr>
+  </table>
+
+  <div class="callout note">
+    <span class="label">🔍 SQLite'da <code>ALTER TABLE</code> qanday bajariladi</span>
+    <p><code>migrate --pretend</code> qiziq narsa ko'rsatadi:</p>
+    <div class="natija">⇂ drop table "vakansiyalar"
+⇂ alter table "__temp__vakansiyalar" rename to "vakansiyalar"</div>
+    <p>SQLite tashqi kalit qo'shishni bilmaydi, shuning uchun Laravel
+    <b>vaqtinchalik jadval</b> yasab, ma'lumotni ko'chirib, eskisini o'chiradi va
+    yangisini o'sha nom bilan qayta nomlaydi. MySQL'da bu oddiy
+    <code>ALTER TABLE</code> bo'lardi.</p>
+    <p>Amaliy xulosa: migration <b>bir xil kod</b>, lekin baza uni o'zicha
+    bajaradi — 23-darsdagi «bir xil kod turli bazalarda ishlaydi» va'dasining
+    ichki tomoni.</p>
+  </div>
+
+  <div class="codefile">
+    <div class="fname">app/Models/Vakansiya.php</div>
+    <code class="cmd" data-cmd="protected $fillable = ['nom', 'maosh', 'shahar', 'faol', 'kompaniya_id', 'user_id'];
+
+public function egasi(): BelongsTo
+{
+    return $this-&gt;belongsTo(User::class, 'user_id');
+}">protected $fillable = ['nom', 'maosh', 'shahar', 'faol', 'kompaniya_id', <span class="add">'user_id'</span>];
+
+<span class="add">public function egasi(): BelongsTo
+{
+    return $this-&gt;belongsTo(User::class, 'user_id');
+}</span></code>
+  </div>
+
+  <div class="callout warning">
+    <span class="label">⚠️ Ikkinchi argument — 26-darsdagi tuzoq qaytdi</span>
+    <p>Metod nomi <code>egasi()</code>, ustun esa <code>user_id</code>. Laravel
+    tashqi kalitni <b>metod nomidan</b> taxmin qiladi (26-dars):</p>
+    <div class="natija">belongsTo(User::class) ikkinchi argumentsiz:
+   taxmin qilingan ustun: egasi_id
+   natija: NULL            ← jimgina, xatosiz</div>
+    <p>Shuning uchun <code>'user_id'</code> ni <b>aniq</b> yozamiz. Bu — 26-darsdagi
+    HOLAT 2 ning amaliy takrori, va u aynan shunday joyda uchraydi: metodga
+    <b>ma'noli o'zbekcha nom</b> berganingizda.</p>
+  </div>
+
+  <h2>Policy — bitta model uchun qoidalar to'plami</h2>
+
+  <div class="codefile">
+    <div class="fname">terminal</div>
+    <code class="cmd" data-cmd="php artisan make:policy VakansiyaPolicy --model=Vakansiya">php artisan make:policy VakansiyaPolicy --model=Vakansiya</code>
+  </div>
+
+  <p>Yasalgan fayl beshta metod bilan keladi va <b>hammasi <code>false</code></b>
+  qaytaradi:</p>
+
+  <div class="natija">public function viewAny(User $user): bool          { return false; }
+public function view(User $user, Vakansiya $v): bool { return false; }
+public function create(User $user): bool           { return false; }
+public function update(User $user, Vakansiya $v): bool { return false; }
+public function delete(User $user, Vakansiya $v): bool { return false; }</div>
+
+  <p>Diqqat qiling: metodlarning <b>ikki xil shakli</b> bor:</p>
+
+  <table class="sheet">
+    <tr><th>Shakl</th><th class="note-cell">Qachon</th></tr>
+    <tr><td><code>update(User $user, Vakansiya $v)</code></td><td class="note-cell"><b>Aniq yozuv</b> haqida: «shu vakansiyani?»</td></tr>
+    <tr><td><code>create(User $user)</code></td><td class="note-cell">Yozuv <b>hali yo'q</b>: «umuman yaratishi mumkinmi?»</td></tr>
+  </table>
+
+  <p>Bizga hozir ikkitasi yetadi:</p>
+
+  <div class="codefile">
+    <div class="fname">app/Policies/VakansiyaPolicy.php</div>
+    <code class="cmd" data-cmd="class VakansiyaPolicy
+{
+    public function update(User $user, Vakansiya $vakansiya): bool
+    {
+        return $vakansiya-&gt;user_id === $user-&gt;id;
+    }
+
+    public function delete(User $user, Vakansiya $vakansiya): bool
+    {
+        return $vakansiya-&gt;user_id === $user-&gt;id;
+    }
+}">class VakansiyaPolicy
+{
+    public function update(User $user, Vakansiya $vakansiya): bool
+    {
+        <span class="add">return $vakansiya-&gt;user_id === $user-&gt;id;</span>
+    }
+
+    public function delete(User $user, Vakansiya $vakansiya): bool
+    {
+        <span class="add">return $vakansiya-&gt;user_id === $user-&gt;id;</span>
+    }
+}</code>
+  </div>
+
+  <p>Butun qoida shu bitta solishtirishda. Va <code>===</code> ishlatilgani ham
+  bejiz emas — 3-darsdagi qat'iy solishtirish.</p>
+
+  <div class="callout tip">
+    <span class="label">Policy avtomatik topiladi</span>
+    <p>Hech qayerda ro'yxatdan o'tkazmadik, lekin Laravel uni topadi:</p>
+    <div class="natija">Gate::getPolicyFor(Vakansiya::class)
+   → App\Policies\VakansiyaPolicy</div>
+    <p>Qoida: <code>App\Models\<b>X</b></code> → <code>App\Policies\<b>X</b>Policy</code>.
+    🎯 Va bu safar <b>o'zbekcha nom muammo bermaydi</b> — chunki bu yerda ko'plik
+    yasalmaydi, shunchaki <code>Policy</code> qo'shiladi.</p>
+    <p>Kerak bo'lsa qo'lda ham bog'lash mumkin (pastda HOLAT 6).</p>
+  </div>
+
+  <h2>Controllerda: <code>authorize()</code></h2>
+
+  <div class="codefile">
+    <div class="fname">app/Http/Controllers/VakansiyaController.php</div>
+    <code class="cmd" data-cmd="public function ochirish(Vakansiya $vakansiya): RedirectResponse
+{
+    $this-&gt;authorize('delete', $vakansiya);
+
+    $vakansiya-&gt;delete();
+
+    return redirect()-&gt;route('vakansiyalar.index')
+        -&gt;with('xabar', 'Vakansiya o\'chirildi.');
+}">public function ochirish(Vakansiya $vakansiya): RedirectResponse
+{
+    <span class="add">$this-&gt;authorize('delete', $vakansiya);</span>
+
+    $vakansiya-&gt;delete();
+
+    return redirect()-&gt;route('vakansiyalar.index')
+        -&gt;with('xabar', 'Vakansiya o\'chirildi.');
+}</code>
+  </div>
+
+  <p>Bitta qator. Ruxsat bo'lsa — kod davom etadi; bo'lmasa — <b>403</b> otiladi va
+  keyingi qatorlar <b>umuman ishlamaydi</b> (20-darsdagi <code>validate()</code>
+  bilan bir xil naqsh).</p>
+
+  <div class="callout warning">
+    <span class="label">⚠️ Birinchi to'siq: <code>AuthorizesRequests</code> trait'i</span>
+    <p>Laravel 11 dan beri bazaviy controller <b>bo'sh</b>:</p>
+    <div class="natija">// app/Http/Controllers/Controller.php
+abstract class Controller
+{
+    //
+}</div>
+    <p>Shuning uchun <code>$this-&gt;authorize()</code> yozsangiz:</p>
+    <div class="natija">BadMethodCallException
+Call to undefined method App\Http\Controllers\VakansiyaController::authorize()</div>
+    <p>✅ Yechim — bazaviy controllerga <b>bitta trait</b> (10-dars):</p>
+    <div class="natija">use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+
+abstract class Controller
+{
+    use AuthorizesRequests;
+}</div>
+    <p>Bu 28-darsdagi <code>HasFactory</code> bilan bir xil holat: hujjatlardagi
+    misollar «ishlaydi», chunki ular eski Laravel'ga yoki starter kit'ga
+    mo'ljallangan.</p>
+  </div>
+
+  <h3>Natija — o'lchangan</h3>
+
+  <div class="natija">Vali (begona) o'chirmoqchi:  403
+Ali  (egasi)  o'chiradi:     302 → /vakansiyalar
+                             xabar: Vakansiya o'chirildi.</div>
+
+  <p><b>403 Forbidden</b> — «kimligingni bilaman, lekin bunga huquqing yo'q».
+  Buni <b>404</b> yoki <b>302</b> bilan aralashtirmaslik kerak:</p>
+
+  <table class="sheet">
+    <tr><th>Status</th><th class="note-cell">Ma'nosi</th></tr>
+    <tr><td><b>401</b> / 302 → login</td><td class="note-cell">«Kim ekaningni bilmayman» — <code>auth</code> middleware</td></tr>
+    <tr><td><b>403</b> Forbidden</td><td class="note-cell">«Bilaman, lekin huquqing yo'q» — policy</td></tr>
+    <tr><td><b>404</b> Not Found</td><td class="note-cell">«Bunday yozuv yo'q» — 24-dars</td></tr>
+  </table>
+
+  <h2>Blade'da: <code>@can</code></h2>
+
+  <div class="codefile">
+    <div class="fname">resources/views/vakansiyalar/show.blade.php</div>
+    <code class="cmd" data-cmd="@can('delete', $v)
+    &lt;form method=&quot;POST&quot; action=&quot;{{ route('vakansiyalar.ochirish', $v-&gt;id) }}&quot;&gt;
+        @csrf
+        @method('DELETE')
+        &lt;button type=&quot;submit&quot;&gt;Vakansiyani o'chirish&lt;/button&gt;
+    &lt;/form&gt;
+@endcan">@can('delete', $v)
+    &lt;form method="POST" action="{{ route('vakansiyalar.ochirish', $v-&gt;id) }}"&gt;
+        @csrf
+        @method('DELETE')
+        &lt;button type="submit"&gt;Vakansiyani o'chirish&lt;/button&gt;
+    &lt;/form&gt;
+@endcan</code>
+  </div>
+
+  <div class="natija">Ali  (egasi):  tugma ko'rinadi     ✅
+Vali (begona): tugma YO'Q         ✅</div>
+
+  <p><code>@method('DELETE')</code> — 19-darsdagi method spoofing: HTML forma faqat
+  GET va POST ni biladi.</p>
+
+  <div class="callout warning">
+    <span class="label">🔒 Uchinchi marta: yashirish — himoya emas</span>
+    <p>Bu qoidani 30-darsda (<code>@auth</code>) va 32-darsda (middleware) ham
+    aytgandik. Endi uchinchi shaklda:</p>
+    <div class="natija">@can  →  tugmani YASHIRADI       (ko'rinish)
+$this-&gt;authorize()  →  so'rovni TO'XTATADI  (himoya)</div>
+    <p>Tugma ko'rinmasa ham, so'rovni qo'lda yuborish mumkin — biz buni sinab
+    ko'rdik va <b>403</b> oldik. Ya'ni <b>ikkalasi ham</b> kerak: biri
+    foydalanuvchi uchun, ikkinchisi xavfsizlik uchun.</p>
+  </div>
+
+  <h2>Muqobil: <code>can:</code> middleware</h2>
+
+  <p>Controllerda kod yozmasdan ham bo'ladi — 32-darsdagi middleware shaklida:</p>
+
+  <div class="codefile">
+    <div class="fname">routes/web.php</div>
+    <code class="cmd" data-cmd="Route::delete('/vakansiyalar/{vakansiya}', [VakansiyaController::class, 'ochirish'])
+    -&gt;name('vakansiyalar.ochirish')
+    -&gt;middleware(['auth', 'can:delete,vakansiya']);">Route::delete('/vakansiyalar/{vakansiya}', [VakansiyaController::class, 'ochirish'])
+    -&gt;name('vakansiyalar.ochirish')
+    -&gt;middleware(['auth', <span class="add">'can:delete,vakansiya'</span>]);</code>
+  </div>
+
+  <div class="natija">Begona odam o'chirmoqchi → 403     (controllerda hech qanday kod yo'q)</div>
+
+  <p>Ikkinchi qism — <code>vakansiya</code> — <b>route parametrining nomi</b>
+  (24-dars). Laravel undan modelni topadi va policy'ga uzatadi.</p>
+
+  <p><b>Qaysi birini tanlash?</b> <code>authorize()</code> — controllerda, chunki
+  u <b>ko'rinadi</b>: kodni o'qigan odam tekshiruv borligini darhol biladi.
+  <code>can:</code> middleware — route fayli o'qilganda ko'rinadi. Kursda
+  <code>authorize()</code> ni ishlatamiz.</p>
+
+  <h2><code>Gate::define</code> — modelsiz qoidalar</h2>
+
+  <p>Ba'zi qoidalar hech qanday modelga bog'liq emas: «hisobotni ko'rish»,
+  «sozlamalarni o'zgartirish». Ular uchun policy og'irlik qiladi —
+  <code>Gate::define</code> yetadi:</p>
+
+  <div class="codefile">
+    <div class="fname">app/Providers/AppServiceProvider.php — boot()</div>
+    <code class="cmd" data-cmd="Gate::define('hisobot-korish', function (User $user) {
+    return str_ends_with($user-&gt;email, '@example.uz');
+});">Gate::define('hisobot-korish', function (User $user) {
+    return str_ends_with($user-&gt;email, '@example.uz');
+});</code>
+  </div>
+
+  <div class="natija">Gate::forUser($ali)-&gt;allows('hisobot-korish')      → true
+Gate::forUser($begona)-&gt;allows('hisobot-korish')   → false
+
+Blade'da:  @can('hisobot-korish') ... @endcan</div>
+
+  <p>Ishlatilishi <b>bir xil</b>: <code>@can</code>, <code>authorize()</code>,
+  <code>can:</code> — hammasi ham gate, ham policy bilan ishlaydi.</p>
+
+  <h3><code>Gate::before</code> — ustun qoida</h3>
+
+  <div class="codefile">
+    <div class="fname">AppServiceProvider — boot()</div>
+    <code class="cmd" data-cmd="Gate::before(function (User $user, string $qobiliyat) {
+    return $user-&gt;email === 'admin@example.uz' ? true : null;
+});">Gate::before(function (User $user, string $qobiliyat) {
+    return $user-&gt;email === 'admin@example.uz' ? true : null;
+});</code>
+  </div>
+
+  <p>U <b>har</b> tekshiruvdan <b>oldin</b> ishlaydi:</p>
+
+  <table class="sheet">
+    <tr><th>Qaytargani</th><th class="note-cell">Natija</th></tr>
+    <tr><td><code>true</code></td><td class="note-cell">Ruxsat — policy <b>umuman so'ralmaydi</b></td></tr>
+    <tr><td><code>false</code></td><td class="note-cell">Taqiq — policy so'ralmaydi</td></tr>
+    <tr><td><code>null</code></td><td class="note-cell">«Menda gap yo'q» — policy o'z ishini qiladi</td></tr>
+  </table>
+
+  <p>O'lchandi: <code>Gate::before</code> yoqilganda begona odam ham boshqaning
+  vakansiyasini o'zgartira oldi — chunki <code>true</code> policy'ni
+  <b>chetlab o'tdi</b>.</p>
+
+  <p>⚠️ Shuning uchun <code>null</code> qaytarish <b>muhim</b>: <code>false</code>
+  yozib qo'ysangiz, hech kim hech narsa qila olmaydi.</p>
+
+  <!-- ═══════════════ 3) HAR XIL HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir bir marta o'qib chiqing, keyin
+  kerak bo'lganda qaytib qarang.</p>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 1</span>
+    <h4>Policy'da metod yo'q bo'lsa</h4>
+    <div class="natija">// VakansiyaPolicy da faqat update va delete bor
+
+Gate::forUser($ali)-&gt;allows('view', $v)   →  false</div>
+    <p>Xato <b>otilmaydi</b> — shunchaki <b>taqiq</b>. Bu xavfsiz standart
+    («ruxsat berilmagan narsa taqiqlangan»), lekin chalkashtirishi mumkin:
+    «nega tugma ko'rinmayapti?» degan savolning javobi ba'zan «policy'da o'sha
+    metod yo'q».</p>
+    <p>✅ Tekshirish: policy faylini ochib, metod nomi <b>aynan</b> to'g'ri
+    yozilganini ko'ring (<code>delete</code>, <code>o'chirish</code> emas).</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 2</span>
+    <h4>Mehmon (kirmagan odam)</h4>
+    <p>Policy metodi <code>User $user</code> talab qiladi. Mehmon uchun
+    <code>null</code> keladi va Laravel tekshiruvni <b>taqiq</b> deb hisoblaydi —
+    policy chaqirilmaydi ham.</p>
+    <p>Agar mehmonga ham ruxsat kerak bo'lsa (masalan ochiq yozuvni ko'rish),
+    tipni <b>ixtiyoriy</b> qiling:</p>
+    <div class="natija">public function view(?User $user, Vakansiya $vakansiya): bool
+{
+    return $vakansiya-&gt;faol || $vakansiya-&gt;user_id === $user?-&gt;id;
+}</div>
+    <p><code>?User</code> va <code>$user?-&gt;id</code> — 26-darsdagi nullsafe
+    operator shu yerda ish beradi.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 3</span>
+    <h4>Taqiq sababini aytish — <code>Response::deny</code></h4>
+    <div class="natija">use Illuminate\Auth\Access\Response;
+
+public function delete(User $user, Vakansiya $vakansiya): Response
+{
+    return $vakansiya-&gt;user_id === $user-&gt;id
+        ? Response::allow()
+        : Response::deny('Faqat e\'lon egasi o\'chira oladi.');
+}</div>
+    <p><code>bool</code> o'rniga <code>Response</code> qaytarsangiz, 403 sahifasida
+    <b>sizning xabaringiz</b> ko'rinadi. Foydalanuvchi uchun ancha tushunarli.</p>
+    <p>⚠️ Lekin ehtiyot bo'ling: sabab ba'zan <b>ma'lumot sizdiradi</b> (30-darsdagi
+    «umumiy xabar» qoidasi). «Bu yozuv boshqa foydalanuvchiniki» deyish odatda
+    xavfsiz; «Ali Valiyevniki» deyish — yo'q.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 4</span>
+    <h4>Tekshirishning barcha shakllari</h4>
+    <div class="natija">// Controllerda
+$this-&gt;authorize('delete', $vakansiya);        // ruxsat bo'lmasa 403
+
+// Shart sifatida
+if ($request-&gt;user()-&gt;can('delete', $vakansiya)) { ... }
+if ($request-&gt;user()-&gt;cannot('delete', $vakansiya)) { ... }
+
+// Gate fasadi orqali (skriptda, testda)
+Gate::allows('delete', $vakansiya);
+Gate::denies('delete', $vakansiya);
+Gate::forUser($boshqaOdam)-&gt;allows('delete', $vakansiya);
+
+// Blade'da
+@can('delete', $v) ... @endcan
+@cannot('delete', $v) ... @endcannot</div>
+    <p><code>Gate::forUser(...)</code> — <b>boshqa</b> foydalanuvchi nomidan
+    tekshirish. Skriptlarda va Modul E dagi testlarda juda qulay.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 5</span>
+    <h4><code>inspect()</code> — «nega?» degan savolga javob</h4>
+    <div class="natija">$natija = Gate::inspect('delete', $vakansiya);
+
+$natija-&gt;allowed()   →  true / false
+$natija-&gt;message()   →  Response::deny(...) dagi matn (yoki NULL)</div>
+    <p>Tekshiruv nima uchun yiqilganini bilish kerak bo'lganda — masalan
+    xatoni topayotganda yoki API javobida sababni qaytarmoqchi bo'lganda.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 6</span>
+    <h4>Policy'ni qo'lda bog'lash</h4>
+    <p>Avtomatik topilish qoidasi buzilgan bo'lsa (nom boshqacha, papka
+    boshqacha), qo'lda bog'lash mumkin:</p>
+    <div class="natija">// AppServiceProvider::boot()
+Gate::policy(Vakansiya::class, VakansiyaPolicy::class);
+
+// yoki modelga atribut bilan (Laravel 12+)
+#[UsePolicy(VakansiyaPolicy::class)]
+class Vakansiya extends Model { ... }</div>
+    <p>Bizda kerak emas — <code>Models\Vakansiya</code> →
+    <code>Policies\VakansiyaPolicy</code> qoidasi o'zbekcha nomda ham ishlaydi.
+    Tekshirish: <code>Gate::getPolicyFor(Vakansiya::class)</code>.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>403 sahifasini o'zgartirish</h4>
+    <div class="natija">php artisan vendor:publish --tag=laravel-errors
+→ resources/views/errors/403.blade.php</div>
+    <p>Shundan keyin fayl sizniki — dizaynini va matnini o'zgartirasiz. Xuddi
+    shunday <code>404.blade.php</code>, <code>500.blade.php</code> ham.</p>
+    <p>Bu 29-darsdagi pagination ko'rinishlari bilan bir xil naqsh: Laravel'ning
+    ko'rinishlari — oddiy Blade fayllari, ularni <b>chiqarib olib</b>
+    o'zgartirish mumkin.</p>
+  </div>
+
+  <!-- ═══════════════ 4) AMALIYOT / MODE-HINT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    <span class="mode-hint-title">💻 Amaliy qism kompyuterda</span>
+    <p>Amaliyotda vakansiyaga <b>egasi</b> qo'shasiz, policy yozasiz va ikkita
+    foydalanuvchi bilan sinab ko'rasiz: biri o'chira oladi, ikkinchisi
+    <b>403</b> oladi. Yo'lda <code>AuthorizesRequests</code> trait'i yo'qligidagi
+    xatoni ham ko'rasiz.</p>
+    <button type="button" class="modebtn" data-set-mode="do">💻 Amaliyot rejimini ko'rish</button>
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <p>Vakansiyaga egasi ustunini qo'shing</p>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+php artisan cache:clear
+php artisan make:migration add_user_id_to_vakansiyalar_table">cd ~/Projects/Learn/ishtop
+php artisan cache:clear
+php artisan make:migration add_user_id_to_vakansiyalar_table</div>
+        <p>Yasalgan faylda <code>up()</code> va <code>down()</code> ni to'ldiring:</p>
+        <div class="cmd" data-cmd="    public function up(): void
+    {
+        Schema::table('vakansiyalar', function (Blueprint $table) {
+            $table-&gt;foreignId('user_id')-&gt;nullable()-&gt;constrained()-&gt;nullOnDelete();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('vakansiyalar', function (Blueprint $table) {
+            $table-&gt;dropForeign(['user_id']);
+            $table-&gt;dropColumn('user_id');
+        });
+    }">    public function up(): void
+    {
+        Schema::table('vakansiyalar', function (Blueprint $table) {
+            $table-&gt;foreignId('user_id')-&gt;nullable()-&gt;constrained()-&gt;nullOnDelete();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('vakansiyalar', function (Blueprint $table) {
+            $table-&gt;dropForeign(['user_id']);
+            $table-&gt;dropColumn('user_id');
+        });
+    }</div>
+        <div class="cmd" data-cmd="php artisan migrate --pretend | tail -5
+php artisan migrate">php artisan migrate --pretend | tail -5
+php artisan migrate
+<span class="out">⇂ drop table &quot;vakansiyalar&quot;</span>
+<span class="out">⇂ alter table &quot;__temp__vakansiyalar&quot; rename to &quot;vakansiyalar&quot;</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> migration bajariladi.
+        <br>🔍 <code>--pretend</code> chiqishiga qarang: SQLite tashqi kalit
+        qo'shishni bilmagani uchun jadvalni <b>qayta yasaydi</b>. MySQL'da bu oddiy
+        <code>ALTER TABLE</code> bo'lardi.</p>
+      </li>
+
+      <li>
+        <p>Modelga <code>egasi()</code> bog'lanishini qo'shing</p>
+        <p class="why-step">⚠️ Ikkinchi argument <b>majburiy</b> — sababi pastda
+        ko'rinadi.</p>
+        <div class="cmd" data-cmd="# app/Models/Vakansiya.php da:
+#   $fillable ga 'user_id' qo'shing
+#   va quyidagi metodni yozing:
+
+    public function egasi(): BelongsTo
+    {
+        return $this-&gt;belongsTo(User::class, 'user_id');
+    }"># app/Models/Vakansiya.php da:
+#   $fillable ga 'user_id' qo'shing
+#   va quyidagi metodni yozing:
+
+    public function egasi(): BelongsTo
+    {
+        return $this-&gt;belongsTo(User::class, <span class="add">'user_id'</span>);
+    }</div>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik.
+        <code>use App\Models\User;</code> qatori kerak emas — model shu
+        namespace'da.
+        <br>Tekshirish: <code>php -l app/Models/Vakansiya.php</code></p>
+      </li>
+
+      <li>
+        <p>⚠️ Ikkinchi argumentsiz nima bo'lishini ko'ring</p>
+        <p class="why-step">26-darsdagi «jimgina buzilish» ni yana bir bor.</p>
+        <div class="cmd" data-cmd="cat &gt; sql/18-egasi.php &lt;&lt;'EOF'
+&lt;?php
+
+use App\Models\User;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+require __DIR__ . '/../vendor/autoload.php';
+$app = require_once __DIR__ . '/../bootstrap/app.php';
+$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+
+class Sinov extends Model
+{
+    protected $table = 'vakansiyalar';
+
+    public function egasi(): BelongsTo
+    {
+        return $this-&gt;belongsTo(User::class);   // ikkinchi argument YO'Q
+    }
+}
+
+echo 'Taxmin qilingan ustun: ', (new Sinov)-&gt;egasi()-&gt;getForeignKeyName(), PHP_EOL;
+echo 'Natija: ', var_export(Sinov::first()-&gt;egasi, true), PHP_EOL;
+EOF
+php sql/18-egasi.php">cat &gt; sql/18-egasi.php &lt;&lt;'EOF'
+&lt;?php
+
+use App\Models\User;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+require __DIR__ . '/../vendor/autoload.php';
+$app = require_once __DIR__ . '/../bootstrap/app.php';
+$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+
+class Sinov extends Model
+{
+    protected $table = 'vakansiyalar';
+
+    public function egasi(): BelongsTo
+    {
+        return $this-&gt;belongsTo(User::class);   // ikkinchi argument YO'Q
+    }
+}
+
+echo 'Taxmin qilingan ustun: ', (new Sinov)-&gt;egasi()-&gt;getForeignKeyName(), PHP_EOL;
+echo 'Natija: ', var_export(Sinov::first()-&gt;egasi, true), PHP_EOL;
+EOF
+php sql/18-egasi.php
+<span class="out">Taxmin qilingan ustun: egasi_id</span>
+<span class="out">Natija: NULL</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> <code>egasi_id</code> va
+        <code>NULL</code>.
+        <br>🔑 Xato <b>yo'q</b> — shunchaki bo'sh natija. Metodga o'zbekcha nom
+        berganda ikkinchi argumentni <b>har doim</b> yozing.</p>
+      </li>
+
+      <li>
+        <p>Ikkita foydalanuvchi va egalik</p>
+        <div class="cmd" data-cmd="cat &gt; sql/19-egalik.php &lt;&lt;'EOF'
+&lt;?php
+
+use App\Models\User;
+use App\Models\Vakansiya;
+use Illuminate\Support\Facades\Hash;
+
+require __DIR__ . '/../vendor/autoload.php';
+$app = require_once __DIR__ . '/../bootstrap/app.php';
+$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+
+$ali = User::firstOrCreate(['email' =&gt; 'ali@example.uz'],
+    ['name' =&gt; 'Ali', 'password' =&gt; Hash::make('parol1234')]);
+$vali = User::firstOrCreate(['email' =&gt; 'vali@example.uz'],
+    ['name' =&gt; 'Vali', 'password' =&gt; Hash::make('parol1234')]);
+
+$v = Vakansiya::first();
+$v-&gt;user_id = $ali-&gt;id;
+$v-&gt;save();
+
+echo 'Vakansiya #', $v-&gt;id, ' — ', $v-&gt;nom, PHP_EOL;
+echo 'Egasi: ', $v-&gt;egasi-&gt;name, ' (id=', $v-&gt;user_id, ')', PHP_EOL;
+echo 'Ikkinchi foydalanuvchi: ', $vali-&gt;name, ' (id=', $vali-&gt;id, ')', PHP_EOL;
+EOF
+php sql/19-egalik.php">cat &gt; sql/19-egalik.php &lt;&lt;'EOF'
+&lt;?php
+
+use App\Models\User;
+use App\Models\Vakansiya;
+use Illuminate\Support\Facades\Hash;
+
+require __DIR__ . '/../vendor/autoload.php';
+$app = require_once __DIR__ . '/../bootstrap/app.php';
+$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+
+$ali = User::firstOrCreate(['email' =&gt; 'ali@example.uz'],
+    ['name' =&gt; 'Ali', 'password' =&gt; Hash::make('parol1234')]);
+$vali = User::firstOrCreate(['email' =&gt; 'vali@example.uz'],
+    ['name' =&gt; 'Vali', 'password' =&gt; Hash::make('parol1234')]);
+
+$v = Vakansiya::first();
+$v-&gt;user_id = $ali-&gt;id;
+$v-&gt;save();
+
+echo 'Vakansiya #', $v-&gt;id, ' — ', $v-&gt;nom, PHP_EOL;
+echo 'Egasi: ', $v-&gt;egasi-&gt;name, ' (id=', $v-&gt;user_id, ')', PHP_EOL;
+echo 'Ikkinchi foydalanuvchi: ', $vali-&gt;name, ' (id=', $vali-&gt;id, ')', PHP_EOL;
+EOF
+php sql/19-egalik.php
+<span class="out">Egasi: Ali (id=2)</span>
+<span class="out">Ikkinchi foydalanuvchi: Vali (id=3)</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> vakansiyaning egasi Ali,
+        ikkinchi foydalanuvchi Vali. Ikkalasining paroli — <code>parol1234</code>.</p>
+      </li>
+
+      <li>
+        <p>Policy yarating</p>
+        <div class="cmd" data-cmd="php artisan make:policy VakansiyaPolicy --model=Vakansiya
+
+cat &gt; app/Policies/VakansiyaPolicy.php &lt;&lt;'EOF'
+&lt;?php
+
+namespace App\Policies;
+
+use App\Models\User;
+use App\Models\Vakansiya;
+
+class VakansiyaPolicy
+{
+    public function update(User $user, Vakansiya $vakansiya): bool
+    {
+        return $vakansiya-&gt;user_id === $user-&gt;id;
+    }
+
+    public function delete(User $user, Vakansiya $vakansiya): bool
+    {
+        return $vakansiya-&gt;user_id === $user-&gt;id;
+    }
+}
+EOF
+php -l app/Policies/VakansiyaPolicy.php">php artisan make:policy VakansiyaPolicy --model=Vakansiya
+
+cat &gt; app/Policies/VakansiyaPolicy.php &lt;&lt;'EOF'
+&lt;?php
+
+namespace App\Policies;
+
+use App\Models\User;
+use App\Models\Vakansiya;
+
+class VakansiyaPolicy
+{
+    public function update(User $user, Vakansiya $vakansiya): bool
+    {
+        return $vakansiya-&gt;user_id === $user-&gt;id;
+    }
+
+    public function delete(User $user, Vakansiya $vakansiya): bool
+    {
+        return $vakansiya-&gt;user_id === $user-&gt;id;
+    }
+}
+EOF
+php -l app/Policies/VakansiyaPolicy.php
+<span class="out">No syntax errors detected</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> «No syntax errors detected».
+        <br>Yasalgan skeletda 5 metod bor edi — biz ikkitasini qoldirdik.</p>
+      </li>
+
+      <li>
+        <p>🔍 Policy topilishini va qarorlarini tekshiring</p>
+        <div class="cmd" data-cmd="cat &gt; sql/20-policy.php &lt;&lt;'EOF'
+&lt;?php
+
+use App\Models\User;
+use App\Models\Vakansiya;
+use Illuminate\Support\Facades\Gate;
+
+require __DIR__ . '/../vendor/autoload.php';
+$app = require_once __DIR__ . '/../bootstrap/app.php';
+$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+
+echo 'Topilgan policy: ', get_class(Gate::getPolicyFor(Vakansiya::class)), PHP_EOL;
+
+$ali = User::where('email', 'ali@example.uz')-&gt;first();
+$vali = User::where('email', 'vali@example.uz')-&gt;first();
+$v = Vakansiya::first();
+
+echo PHP_EOL, 'Ali (egasi)   delete: ', var_export(Gate::forUser($ali)-&gt;allows('delete', $v), true), PHP_EOL;
+echo 'Vali (begona) delete: ', var_export(Gate::forUser($vali)-&gt;allows('delete', $v), true), PHP_EOL;
+echo 'Vali denies: ', var_export(Gate::forUser($vali)-&gt;denies('delete', $v), true), PHP_EOL;
+
+echo PHP_EOL, 'Policy da YO\'Q metod (view): ', var_export(Gate::forUser($ali)-&gt;allows('view', $v), true), PHP_EOL;
+EOF
+php sql/20-policy.php">cat &gt; sql/20-policy.php &lt;&lt;'EOF'
+&lt;?php
+
+use App\Models\User;
+use App\Models\Vakansiya;
+use Illuminate\Support\Facades\Gate;
+
+require __DIR__ . '/../vendor/autoload.php';
+$app = require_once __DIR__ . '/../bootstrap/app.php';
+$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+
+echo 'Topilgan policy: ', get_class(Gate::getPolicyFor(Vakansiya::class)), PHP_EOL;
+
+$ali = User::where('email', 'ali@example.uz')-&gt;first();
+$vali = User::where('email', 'vali@example.uz')-&gt;first();
+$v = Vakansiya::first();
+
+echo PHP_EOL, 'Ali (egasi)   delete: ', var_export(Gate::forUser($ali)-&gt;allows('delete', $v), true), PHP_EOL;
+echo 'Vali (begona) delete: ', var_export(Gate::forUser($vali)-&gt;allows('delete', $v), true), PHP_EOL;
+echo 'Vali denies: ', var_export(Gate::forUser($vali)-&gt;denies('delete', $v), true), PHP_EOL;
+
+echo PHP_EOL, 'Policy da YO\'Q metod (view): ', var_export(Gate::forUser($ali)-&gt;allows('view', $v), true), PHP_EOL;
+EOF
+php sql/20-policy.php
+<span class="out">Topilgan policy: App\Policies\VakansiyaPolicy</span>
+<span class="out">Ali (egasi)   delete: true</span>
+<span class="out">Vali (begona) delete: false</span>
+<span class="out">Policy da YO'Q metod (view): false</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> policy <b>avtomatik topildi</b> —
+        hech qayerda ro'yxatdan o'tkazmadik.
+        <br>🔑 Va oxirgi qator muhim: policy'da <code>view</code> metodi yo'q →
+        natija <code>false</code>, <b>xato emas</b>.</p>
+      </li>
+
+      <li>
+        <p>⚠️ <code>authorize()</code> ni sinang — avval xato bilan</p>
+        <p class="why-step">Xatoni <b>oldin</b> ko'rish — keyin tanib olish uchun.</p>
+        <p>Controllerga <code>ochirish</code> metodini qo'shing:</p>
+        <div class="cmd" data-cmd="    public function ochirish(Vakansiya $vakansiya): RedirectResponse
+    {
+        $this-&gt;authorize('delete', $vakansiya);
+
+        $vakansiya-&gt;delete();
+
+        return redirect()-&gt;route('vakansiyalar.index')
+            -&gt;with('xabar', 'Vakansiya o\'chirildi.');
+    }">    public function ochirish(Vakansiya $vakansiya): RedirectResponse
+    {
+        $this-&gt;authorize('delete', $vakansiya);
+
+        $vakansiya-&gt;delete();
+
+        return redirect()-&gt;route('vakansiyalar.index')
+            -&gt;with('xabar', 'Vakansiya o\'chirildi.');
+    }</div>
+        <p>Va route qo'shing:</p>
+        <div class="cmd" data-cmd="Route::delete('/vakansiyalar/{vakansiya}', [VakansiyaController::class, 'ochirish'])
+    -&gt;name('vakansiyalar.ochirish')
+    -&gt;middleware('auth');">Route::delete('/vakansiyalar/{vakansiya}', [VakansiyaController::class, 'ochirish'])
+    -&gt;name('vakansiyalar.ochirish')
+    -&gt;middleware('auth');</div>
+        <p class="expect"><b>Kutilgan natija:</b> hozircha sinaganda <b>500</b>
+        chiqadi:</p>
+        <div class="natija">Call to undefined method App\Http\Controllers\VakansiyaController::authorize()</div>
+        <p class="expect">Sababi: Laravel 11+ da bazaviy <code>Controller</code>
+        <b>bo'sh</b> — <code>cat app/Http/Controllers/Controller.php</code> bilan
+        ko'ring.</p>
+      </li>
+
+      <li>
+        <p>✅ Trait'ni qo'shing</p>
+        <div class="cmd" data-cmd="cat &gt; app/Http/Controllers/Controller.php &lt;&lt;'EOF'
+&lt;?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+
+abstract class Controller
+{
+    use AuthorizesRequests;
+}
+EOF
+php -l app/Http/Controllers/Controller.php">cat &gt; app/Http/Controllers/Controller.php &lt;&lt;'EOF'
+&lt;?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+
+abstract class Controller
+{
+    use AuthorizesRequests;
+}
+EOF
+php -l app/Http/Controllers/Controller.php
+<span class="out">No syntax errors detected</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> bitta trait — va endi
+        <b>barcha</b> controllerlarda <code>authorize()</code> ishlaydi
+        (meros, 9-dars).</p>
+      </li>
+
+      <li>
+        <p>Tugmani <code>@can</code> bilan qo'shing</p>
+        <p><code>show.blade.php</code> da, ko'nikmalar bo'limidan <b>oldin</b>:</p>
+        <div class="cmd" data-cmd="    @can('delete', $v)
+        &lt;form method=&quot;POST&quot; action=&quot;{{ route('vakansiyalar.ochirish', $v-&gt;id) }}&quot;&gt;
+            @csrf
+            @method('DELETE')
+            &lt;button type=&quot;submit&quot;&gt;Vakansiyani o'chirish&lt;/button&gt;
+        &lt;/form&gt;
+    @endcan">    @can('delete', $v)
+        &lt;form method="POST" action="{{ route('vakansiyalar.ochirish', $v-&gt;id) }}"&gt;
+            @csrf
+            @method('DELETE')
+            &lt;button type="submit"&gt;Vakansiyani o'chirish&lt;/button&gt;
+        &lt;/form&gt;
+    @endcan</div>
+        <p class="expect"><b>Kutilgan natija:</b> jimlik.
+        <code>@method('DELETE')</code> — 19-darsdagi method spoofing.</p>
+      </li>
+
+      <li>
+        <p>🎉 Ikki foydalanuvchi bilan sinang</p>
+        <div class="cmd" data-cmd="php artisan serve">php artisan serve</div>
+        <p class="expect"><b>Kutilgan natija:</b> ikkita brauzer oynasida (yoki
+        birida oddiy, ikkinchisida yashirin rejimda) sinang:</p>
+        <div class="natija">Ali  (ali@example.uz / parol1234)  → «Vakansiyani o'chirish» tugmasi KO'RINADI
+Vali (vali@example.uz / parol1234) → tugma YO'Q</div>
+        <p class="expect">🔒 <b>Eng muhim sinov:</b> Vali sifatida kirib, tugmani
+        <b>qo'lda</b> yuborishga urinib ko'ring (brauzer konsolidan yoki
+        <code>curl</code> bilan) — <b>403</b> olasiz.
+        <br>Ali sifatida bosing — <b>302</b> va «Vakansiya o'chirildi.» xabari.</p>
+        <div class="natija">Vali (begona):  403
+Ali  (egasi):   302 → /vakansiyalar</div>
+      </li>
+
+      <li>
+        <p>Ishni saqlang</p>
+        <div class="cmd" data-cmd="git add -A
+git commit -m &quot;33-dars: Gate va Policy — egalik tekshiruvi&quot;">git add -A
+git commit -m "33-dars: Gate va Policy — egalik tekshiruvi"</div>
+        <p class="expect"><b>Kutilgan natija:</b> commit haqida xabar.</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><input type="checkbox" id="d33c1"><label for="d33c1">Vakansiyaga <code>user_id</code> ustunini qo'shdim</label></li>
+      <li><input type="checkbox" id="d33c2"><label for="d33c2">SQLite <code>ALTER TABLE</code> ni qanday bajarishini <code>--pretend</code> da ko'rdim</label></li>
+      <li><input type="checkbox" id="d33c3"><label for="d33c3"><b><code>egasi_id</code> tuzog'ini ko'rdim</b> va ikkinchi argumentni yozdim ⚠️</label></li>
+      <li><input type="checkbox" id="d33c4"><label for="d33c4">Policy yaratdim va <b>avtomatik topilishini</b> tekshirdim</label></li>
+      <li><input type="checkbox" id="d33c5"><label for="d33c5">Policy'da yo'q metod <code>false</code> qaytarishini ko'rdim</label></li>
+      <li><input type="checkbox" id="d33c6"><label for="d33c6"><b><code>AuthorizesRequests</code> yo'qligidagi xatoni ko'rdim</b> va tuzatdim</label></li>
+      <li><input type="checkbox" id="d33c7"><label for="d33c7"><code>@can</code> bilan tugmani yashirdim</label></li>
+      <li><input type="checkbox" id="d33c8"><label for="d33c8"><b>Begona odam 403 olishini o'z ko'zim bilan ko'rdim</b> 🔒</label></li>
+      <li><input type="checkbox" id="d33c9"><label for="d33c9">Egasi o'chira olishini tasdiqladim</label></li>
+      <li><input type="checkbox" id="d33c10"><label for="d33c10">Ishni commit qildim</label></li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 5) TAXMIN + QUIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Policy shunday — faqat <b>ikkita</b> metod bor:</p>
+    <div class="codefile">
+      <div class="fname">app/Policies/VakansiyaPolicy.php</div>
+      <code class="cmd" data-cmd="class VakansiyaPolicy
+{
+    public function update(User $user, Vakansiya $vakansiya): bool
+    {
+        return $vakansiya-&gt;user_id === $user-&gt;id;
+    }
+
+    public function delete(User $user, Vakansiya $vakansiya): bool
+    {
+        return $vakansiya-&gt;user_id === $user-&gt;id;
+    }
+}">class VakansiyaPolicy
+{
+    public function update(User $user, Vakansiya $vakansiya): bool
+    {
+        return $vakansiya-&gt;user_id === $user-&gt;id;
+    }
+
+    public function delete(User $user, Vakansiya $vakansiya): bool
+    {
+        return $vakansiya-&gt;user_id === $user-&gt;id;
+    }
+}</code>
+    </div>
+    <p>Endi view'da <code>@can('view', $v)</code> yozildi — <b>vakansiyaning
+    egasi</b> sahifani ochdi. Ichidagi kod ko'rinadimi? Va xato bo'ladimi?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <div class="natija">Ko'rinmaydi.   @can bloki ichidagi kod chiqmaydi.
+Xato:  YO'Q.  Hech qanday ogohlantirish ham yo'q.
+
+Gate::forUser($egasi)-&gt;allows('view', $v)   →   false</div>
+        <p>Policy'da <code>view</code> metodi <b>yo'q</b>, va Laravel buni
+        <b>taqiq</b> deb hisoblaydi. Mantiq to'g'ri: «ruxsat berilmagan narsa
+        taqiqlangan» — xavfsizlik uchun eng to'g'ri standart.</p>
+        <p class="expect">⚠️ <b>Lekin chalkashtiradi.</b> Siz «egasiman-ku, nega
+        ko'rinmayapti?» deb <b>policy mantig'ini</b> qidirasiz — aslida metodning
+        <b>o'zi yo'q</b>.</p>
+        <p><b>Xuddi shu xato yana bir shaklda uchraydi</b> — nom xato yozilganda:</p>
+        <div class="natija">public function ochirish(User $user, Vakansiya $v)   ← o'zbekcha nom
+@can('delete', $v)                                    ← inglizcha so'raldi
+
+natija: false   (chunki 'delete' nomli metod yo'q)</div>
+        <p>🔑 <b>Qoida:</b> policy metodlari nomi — Laravel kutadigan nom
+        (<code>view</code>, <code>create</code>, <code>update</code>,
+        <code>delete</code>, <code>viewAny</code>, <code>restore</code>,
+        <code>forceDelete</code>). Ular <b>kelishuv</b>, shuning uchun o'zbekchaga
+        o'girilmaydi.</p>
+        <p><b>Tashxis:</b> <code>Gate::inspect(...)</code> yoki policy faylini ochib,
+        metod nomini <b>harfma-harf</b> solishtirish.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span> Policy'da metod yozilmagan
+    bo'lsa nima bo'ladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Ruxsat berilmaydi — false qaytadi</button></li>
+      <li><button class="quiz-option">Xato otiladi va sahifa buziladi</button></li>
+      <li><button class="quiz-option">Hammaga avtomatik ruxsat berib yuboriladi</button></li>
+    </ul>
+    <div class="quiz-explain">«Ruxsat berilmagan narsa taqiqlangan» — xavfsiz
+    standart. Lekin chalkashtiradi: «nega ishlamayapti?» degan savolning javobi
+    ba'zan «metodning o'zi yo'q».</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span> <code>authorize()</code>
+    ruxsat bermasa qaysi status qaytadi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">403 Forbidden statusi qaytariladi</button></li>
+      <li><button class="quiz-option">404 statusi qaytarib yuboriladi</button></li>
+      <li><button class="quiz-option">302 redirect bilan yo'naltiriladi</button></li>
+    </ul>
+    <div class="quiz-explain"><b>403</b> — «kimligingni bilaman, lekin huquqing
+    yo'q». Kirmagan odam uchun esa <code>auth</code> middleware <b>302</b> bilan
+    kirish sahifasiga yuboradi (30-dars).</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span> <code>@can</code> bilan
+    tugmani yashirish yetarlimi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Yo'q — route ham himoyalanishi kerak</button></li>
+      <li><button class="quiz-option">Ha — tugma ko'rinmasa bosib bo'lmaydi</button></li>
+      <li><button class="quiz-option">Ha — Laravel qolganini o'zi qiladi</button></li>
+    </ul>
+    <div class="quiz-explain">So'rovni qo'lda yuborish mumkin — biz sinab ko'rdik.
+    <code>@can</code> ko'rinish uchun, <code>authorize()</code> yoki
+    <code>can:</code> middleware himoya uchun. <b>Ikkalasi ham</b> kerak.</div>
+  </div>
+
+  <!-- ═══════════════ 6) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+    <p class="recall-intro">Avval o'zingiz javob bering, keyin ochib tekshiring.
+    Oxirgi ikkitasi — <a href="0032-middleware.html">32-darsni</a> takrorlash.</p>
+
+    <details class="recall">
+      <summary>Middleware va policy farqi nimada?</summary>
+      <div class="answer"><p>Middleware — <b>route</b> darajasida («kirganmi?»),
+      policy — <b>yozuv</b> darajasida («bu yozuv seniki-mi?»).</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Policy qanday topiladi?</summary>
+      <div class="answer"><p>Nom bo'yicha: <code>App\Models\X</code> →
+      <code>App\Policies\XPolicy</code>. Ro'yxatdan o'tkazish shart emas.
+      Tekshirish — <code>Gate::getPolicyFor(...)</code>.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary><code>Gate::before</code> <code>null</code> qaytarsa nima bo'ladi?</summary>
+      <div class="answer"><p>«Menda gap yo'q» — tekshiruv <b>policy'ga</b> o'tadi.
+      <code>true</code> qaytarsa policy <b>umuman so'ralmaydi</b>.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: middleware'da <code>$next</code> chaqirilmasa?</summary>
+      <div class="answer"><p>Controller <b>umuman ishlamaydi</b> — so'rov
+      to'xtaydi. <code>auth</code> shunday ishlaydi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: middleware qayerda ro'yxatdan o'tkaziladi?</summary>
+      <div class="answer"><p><code>bootstrap/app.php</code> dagi
+      <code>withMiddleware</code> da. <code>app/Http/Kernel.php</code> Laravel 11+
+      da <b>yo'q</b>.</p></div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 7) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Cho'ntak xulosasi</span>
+    <ul>
+      <li><b>Middleware</b> — route darajasida («kirganmi?»), <b>policy</b> — yozuv
+      darajasida («bu yozuv kimniki?»).</li>
+      <li>Egalik uchun jadvalda <code>user_id</code> kerak:
+      <code>foreignId('user_id')-&gt;nullable()-&gt;constrained()-&gt;nullOnDelete()</code>.</li>
+      <li>⚠️ <code>egasi()</code> metodida <b>ikkinchi argument</b> majburiy —
+      aks holda <code>egasi_id</code> deb taxmin qilib <b>jimgina NULL</b>
+      qaytaradi (26-dars).</li>
+      <li><code>make:policy VakansiyaPolicy --model=Vakansiya</code> — beshta metodli
+      skelet, hammasi <code>false</code>.</li>
+      <li>Policy <b>avtomatik topiladi</b>: <code>Models\X</code> →
+      <code>Policies\XPolicy</code>. O'zbekcha nomda ham ishlaydi.</li>
+      <li>⚠️ Laravel 11+ da bazaviy <code>Controller</code> <b>bo'sh</b> —
+      <code>use AuthorizesRequests;</code> qo'shmasangiz
+      <code>Call to undefined method ...::authorize()</code>.</li>
+      <li><code>$this-&gt;authorize('delete', $v)</code> → ruxsat bo'lmasa
+      <b>403</b>, keyingi kod <b>ishlamaydi</b>.</li>
+      <li>Statuslar: <b>302→login</b> «kim ekaningni bilmayman» ·
+      <b>403</b> «huquqing yo'q» · <b>404</b> «yozuv yo'q».</li>
+      <li>Blade: <code>@can</code> / <code>@cannot</code>. Kodda:
+      <code>$user-&gt;can(...)</code>, <code>Gate::allows(...)</code>,
+      <code>Gate::forUser($x)-&gt;allows(...)</code>.</li>
+      <li>🔒 <b>Yashirish — himoya emas</b> (uchinchi marta): <code>@can</code>
+      ko'rinish uchun, <code>authorize()</code> himoya uchun.</li>
+      <li>Muqobil: <code>'can:delete,vakansiya'</code> middleware —
+      controllerda kod yozmasdan.</li>
+      <li><code>Gate::define</code> — modelsiz qoidalar.
+      <code>Gate::before</code> — ustun qoida; <code>null</code> qaytarish
+      <b>muhim</b>, aks holda policy hech qachon so'ralmaydi.</li>
+      <li>⚠️ Policy metodlari nomi — <b>kelishuv</b>
+      (<code>view</code>, <code>update</code>, <code>delete</code>…),
+      o'zbekchaga o'girilmaydi.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p>Endi «bu yozuv kimniki?» degan savolga javob bor. Lekin IshTop'da ikki xil
+    odam bo'lishi kerak: <b>ish beruvchi</b> (vakansiya joylaydi) va <b>nomzod</b>
+    (ariza beradi). Hozir esa hamma bir xil.</p>
+    <p>34-darsda <b>rollar</b> qo'shamiz: <code>users</code> jadvaliga
+    <code>rol</code> ustuni, policy'da roldan foydalanish
+    («faqat ish beruvchi vakansiya yarata oladi»), va ro'yxatdan o'tishda rol
+    tanlash.</p>
+    <p>O'shanda bugungi <code>create(User $user)</code> metodi — yozuvsiz shakl —
+    ish beradi.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel — Authorization</b>:
+    <a href="https://laravel.com/docs/13.x/authorization">laravel.com/docs/13.x/authorization</a>
+    — Gates, Policies, <code>@can</code>, <code>authorize</code>,
+    <code>Gate::before</code>.<sup><a href="#fn1">1</a></sup><br>
+    <b>Response::deny</b> (sabab bilan taqiq):
+    <a href="https://laravel.com/docs/13.x/authorization#policy-responses">Policy
+    Responses</a>.<sup><a href="#fn2">2</a></sup><br>
+    <b>HTTP 403</b>:
+    <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403">MDN —
+    403 Forbidden</a>.<sup><a href="#fn3">3</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b> «bir vakansiyaga bir necha
+    egasi bo'lsa-chi?», «adminni qanday qilaman?», «policy'ni testda qanday
+    tekshiraman?», «403 o'rniga 404 qaytarsam bo'ladimi?» — har qanday savol
+    yaxshi. Oxirgisi qiziq: ba'zi saytlar <b>ataylab</b> 404 qaytaradi, chunki 403
+    «bunday yozuv bor, lekin sizga ruxsat yo'q» degan ma'lumotni beradi — bu ham
+    30-darsdagi <i>user enumeration</i> mavzusining bir ko'rinishi.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0032-middleware.html">Oldingi: Middleware</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel 13 — <a href="https://laravel.com/docs/13.x/authorization">Authorization</a>.</li>
+      <li id="fn2">Laravel 13 — <a href="https://laravel.com/docs/13.x/authorization#policy-responses">Policy Responses</a>.</li>
+      <li id="fn3">MDN — <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403">403 Forbidden</a>.</li>
+      <li id="fn4">Barchasi jonli o'lchangan (Laravel 13.25.0, SQLite):
+      <code>Gate::getPolicyFor(Vakansiya::class)</code> →
+      <code>App\Policies\VakansiyaPolicy</code> (avtomatik) ·
+      egasi <code>true</code>, begona <code>false</code>, <code>denies</code>
+      <code>true</code> · policy'da yo'q metod → <code>false</code> ·
+      <code>egasi()</code> ikkinchi argumentsiz → <code>egasi_id</code> va
+      <b>NULL</b> · bazaviy <code>Controller</code> bo'sh →
+      <code>Call to undefined method ...::authorize()</code> · trait qo'shilgach:
+      begona <b>403</b>, egasi <b>302</b> + «Vakansiya o'chirildi.» ·
+      <code>@can</code>: tugma egasida <b>1</b>, begonada <b>0</b> ·
+      <code>'can:delete,vakansiya'</code> middleware → <b>403</b> (controllerda kod
+      yo'q) · <code>Gate::define</code> → <code>true</code>/<code>false</code> ·
+      <code>Gate::before</code> <code>true</code> qaytarganda policy chetlab
+      o'tildi · <code>inspect()</code> → <code>allowed()</code>,
+      <code>message()</code> · <code>--pretend</code> da SQLite jadvalni qayta
+      yasashi (<code>__temp__vakansiyalar</code>).</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

@@ -31,7 +31,10 @@ print(f'✔ {nq} quiz bloki')
 # 3) Ichki havolalar mavjudmi (kod bloklari hisobga olinmaydi — ular matn)
 nl = 0
 for f in ALL:
-    s = re.sub(r'<code[^>]*>.*?</code>|<div class="cmd"[^>]*>.*?</div>', '', open(f).read(), flags=re.S)
+    # kod/misol bloklari matn hisoblanadi — ular havola emas
+    s = re.sub(r'<code[^>]*>.*?</code>|<div class="cmd"[^>]*>.*?</div>'
+               r'|<span class="eg">.*?</span>|<div class="natija">.*?</div>',
+               '', open(f).read(), flags=re.S)
     for m in re.finditer(r'href="([^"#][^"]*?)"', s):
         h = m.group(1)
         if h.startswith(('http', 'mailto')): continue
@@ -51,7 +54,8 @@ for f in ALL:
 print(f'✔ {nc} data-cmd atributi')
 
 # 5) Dars skeleti to'liqmi
-need = [('callout why','nega'), ('mode-hint','rejim'), ('data-mode="do"','amaliyot'),
+need = [('class="qamrov"','qamrov ro\'yxati'),
+        ('callout why','nega'), ('mode-hint','rejim'), ('data-mode="do"','amaliyot'),
         ('class="predict"','taxmin'), ('class="quiz"','quiz'), ('class="recall"','eslab ayting'),
         ('class="recap"','xulosa'), ('primary-source','manba'), ('ask-teacher','savol'),
         ('class="checklist"','ro\'yxat'), ('lesson-nav','navigatsiya'), ('footnotes','izoh')]
@@ -59,6 +63,42 @@ for f in LESSONS:
     s = open(f).read()
     miss = [uz for k, uz in need if k not in s]
     if miss: bad(f"SKELET {os.path.basename(f)}: yo'q → {miss}")
+
+# 4b) Shell buyruqlari bash sintaksisidan o'tadimi (data-cmd ichidagi)
+import html as _html, subprocess, tempfile
+SHELL_BOSH = ('cd ', 'cat ', 'php ', 'git ', 'ls ', 'mkdir ', 'composer ', 'npm ',
+              'grep ', 'echo ', 'curl ', 'rm ', 'cp ', 'mv ', 'find ', 'sed ',
+              'python3 ', 'printf ', 'for ', 'time ', 'chmod ', 'xdg-open ')
+nsh = 0
+for f in ALL:
+    src = open(f).read()
+    # faqat amaliyot bloklari: <div class="cmd"> (kod misollari <code class="cmd"> da)
+    for m in re.finditer(r'<div class="cmd" data-cmd="([^"]*)"', src):
+        cmd = _html.unescape(m.group(1))
+        birinchi = cmd.lstrip().split('\n')[0]
+        if not birinchi.startswith(SHELL_BOSH):
+            continue
+        nsh += 1
+        with tempfile.NamedTemporaryFile('w', suffix='.sh', delete=False) as t:
+            t.write(cmd + '\n')
+            yol = t.name
+        r = subprocess.run(['bash', '-n', yol], capture_output=True, text=True)
+        os.unlink(yol)
+        if r.returncode != 0:
+            xato = r.stderr.strip().split('\n')[-1][:90]
+            bad(f'BASH SINTAKSIS {os.path.basename(f)}: {birinchi[:40]!r} → {xato}')
+print(f'\u2714 {nsh} shell buyrug\'i bash sintaksisidan o\'tdi')
+
+# 5b) Qamrov bloki mazmunli bo'lsin (kamida 5 band, har bandda izoh)
+for f in LESSONS:
+    s = open(f).read()
+    i = s.find('class="qamrov"')
+    if i < 0: continue
+    blok = s[i:s.find('</div>', i)]
+    n = len(re.findall(r'<li><b>', blok))
+    izoh = len(re.findall(r'class="nima"', blok))
+    if n < 5: bad(f'QAMROV {os.path.basename(f)}: faqat {n} band (kamida 5 kerak)')
+    if n != izoh: bad(f'QAMROV {os.path.basename(f)}: {n} band, {izoh} izoh — teng bo\'lishi kerak')
 
 # 6) Teg balansi
 for f in ALL:
