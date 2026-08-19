@@ -17,7 +17,7 @@
   muhit ma'lumotlari. Har dars yangi buyruq o'rgatilsa, shu yerga qo'shiladi.</p>
 
   <p class="lesson-meta">
-    <span>Qamrov: <b>1&ndash;36-darslar</b> — muhitdan fayl yuklashgacha</span>
+    <span>Qamrov: <b>1&ndash;37-darslar</b> — muhitdan testlargacha</span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>💻 Amaliyotga mos</span>
   </p>
@@ -785,6 +785,44 @@
     <p>Yuklangan fayllar git'ga tushmaydi:
     <code>storage/app/private/.gitignore</code> ichida <code>*</code> va
     <code>!.gitignore</code>.</p>
+  </div>
+
+  <h2>Test — Pest (37-darsdan)</h2>
+  <table class="sheet">
+    <tr><th>Kod</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>composer require pestphp/pest --dev --with-all-dependencies</code></td><td class="note-cell">Pest'ni o'rnatadi (PHPUnit ustida ishlaydi)</td></tr>
+    <tr><td><code>./vendor/bin/pest --init</code></td><td class="note-cell"><code>tests/Pest.php</code> yasaydi. Bitta savol beradi — Enter</td></tr>
+    <tr><td><code>php artisan test</code></td><td class="note-cell">Butun to'plam. <code>--filter=nomzod</code> · <code>tests/Unit</code></td></tr>
+    <tr><td><code>test('nom', function () { ... })</code></td><td class="note-cell">Test. Klass va namespace <b>yozilmaydi</b></td></tr>
+    <tr><td><code>it('nom', ...)</code></td><td class="note-cell">Bir xil ishlaydi, chiqishda «it» qo'shadi — inglizcha uchun</td></tr>
+    <tr><td><code>expect($x)-&gt;toBe($y)</code></td><td class="note-cell">Aynan teng. <code>toBeNull</code> · <code>toBeTrue</code> · <code>toHaveCount</code> · <code>toContain</code></td></tr>
+    <tr><td><code>expect($x)-&gt;not-&gt;toBeNull()</code></td><td class="note-cell">Inkor</td></tr>
+    <tr><td><code>$this-&gt;get('/vakansiyalar')</code></td><td class="note-cell">Ichki so'rov — tarmoqqa chiqmaydi, server kerak emas</td></tr>
+    <tr><td><code>$this-&gt;actingAs($user)</code></td><td class="note-cell">«Shu odam kirgan» — login jarayoni chetlab o'tiladi</td></tr>
+    <tr><td><code>User::factory()-&gt;create(['rol' =&gt; Rol::Nomzod])</code></td><td class="note-cell">Test ma'lumoti (28-darsdagi factory)</td></tr>
+    <tr><td><code>assertStatus(403)</code> · <code>assertRedirect('/...')</code></td><td class="note-cell">Javobni tekshirish</td></tr>
+    <tr><td><code>assertDatabaseHas('jadval', [...])</code></td><td class="note-cell">Bazada yozuv <b>bor</b>mi</td></tr>
+    <tr><td><code>assertDatabaseMissing('jadval', [...])</code></td><td class="note-cell">Bazada yozuv <b>yo'q</b>mi</td></tr>
+    <tr><td><code>-&gt;use(RefreshDatabase::class)</code></td><td class="note-cell">⚠️ <code>tests/Pest.php</code> da <b>izohga olingan</b> — oching</td></tr>
+    <tr><td><code>$user-&gt;fresh()</code></td><td class="note-cell">Obyektni bazadan qayta o'qish (so'rovdan keyin)</td></tr>
+    <tr><td><code>UploadedFile::fake()-&gt;create('r.pdf')</code></td><td class="note-cell">Testda soxta fayl yuklash</td></tr>
+    <tr><td><code>php artisan make:test XTest [--unit]</code></td><td class="note-cell">Pest o'rnatilgach <b>o'zi</b> Pest uslubida yasaydi</td></tr>
+  </table>
+  <div class="callout note">
+    <p>🔍 <b>Testlar boshqa bazada:</b> <code>phpunit.xml</code> da
+    <code>DB_DATABASE=:memory:</code> — haqiqiy bazangizga <b>tegilmaydi</b>.
+    <code>BCRYPT_ROUNDS=4</code> — testda tezlik uchun.</p>
+    <p>⚠️ <b>Ikkita birinchi to'siq:</b> namuna <code>ExampleTest</code>
+    <code>/</code> so'raydi → IshTop'da <b>404</b> (o'chiring) ·
+    Feature testda <code>no such table</code> →
+    <code>RefreshDatabase</code> ni yoqing.</p>
+    <p>⚠️ <code>assert</code> siz test <code>risky</code> deb belgilanadi
+    (sariq <b>!</b>), lekin <b>chiqish kodi 0</b> — to'plam o'tadi, CI
+    to'xtamaydi.</p>
+    <p>🔑 <b>Testga ishonishning yagona usuli:</b> kodni ataylab buzib,
+    testning <b>qizil</b> bo'lishini ko'rish.</p>
+    <p>Har test <b>o'z ma'lumotini o'zi</b> yaratsin — umumiy holat «ba'zan
+    yiqiladigan» testlar tug'diradi.</p>
   </div>
 
   <h2>Xatoni o'qish</h2>

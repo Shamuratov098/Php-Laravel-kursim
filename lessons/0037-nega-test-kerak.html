@@ -1,0 +1,1120 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 37 — Nega test kerak va birinchi test</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 37 · MODUL E — TEST (PEST)</p>
+  <h1>Nega test kerak va birinchi test</h1>
+  <p class="lead">Oxirgi yetti darsda har o'zgarishdan keyin siz brauzerni ochib,
+  kirib, forma to'ldirib, uch xil odam bilan sinab chiqdingiz. Bu ro'yxat
+  <b>uzayib boradi</b>, va bir kun kelib biror joyni tekshirishni unutasiz.
+  Bugun o'sha ishni <b>mashinaga</b> topshiramiz: bitta buyruq — butun loyiha
+  tekshiriladi.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 16 daqiqa</span>
+    <span>💻 Amaliyot ≈ 24 daqiqa</span>
+    <span>Kerak: <a href="0036-fayl-yuklash.html">Dars 36</a></span>
+  </p>
+
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b>Nega test — dalil bilan</b>
+        <span class="nima">Policy'ni <b>ataylab buzamiz</b>: ilova ishlayveradi,
+        xato sahifasi chiqmaydi — lekin test darhol qizil bo'ladi.
+        O'lchangan.</span></li>
+      <li><b>Pest'ni o'rnatish</b>
+        <span class="nima"><code>composer require pestphp/pest --dev</code> va
+        <code>pest --init</code>. IshTop'da PHPUnit bor edi — nima
+        o'zgaradi.</span></li>
+      <li><b><code>tests/</code> tuzilishi</b>
+        <span class="nima"><code>Unit</code> va <code>Feature</code> farqi,
+        <code>tests/Pest.php</code> — butun to'plamning sozlamasi.</span></li>
+      <li><b>🔍 Testlar boshqa bazada ishlaydi</b>
+        <span class="nima"><code>phpunit.xml</code>:
+        <code>DB_DATABASE=:memory:</code>. Haqiqiy bazangizga <b>tegilmaydi</b> —
+        oldin/keyin sanab tekshirdik.</span></li>
+      <li><b><code>expect()</code> — kutish</b>
+        <span class="nima"><code>toBe</code> · <code>toBeNull</code> ·
+        <code>toBeTrue</code>. Zanjir qilib yozish.</span></li>
+      <li><b><code>test()</code> va <code>it()</code></b>
+        <span class="nima">Farqi chiqishda ko'rinadi. O'zbekcha nom uchun
+        qaysi biri to'g'ri keladi — o'lchab ko'rsatiladi.</span></li>
+      <li><b>Birinchi ishga tushirish <b>qizil</b> chiqadi</b>
+        <span class="nima">Laravel qo'ygan <code>ExampleTest</code> IshTop'da
+        <b>404</b> beradi. Nega — va nima qilish kerak.</span></li>
+      <li><b>⚠️ <code>no such table</code></b>
+        <span class="nima">Feature testda birinchi to'siq. Sabab
+        <code>tests/Pest.php</code> dagi <b>izohga olingan bitta
+        qator</b>.</span></li>
+      <li><b><code>RefreshDatabase</code></b>
+        <span class="nima">Har testdan oldin migratsiyalar, har testdan keyin
+        toza holat. Nega bu <b>izolyatsiya</b> muhim.</span></li>
+      <li><b>Bazani tekshirish</b>
+        <span class="nima"><code>assertDatabaseHas</code> va
+        <code>assertDatabaseMissing</code> — «yozildimi?» va
+        «yozilmadimi?»</span></li>
+      <li><b>Tez ishlatish</b>
+        <span class="nima"><code>php artisan test</code> ·
+        <code>--filter</code> · bitta papka. Butun to'plam
+        <b>0.18 soniya</b>.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima">Qizil <code>ExampleTest</code> ·
+        <code>no such table</code> · <code>it</code> prefiksi ·
+        testlar bir-biriga bog'lanishi · o'tib ketadigan test ·
+        <code>make:test</code> · sekin testlar.</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Qo'lda tekshirish ro'yxati qanday uzaydi</span>
+    <p>36-darsni tugatganingizda IshTop'da nimalarni sinab ko'rish kerak edi?
+    Sanab chiqamiz:</p>
+    <div class="natija">ro'yxatdan o'tish (rol tanlab)      kirish / chiqish
+vakansiyalar ro'yxati              qidiruv va filtr
+vakansiya qo'shish (ish beruvchi)  qo'shishga urinish (nomzod) → 403
+tahrirlash (egasi)                 tahrirlash (begona)         → 403
+o'chirish                          validatsiya xatolari
+rezyume yuklash                    soxta PDF                   → xato
+                                   ochiq/yopiq disk</div>
+    <p>O'n beshdan ortiq holat. Har biri uchun: brauzerni och, kir, formani
+    to'ldir, natijani ko'r, chiqib boshqa odam bo'lib kir...</p>
+    <p>Bir marta bajarish — bir necha daqiqa. Muammo shundaki, buni <b>har
+    o'zgarishdan keyin</b> qilish kerak. Amalda esa nima bo'ladi: siz
+    o'zgartirgan joyni sinaysiz, qolganiga <b>tegmadim-ku</b> deb o'ylaysiz.</p>
+    <p>Va aynan shu «tegmadim-ku» degan joyda xato tug'iladi.</p>
+  </div>
+
+  <h2>Dalil: ilova ishlayveradi, test tutadi</h2>
+
+  <p>Buni gapirib emas, <b>o'lchab</b> ko'rsatamiz. 34-darsdagi policy'dan bitta
+  shartni olib tashlaymiz — go'yo shoshib turib qilingan o'zgarish:</p>
+
+  <div class="codefile">
+    <span class="fname">app/Policies/VakansiyaPolicy.php — ataylab buzilgan</span>
+    <code class="cmd">    public function create(User $user): bool
+    {
+        return true;                              // ← $user-&gt;rol === Rol::IshBeruvchi  edi
+    }</code>
+  </div>
+
+  <p>Endi saytni oching. Nima ko'rasiz?</p>
+
+  <div class="natija">Sayt ochiladi.        Xato sahifasi YO'Q.
+Jurnalda xato YO'Q.   Hech nima qizil emas.
+Ish beruvchi vakansiya qo'shadi — ishlaydi.</div>
+
+  <p>Hammasi joyida ko'rinadi. Aslida esa <b>nomzodlar ham</b> e'lon joylay
+  oladi — 34-darsda qurilgan butun rol tizimi <b>ochiq</b>. Buni sezish uchun
+  nomzod bo'lib kirib, forma yuborib ko'rish kerak. Kim buni har o'zgarishdan
+  keyin qiladi?</p>
+
+  <p>Endi o'sha holatda testni ishga tushiramiz:</p>
+
+  <div class="natija">   FAIL  Tests\Feature\VakansiyaTest
+  ✓ vakansiyalar sahifasi ochiladi
+  ✓ ish beruvchi vakansiya qo'sha oladi
+  ⨯ nomzod vakansiya qo'sha olmaydi
+  ────────────────────────────────────────────────────────────
+   FAILED  Tests\Feature\VakansiyaTest &gt; nomzod vakansiya qo'sha olmaydi
+  Expected response status code [403] but received 302.
+
+  at tests/Feature/VakansiyaTest.php:37
+     ➜  37▕     $javob-&gt;assertStatus(403);</div>
+
+  <p class="expect">🔑 Test <b>0.18 soniyada</b> aytdi: «403 kutilgan edi, 302
+  keldi». Fayl nomi, qator raqami va sabab — hammasi bir joyda. Siz esa hech
+  nimani ochmadingiz.</p>
+
+  <div class="callout tip">
+    <span class="label">Test nima ekanining eng sodda ta'rifi</span>
+    <p>Test — bu <b>yozib qo'yilgan qo'lda tekshirish</b>. Siz baribir
+    tekshirasiz; savol faqat shu tekshiruv <b>xotirangizda</b> qoladimi yoki
+    <b>faylda</b>.</p>
+    <p>Xotiradagi tekshiruv: siz bor bo'lsangiz ishlaydi, esingizda bo'lsa
+    ishlaydi, vaqtingiz bo'lsa ishlaydi.<br>
+    Fayldagi tekshiruv: <b>har safar</b> ishlaydi.</p>
+  </div>
+
+  <!-- ═══════════════ 2) O'RNATISH ═══════════════ -->
+  <h2>Pest'ni o'rnatamiz</h2>
+
+  <p>Laravel loyihasida test asbobi <b>allaqachon bor</b> — PHPUnit. IshTop'da
+  ham shunday. Biz uning ustiga <b>Pest</b> ni qo'yamiz: u xuddi shu PHPUnit
+  ustida ishlaydi, faqat yozilishi ancha qisqa.<sup><a href="#fn1">1</a></sup></p>
+
+  <div class="natija">PHPUnit'cha:                          Pest'cha:
+
+class VakansiyaTest extends TestCase  test('sahifa ochiladi', function () {
+{                                         $this-&gt;get('/vakansiyalar')
+    public function test_sahifa()             -&gt;assertStatus(200);
+    {                                 });
+        $this-&gt;get('/vakansiyalar')
+            -&gt;assertStatus(200);
+    }
+}</div>
+
+  <div class="cmd" data-cmd="composer require pestphp/pest --dev --with-all-dependencies">composer require pestphp/pest --dev --with-all-dependencies
+<span class="out">Using version ^4.7 for pestphp/pest</span>
+<span class="out"> INFO  Discovering packages.</span></div>
+
+  <div class="cmd" data-cmd="./vendor/bin/pest --init">./vendor/bin/pest --init
+<span class="out">INFO Preparing tests directory.</span>
+<span class="out">phpunit.xml .. File already exists.</span>
+<span class="out">tests/Pest.php .. File created.</span></div>
+
+  <p class="expect">🔍 <code>--init</code> yo'lda bitta savol beradi («Pest'ni
+  GitHub'da yulduzlaysizmi?») — <b>Enter</b> bosib o'tib ketishingiz mumkin.
+  Muhimi: u <code>tests/Pest.php</code> faylini yasaydi. Mavjud fayllarga
+  <b>tegmaydi</b> — chiqishda «File already exists» deb aytadi.</p>
+
+  <h2><code>tests/</code> — nima qayerda</h2>
+
+  <div class="natija">tests/
+├── Pest.php          ← butun to'plamning sozlamasi
+├── TestCase.php      ← Laravel'ni testda ishga tushiradi
+├── Unit/             ← tez, sof PHP testlari (baza yo'q)
+└── Feature/          ← HTTP so'rov yuboradigan testlar (baza bor)</div>
+
+  <p>Farqi qat'iy qoida emas, <b>kelishuv</b>:</p>
+
+  <div class="natija">Unit     →  bitta funksiya yoki klass. Laravel ko'tarilmasa ham bo'ladi.
+            Juda tez (millisoniyalar).
+
+Feature  →  «foydalanuvchi shunday qilsa, natija shunday bo'ladi».
+            Route, controller, baza — hammasi ishlaydi.</div>
+
+  <div class="callout tip">
+    <span class="label">🔍 Testlar <b>boshqa</b> bazada ishlaydi</span>
+    <p><code>phpunit.xml</code> ni oching:</p>
+    <div class="natija">&lt;env name="APP_ENV" value="testing"/&gt;
+&lt;env name="DB_CONNECTION" value="sqlite"/&gt;
+&lt;env name="DB_DATABASE" value=":memory:"/&gt;
+&lt;env name="BCRYPT_ROUNDS" value="4"/&gt;</div>
+    <p><code>:memory:</code> — <b>xotiradagi</b> baza. U test boshlanganda
+    yaratiladi, tugagach yo'q bo'ladi. Sizning
+    <code>database/database.sqlite</code> fayliga <b>tegilmaydi</b>.</p>
+    <p>Buni sanab tekshirdik — testdan oldin va keyin:</p>
+    <div class="natija">testdan oldin:  vakansiyalar: 27   users: 5
+testdan keyin:  vakansiyalar: 27   users: 5</div>
+    <p><code>BCRYPT_ROUNDS=4</code> ham qasddan: 30-darsdagi parol xeshlash
+    <b>sekin</b> bo'lishi kerak edi, testda esa tezlik muhimroq.</p>
+  </div>
+
+  <!-- ═══════════════ 3) BIRINCHI ISHGA TUSHIRISH ═══════════════ -->
+  <h2>Birinchi ishga tushirish — va u qizil chiqadi</h2>
+
+  <div class="cmd" data-cmd="php artisan test">php artisan test</div>
+
+  <div class="natija">   PASS  Tests\Unit\ExampleTest
+  ✓ that true is true
+
+   FAIL  Tests\Feature\ExampleTest
+  ⨯ the application returns a successful response
+  ────────────────────────────────────────────────────────────────
+   FAILED  Tests\Feature\ExampleTest &gt; the application returns a succ…
+  Expected response status code [200] but received 404.
+
+  at tests/Feature/ExampleTest.php:17
+     15▕         $response = $this-&gt;get('/');
+     ➜  17▕         $response-&gt;assertStatus(200);
+
+  Tests:    1 failed, 1 passed (2 assertions)
+  Duration: 0.10s</div>
+
+  <p>Xato emas — <b>to'g'ri</b> natija. Laravel har loyihaga namuna test qo'yadi
+  va u <code>/</code> sahifasini so'raydi. IshTop'da esa <code>/</code>
+  route'i yo'q — hamma narsa <code>/vakansiyalar</code> da. Demak <b>404</b>.</p>
+
+  <p class="expect">🔑 Birinchi darsdan qoladigan odat: <b>qizil chiqishni
+  oxirigacha o'qing.</b> Pest sizga aynan qaysi faylda, qaysi qatorda, nima
+  kutilgan va nima kelganini aytadi. Bu
+  <a href="0004-xatoni-oqish.html">4-darsdagi</a> «xatoni o'qish»
+  ko'nikmasining davomi — faqat endi xatoni siz emas, <b>mashina</b>
+  topadi.</p>
+
+  <p>Namuna testlarni o'chiramiz — ular IshTop haqida emas:</p>
+
+  <div class="cmd" data-cmd="rm tests/Unit/ExampleTest.php tests/Feature/ExampleTest.php">rm tests/Unit/ExampleTest.php tests/Feature/ExampleTest.php</div>
+
+  <!-- ═══════════════ 4) EXPECT ═══════════════ -->
+  <h2>Birinchi test: <code>expect()</code></h2>
+
+  <p>Eng sodda testdan boshlaymiz — bazasiz, HTTP siz. 34-darsdagi enum'ni
+  tekshiramiz:</p>
+
+  <div class="codefile">
+    <span class="fname">tests/Unit/RolTest.php</span>
+    <code class="cmd">&lt;?php
+
+use App\Enums\Rol;
+
+test('rol ko\'rinadigan nom beradi', function () {
+    expect(Rol::IshBeruvchi-&gt;nomi())-&gt;toBe('Ish beruvchi');
+    expect(Rol::Nomzod-&gt;nomi())-&gt;toBe('Nomzod');
+});
+
+test('matndan rolga aylantiriladi', function () {
+    expect(Rol::from('nomzod'))-&gt;toBe(Rol::Nomzod);
+    expect(Rol::tryFrom('boshqa'))-&gt;toBeNull();
+});</code>
+  </div>
+
+  <p>Diqqat: <b>klass yo'q</b>, <b>namespace yo'q</b>, <code>public
+  function</code> yo'q. Faqat <code>test()</code> va ichida funksiya. Pest'ning
+  butun g'oyasi shu.</p>
+
+  <div class="natija">expect($qiymat)-&gt;toBe($kutilgan)      // aynan teng (===)
+expect($qiymat)-&gt;toBeNull()          // null-mi
+expect($qiymat)-&gt;toBeTrue()          // true-mi
+expect($qiymat)-&gt;toBeEmpty()         // bo'sh-mi
+expect($ro'yxat)-&gt;toHaveCount(3)     // uchta elementmi
+expect($matn)-&gt;toContain('dastur')   // ichida bormi</div>
+
+  <div class="cmd" data-cmd="php artisan test tests/Unit">php artisan test tests/Unit</div>
+
+  <div class="natija">   PASS  Tests\Unit\RolTest
+  ✓ rol ko'rinadigan nom beradi
+  ✓ matndan rolga aylantiriladi
+
+  Tests:    2 passed (4 assertions)
+  Duration: 0.04s</div>
+
+  <p class="expect">🔍 <b>4 ta assertion, 2 ta test.</b> Bitta testda bir necha
+  <code>expect()</code> bo'lishi normal — ular bitta fikrni turli tomondan
+  tekshiryapti.</p>
+
+  <h3><code>test()</code> yoki <code>it()</code> — qaysi biri</h3>
+
+  <p>Pest ikkala nomni ham beradi va ular <b>bir xil</b> ishlaydi. Farq faqat
+  chiqishda ko'rinadi — <code>it()</code> nom oldiga «it» qo'shadi:</p>
+
+  <div class="natija">it('returns the visible name', ...)     →  ✓ it returns the visible name
+test('rol ko\'rinadigan nom beradi', ...) →  ✓ rol ko'rinadigan nom beradi</div>
+
+  <p><code>it()</code> inglizcha jumla uchun o'ylab topilgan: «it returns…» —
+  «u qaytaradi…». O'zbekcha nomda esa oldidagi «it» ortiqcha bo'lib qoladi.</p>
+
+  <p class="expect">🔑 <b>Shu kursda:</b> <code>test()</code> ishlatamiz va
+  nomni o'zbekcha yozamiz. Nom — <b>hujjat</b>: kimdir testni ochmasdan turib
+  ham nima tekshirilayotganini bilishi kerak.</p>
+
+  <!-- ═══════════════ 5) FEATURE ═══════════════ -->
+  <h2>Feature test — haqiqiy so'rov</h2>
+
+  <p>Endi qiziqrog'i: brauzer o'rniga <b>test</b> so'rov yuboradi.</p>
+
+  <div class="codefile">
+    <span class="fname">tests/Feature/VakansiyaTest.php</span>
+    <code class="cmd">&lt;?php
+
+use App\Enums\Rol;
+use App\Models\User;
+
+test('vakansiyalar sahifasi ochiladi', function () {
+    $javob = $this-&gt;get('/vakansiyalar');
+
+    $javob-&gt;assertStatus(200);
+});</code>
+  </div>
+
+  <p><code>$this-&gt;get(...)</code> — bu haqiqiy HTTP so'rovi emas, tarmoqqa
+  chiqmaydi. Laravel so'rovni <b>ichkaridan</b> o'tkazadi: route topiladi,
+  middleware ishlaydi, controller chaqiriladi, Blade render qilinadi. Server
+  ishga tushirish <b>shart emas</b>.</p>
+
+  <h3>⚠️ Birinchi to'siq: <code>no such table</code></h3>
+
+  <p>Ishga tushiring — va shunday chiqadi:</p>
+
+  <div class="natija">Expected response status code [200] but received 500.
+
+PDOException: SQLSTATE[HY000]: General error: 1
+no such table: vakansiyalar</div>
+
+  <p>Mantiqiy: test <b>xotiradagi</b> bazada ishlaydi, u esa <b>bo'sh</b> —
+  hech qanday migratsiya bajarilmagan.</p>
+
+  <p>Yechim <code>tests/Pest.php</code> da turibdi, izohga olingan holda:</p>
+
+  <div class="codefile">
+    <span class="fname">tests/Pest.php</span>
+    <code class="cmd">pest()-&gt;extend(TestCase::class)
+ // -&gt;use(RefreshDatabase::class)        ← izohni oching
+    -&gt;in('Feature');</code>
+  </div>
+
+  <div class="natija">pest()-&gt;extend(TestCase::class)
+    -&gt;use(RefreshDatabase::class)
+    -&gt;in('Feature');</div>
+
+  <p class="expect">🔑 <code>RefreshDatabase</code> ikki ish qiladi: har test
+  <b>boshlanishidan oldin</b> migratsiyalarni bajaradi va har test
+  <b>tugagach</b> o'zgarishlarni bekor qiladi.</p>
+
+  <p><code>-&gt;in('Feature')</code> — «faqat shu papkadagi testlarga». Unit
+  testlarga baza kerak emas, ular shusiz ham tez ishlaydi.</p>
+
+  <div class="callout tip">
+    <span class="label">Nega har testdan keyin tozalanadi</span>
+    <p>Tasavvur qiling, tozalanmasa: birinchi test bitta vakansiya qo'shdi,
+    ikkinchi test «ro'yxatda nechta yozuv bor?» deb tekshiryapti. Javob
+    <b>testlar tartibiga</b> bog'liq bo'lib qoladi.</p>
+    <p>Bunday to'plam eng yomon xulqni ko'rsatadi: <b>ba'zan</b> o'tadi,
+    <b>ba'zan</b> yiqiladi. Sababini topish esa haqiqiy xatoni topishdan ham
+    qiyin.</p>
+    <p>🔑 Har test <b>toza dunyoda</b> boshlanishi kerak — bu testlarning
+    asosiy qoidalaridan biri.</p>
+  </div>
+
+  <!-- ═══════════════ 6) TO'LIQ TEST ═══════════════ -->
+  <h2>34-darsni test bilan qulflaymiz</h2>
+
+  <p>Endi eng qimmatlisi: rol tizimi haqiqatan ishlayotganini yozib qo'yamiz.</p>
+
+  <div class="codefile">
+    <span class="fname">tests/Feature/VakansiyaTest.php</span>
+    <code class="cmd">test('ish beruvchi vakansiya qo\'sha oladi', function () {
+    $ishBeruvchi = User::factory()-&gt;create(['rol' =&gt; Rol::IshBeruvchi]);
+
+    $javob = $this-&gt;actingAs($ishBeruvchi)-&gt;post('/vakansiyalar', [
+        'nom' =&gt; 'Backend dasturchi',
+        'maosh' =&gt; 9000000,
+    ]);
+
+    $javob-&gt;assertRedirect('/vakansiyalar');
+
+    $this-&gt;assertDatabaseHas('vakansiyalar', [
+        'nom' =&gt; 'Backend dasturchi',
+        'user_id' =&gt; $ishBeruvchi-&gt;id,
+    ]);
+});
+
+test('nomzod vakansiya qo\'sha olmaydi', function () {
+    $nomzod = User::factory()-&gt;create(['rol' =&gt; Rol::Nomzod]);
+
+    $javob = $this-&gt;actingAs($nomzod)-&gt;post('/vakansiyalar', [
+        'nom' =&gt; 'Backend dasturchi',
+        'maosh' =&gt; 9000000,
+    ]);
+
+    $javob-&gt;assertStatus(403);
+
+    $this-&gt;assertDatabaseMissing('vakansiyalar', ['nom' =&gt; 'Backend dasturchi']);
+});</code>
+  </div>
+
+  <p>Uchta yangi narsa bor:</p>
+
+  <div class="natija">User::factory()-&gt;create([...])   →  28-darsdagi factory. Testda ayni muddao.
+$this-&gt;actingAs($user)          →  «shu odam sifatida kirgan hisobla»
+assertDatabaseHas / Missing     →  bazada yozuv bormi / yo'qmi</div>
+
+  <p><code>actingAs()</code> — 30-darsdagi butun kirish jarayonini
+  <b>chetlab o'tadi</b>: forma to'ldirish, parol tekshirish, sessiya yozish
+  shart emas. Test sizga «bu odam kirgan» deb aytadi va davom etadi.</p>
+
+  <p class="expect">🔑 Ikkinchi testga alohida qarang: u <b>ikki narsani</b>
+  tekshiryapti. <b>403</b> — javob to'g'ri kelganini, <code>assertDatabaseMissing</code>
+  esa yozuv <b>haqiqatan yozilmaganini</b>. Ikkinchisisiz test to'liq emas:
+  403 qaytarib, ammo yozuvni saqlab qo'yish ham mumkin edi.</p>
+
+  <div class="cmd" data-cmd="php artisan test">php artisan test</div>
+
+  <div class="natija">   PASS  Tests\Unit\RolTest
+  ✓ rol ko'rinadigan nom beradi
+  ✓ matndan rolga aylantiriladi
+
+   PASS  Tests\Feature\VakansiyaTest
+  ✓ vakansiyalar sahifasi ochiladi                    0.12s
+  ✓ ish beruvchi vakansiya qo'sha oladi               0.02s
+  ✓ nomzod vakansiya qo'sha olmaydi                   0.01s
+
+  Tests:    5 passed (10 assertions)
+  Duration: 0.18s</div>
+
+  <p>Qo'lda qilganingizda bir necha daqiqa ketadigan ish — <b>0.18 soniya</b>.
+  Va endi u <b>har safar</b> bajariladi.</p>
+
+  <h3>Kerakli testni tanlash</h3>
+
+  <div class="cmd" data-cmd="php artisan test --filter=nomzod">php artisan test --filter=nomzod
+<span class="out">   PASS  Tests\Feature\VakansiyaTest</span>
+<span class="out">  ✓ nomzod vakansiya qo'sha olmaydi</span>
+<span class="out">  Tests:    1 passed (2 assertions)</span></div>
+
+  <div class="cmd" data-cmd="php artisan test tests/Unit">php artisan test tests/Unit</div>
+
+  <p>Bitta narsa ustida ishlayotganda <code>--filter</code> qulay. Lekin
+  <b>commit qilishdan oldin</b> to'liq to'plamni ishga tushiring — siz
+  buzgan joy odatda siz qaramagan joyda bo'ladi.</p>
+
+  <!-- ═══════════════ 7) HAR XIL HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir bir marta o'qib chiqing,
+  keyin kerak bo'lganda qaytib qarang.</p>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 1</span>
+    <h4>Birinchi ishga tushirish qizil chiqadi</h4>
+    <div class="natija">FAILED  Tests\Feature\ExampleTest
+Expected response status code [200] but received 404.</div>
+    <p>Laravel qo'ygan namuna test <code>/</code> sahifasini so'raydi. IshTop'da
+    bunday route yo'q. Bu <b>sizning</b> xatongiz emas.</p>
+    <p>✅ Ikki yechim: namuna testlarni o'chirish (biz shunday qildik) yoki
+    ichidagi <code>'/'</code> ni <code>'/vakansiyalar'</code> ga almashtirish.
+    Bo'sh loyihalarda esa u shunchaki o'tib ketadi — chunki u yerda
+    <code>/</code> bor.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 2</span>
+    <h4><code>no such table</code></h4>
+    <div class="natija">PDOException: no such table: vakansiyalar</div>
+    <p>Feature testdagi eng birinchi to'siq. Sabab: xotiradagi baza bo'sh,
+    migratsiyalar bajarilmagan.</p>
+    <p>✅ <code>tests/Pest.php</code> da
+    <code>-&gt;use(RefreshDatabase::class)</code> izohini oching.</p>
+    <p>🔍 Diqqat: bu qator <code>-&gt;in('Feature')</code> bilan birga yozilgan.
+    Agar Unit testlarda ham baza kerak bo'lsa, papkani qo'shing —
+    lekin odatda kerak emas, va shusiz ular <b>ancha tez</b>.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 3</span>
+    <h4>Chiqishda «it» so'zi paydo bo'ladi</h4>
+    <div class="natija">✓ it rolning ko'rinadigan nomini beradi        ← g'alati o'qiladi
+✓ rol ko'rinadigan nom beradi                 ← toza</div>
+    <p><code>it()</code> nom oldiga «it» qo'shadi — inglizcha jumla uchun
+    o'ylab topilgan (<i>it returns…</i>).</p>
+    <p>✅ O'zbekcha nomlarda <code>test()</code> ishlating. Ikkalasi
+    <b>bir xil</b> ishlaydi, farq faqat chiqishda.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 4</span>
+    <h4>Testlar bir-biriga bog'lanib qolsa</h4>
+    <div class="natija">// ⚠️ test tashqarisida yaratilgan umumiy ma'lumot
+$user = User::factory()-&gt;create();     // hamma testga bitta
+
+test('birinchi', fn () =&gt; ... $user ...);
+test('ikkinchi', fn () =&gt; ... $user ...);   ← birinchisi uni o'zgartirgan bo'lsa?</div>
+    <p>Bunday to'plam <b>ba'zan</b> o'tadi. Testlar tartibi o'zgarsa yoki
+    bittasi qo'shilsa — kutilmaganda qiziradi. Sabab esa haqiqiy xatodan ham
+    qiyinroq topiladi.</p>
+    <p>✅ Har test <b>o'z ma'lumotini o'zi</b> yaratsin. Takrorlanishdan
+    qo'rqmang: testda takrorlanish — aniqlik.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 5</span>
+    <h4>Hech nima tekshirmaydigan test</h4>
+    <div class="natija">test('vakansiya qo\'shiladi', function () {
+    $this-&gt;post('/vakansiyalar', ['nom' =&gt; 'Test', 'maosh' =&gt; 100]);
+});                                    // ⚠️ birorta assert YO'Q
+
+  ! vakansiya qo'shiladi → This test did not perform any assertions
+  Tests:    1 risky        (chiqish kodi: 0)</div>
+    <p>Pest buni sezadi va <code>risky</code> deb belgilaydi — yaxshi xabar.
+    Yomon xabar: <b>chiqish kodi baribir 0</b>, ya'ni to'plam «o'tdi»
+    hisoblanadi. CI to'xtamaydi, faqat ekranda sariq qator qoladi.</p>
+    <p>Bu test 403 kelsa ham, 500 kelsa ham bir xil xulq ko'rsatadi — u
+    hech qanday <b>kutish</b> bildirmagan.</p>
+    <p>✅ Har testda kamida bitta <code>assert*</code> yoki
+    <code>expect()</code> bo'lsin. Yaxshi odat: testni yozgach uni
+    <b>ataylab buzib</b> ko'ring — qizil bo'lmasa, u hech nima
+    tekshirmayapti.</p>
+    <p>🔍 Biz shu darsda aynan shunday qildik: policy'ni buzib, testning
+    qizil bo'lishini <b>ko'rdik</b>. Bu testga bo'lgan ishonchni
+    tekshirishning eng ishonchli usuli.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 6</span>
+    <h4><code>make:test</code> — skelet yasash</h4>
+    <div class="natija">php artisan make:test VakansiyaTest              →  tests/Feature/
+php artisan make:test RolTest --unit            →  tests/Unit/</div>
+    <p>Pest o'rnatilgach <code>make:test</code> <b>o'zi</b> Pest uslubida
+    yasaydi — <code>--pest</code> bayrog'i shart emas:</p>
+    <div class="natija">&lt;?php
+
+test('example', function () {
+    $response = $this-&gt;get('/');
+
+    $response-&gt;assertStatus(200);
+});</div>
+    <p><code>--unit</code> bilan esa <code>expect(true)-&gt;toBeTrue()</code>
+    li sodda skelet chiqadi.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>To'plam sekinlashsa</h4>
+    <p>Bugun 5 ta test — 0.18 soniya. Yuzta testda vaziyat o'zgaradi, va
+    odatiy sabab bitta: <b>hamma narsa Feature test qilib yozilgan</b>.</p>
+    <div class="natija">Unit    : 0.04s / 2 test      ← baza yo'q, HTTP yo'q
+Feature : 0.15s / 3 test      ← har biri migratsiya + so'rov</div>
+    <p>✅ Mantiqni tekshirish uchun Unit yetadi (enum, hisob-kitob, formatlash).
+    Feature testni <b>haqiqiy oqim</b> uchun saqlang: «odam shunday qilsa,
+    natija shunday bo'ladi».</p>
+    <p>🔍 Ishlab chiqish paytida <code>--filter</code> bilan bitta testni
+    ishlating; to'liq to'plamni commit oldidan.</p>
+  </div>
+
+  <!-- ═══════════════ 8) AMALIYOT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    <span class="mode-hint-title">💻 Amaliy qism kompyuterda</span>
+    <p>Amaliyotda Pest'ni o'rnatasiz, birinchi testlaringizni yozasiz va eng
+    muhimi — <b>policy'ni ataylab buzib</b>, testning qizil bo'lishini o'z
+    ko'zingiz bilan ko'rasiz. Testga ishonish uchun uni bir marta
+    yiqitib ko'rish kerak.</p>
+    <button type="button" class="modebtn" data-set-mode="do">💻 Amaliyot rejimini ko'rish</button>
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <p>Pest'ni o'rnating</p>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+composer require pestphp/pest --dev --with-all-dependencies">cd ~/Projects/Learn/ishtop
+composer require pestphp/pest --dev --with-all-dependencies
+<span class="out">Using version ^4.7 for pestphp/pest</span></div>
+        <div class="cmd" data-cmd="./vendor/bin/pest --init">./vendor/bin/pest --init
+<span class="out">INFO Preparing tests directory.</span>
+<span class="out">tests/Pest.php .. File created.</span></div>
+        <p class="why-step">🔍 <code>--init</code> bitta savol beradi —
+        <b>Enter</b> bosing. Mavjud fayllarga tegmaydi.</p>
+      </li>
+
+      <li>
+        <p>Birinchi marta ishga tushiring — qizil chiqishi kutilgan</p>
+        <div class="cmd" data-cmd="php artisan test">php artisan test
+<span class="out">Expected response status code [200] but received 404.</span>
+<span class="out">Tests:    1 failed, 1 passed (2 assertions)</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> bitta test yiqiladi. Sabab —
+        namuna test <code>/</code> ni so'raydi, IshTop'da esa u yo'q.
+        <br>🔍 Chiqishni <b>oxirigacha</b> o'qing: fayl nomi, qator raqami,
+        kutilgan va kelgan qiymat.</p>
+      </li>
+
+      <li>
+        <p>Namuna testlarni o'chiring</p>
+        <div class="cmd" data-cmd="rm tests/Unit/ExampleTest.php tests/Feature/ExampleTest.php
+php artisan test">rm tests/Unit/ExampleTest.php tests/Feature/ExampleTest.php
+php artisan test
+<span class="out"> INFO  No tests found.</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> aynan shu xabar — endi bo'sh
+        varaqdan boshlaymiz.</p>
+      </li>
+
+      <li>
+        <p>Unit test yozing</p>
+        <div class="cmd" data-cmd="# tests/Unit/RolTest.php
+
+&lt;?php
+
+use App\Enums\Rol;
+
+test('rol ko\'rinadigan nom beradi', function () {
+    expect(Rol::IshBeruvchi-&gt;nomi())-&gt;toBe('Ish beruvchi');
+    expect(Rol::Nomzod-&gt;nomi())-&gt;toBe('Nomzod');
+});
+
+test('matndan rolga aylantiriladi', function () {
+    expect(Rol::from('nomzod'))-&gt;toBe(Rol::Nomzod);
+    expect(Rol::tryFrom('boshqa'))-&gt;toBeNull();
+});"># tests/Unit/RolTest.php
+
+&lt;?php
+
+use App\Enums\Rol;
+
+test('rol ko\'rinadigan nom beradi', function () {
+    expect(Rol::IshBeruvchi-&gt;nomi())-&gt;toBe('Ish beruvchi');
+    expect(Rol::Nomzod-&gt;nomi())-&gt;toBe('Nomzod');
+});
+
+test('matndan rolga aylantiriladi', function () {
+    expect(Rol::from('nomzod'))-&gt;toBe(Rol::Nomzod);
+    expect(Rol::tryFrom('boshqa'))-&gt;toBeNull();
+});</div>
+        <div class="cmd" data-cmd="php artisan test tests/Unit">php artisan test tests/Unit
+<span class="out">  ✓ rol ko'rinadigan nom beradi</span>
+<span class="out">  ✓ matndan rolga aylantiriladi</span>
+<span class="out">  Tests:    2 passed (4 assertions)</span></div>
+      </li>
+
+      <li>
+        <p>Feature test yozing — va <code>no such table</code> ni ko'ring</p>
+        <div class="cmd" data-cmd="# tests/Feature/VakansiyaTest.php
+
+&lt;?php
+
+use App\Enums\Rol;
+use App\Models\User;
+
+test('vakansiyalar sahifasi ochiladi', function () {
+    $javob = $this-&gt;get('/vakansiyalar');
+
+    $javob-&gt;assertStatus(200);
+});"># tests/Feature/VakansiyaTest.php
+
+&lt;?php
+
+use App\Enums\Rol;
+use App\Models\User;
+
+test('vakansiyalar sahifasi ochiladi', function () {
+    $javob = $this-&gt;get('/vakansiyalar');
+
+    $javob-&gt;assertStatus(200);
+});</div>
+        <div class="cmd" data-cmd="php artisan test tests/Feature">php artisan test tests/Feature
+<span class="out">PDOException: SQLSTATE[HY000]: General error: 1</span>
+<span class="out">no such table: vakansiyalar</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> aynan shu xato. Bu
+        <b>rejalashtirilgan</b> — testlar bo'sh xotira bazasida ishlaydi.</p>
+      </li>
+
+      <li>
+        <p>Bitta qator bilan tuzating</p>
+        <div class="cmd" data-cmd="# tests/Pest.php — izohni oching:
+
+pest()-&gt;extend(TestCase::class)
+    -&gt;use(RefreshDatabase::class)
+    -&gt;in('Feature');"># tests/Pest.php — izohni oching:
+
+pest()-&gt;extend(TestCase::class)
+    -&gt;use(RefreshDatabase::class)
+    -&gt;in('Feature');</div>
+        <div class="cmd" data-cmd="php artisan test tests/Feature">php artisan test tests/Feature
+<span class="out">  ✓ vakansiyalar sahifasi ochiladi</span>
+<span class="out">  Tests:    1 passed (1 assertion)</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> yashil. Migratsiyalar endi
+        har testdan oldin bajarilyapti.</p>
+      </li>
+
+      <li>
+        <p>Rol tizimini testga oling</p>
+        <div class="cmd" data-cmd="# tests/Feature/VakansiyaTest.php ga qo'shing:
+
+test('ish beruvchi vakansiya qo\'sha oladi', function () {
+    $ishBeruvchi = User::factory()-&gt;create(['rol' =&gt; Rol::IshBeruvchi]);
+
+    $javob = $this-&gt;actingAs($ishBeruvchi)-&gt;post('/vakansiyalar', [
+        'nom' =&gt; 'Backend dasturchi',
+        'maosh' =&gt; 9000000,
+    ]);
+
+    $javob-&gt;assertRedirect('/vakansiyalar');
+
+    $this-&gt;assertDatabaseHas('vakansiyalar', [
+        'nom' =&gt; 'Backend dasturchi',
+        'user_id' =&gt; $ishBeruvchi-&gt;id,
+    ]);
+});
+
+test('nomzod vakansiya qo\'sha olmaydi', function () {
+    $nomzod = User::factory()-&gt;create(['rol' =&gt; Rol::Nomzod]);
+
+    $javob = $this-&gt;actingAs($nomzod)-&gt;post('/vakansiyalar', [
+        'nom' =&gt; 'Backend dasturchi',
+        'maosh' =&gt; 9000000,
+    ]);
+
+    $javob-&gt;assertStatus(403);
+
+    $this-&gt;assertDatabaseMissing('vakansiyalar', ['nom' =&gt; 'Backend dasturchi']);
+});"># tests/Feature/VakansiyaTest.php ga qo'shing:
+
+test('ish beruvchi vakansiya qo\'sha oladi', function () {
+    $ishBeruvchi = User::factory()-&gt;create(['rol' =&gt; Rol::IshBeruvchi]);
+
+    $javob = $this-&gt;actingAs($ishBeruvchi)-&gt;post('/vakansiyalar', [
+        'nom' =&gt; 'Backend dasturchi',
+        'maosh' =&gt; 9000000,
+    ]);
+
+    $javob-&gt;assertRedirect('/vakansiyalar');
+
+    $this-&gt;assertDatabaseHas('vakansiyalar', [
+        'nom' =&gt; 'Backend dasturchi',
+        'user_id' =&gt; $ishBeruvchi-&gt;id,
+    ]);
+});
+
+test('nomzod vakansiya qo\'sha olmaydi', function () {
+    $nomzod = User::factory()-&gt;create(['rol' =&gt; Rol::Nomzod]);
+
+    $javob = $this-&gt;actingAs($nomzod)-&gt;post('/vakansiyalar', [
+        'nom' =&gt; 'Backend dasturchi',
+        'maosh' =&gt; 9000000,
+    ]);
+
+    $javob-&gt;assertStatus(403);
+
+    $this-&gt;assertDatabaseMissing('vakansiyalar', ['nom' =&gt; 'Backend dasturchi']);
+});</div>
+        <div class="cmd" data-cmd="php artisan test">php artisan test
+<span class="out">  Tests:    5 passed (10 assertions)</span>
+<span class="out">  Duration: 0.18s</span></div>
+      </li>
+
+      <li>
+        <p>🔴 Eng muhim qadam: testni yiqiting</p>
+        <p>34-darsdagi policy'da bitta shartni <b>vaqtincha</b> olib tashlang:</p>
+        <div class="cmd" data-cmd="# app/Policies/VakansiyaPolicy.php
+
+    public function create(User $user): bool
+    {
+        return true;                  // ← vaqtincha, keyin qaytariladi
+    }"># app/Policies/VakansiyaPolicy.php
+
+    public function create(User $user): bool
+    {
+        return true;                  // ← vaqtincha, keyin qaytariladi
+    }</div>
+        <p>Avval <b>brauzerda</b> qarang: sayt ochiladimi, xato chiqadimi?
+        Keyin testni ishlating:</p>
+        <div class="cmd" data-cmd="php artisan test">php artisan test
+<span class="out">  ✓ vakansiyalar sahifasi ochiladi</span>
+<span class="out">  ✓ ish beruvchi vakansiya qo'sha oladi</span>
+<span class="out">  ⨯ nomzod vakansiya qo'sha olmaydi</span>
+<span class="out">  Expected response status code [403] but received 302.</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> brauzerda <b>hech qanday
+        alomat yo'q</b> — sayt bemalol ishlaydi. Test esa darhol qizil.
+        <br>🔑 Shu bitta taqqoslash bugungi darsning butun mazmuni.</p>
+        <div class="cmd" data-cmd="# policy'ni QAYTARING:
+
+        return $user-&gt;rol === Rol::IshBeruvchi;"># policy'ni QAYTARING:
+
+        return $user-&gt;rol === Rol::IshBeruvchi;</div>
+        <div class="cmd" data-cmd="php artisan test">php artisan test</div>
+        <p class="expect"><b>Kutilgan natija:</b> yana yashil.</p>
+      </li>
+
+      <li>
+        <p>Haqiqiy bazangiz tegilmaganini tekshiring</p>
+        <div class="cmd" data-cmd="php artisan tinker --execute=&quot;echo App\Models\Vakansiya::count(), ' / ', App\Models\User::count();&quot;">php artisan tinker --execute=&quot;echo App\Models\Vakansiya::count(), ' / ', App\Models\User::count();&quot;</div>
+        <p class="expect"><b>Kutilgan natija:</b> sonlar testdan oldingi bilan
+        <b>bir xil</b>. Testlar <code>:memory:</code> bazasida ishladi —
+        <code>phpunit.xml</code> ga qarang.</p>
+      </li>
+
+      <li>
+        <p>Ishni saqlang</p>
+        <div class="cmd" data-cmd="git add -A
+git commit -m &quot;37-dars: Pest va birinchi testlar&quot;">git add -A
+git commit -m &quot;37-dars: Pest va birinchi testlar&quot;</div>
+        <p class="expect"><b>Kutilgan natija:</b> commit haqida xabar.</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><input type="checkbox" id="d37c1"><label for="d37c1">Pest'ni o'rnatdim va <code>--init</code> qildim</label></li>
+      <li><input type="checkbox" id="d37c2"><label for="d37c2"><b>Birinchi ishga tushirish qizil chiqqanini ko'rdim</b> va sababini tushundim</label></li>
+      <li><input type="checkbox" id="d37c3"><label for="d37c3"><code>expect()</code> bilan Unit test yozdim</label></li>
+      <li><input type="checkbox" id="d37c4"><label for="d37c4"><b><code>no such table</code> xatosini ko'rdim</b> ⚠️</label></li>
+      <li><input type="checkbox" id="d37c5"><label for="d37c5"><code>RefreshDatabase</code> ni yoqib tuzatdim</label></li>
+      <li><input type="checkbox" id="d37c6"><label for="d37c6"><code>actingAs</code> va <code>assertDatabaseHas</code> ishlatdim</label></li>
+      <li><input type="checkbox" id="d37c7"><label for="d37c7"><b>Policy'ni buzib, testni qizil qildim</b> 🔴</label></li>
+      <li><input type="checkbox" id="d37c8"><label for="d37c8">Brauzerda hech qanday alomat yo'qligini tasdiqladim</label></li>
+      <li><input type="checkbox" id="d37c9"><label for="d37c9">Policy'ni qaytarib, yana yashil qildim</label></li>
+      <li><input type="checkbox" id="d37c10"><label for="d37c10">Haqiqiy bazam tegilmaganini tekshirdim</label></li>
+      <li><input type="checkbox" id="d37c11"><label for="d37c11">Ishni commit qildim</label></li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 9) SINAB KO'RAMIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Dasturchi shunday test yozdi. U 36-darsdagi rezyume yuklashni
+    tekshirmoqchi:</p>
+    <div class="codefile">
+      <div class="fname">tests/Feature/RezyumeTest.php</div>
+      <code class="cmd" data-cmd="test('nomzod rezyume yuklaydi', function () {
+    $nomzod = User::factory()-&gt;create(['rol' =&gt; Rol::Nomzod]);
+
+    $this-&gt;actingAs($nomzod)-&gt;post('/rezyume', [
+        'rezyume' =&gt; UploadedFile::fake()-&gt;create('rezyume.pdf'),
+    ]);
+});">test('nomzod rezyume yuklaydi', function () {
+    $nomzod = User::factory()-&gt;create(['rol' =&gt; Rol::Nomzod]);
+
+    $this-&gt;actingAs($nomzod)-&gt;post('/rezyume', [
+        'rezyume' =&gt; UploadedFile::fake()-&gt;create('rezyume.pdf'),
+    ]);
+});</code>
+    </div>
+    <p>Ishga tushirdi — <b>yashil</b>. U xursand bo'lib commit qildi. Test
+    haqiqatan biror narsani tekshiryaptimi?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <div class="natija">   WARN  Tests\Feature\RezyumeTest
+  ! nomzod rezyume yuklaydi → This test did not perform any assertions
+
+  Tests:    1 risky
+  (chiqish kodi: 0 — to'plam baribir MUVAFFAQIYATLI hisoblanadi)</div>
+        <p>Yashil <b>✓</b> emas, sariq <b>!</b> — Pest buni
+        <code>risky</code> («shubhali») deb belgiladi. Testda birorta
+        <code>assert*</code> yoki <code>expect()</code> yo'q: so'rov
+        yuborildi, javob esa <b>qaralmadi</b>.</p>
+        <p class="expect">⚠️ Eng muhim nozik joy: <b>chiqish kodi baribir
+        0</b>. Ya'ni to'plam «o'tdi» hisoblanadi va CI hech nimani
+        to'xtatmaydi. Ogohlantirish faqat <b>ekranda</b> — kim uni
+        o'qimasa, sezmaydi ham.</p>
+        <p>Va bu test 403 kelsa ham, 500 kelsa ham, rezyume umuman
+        saqlanmasa ham xuddi shunday xulq ko'rsatadi. U «kod ishga tushdi»
+        deganini bildiradi, «to'g'ri ishladi» deganini emas.</p>
+        <p>To'g'ri variant kamida ikki narsani so'raydi — javob va natija:</p>
+        <div class="natija">$javob = $this-&gt;actingAs($nomzod)-&gt;post('/rezyume', [
+    'rezyume' =&gt; UploadedFile::fake()-&gt;create('rezyume.pdf'),
+]);
+
+$javob-&gt;assertRedirect('/rezyume');                    // javob to'g'rimi
+expect($nomzod-&gt;fresh()-&gt;rezyume)-&gt;not-&gt;toBeNull();    // bazaga yozildimi</div>
+        <p>🔑 <b>Qoida:</b> testni yozgach uni <b>ataylab buzib ko'ring</b>.
+        Kodni buzasiz, testni ishlatasiz — qizil bo'lmasa, test hech nima
+        tekshirmayapti.</p>
+        <p>🔍 Biz bugun shu usulni policy'da qo'lladik: shartni olib tashladik,
+        test <b>qizil bo'ldi</b>. Demak unga ishonish mumkin.</p>
+        <p>Va yana bir nozik joy: <code>$nomzod-&gt;fresh()</code> —
+        <code>$nomzod</code> o'zgaruvchisi test boshida olingan
+        <b>eski nusxa</b>. So'rov bazani o'zgartirdi, lekin PHP'dagi obyekt
+        buni bilmaydi. <code>fresh()</code> uni bazadan qayta o'qiydi.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span> Testlar qaysi bazada
+    ishlaydi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Xotiradagi vaqtinchalik alohida bazada</button></li>
+      <li><button class="quiz-option">Sizning odatdagi asosiy bazangizda</button></li>
+      <li><button class="quiz-option">Umuman bazasiz faqat xotirada</button></li>
+    </ul>
+    <div class="quiz-explain"><code>phpunit.xml</code> da
+    <code>DB_DATABASE=:memory:</code> — test boshlanganda yaratiladi, tugagach
+    yo'qoladi. Testdan oldin va keyin sanadik: <b>27 / 5</b> → <b>27 / 5</b>.
+    <code>RefreshDatabase</code> esa o'sha bo'sh bazaga migratsiyalarni
+    quyadi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span> Feature testda
+    <code>no such table</code> chiqsa sabab nima?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">RefreshDatabase yoqilmay qolib migratsiya bajarilmay qolgan</button></li>
+      <li><button class="quiz-option">Migratsiya faylida xato bor va tuzatilmagan</button></li>
+      <li><button class="quiz-option">Asosiy bazada jadval umuman yaratilmagan qolgan</button></li>
+    </ul>
+    <div class="quiz-explain"><code>tests/Pest.php</code> da
+    <code>-&gt;use(RefreshDatabase::class)</code> qatori standart holda
+    <b>izohga olingan</b>. Xotira bazasi bo'sh bo'lgani uchun birinchi so'rov
+    <code>PDOException</code> beradi. Bitta izohni ochish — masala hal.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span> Testda birorta
+    <code>assert</code> bo'lmasa nima bo'ladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Risky belgilanadi lekin to'plam o'tadi</button></li>
+      <li><button class="quiz-option">Yashil belgilanadi va izoh chiqmaydi</button></li>
+      <li><button class="quiz-option">Qizil belgilanadi va to'plam yiqiladi</button></li>
+    </ul>
+    <div class="quiz-explain">Pest sariq <b>!</b> bilan
+    <code>This test did not perform any assertions</code> deb ogohlantiradi.
+    ⚠️ Lekin <b>chiqish kodi 0</b> — to'plam muvaffaqiyatli hisoblanadi va CI
+    to'xtamaydi. Ogohlantirishni faqat <b>o'qigan odam</b> ko'radi.
+    🔑 Yozgan testingizni <b>ataylab buzib</b> ko'ring: qizil bo'lmasa, u hech
+    nima tekshirmayapti.</div>
+  </div>
+
+  <!-- ═══════════════ 10) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+    <p class="recall-intro">Avval o'zingiz javob bering, keyin ochib tekshiring.
+    Oxirgi ikkitasi — <a href="0036-fayl-yuklash.html">36-darsni</a> takrorlash.</p>
+
+    <details class="recall">
+      <summary><code>test()</code> va <code>it()</code> farqi nimada?</summary>
+      <div class="answer"><p>Ishlashida <b>farq yo'q</b>. <code>it()</code>
+      chiqishda nom oldiga «it» qo'shadi — inglizcha jumla uchun. O'zbekcha
+      nomda <code>test()</code> toza o'qiladi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary><code>RefreshDatabase</code> nima qiladi?</summary>
+      <div class="answer"><p>Har test <b>oldidan</b> migratsiyalarni bajaradi,
+      har test <b>keyin</b> o'zgarishlarni bekor qiladi. Shunda har test
+      <b>toza dunyoda</b> boshlanadi va testlar bir-biriga
+      bog'lanmaydi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Testga ishonish mumkinligini qanday tekshirasiz?</summary>
+      <div class="answer"><p>Kodni <b>ataylab buzib</b>, testni ishlatasiz.
+      Qizil bo'lsa — test ishlayapti. Yashil qolsa — u hech nima
+      tekshirmayapti (masalan <code>assert</code> yo'q).</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: rezyume qaysi diskka saqlanadi va nega?</summary>
+      <div class="answer"><p><code>'local'</code> —
+      <code>storage/app/private</code>. Uning URL i <b>yo'q</b>, faylni faqat
+      controller bera oladi va o'shanda huquq tekshiriladi. Ochiq diskdagi
+      faylni mehmon <b>200</b> bilan olgan edi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: <code>mimes:pdf</code> nimaga qaraydi?</summary>
+      <div class="answer"><p>Faylning <b>ichiga</b>, nomiga emas. Nomi
+      <code>.pdf</code> bo'lgan matn fayl <b>tutilgan</b> edi.
+      <code>getClientOriginalExtension()</code> esa yolg'on gapiradi —
+      u foydalanuvchidan keladi.</p></div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 11) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Cho'ntak xulosasi</span>
+    <ul>
+      <li>Test — <b>yozib qo'yilgan qo'lda tekshirish</b>. Siz baribir
+      tekshirasiz; savol — u xotirangizda qoladimi yoki faylda.</li>
+      <li><b>Dalil o'lchandi:</b> policy'dan bitta shart olib tashlanganda
+      sayt bemalol ishladi, xato chiqmadi — test esa
+      <b>0.18 soniyada</b> qizil bo'ldi.</li>
+      <li>O'rnatish:
+      <code>composer require pestphp/pest --dev --with-all-dependencies</code>,
+      keyin <code>./vendor/bin/pest --init</code>.</li>
+      <li>Pest PHPUnit <b>ustida</b> ishlaydi — klass, namespace,
+      <code>public function</code> yozilmaydi.</li>
+      <li><code>tests/Unit</code> — tez, bazasiz. <code>tests/Feature</code> —
+      HTTP so'rov, route, controller, baza. <code>tests/Pest.php</code> —
+      butun to'plamning sozlamasi.</li>
+      <li>🔍 <code>phpunit.xml</code>: <code>DB_DATABASE=:memory:</code> —
+      testlar <b>haqiqiy bazangizga tegmaydi</b> (sanab tekshirildi).
+      <code>BCRYPT_ROUNDS=4</code> — testda tezlik uchun.</li>
+      <li><code>expect($x)-&gt;toBe(...)</code> · <code>toBeNull()</code> ·
+      <code>toBeTrue()</code> · <code>toHaveCount()</code> ·
+      <code>toContain()</code>.</li>
+      <li><code>test()</code> va <code>it()</code> — bir xil ishlaydi.
+      <code>it()</code> chiqishda «it» qo'shadi, shuning uchun o'zbekcha nomda
+      <code>test()</code>.</li>
+      <li>⚠️ Birinchi <code>php artisan test</code> <b>qizil</b> chiqadi:
+      namuna test <code>/</code> ni so'raydi, IshTop'da u yo'q → <b>404</b>.</li>
+      <li>⚠️ Feature testdagi birinchi to'siq —
+      <code>no such table</code>. Sabab: <code>tests/Pest.php</code> da
+      <code>-&gt;use(RefreshDatabase::class)</code> <b>izohga olingan</b>.</li>
+      <li><code>$this-&gt;get(...)</code> / <code>-&gt;post(...)</code> —
+      tarmoqqa chiqmaydi, server ishga tushirish <b>shart emas</b>.</li>
+      <li><code>actingAs($user)</code> — kirish jarayonini chetlab o'tadi.
+      <code>User::factory()-&gt;create([...])</code> — 28-darsdagi factory.</li>
+      <li><code>assertStatus</code> · <code>assertRedirect</code> ·
+      <code>assertDatabaseHas</code> · <code>assertDatabaseMissing</code>.
+      Taqiqni tekshirganda <b>ikkalasi</b>: javob va bazaning holati.</li>
+      <li>⚠️ <code>assert</code> siz test <code>risky</code> deb belgilanadi
+      (sariq <b>!</b>), lekin <b>chiqish kodi 0</b> — to'plam baribir o'tadi va
+      CI to'xtamaydi. 🔑 Yozgan testingizni <b>ataylab buzib</b> ko'ring.</li>
+      <li>Har test <b>o'z ma'lumotini o'zi</b> yaratsin — umumiy holat
+      «ba'zan yiqiladigan» testlar tug'diradi.</li>
+      <li><code>php artisan test</code> · <code>--filter=nomzod</code> ·
+      <code>php artisan test tests/Unit</code>. Commit oldidan —
+      <b>to'liq</b> to'plam.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p>Bugun test asbobini qo'ldan o'tkazdik va uchta testni yozdik. Lekin
+    HTTP javobidan biz atigi ikki narsa so'radik: <b>status</b> va
+    <b>redirect</b>.</p>
+    <p>Aslida javobda ancha ko'p narsa bor: sahifada qaysi matn chiqdi, qaysi
+    xato xabari ko'rindi, sessiyada nima yozildi, qaysi ma'lumot
+    <b>ko'rinmasligi</b> kerak edi.</p>
+    <p>38-darsda Feature testlarga chuqurroq kiramiz:
+    <code>assertSee</code>, <code>assertDontSee</code>,
+    <code>assertSessionHasErrors</code> va validatsiya xatolarini test qilish.
+    O'shanda 35-darsdagi Form Request qoidalarini <b>bittalab</b> qulflaymiz.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Pest — Writing Tests</b>:
+    <a href="https://pestphp.com/docs/writing-tests">pestphp.com/docs/writing-tests</a>
+    — <code>test()</code>, <code>it()</code>, <code>expect()</code>
+    va kutish (expectation) API si.<sup><a href="#fn1">1</a></sup><br>
+    <b>Laravel — Testing: Getting Started</b>:
+    <a href="https://laravel.com/docs/13.x/testing">laravel.com/docs/13.x/testing</a>
+    — muhit, <code>phpunit.xml</code>,
+    <code>php artisan test</code>.<sup><a href="#fn2">2</a></sup><br>
+    <b>Database Testing</b>:
+    <a href="https://laravel.com/docs/13.x/database-testing">RefreshDatabase,
+    assertDatabaseHas</a>.<sup><a href="#fn3">3</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b> «qancha test yozish
+    kerak?», «avval test, keyin kod (TDD) degani nima?», «testni ham test
+    qilish kerakmi?», «nega mening testim ba'zan yiqiladi?» — har qanday savol
+    yaxshi. Oxirgisi ayniqsa keng tarqalgan va javobi deyarli har doim bitta:
+    testlar <b>bir-biriga bog'lanib qolgan</b> yoki vaqt/tasodifga tayangan
+    (HOLAT 4). Birinchisiga esa qisqa javob: <b>eng qimmat</b> joylardan
+    boshlang — pul, huquq va ma'lumot yo'qolishi bilan bog'liq oqimlar.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0036-fayl-yuklash.html">Oldingi: Fayl yuklash</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Pest — <a href="https://pestphp.com/docs/writing-tests">Writing Tests</a>.</li>
+      <li id="fn2">Laravel 13 — <a href="https://laravel.com/docs/13.x/testing">Testing: Getting Started</a>.</li>
+      <li id="fn3">Laravel 13 — <a href="https://laravel.com/docs/13.x/database-testing">Database Testing</a>.</li>
+      <li id="fn4">Barchasi jonli o'lchangan (PHP 8.3.32, Laravel 13.25.0,
+      Pest 4.7.8, PHPUnit 12.5): o'rnatishdan keyin birinchi
+      <code>php artisan test</code> → <b>1 failed, 1 passed</b>
+      (<code>ExampleTest</code> <code>/</code> so'radi, <b>404</b>) ·
+      namuna testlar o'chirilgach <code>INFO No tests found.</code> ·
+      Unit testlar <b>2 passed (4 assertions), 0.04s</b> ·
+      Feature test avval <code>PDOException ... no such table: vakansiyalar</code>,
+      <code>RefreshDatabase</code> yoqilgach yashil ·
+      to'liq to'plam <b>5 passed (10 assertions), 0.18s</b> ·
+      <code>--filter=nomzod</code> → <b>1 passed (2 assertions)</b> ·
+      policy'dagi <code>create()</code> <code>return true</code> qilinganda
+      «nomzod vakansiya qo'sha olmaydi» testi
+      <code>Expected response status code [403] but received 302</code> bilan
+      yiqildi, brauzerda esa <b>hech qanday alomat yo'q</b> edi ·
+      testdan oldin va keyin haqiqiy baza: <b>27 vakansiya / 5 user</b> —
+      o'zgarmadi · <code>it()</code> chiqishda «it» prefiksini qo'shdi,
+      <code>test()</code> qo'shmadi ·
+      Pest o'rnatilgach <code>make:test</code> <b>Pest uslubida</b> yasadi
+      (<code>--pest</code> shart emas).</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

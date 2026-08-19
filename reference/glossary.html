@@ -18,7 +18,7 @@
   izoh esa o'zbekcha.</p>
 
   <p class="lesson-meta">
-    <span>Atamalar: <b>149 ta</b></span>
+    <span>Atamalar: <b>154 ta</b></span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>📱 O'qishga mos</span>
   </p>
@@ -26,7 +26,7 @@
   <div class="callout note">
     <span class="label">Bu hujjat o'sib boradi</span>
     <p>Atama faqat <b>o'z darsi yozilganda</b> qo'shiladi — oldindan emas. Hozir:
-    Modul A–D (1–36-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
+    Modul A–E (1–37-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
     bosqichida qat'iy belgilangan va 73 dars bo'ylab o'zgarmaydi).</p>
   </div>
 
@@ -1301,6 +1301,64 @@
       <code>@can('create', App\Models\Vakansiya::class)</code> — Blade'da
       <code>use</code> yo'q, to'liq yo'l yoziladi.
       <span class="eg">@can('delete', $v) &lt;button&gt;O'chirish&lt;/button&gt; @endcan</span></dd>
+    </div>
+
+    <div class="term" id="pest">
+      <dt>Pest <span class="uz">— test yozish asbobi</span></dt>
+      <dd>PHPUnit <b>ustida</b> ishlaydi, faqat yozilishi qisqa: klass,
+      namespace, <code>public function</code> yozilmaydi.
+      <code>composer require pestphp/pest --dev --with-all-dependencies</code>,
+      keyin <code>./vendor/bin/pest --init</code> →
+      <code>tests/Pest.php</code>. Ishga tushirish —
+      <code>php artisan test</code>.
+      <span class="eg">test('sahifa ochiladi', fn () =&gt; $this-&gt;get('/vakansiyalar')-&gt;assertStatus(200));</span></dd>
+    </div>
+
+    <div class="term" id="expect">
+      <dt>expect() <span class="uz">— kutilgan natijani bildirish</span></dt>
+      <dd><code>toBe</code> (aynan teng) · <code>toBeNull</code> ·
+      <code>toBeTrue</code> · <code>toBeEmpty</code> ·
+      <code>toHaveCount</code> · <code>toContain</code>. Inkor uchun
+      <code>-&gt;not-&gt;</code>.
+      ⚠️ <code>test()</code> va <code>it()</code> bir xil ishlaydi, faqat
+      <code>it()</code> chiqishda nom oldiga «it» qo'shadi — o'zbekcha nomda
+      <code>test()</code> toza o'qiladi.
+      <span class="eg">expect($u-&gt;fresh()-&gt;rezyume)-&gt;not-&gt;toBeNull();</span></dd>
+    </div>
+
+    <div class="term" id="refresh-database">
+      <dt>RefreshDatabase <span class="uz">— har test uchun toza baza</span></dt>
+      <dd>Har test <b>oldidan</b> migratsiyalarni bajaradi, <b>keyin</b>
+      o'zgarishlarni bekor qiladi. <code>tests/Pest.php</code> da standart
+      holda <b>izohga olingan</b> — yoqilmasa Feature testda
+      <code>no such table</code> chiqadi.
+      🔍 Testlar <code>phpunit.xml</code> dagi <code>:memory:</code> bazasida
+      ishlaydi, haqiqiy bazangizga <b>tegilmaydi</b>.
+      <span class="eg">pest()-&gt;extend(TestCase::class)-&gt;use(RefreshDatabase::class)-&gt;in('Feature');</span></dd>
+    </div>
+
+    <div class="term" id="acting-as">
+      <dt>actingAs() <span class="uz">— testda kirgan odam</span></dt>
+      <dd>Kirish jarayonini (forma, parol, sessiya) <b>chetlab o'tadi</b>:
+      <code>$this-&gt;actingAs($user)-&gt;post(...)</code>. Foydalanuvchini
+      <code>User::factory()-&gt;create([...])</code> bilan yasang.
+      Bazani tekshirish uchun <code>assertDatabaseHas</code> /
+      <code>assertDatabaseMissing</code>.
+      ⚠️ Taqiqni tekshirganda <b>ikkalasi</b> kerak: javob statusi <b>va</b>
+      bazaning holati.
+      <span class="eg">$this-&gt;actingAs($nomzod)-&gt;post('/vakansiyalar', [...])-&gt;assertStatus(403);</span></dd>
+    </div>
+
+    <div class="term" id="risky-test">
+      <dt>risky test <span class="uz">— hech nima tekshirmagan test</span></dt>
+      <dd>Testda birorta <code>assert*</code> yoki <code>expect()</code>
+      bo'lmasa, Pest sariq <b>!</b> bilan
+      <code>This test did not perform any assertions</code> deb ogohlantiradi.
+      ⚠️ Lekin <b>chiqish kodi 0</b> — to'plam «o'tdi» hisoblanadi va CI
+      to'xtamaydi.
+      🔑 Yozgan testingizni <b>ataylab buzib</b> ko'ring: qizil bo'lmasa,
+      u hech nima tekshirmayapti.
+      <span class="eg">Tests: 1 risky        (chiqish kodi: 0)</span></dd>
     </div>
 
     <div class="term" id="disk">
