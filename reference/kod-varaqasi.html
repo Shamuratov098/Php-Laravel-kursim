@@ -17,7 +17,7 @@
   muhit ma'lumotlari. Har dars yangi buyruq o'rgatilsa, shu yerga qo'shiladi.</p>
 
   <p class="lesson-meta">
-    <span>Qamrov: <b>1&ndash;37-darslar</b> — muhitdan testlargacha</span>
+    <span>Qamrov: <b>1&ndash;38-darslar</b> — muhitdan testlargacha</span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>💻 Amaliyotga mos</span>
   </p>
@@ -823,6 +823,46 @@
     testning <b>qizil</b> bo'lishini ko'rish.</p>
     <p>Har test <b>o'z ma'lumotini o'zi</b> yaratsin — umumiy holat «ba'zan
     yiqiladigan» testlar tug'diradi.</p>
+  </div>
+
+  <h2>Feature test — HTTP (38-darsdan)</h2>
+  <table class="sheet">
+    <tr><th>Kod</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>assertOk()</code> · <code>assertForbidden()</code> · <code>assertNotFound()</code></td><td class="note-cell">200 · 403 · 404 — <code>assertStatus()</code> dan o'qilishi yaxshiroq</td></tr>
+    <tr><td><code>assertRedirect('/manzil')</code></td><td class="note-cell">Qayerga yo'naltirildi</td></tr>
+    <tr><td><code>assertRedirectToRoute('nom')</code></td><td class="note-cell">Route <b>nomi</b> bilan — manzil o'zgarsa ham ishlaydi</td></tr>
+    <tr><td><code>-&gt;from('/qayerdan')</code></td><td class="note-cell">⚠️ <code>back()</code> ishlatadigan so'rovda <b>majburiy</b></td></tr>
+    <tr><td><code>assertSessionHasErrors(['nom'])</code></td><td class="note-cell">Validatsiya qoidalarini qulflaydi</td></tr>
+    <tr><td><code>assertSessionHas('xabar', '…')</code></td><td class="note-cell">Flash xabar</td></tr>
+    <tr><td><code>assertSee('matn')</code></td><td class="note-cell">HTML'da qidiradi. <b>Izlanayotgan matnni ekranlaydi</b></td></tr>
+    <tr><td><code>assertSee('&lt;form', false)</code></td><td class="note-cell">Ekranlashsiz — faqat <b>HTML teg</b> qidirganda</td></tr>
+    <tr><td><code>assertDontSee('matn')</code></td><td class="note-cell">⚠️ Matn o'zgarsa ham o'tadi — yolg'on xotirjamlik</td></tr>
+    <tr><td><code>assertSeeText('matn')</code></td><td class="note-cell">Teglarni tashlab qidiradi</td></tr>
+    <tr><td><code>assertSee([...])</code> · <code>assertSeeInOrder([...])</code></td><td class="note-cell">Bir nechta matn · tartib bilan</td></tr>
+    <tr><td><code>assertViewIs('vakansiyalar.index')</code></td><td class="note-cell">Qaysi Blade fayli render qilindi</td></tr>
+    <tr><td><code>assertViewHas('vakansiyalar')</code></td><td class="note-cell">Controller shu o'zgaruvchini berdimi — dizayndan mustaqil</td></tr>
+    <tr><td><code>followingRedirects()</code></td><td class="note-cell">Redirect'ni oxirigacha kuzatadi (keyin <code>assertRedirect</code> yo'q)</td></tr>
+    <tr><td><code>withoutExceptionHandling()</code></td><td class="note-cell">🔍 403/500 ortidagi <b>haqiqiy istisno</b>. Tashxisdan keyin oling</td></tr>
+    <tr><td><code>dump($javob-&gt;headers-&gt;get('Location'))</code></td><td class="note-cell">Redirect qayerga ketganini ko'rish</td></tr>
+  </table>
+  <div class="callout note">
+    <p>⚠️ <b>O'zbekcha apostrof:</b> Blade <code>Qo'shildi</code> ni
+    <code>Qo&amp;#039;shildi</code> qilib yozadi, lekin <code>assertSee</code>
+    <b>izlanayotgan matnni ham</b> ekranlaydi — shuning uchun
+    <code>assertSee("Qo'shildi")</code> <b>ishlaydi</b>.
+    Ikkinchi argument <code>false</code> qo'ysangiz <b>yiqiladi</b>.</p>
+    <p>⚠️ <b><code>from()</code>:</b> testda <code>Referer</code> yo'q, shuning
+    uchun <code>back()</code> sayt <b>ildiziga</b> qaytaradi
+    (<code>http://localhost:8000</code>).</p>
+    <p>⚠️ <b>Chalg'ituvchi xato:</b> redirect tekshiruvi yiqilganda sessiyada
+    validatsiya xatosi bo'lsa —
+    <code>Call to a member function all() on array</code>. Kodingizda
+    <code>all()</code> qidirmang: manzilni <code>dump()</code> bilan qarang.</p>
+    <p>🔑 <b>Validatsiya testi uch qatlamli:</b> qayerga qaytdi ·
+    qaysi maydonlarda xato · bazaga <b>yozilmadi</b>.</p>
+    <p>🔑 <b>Mo'rt testdan qoching:</b> uzun aniq matnga emas, eng qisqa
+    ishonchli belgiga bog'laning. Himoyani esa har doim <b>status</b> bilan
+    tekshiring, ko'rinish bilan emas.</p>
   </div>
 
   <h2>Xatoni o'qish</h2>

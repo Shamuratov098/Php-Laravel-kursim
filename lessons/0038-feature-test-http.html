@@ -1,0 +1,1163 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 38 — Feature test: HTTP javobini so'roqqa tutish</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 38 · MODUL E — TEST (PEST)</p>
+  <h1>Feature test: HTTP javobini so'roqqa tutish</h1>
+  <p class="lead">37-darsda javobdan atigi ikki narsa so'radik:
+  <b>status</b> va <b>redirect</b>. Aslida javobda ancha ko'p narsa bor —
+  sahifada qanday matn chiqdi, sessiyaga qaysi xato tushdi, qaysi ko'rinish
+  render qilindi. Bugun shu savollarni berishni o'rganamiz va IshTop'ning
+  <b>o'nta</b> muhim xulqini qulflab qo'yamiz.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 16 daqiqa</span>
+    <span>💻 Amaliyot ≈ 25 daqiqa</span>
+    <span>Kerak: <a href="0037-nega-test-kerak.html">Dars 37</a></span>
+  </p>
+
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b>Javobda nima bor</b>
+        <span class="nima">Status, sarlavhalar, HTML matni, sessiya, render
+        qilingan ko'rinish — har biriga alohida savol bor.</span></li>
+      <li><b>Status yordamchilari</b>
+        <span class="nima"><code>assertOk</code> ·
+        <code>assertForbidden</code> · <code>assertNotFound</code> —
+        <code>assertStatus(200)</code> dan o'qilishi yaxshiroq.</span></li>
+      <li><b><code>assertRedirect</code> va <code>assertRedirectToRoute</code></b>
+        <span class="nima">Manzil bo'yicha yoki <b>route nomi</b> bo'yicha —
+        ikkinchisi manzil o'zgarsa ham ishlaydi.</span></li>
+      <li><b>⚠️ <code>from()</code> — qayerdan kelgani</b>
+        <span class="nima">Unutilsa <code>back()</code> sayt <b>ildiziga</b>
+        qaytaradi. O'lchangan.</span></li>
+      <li><b><code>assertSessionHasErrors</code></b>
+        <span class="nima">35-darsdagi Form Request qoidalarini bittalab
+        qulflash. Xatosiz holatdagi xabari ham ko'rsatiladi.</span></li>
+      <li><b><code>assertSee</code> / <code>assertDontSee</code></b>
+        <span class="nima">Sahifada matn bormi. Massiv bilan va
+        <code>assertSeeInOrder</code> bilan.</span></li>
+      <li><b>⚠️ O'zbekcha apostrof tuzog'i</b>
+        <span class="nima"><code>Qo'shildi</code> HTML'da
+        <code>Qo&amp;#039;shildi</code> bo'ladi. To'rt xil variant
+        <b>o'lchandi</b> — qaysi biri ishlaydi.</span></li>
+      <li><b><code>assertSeeText</code></b>
+        <span class="nima">Teglarni tashlab, faqat <b>matnni</b> qidiradi —
+        matn teglar bilan bo'lingan bo'lsa asqotadi.</span></li>
+      <li><b><code>assertSessionHas</code></b>
+        <span class="nima">Flash xabarni tekshirish: «Qo'shildi: …» sessiyaga
+        yozildimi.</span></li>
+      <li><b><code>assertViewIs</code> / <code>assertViewHas</code></b>
+        <span class="nima">Qaysi Blade fayli render qilindi va unga qanday
+        o'zgaruvchilar berildi.</span></li>
+      <li><b>🔍 <code>withoutExceptionHandling()</code></b>
+        <span class="nima">403 yoki 500 ortidagi <b>haqiqiy istisno</b>ni
+        ko'rsatadi — tashxis qo'yishning eng tez usuli.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima">Apostrof · <code>from()</code> · xatosiz
+        <code>assertSessionHasErrors</code> ·
+        <code>assertDontSee</code> yolg'oni · <code>followingRedirects</code> ·
+        status yordamchilari · sekin testlar.</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Javob — bitta son emas</span>
+    <p>37-darsdagi test shunday edi:</p>
+    <div class="natija">$javob = $this-&gt;get('/vakansiyalar');
+$javob-&gt;assertStatus(200);</div>
+    <p>Bu «sahifa ochildi» deganini bildiradi. Lekin <b>nima</b> ochildi?
+    Bo'sh sahifa ham 200 qaytaradi. Xato ro'yxati bilan to'lgan sahifa ham.
+    Nomzodga ish beruvchi formasi ko'rsatilgan sahifa ham.</p>
+    <p>Javob ichida bir necha qatlam bor va har biriga alohida savol bor:</p>
+    <div class="natija">status         →  assertOk() · assertForbidden() · assertNotFound()
+sarlavhalar    →  assertRedirect() · assertRedirectToRoute()
+HTML matni     →  assertSee() · assertDontSee() · assertSeeText()
+sessiya        →  assertSessionHas() · assertSessionHasErrors()
+ko'rinish      →  assertViewIs() · assertViewHas()</div>
+    <p>Bugungi maqsad — shu savollar bilan IshTop'ning <b>o'nta</b> muhim
+    xulqini yozib qo'yish. Shundan keyin 29–35-darslarda qurgan narsalaringiz
+    <b>o'z-o'zini qo'riqlaydi</b>.</p>
+  </div>
+
+  <!-- ═══════════════ 2) STATUS ═══════════════ -->
+  <h2>Status: o'qiladigan shakl</h2>
+
+  <div class="natija">assertStatus(200)     →  assertOk()
+assertStatus(403)     →  assertForbidden()
+assertStatus(404)     →  assertNotFound()
+assertStatus(401)     →  assertUnauthorized()
+assertStatus(422)     →  assertUnprocessable()</div>
+
+  <p>Ikkalasi bir xil ishlaydi. Farq — <b>o'qilishida</b>: son o'rniga
+  <b>ma'no</b> yoziladi va testni o'qigan odam HTTP kodlarini yodlab
+  o'tirmaydi.</p>
+
+  <div class="codefile">
+    <span class="fname">tests/Feature/VakansiyaTest.php</span>
+    <code class="cmd">test('vakansiyalar sahifasi ochiladi', function () {
+    $this-&gt;get('/vakansiyalar')-&gt;assertOk();
+});</code>
+  </div>
+
+  <p>Diqqat: <code>$javob</code> o'zgaruvchisi yo'q. Assertion metodlari
+  javobning <b>o'zini</b> qaytaradi, shuning uchun ularni <b>zanjir</b> qilib
+  yozish mumkin — 29-darsdagi query builder bilan bir naqsh.</p>
+
+  <div class="natija">$this-&gt;get('/vakansiyalar')
+    -&gt;assertOk()
+    -&gt;assertSee('Vakansiyalar')
+    -&gt;assertDontSee('Yangi vakansiya');</div>
+
+  <!-- ═══════════════ 3) REDIRECT ═══════════════ -->
+  <h2>Redirect va <code>from()</code></h2>
+
+  <div class="natija">$javob-&gt;assertRedirect('/vakansiyalar');
+$javob-&gt;assertRedirectToRoute('vakansiyalar.index');    // route NOMI bilan</div>
+
+  <p>Ikkinchisi afzal: 24-darsdagi qoida bo'yicha manzil o'zgarishi mumkin,
+  <b>nom</b> esa qolaveradi.</p>
+
+  <div class="callout warning">
+    <span class="label">⚠️ <code>from()</code> unutilsa</span>
+    <p>Validatsiya xatosida controller <code>back()</code> qiladi — «kelgan
+    joyingga qayt». Lekin test so'rovida <b>«kelgan joy» yo'q</b>: brauzer
+    emassiz, <code>Referer</code> sarlavhasi yuborilmaydi.</p>
+    <p>O'lchandik:</p>
+    <div class="natija">from() SIZ   →  http://localhost:8000              ← sayt ILDIZI
+from() BILAN →  http://localhost:8000/vakansiyalar</div>
+    <p>Ya'ni <code>assertRedirect('/vakansiyalar')</code> <b>yiqiladi</b> va siz
+    controllerda xato qidira boshlaysiz — aslida xato <b>testda</b>.</p>
+    <div class="natija">$this-&gt;actingAs($u)
+    -&gt;from('/vakansiyalar')          // ← «bu sahifadan yubordim»
+    -&gt;post('/vakansiyalar', [...]);</div>
+    <p>🔑 Qoida: <b>orqaga qaytaradigan</b> har bir so'rovda
+    <code>from()</code> yozing. Bu odatda validatsiya testlari.</p>
+  </div>
+
+  <!-- ═══════════════ 4) SESSIYA ═══════════════ -->
+  <h2>Validatsiyani qulflash: <code>assertSessionHasErrors</code></h2>
+
+  <p>35-darsda <code>VakansiyaRequest</code> yozdik. Uning qoidalari
+  ishlayotganini <b>yozib qo'yamiz</b>:</p>
+
+  <div class="codefile">
+    <span class="fname">tests/Feature/VakansiyaTest.php</span>
+    <code class="cmd">test('qoidalarga mos kelmagan ma\'lumot rad etiladi', function () {
+    $ishBeruvchi = User::factory()-&gt;create(['rol' =&gt; Rol::IshBeruvchi]);
+
+    $javob = $this-&gt;actingAs($ishBeruvchi)
+        -&gt;from('/vakansiyalar')
+        -&gt;post('/vakansiyalar', ['nom' =&gt; 'abc', 'maosh' =&gt; 'matn']);
+
+    $javob-&gt;assertRedirect('/vakansiyalar');
+    $javob-&gt;assertSessionHasErrors(['nom', 'maosh']);
+
+    $this-&gt;assertDatabaseMissing('vakansiyalar', ['nom' =&gt; 'abc']);
+});</code>
+  </div>
+
+  <p>Uch qatlam tekshirildi: <b>qayerga</b> qaytdi, <b>qaysi maydonlarda</b>
+  xato bor, va eng muhimi — bazaga <b>yozilmadi</b>.</p>
+
+  <p class="expect">🔑 Uchinchisisiz test to'liq emas. Xato ro'yxatini
+  ko'rsatib, ammo yozuvni saqlab qo'yadigan kod ham bo'lishi mumkin.</p>
+
+  <p>Xatosiz holatda bu assertion nima deydi — buni ham ko'rib qo'yaylik:</p>
+
+  <div class="natija">Session is missing expected key [errors].
+Failed asserting that false is true.</div>
+
+  <p>Aniq va tushunarli: sessiyada <code>errors</code> kaliti umuman yo'q,
+  ya'ni validatsiya <b>o'tib ketgan</b>.</p>
+
+  <h3>Flash xabarni tekshirish</h3>
+
+  <div class="natija">$javob-&gt;assertSessionHas('xabar', "Qo'shildi: Backend dasturchi");</div>
+
+  <p>19-darsdan beri ishlatib kelayotgan <code>-&gt;with('xabar', ...)</code>
+  aynan shu kalitni sessiyaga yozadi.</p>
+
+  <!-- ═══════════════ 5) MATN ═══════════════ -->
+  <h2>Sahifadagi matn: <code>assertSee</code></h2>
+
+  <div class="natija">$javob-&gt;assertSee('Backend dasturchi');
+$javob-&gt;assertDontSee('Yangi vakansiya');
+$javob-&gt;assertSee(['Vakansiyalar', 'Backend dasturchi']);        // massiv
+$javob-&gt;assertSeeInOrder(['Vakansiyalar', 'Backend dasturchi']); // tartib bilan</div>
+
+  <div class="callout warning">
+    <span class="label">⚠️ O'zbekcha apostrof — bu darsning tuzog'i</span>
+    <p>IshTop'dagi xabarlar apostrofga to'la: <b>Qo'shildi</b>,
+    <b>bo'lsin</b>, <b>o'chirildi</b>. Blade esa <code>{{ }}</code> ichidagi
+    hamma narsani <b>ekranlaydi</b> (18-dars):</p>
+    <div class="natija">Blade'da:  {{ session('xabar') }}
+HTML'da:   Qo&amp;#039;shildi: Backend dasturchi</div>
+    <p>Ya'ni sahifaning HTML kodida <code>Qo'shildi</code> degan matn
+    <b>umuman yo'q</b>. Unda <code>assertSee("Qo'shildi: …")</code> qanday
+    ishlaydi? To'rtta variantni o'lchab ko'rdik:</p>
+    <div class="natija">A  assertSee("Qo'shildi: Backend dasturchi")            →  ✓ o'tdi
+B  assertSee("Qo'shildi: Backend dasturchi", false)     →  ⨯ YIQILDI
+C  assertSee("Qo&amp;#039;shildi: Backend dasturchi", false) →  ✓ o'tdi
+D  assertSeeText("Qo'shildi: Backend dasturchi")        →  ✓ o'tdi</div>
+    <p>Sabab: <code>assertSee</code> <b>izlanayotgan matnni ham</b>
+    ekranlaydi — shuning uchun A ishlaydi. Ikkinchi argument
+    <code>false</code> «ekranlama» degani, va o'shanda xom apostrof HTML'da
+    topilmaydi.</p>
+    <p>🔑 <b>Qoida:</b> odatiy holda <code>assertSee</code> ni
+    <b>ikkinchi argumentsiz</b> ishlating va matnni <b>o'zbekcha</b>
+    yozavering. <code>false</code> ni faqat HTML teg qidirganda qo'ying
+    (masalan <code>assertSee('&lt;form', false)</code>).</p>
+  </div>
+
+  <h3><code>assertSeeText</code> — teglar aralashganda</h3>
+
+  <div class="natija">Blade'da:  &lt;p&gt;Vakansiya qo'shish uchun &lt;b&gt;ish beruvchi&lt;/b&gt; sifatida kirishingiz kerak.&lt;/p&gt;
+
+assertSee('ish beruvchi sifatida kirishingiz')      →  ⨯ YIQILDI
+assertSeeText('ish beruvchi sifatida kirishingiz')  →  ✓ o'tdi</div>
+
+  <p>Sabab ko'rinib turibdi: matn o'rtasida <code>&lt;/b&gt;</code> turibdi,
+  shuning uchun <b>tutash</b> qator sifatida u HTML'da yo'q.</p>
+
+  <p><code>assertSeeText</code> avval barcha teglarni olib tashlaydi, keyin
+  qidiradi. Matn <code>&lt;b&gt;</code> yoki <code>&lt;span&gt;</code> bilan
+  bo'lingan bo'lsa — shu kerak.</p>
+
+  <!-- ═══════════════ 6) KO'RINISH ═══════════════ -->
+  <h2>Ko'rinish: <code>assertViewIs</code> va <code>assertViewHas</code></h2>
+
+  <div class="natija">$this-&gt;get('/vakansiyalar')
+    -&gt;assertViewIs('vakansiyalar.index')      // qaysi Blade fayli
+    -&gt;assertViewHas('vakansiyalar')           // controller shu nomni berdimi
+    -&gt;assertViewHas('shaharlar');</div>
+
+  <p>Bu tekshiruvlar <b>HTML'ga qaramaydi</b> — ular controller bilan Blade
+  o'rtasidagi shartnomani tekshiradi. Dizayn o'zgarsa, bu testlar
+  <b>yiqilmaydi</b>.</p>
+
+  <p class="expect">🔍 Qachon foydali: sahifa katta va murakkab bo'lganda
+  <code>assertSee</code> mo'rt bo'lib qoladi (matn ozgina o'zgarsa yiqiladi).
+  <code>assertViewHas</code> esa <b>ma'lumot yetkazildimi</b> degan
+  savolga javob beradi.</p>
+
+  <!-- ═══════════════ 7) TASHXIS ═══════════════ -->
+  <h2>🔍 <code>withoutExceptionHandling()</code> — 403 ortida nima bor</h2>
+
+  <p>Test <b>403</b> qaytardi, siz esa <b>302</b> kutgan edingiz. Sabab
+  qayerda — policy'dami, Form Request'dami, middleware'dami?</p>
+
+  <p>Odatda Laravel istisnolarni <b>ushlab</b>, chiroyli HTTP javobga
+  aylantiradi. Bir qatorda buni o'chirib qo'yish mumkin:</p>
+
+  <div class="natija">$this-&gt;withoutExceptionHandling()
+    -&gt;actingAs($nomzod)
+    -&gt;post('/vakansiyalar', [...]);</div>
+
+  <p>Endi test yiqiladi — lekin <b>foydali</b> tarzda:</p>
+
+  <div class="natija">FAILED  ...  AuthorizationException
+This action is unauthorized.
+
+at vendor/laravel/framework/.../Foundation/Http/FormRequest.php:337
+   335▕     protected function failedAuthorization()
+   336▕     {
+   ➜ 337▕         throw new AuthorizationException;</div>
+
+  <p class="expect">🔑 Javob aniq: taqiqni <b>Form Request</b>ning
+  <code>authorize()</code> metodi qo'ygan (35-dars), policy emas. Endi qayerga
+  qarash kerakligini bilasiz.</p>
+
+  <p>Ish tugagach bu qatorni <b>olib tashlang</b> — u faqat tashxis uchun.
+  Aks holda testingiz 403 javobini emas, istisnoni kutadigan bo'lib
+  qoladi.</p>
+
+  <!-- ═══════════════ 8) TO'LIQ FAYL ═══════════════ -->
+  <h2>O'nta xulqni qulflaymiz</h2>
+
+  <p>Endi hammasini bir joyga yig'amiz. Quyidagi fayl 29–35-darslarda qurilgan
+  narsalarni <b>yozib qo'yadi</b>:</p>
+
+  <div class="codefile">
+    <span class="fname">tests/Feature/VakansiyaTest.php — to'liq</span>
+    <code class="cmd">&lt;?php
+
+use App\Enums\Rol;
+use App\Models\User;
+use App\Models\Vakansiya;
+
+test('vakansiyalar sahifasi ochiladi', function () {
+    $this-&gt;get('/vakansiyalar')-&gt;assertOk();
+});
+
+test('ish beruvchi vakansiya qo\'sha oladi', function () {
+    $ishBeruvchi = User::factory()-&gt;create(['rol' =&gt; Rol::IshBeruvchi]);
+
+    $javob = $this-&gt;actingAs($ishBeruvchi)-&gt;post('/vakansiyalar', [
+        'nom' =&gt; 'Backend dasturchi',
+        'maosh' =&gt; 9000000,
+    ]);
+
+    $javob-&gt;assertRedirect('/vakansiyalar');
+    $javob-&gt;assertSessionHas('xabar', "Qo'shildi: Backend dasturchi");
+
+    $this-&gt;assertDatabaseHas('vakansiyalar', [
+        'nom' =&gt; 'Backend dasturchi',
+        'user_id' =&gt; $ishBeruvchi-&gt;id,
+    ]);
+});
+
+test('nomzod vakansiya qo\'sha olmaydi', function () {
+    $nomzod = User::factory()-&gt;create(['rol' =&gt; Rol::Nomzod]);
+
+    $this-&gt;actingAs($nomzod)
+        -&gt;post('/vakansiyalar', ['nom' =&gt; 'Backend dasturchi', 'maosh' =&gt; 9000000])
+        -&gt;assertForbidden();
+
+    $this-&gt;assertDatabaseMissing('vakansiyalar', ['nom' =&gt; 'Backend dasturchi']);
+});
+
+test('mehmon kirish sahifasiga yo\'naltiriladi', function () {
+    $this-&gt;post('/vakansiyalar', ['nom' =&gt; 'Backend dasturchi', 'maosh' =&gt; 9000000])
+        -&gt;assertRedirect('/kirish');
+
+    $this-&gt;assertDatabaseMissing('vakansiyalar', ['nom' =&gt; 'Backend dasturchi']);
+});
+
+test('qoidalarga mos kelmagan ma\'lumot rad etiladi', function () {
+    $ishBeruvchi = User::factory()-&gt;create(['rol' =&gt; Rol::IshBeruvchi]);
+
+    $javob = $this-&gt;actingAs($ishBeruvchi)
+        -&gt;from('/vakansiyalar')
+        -&gt;post('/vakansiyalar', ['nom' =&gt; 'abc', 'maosh' =&gt; 'matn']);
+
+    $javob-&gt;assertRedirect('/vakansiyalar');
+    $javob-&gt;assertSessionHasErrors(['nom', 'maosh']);
+
+    $this-&gt;assertDatabaseMissing('vakansiyalar', ['nom' =&gt; 'abc']);
+});
+
+test('xato xabarlari sahifada ko\'rinadi', function () {
+    $ishBeruvchi = User::factory()-&gt;create(['rol' =&gt; Rol::IshBeruvchi]);
+
+    $this-&gt;actingAs($ishBeruvchi)-&gt;from('/vakansiyalar')
+        -&gt;post('/vakansiyalar', ['nom' =&gt; 'abc', 'maosh' =&gt; 'matn']);
+
+    $this-&gt;actingAs($ishBeruvchi)-&gt;get('/vakansiyalar')
+        -&gt;assertSee("Vakansiya nomi kamida 5 belgidan iborat bo'lsin.")
+        -&gt;assertSee("Maosh butun son bo'lishi kerak.");
+});
+
+test('nomzod qo\'shish formasini ko\'rmaydi', function () {
+    $nomzod = User::factory()-&gt;create(['rol' =&gt; Rol::Nomzod]);
+
+    $this-&gt;actingAs($nomzod)-&gt;get('/vakansiyalar')
+        -&gt;assertOk()
+        -&gt;assertDontSee('Yangi vakansiya')
+        -&gt;assertSee('ish beruvchi', false);
+});
+
+test('begona ish beruvchi tahrirlay olmaydi', function () {
+    $egasi = User::factory()-&gt;create(['rol' =&gt; Rol::IshBeruvchi]);
+    $begona = User::factory()-&gt;create(['rol' =&gt; Rol::IshBeruvchi]);
+
+    $vakansiya = Vakansiya::create([
+        'nom' =&gt; 'Backend dasturchi',
+        'maosh' =&gt; 9000000,
+        'user_id' =&gt; $egasi-&gt;id,
+    ]);
+
+    $this-&gt;actingAs($begona)
+        -&gt;get("/vakansiyalar/{$vakansiya-&gt;id}/tahrirlash")
+        -&gt;assertForbidden();
+
+    $this-&gt;actingAs($egasi)
+        -&gt;get("/vakansiyalar/{$vakansiya-&gt;id}/tahrirlash")
+        -&gt;assertOk();
+});</code>
+  </div>
+
+  <div class="cmd" data-cmd="php artisan test">php artisan test</div>
+
+  <div class="natija">   PASS  Tests\Unit\RolTest
+  ✓ rol ko'rinadigan nom beradi
+  ✓ matndan rolga aylantiriladi
+
+   PASS  Tests\Feature\VakansiyaTest
+  ✓ vakansiyalar sahifasi ochiladi                      0.12s
+  ✓ ish beruvchi vakansiya qo'sha oladi                 0.02s
+  ✓ nomzod vakansiya qo'sha olmaydi                     0.01s
+  ✓ mehmon kirish sahifasiga yo'naltiriladi             0.01s
+  ✓ qoidalarga mos kelmagan ma'lumot rad etiladi        0.01s
+  ✓ xato xabarlari sahifada ko'rinadi                   0.01s
+  ✓ nomzod qo'shish formasini ko'rmaydi                 0.01s
+  ✓ begona ish beruvchi tahrirlay olmaydi               0.01s
+
+  Tests:    10 passed (27 assertions)
+  Duration: 0.22s</div>
+
+  <p class="expect">🔑 <b>27 ta tekshiruv, chorak soniyada.</b> Bu ro'yxatni
+  qo'lda bajarish uchun brauzerda kamida to'rt marta kirib-chiqish kerak edi —
+  ish beruvchi, ikkinchi ish beruvchi, nomzod va mehmon sifatida.
+  <br>🔍 <code>Duration</code> sizda boshqacha chiqadi (0.2–0.3 s atrofida) —
+  u kompyuterga bog'liq. Muhimi <b>test soni</b> va
+  <b>tekshiruvlar soni</b>.</p>
+
+  <p>Endi har bir test <b>nomi bilan</b> nimani himoya qilayotganini aytadi.
+  Kimdir policy'ni o'zgartirsa, kimdir <code>@can</code> ni olib tashlasa,
+  kimdir <code>max:100</code> ni <code>max:3</code> qilsa — mos test
+  <b>qiziradi</b>.</p>
+
+  <!-- ═══════════════ 9) HAR XIL HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir bir marta o'qib chiqing,
+  keyin kerak bo'lganda qaytib qarang.</p>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 1</span>
+    <h4>Apostrof va <code>assertSee(..., false)</code></h4>
+    <div class="natija">A  assertSee("Qo'shildi: …")            →  ✓
+B  assertSee("Qo'shildi: …", false)     →  ⨯   Blade ekranlagan
+C  assertSee("Qo&amp;#039;shildi: …", false) →  ✓
+D  assertSeeText("Qo'shildi: …")        →  ✓</div>
+    <p>Ikkinchi argument <code>false</code> — «izlanayotgan matnni
+    <b>ekranlama</b>». Odatiy holda <code>assertSee</code> uni ekranlaydi va
+    shuning uchun o'zbekcha matn bemalol ishlaydi.</p>
+    <p>✅ Qoida: <code>false</code> ni faqat <b>HTML teg</b> qidirganda
+    ishlating (<code>assertSee('&lt;form', false)</code>). Matn uchun —
+    hech qachon.</p>
+    <p>🔍 Bu tuzoq inglizcha qo'llanmalarda deyarli uchramaydi, chunki
+    inglizcha matnda apostrof kam. O'zbekchada esa u <b>har qadamda</b>.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 2</span>
+    <h4><code>from()</code> unutilishi</h4>
+    <div class="natija">from() SIZ   →  Location: http://localhost:8000
+from() BILAN →  Location: http://localhost:8000/vakansiyalar</div>
+    <p>Testda <code>Referer</code> sarlavhasi yo'q, shuning uchun
+    <code>back()</code> sayt ildiziga qaytaradi.</p>
+    <p>✅ Orqaga qaytaradigan har bir so'rovdan oldin
+    <code>-&gt;from('/qayerdan')</code> yozing. Belgisi oddiy: agar controller
+    <code>back()</code> ishlatsa — <code>from()</code> kerak.</p>
+    <p>🔍 <b>Chalg'ituvchi tomoni</b> — va bu o'lchandi. Redirect tekshiruvi
+    yiqilganda <b>sessiyada validatsiya xatolari bo'lsa</b>, Pest sizga
+    haqiqiy farqni ko'rsatmaydi:</p>
+    <div class="natija">sessiyada xato BOR   →  Error: Call to a member function all() on array
+sessiyada xato YO'Q  →  Failed asserting that two strings are equal.</div>
+    <p>Birinchi xabar butunlay boshqa tomonga olib ketadi: siz kodingizdan
+    <code>-&gt;all()</code> qidira boshlaysiz — holbuki u yerda hech qanday
+    <code>all()</code> yo'q.</p>
+    <p>✅ <b>Tashxis:</b> shu xabarni ko'rsangiz, avval redirect manzilini
+    o'z ko'zingiz bilan qarang:</p>
+    <div class="natija">dump($javob-&gt;headers-&gt;get('Location'));
+   →  "http://localhost:8000"        ← from() unutilgan</div>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 3</span>
+    <h4>Xatosiz holatda <code>assertSessionHasErrors</code></h4>
+    <div class="natija">Session is missing expected key [errors].
+Failed asserting that false is true.</div>
+    <p>Sessiyada <code>errors</code> kaliti umuman yo'q — ya'ni validatsiya
+    <b>o'tib ketgan</b>, so'rov muvaffaqiyatli bajarilgan.</p>
+    <p>✅ Ikki sabab bo'lishi mumkin: qoida haqiqatan ishlamayapti, yoki
+    yuborgan ma'lumotingiz <b>to'g'ri</b> chiqib qolgan. Ikkinchisi ko'proq
+    uchraydi — yuborayotgan qiymatlarni qayta o'qing.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 4</span>
+    <h4><code>assertDontSee</code> yolg'on xotirjamlik beradi</h4>
+    <div class="natija">-&gt;assertDontSee('Yangi vakansiya')     // ✓ o'tdi
+
+// lekin sahifada:  &lt;h2&gt;Yangi e'lon&lt;/h2&gt;    ← matn o'zgargan!</div>
+    <p><code>assertDontSee</code> «yo'q»ni tasdiqlaydi. Matn o'zgartirilsa u
+    <b>baribir o'tadi</b> — endi hech qanday himoya qolmagan bo'lsa ham.</p>
+    <p>✅ Har doim <b>juftlab</b> yozing: bir testda «ko'rinmaydi», boshqasida
+    «ko'rinadi». Agar «ko'rinadi» testi ham yashil bo'lsa, matn haqiqatan
+    o'zgarmagan.</p>
+    <p>🔑 Kuchliroq usul: ko'rinishni emas, <b>huquqni</b> tekshiring —
+    <code>assertForbidden()</code>. Matn o'zgarishidan mustaqil.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 5</span>
+    <h4><code>followingRedirects()</code></h4>
+    <div class="natija">$this-&gt;actingAs($u)-&gt;followingRedirects()
+    -&gt;post('/vakansiyalar', [...])
+    -&gt;assertOk()
+    -&gt;assertSee("Qo'shildi: Backend dasturchi");</div>
+    <p>Odatda test redirect'ni <b>kuzatmaydi</b> — 302 javobda to'xtaydi.
+    <code>followingRedirects()</code> uni oxirigacha olib boradi, natijada
+    <b>200</b> va yakuniy sahifa keladi.</p>
+    <p>✅ Qulay, lekin ehtiyot bo'ling: endi <code>assertRedirect</code>
+    ishlatib bo'lmaydi — redirect allaqachon bajarilgan. Ikki narsani
+    tekshirish kerak bo'lsa, ikkita alohida test yozing.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 6</span>
+    <h4>Status yordamchilarini ishlatish</h4>
+    <div class="natija">assertStatus(403)     →  assertForbidden()
+assertStatus(404)     →  assertNotFound()
+assertStatus(200)     →  assertOk()</div>
+    <p>Bir xil ishlaydi, lekin testni <b>o'qish</b> osonlashadi: son o'rniga
+    ma'no turadi.</p>
+    <p>🔍 Yana bir foydasi: <code>assertForbidden()</code> deb yozilgan test
+    <b>nima himoya qilinayotganini</b> aytadi. <code>assertStatus(403)</code>
+    esa faqat sonni aytadi va o'quvchi HTTP jadvalini eslashi kerak
+    bo'ladi.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>Mo'rt testlar</h4>
+    <div class="natija">-&gt;assertSee('Backend dasturchi — 9 000 000 so\'m/oy')   // ⚠️ mo'rt
+
+-&gt;assertSee('Backend dasturchi')                       // ✅ barqaror
+-&gt;assertViewHas('vakansiyalar')                        // ✅ dizayndan mustaqil</div>
+    <p>Uzun, aniq matnga bog'langan test dizayn ozgina o'zgarsa yiqiladi —
+    holbuki <b>hech nima buzilmagan</b>. Bunday testlar tez ishonchni
+    yo'qotadi va odamlar ularni o'chira boshlaydi.</p>
+    <p>✅ Tekshiruvni <b>eng qisqa ishonchli belgi</b>ga bog'lang:
+    vakansiya nomi, xato xabarining o'zagi, yoki umuman
+    <code>assertViewHas</code>.</p>
+    <p>🔑 Savol: «bu o'zgarsa, foydalanuvchi uchun nimadir buziladimi?» Yo'q
+    bo'lsa — testda unga bog'lanmang.</p>
+  </div>
+
+  <!-- ═══════════════ 10) AMALIYOT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    <span class="mode-hint-title">💻 Amaliy qism kompyuterda</span>
+    <p>Amaliyotda 37-darsdagi test faylini <b>o'nta testgacha</b> o'stirasiz.
+    Yo'lda ikkita tuzoqni <b>ataylab</b> ko'rasiz: <code>from()</code> siz
+    redirect qayerga ketishini va o'zbekcha apostrof
+    <code>assertSee</code> bilan qanday munosabatda ekanini.</p>
+    <button type="button" class="modebtn" data-set-mode="do">💻 Amaliyot rejimini ko'rish</button>
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <p>Holatni tekshiring</p>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+php artisan test">cd ~/Projects/Learn/ishtop
+php artisan test
+<span class="out">  Tests:    5 passed (10 assertions)</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> 37-darsdagi beshta test
+        yashil. Shundan boshlaymiz.</p>
+      </li>
+
+      <li>
+        <p>Status yordamchilariga o'ting</p>
+        <div class="cmd" data-cmd="# tests/Feature/VakansiyaTest.php da almashtiring:
+
+#   $javob-&gt;assertStatus(200);   →   $this-&gt;get('/vakansiyalar')-&gt;assertOk();
+#   $javob-&gt;assertStatus(403);   →   ...-&gt;assertForbidden();"># tests/Feature/VakansiyaTest.php da almashtiring:
+
+#   $javob-&gt;assertStatus(200);   →   $this-&gt;get('/vakansiyalar')-&gt;assertOk();
+#   $javob-&gt;assertStatus(403);   →   ...-&gt;assertForbidden();</div>
+        <div class="cmd" data-cmd="php artisan test">php artisan test</div>
+        <p class="expect"><b>Kutilgan natija:</b> baribir yashil — bu
+        <b>faqat o'qilish</b> uchun o'zgarish edi.</p>
+      </li>
+
+      <li>
+        <p>⚠️ <code>from()</code> tuzog'ini ataylab ko'ring</p>
+        <p>Avval <b>from() siz</b> yozing:</p>
+        <div class="cmd" data-cmd="# tests/Feature/VakansiyaTest.php ga qo'shing
+
+test('qoidalarga mos kelmagan ma\'lumot rad etiladi', function () {
+    $ishBeruvchi = User::factory()-&gt;create(['rol' =&gt; Rol::IshBeruvchi]);
+
+    $javob = $this-&gt;actingAs($ishBeruvchi)
+        -&gt;post('/vakansiyalar', ['nom' =&gt; 'abc', 'maosh' =&gt; 'matn']);
+
+    $javob-&gt;assertRedirect('/vakansiyalar');
+});"># tests/Feature/VakansiyaTest.php ga qo'shing
+
+test('qoidalarga mos kelmagan ma\'lumot rad etiladi', function () {
+    $ishBeruvchi = User::factory()-&gt;create(['rol' =&gt; Rol::IshBeruvchi]);
+
+    $javob = $this-&gt;actingAs($ishBeruvchi)
+        -&gt;post('/vakansiyalar', ['nom' =&gt; 'abc', 'maosh' =&gt; 'matn']);
+
+    $javob-&gt;assertRedirect('/vakansiyalar');
+});</div>
+        <div class="cmd" data-cmd="php artisan test --filter=qoidalarga">php artisan test --filter=qoidalarga</div>
+        <p class="expect"><b>Kutilgan natija:</b> <b>yiqiladi</b> — lekin
+        xabariga e'tibor bering:</p>
+        <div class="natija">Error
+Call to a member function all() on array</div>
+        <p class="expect">Bu <b>chalg'ituvchi</b> xabar: kodingizda hech qanday
+        <code>all()</code> yo'q. Haqiqiy sabab — redirect
+        <code>/vakansiyalar</code> ga emas, sayt <b>ildiziga</b> ketgan, chunki
+        testda «kelgan joy» yo'q. Tekshiring:</p>
+        <div class="cmd" data-cmd="# testga vaqtincha qo'shing:
+    dump($javob-&gt;headers-&gt;get('Location'));"># testga vaqtincha qo'shing:
+    dump($javob-&gt;headers-&gt;get('Location'));</div>
+        <div class="natija">"http://localhost:8000"</div>
+        <p>Endi <code>from()</code> qo'shing va qoidalarni to'liq tekshiring:</p>
+        <div class="cmd" data-cmd="    $javob = $this-&gt;actingAs($ishBeruvchi)
+        -&gt;from('/vakansiyalar')
+        -&gt;post('/vakansiyalar', ['nom' =&gt; 'abc', 'maosh' =&gt; 'matn']);
+
+    $javob-&gt;assertRedirect('/vakansiyalar');
+    $javob-&gt;assertSessionHasErrors(['nom', 'maosh']);
+
+    $this-&gt;assertDatabaseMissing('vakansiyalar', ['nom' =&gt; 'abc']);">    $javob = $this-&gt;actingAs($ishBeruvchi)
+        -&gt;from('/vakansiyalar')
+        -&gt;post('/vakansiyalar', ['nom' =&gt; 'abc', 'maosh' =&gt; 'matn']);
+
+    $javob-&gt;assertRedirect('/vakansiyalar');
+    $javob-&gt;assertSessionHasErrors(['nom', 'maosh']);
+
+    $this-&gt;assertDatabaseMissing('vakansiyalar', ['nom' =&gt; 'abc']);</div>
+        <div class="cmd" data-cmd="php artisan test --filter=qoidalarga">php artisan test --filter=qoidalarga
+<span class="out">  ✓ qoidalarga mos kelmagan ma'lumot rad etiladi</span></div>
+      </li>
+
+      <li>
+        <p>⚠️ Apostrof tuzog'ini o'lchang</p>
+        <div class="cmd" data-cmd="# vaqtinchalik tests/Feature/ApostrofTest.php
+
+&lt;?php
+
+use App\Enums\Rol;
+use App\Models\User;
+
+function sahifa($t) {
+    $u = User::factory()-&gt;create(['rol' =&gt; Rol::IshBeruvchi]);
+    $t-&gt;actingAs($u)-&gt;post('/vakansiyalar', ['nom' =&gt; 'Backend dasturchi', 'maosh' =&gt; 9000000]);
+    return $t-&gt;actingAs($u)-&gt;get('/vakansiyalar');
+}
+
+test('A ekranlangan (standart)', function () {
+    sahifa($this)-&gt;assertSee(&quot;Qo'shildi: Backend dasturchi&quot;);
+});
+
+test('B ekranlashsiz', function () {
+    sahifa($this)-&gt;assertSee(&quot;Qo'shildi: Backend dasturchi&quot;, false);
+});
+
+test('C xom entity bilan', function () {
+    sahifa($this)-&gt;assertSee(&quot;Qo&amp;#039;shildi: Backend dasturchi&quot;, false);
+});
+
+test('D assertSeeText bilan', function () {
+    sahifa($this)-&gt;assertSeeText(&quot;Qo'shildi: Backend dasturchi&quot;);
+});"># vaqtinchalik tests/Feature/ApostrofTest.php
+
+&lt;?php
+
+use App\Enums\Rol;
+use App\Models\User;
+
+function sahifa($t) {
+    $u = User::factory()-&gt;create(['rol' =&gt; Rol::IshBeruvchi]);
+    $t-&gt;actingAs($u)-&gt;post('/vakansiyalar', ['nom' =&gt; 'Backend dasturchi', 'maosh' =&gt; 9000000]);
+    return $t-&gt;actingAs($u)-&gt;get('/vakansiyalar');
+}
+
+test('A ekranlangan (standart)', function () {
+    sahifa($this)-&gt;assertSee(&quot;Qo'shildi: Backend dasturchi&quot;);
+});
+
+test('B ekranlashsiz', function () {
+    sahifa($this)-&gt;assertSee(&quot;Qo'shildi: Backend dasturchi&quot;, false);
+});
+
+test('C xom entity bilan', function () {
+    sahifa($this)-&gt;assertSee(&quot;Qo&amp;#039;shildi: Backend dasturchi&quot;, false);
+});
+
+test('D assertSeeText bilan', function () {
+    sahifa($this)-&gt;assertSeeText(&quot;Qo'shildi: Backend dasturchi&quot;);
+});</div>
+        <div class="cmd" data-cmd="php artisan test tests/Feature/ApostrofTest.php">php artisan test tests/Feature/ApostrofTest.php
+<span class="out">  ✓ A ekranlangan (standart)</span>
+<span class="out">  ⨯ B ekranlashsiz</span>
+<span class="out">  ✓ C xom entity bilan</span>
+<span class="out">  ✓ D assertSeeText bilan</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> faqat <b>B</b> yiqiladi.
+        <br>🔑 Xulosa: <code>assertSee</code> ni <b>ikkinchi argumentsiz</b>
+        ishlating va matnni o'zbekcha yozavering.</p>
+        <div class="cmd" data-cmd="rm tests/Feature/ApostrofTest.php">rm tests/Feature/ApostrofTest.php</div>
+      </li>
+
+      <li>
+        <p>Qolgan testlarni qo'shing</p>
+        <div class="cmd" data-cmd="# tests/Feature/VakansiyaTest.php ga qo'shing
+
+test('mehmon kirish sahifasiga yo\'naltiriladi', function () {
+    $this-&gt;post('/vakansiyalar', ['nom' =&gt; 'Backend dasturchi', 'maosh' =&gt; 9000000])
+        -&gt;assertRedirect('/kirish');
+
+    $this-&gt;assertDatabaseMissing('vakansiyalar', ['nom' =&gt; 'Backend dasturchi']);
+});
+
+test('xato xabarlari sahifada ko\'rinadi', function () {
+    $ishBeruvchi = User::factory()-&gt;create(['rol' =&gt; Rol::IshBeruvchi]);
+
+    $this-&gt;actingAs($ishBeruvchi)-&gt;from('/vakansiyalar')
+        -&gt;post('/vakansiyalar', ['nom' =&gt; 'abc', 'maosh' =&gt; 'matn']);
+
+    $this-&gt;actingAs($ishBeruvchi)-&gt;get('/vakansiyalar')
+        -&gt;assertSee(&quot;Vakansiya nomi kamida 5 belgidan iborat bo'lsin.&quot;)
+        -&gt;assertSee(&quot;Maosh butun son bo'lishi kerak.&quot;);
+});
+
+test('nomzod qo\'shish formasini ko\'rmaydi', function () {
+    $nomzod = User::factory()-&gt;create(['rol' =&gt; Rol::Nomzod]);
+
+    $this-&gt;actingAs($nomzod)-&gt;get('/vakansiyalar')
+        -&gt;assertOk()
+        -&gt;assertDontSee('Yangi vakansiya')
+        -&gt;assertSee('ish beruvchi', false);
+});"># tests/Feature/VakansiyaTest.php ga qo'shing
+
+test('mehmon kirish sahifasiga yo\'naltiriladi', function () {
+    $this-&gt;post('/vakansiyalar', ['nom' =&gt; 'Backend dasturchi', 'maosh' =&gt; 9000000])
+        -&gt;assertRedirect('/kirish');
+
+    $this-&gt;assertDatabaseMissing('vakansiyalar', ['nom' =&gt; 'Backend dasturchi']);
+});
+
+test('xato xabarlari sahifada ko\'rinadi', function () {
+    $ishBeruvchi = User::factory()-&gt;create(['rol' =&gt; Rol::IshBeruvchi]);
+
+    $this-&gt;actingAs($ishBeruvchi)-&gt;from('/vakansiyalar')
+        -&gt;post('/vakansiyalar', ['nom' =&gt; 'abc', 'maosh' =&gt; 'matn']);
+
+    $this-&gt;actingAs($ishBeruvchi)-&gt;get('/vakansiyalar')
+        -&gt;assertSee(&quot;Vakansiya nomi kamida 5 belgidan iborat bo'lsin.&quot;)
+        -&gt;assertSee(&quot;Maosh butun son bo'lishi kerak.&quot;);
+});
+
+test('nomzod qo\'shish formasini ko\'rmaydi', function () {
+    $nomzod = User::factory()-&gt;create(['rol' =&gt; Rol::Nomzod]);
+
+    $this-&gt;actingAs($nomzod)-&gt;get('/vakansiyalar')
+        -&gt;assertOk()
+        -&gt;assertDontSee('Yangi vakansiya')
+        -&gt;assertSee('ish beruvchi', false);
+});</div>
+        <p class="why-step">🔍 Oxirgi testda <code>assertSee('ish beruvchi', false)</code> —
+        bu yerda <code>false</code> <b>to'g'ri</b>: matnda apostrof yo'q va biz
+        <code>&lt;b&gt;</code> teg ichidagi qismni qidiryapmiz.</p>
+      </li>
+
+      <li>
+        <p>Egalikni ham qulflang</p>
+        <div class="cmd" data-cmd="# tests/Feature/VakansiyaTest.php ga qo'shing
+
+test('begona ish beruvchi tahrirlay olmaydi', function () {
+    $egasi = User::factory()-&gt;create(['rol' =&gt; Rol::IshBeruvchi]);
+    $begona = User::factory()-&gt;create(['rol' =&gt; Rol::IshBeruvchi]);
+
+    $vakansiya = Vakansiya::create([
+        'nom' =&gt; 'Backend dasturchi',
+        'maosh' =&gt; 9000000,
+        'user_id' =&gt; $egasi-&gt;id,
+    ]);
+
+    $this-&gt;actingAs($begona)
+        -&gt;get(&quot;/vakansiyalar/{$vakansiya-&gt;id}/tahrirlash&quot;)
+        -&gt;assertForbidden();
+
+    $this-&gt;actingAs($egasi)
+        -&gt;get(&quot;/vakansiyalar/{$vakansiya-&gt;id}/tahrirlash&quot;)
+        -&gt;assertOk();
+});"># tests/Feature/VakansiyaTest.php ga qo'shing
+
+test('begona ish beruvchi tahrirlay olmaydi', function () {
+    $egasi = User::factory()-&gt;create(['rol' =&gt; Rol::IshBeruvchi]);
+    $begona = User::factory()-&gt;create(['rol' =&gt; Rol::IshBeruvchi]);
+
+    $vakansiya = Vakansiya::create([
+        'nom' =&gt; 'Backend dasturchi',
+        'maosh' =&gt; 9000000,
+        'user_id' =&gt; $egasi-&gt;id,
+    ]);
+
+    $this-&gt;actingAs($begona)
+        -&gt;get(&quot;/vakansiyalar/{$vakansiya-&gt;id}/tahrirlash&quot;)
+        -&gt;assertForbidden();
+
+    $this-&gt;actingAs($egasi)
+        -&gt;get(&quot;/vakansiyalar/{$vakansiya-&gt;id}/tahrirlash&quot;)
+        -&gt;assertOk();
+});</div>
+        <p class="why-step">🔑 Bitta testda <b>ikkala tomon</b>: begona
+        <b>403</b>, egasi <b>200</b>. Faqat taqiqni tekshirish yetmaydi —
+        hamma uchun 403 qaytaradigan buzuq kod ham o'tib ketardi.</p>
+        <div class="cmd" data-cmd="php artisan test">php artisan test
+<span class="out">  Tests:    10 passed (27 assertions)</span>
+<span class="out">  Duration: 0.22s</span></div>
+      </li>
+
+      <li>
+        <p>🔍 <code>withoutExceptionHandling()</code> ni sinab ko'ring</p>
+        <div class="cmd" data-cmd="# 'nomzod vakansiya qo'sha olmaydi' testiga vaqtincha qo'shing:
+
+    $this-&gt;withoutExceptionHandling()
+        -&gt;actingAs($nomzod)
+        -&gt;post('/vakansiyalar', ['nom' =&gt; 'Backend dasturchi', 'maosh' =&gt; 9000000]);"># 'nomzod vakansiya qo'sha olmaydi' testiga vaqtincha qo'shing:
+
+    $this-&gt;withoutExceptionHandling()
+        -&gt;actingAs($nomzod)
+        -&gt;post('/vakansiyalar', ['nom' =&gt; 'Backend dasturchi', 'maosh' =&gt; 9000000]);</div>
+        <div class="cmd" data-cmd="php artisan test --filter=nomzod">php artisan test --filter=nomzod
+<span class="out">  FAILED ... AuthorizationException</span>
+<span class="out">  This action is unauthorized.</span>
+<span class="out">  at vendor/.../Foundation/Http/FormRequest.php:337</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> test yiqiladi, lekin endi
+        <b>403 ortida nima borligi</b> ko'rinadi: taqiqni Form Request'ning
+        <code>authorize()</code> metodi qo'ygan (35-dars).
+        <br>🔑 Tashxis tugagach bu qatorni <b>olib tashlang</b>.</p>
+      </li>
+
+      <li>
+        <p>Testga ishonch hosil qiling</p>
+        <p>37-darsdagi usulni takrorlaymiz — bu safar <b>boshqa</b> joyda.
+        <code>index.blade.php</code> dagi <code>@can</code> ni vaqtincha
+        olib tashlang:</p>
+        <div class="cmd" data-cmd="# resources/views/vakansiyalar/index.blade.php
+# @can(...) va @else ... @endcan ni olib, formani hammaga ko'rsating"># resources/views/vakansiyalar/index.blade.php
+# @can(...) va @else ... @endcan ni olib, formani hammaga ko'rsating</div>
+        <div class="cmd" data-cmd="php artisan test --filter=formasini">php artisan test --filter=formasini
+<span class="out">  ⨯ nomzod qo'shish formasini ko'rmaydi</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> test qiziradi. Demak u
+        haqiqatan <b>shu narsani</b> qo'riqlayapti.
+        <br>Keyin <code>@can</code> ni <b>qaytaring</b> va yana yashil
+        qiling.</p>
+      </li>
+
+      <li>
+        <p>Ishni saqlang</p>
+        <div class="cmd" data-cmd="php artisan test
+git add -A
+git commit -m &quot;38-dars: Feature testlar — HTTP javobini tekshirish&quot;">php artisan test
+git add -A
+git commit -m &quot;38-dars: Feature testlar — HTTP javobini tekshirish&quot;</div>
+        <p class="expect"><b>Kutilgan natija:</b> avval <b>yashil</b>, keyin
+        commit. 🔑 Odat qiling: <b>commit oldidan to'liq to'plam</b>.</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><input type="checkbox" id="d38c1"><label for="d38c1">Status yordamchilariga o'tdim (<code>assertOk</code>, <code>assertForbidden</code>)</label></li>
+      <li><input type="checkbox" id="d38c2"><label for="d38c2"><b><code>from()</code> siz redirect ildizga ketishini ko'rdim</b> ⚠️</label></li>
+      <li><input type="checkbox" id="d38c3"><label for="d38c3"><code>assertSessionHasErrors</code> bilan validatsiyani qulfladim</label></li>
+      <li><input type="checkbox" id="d38c4"><label for="d38c4"><b>Apostrofning to'rt variantini o'lchadim</b> — faqat B yiqildi</label></li>
+      <li><input type="checkbox" id="d38c5"><label for="d38c5"><code>assertSee</code> va <code>assertDontSee</code> ishlatdim</label></li>
+      <li><input type="checkbox" id="d38c6"><label for="d38c6">Mehmon <code>/kirish</code> ga yo'naltirilishini yozdim</label></li>
+      <li><input type="checkbox" id="d38c7"><label for="d38c7">Egalikni <b>ikkala tomondan</b> tekshirdim (403 va 200)</label></li>
+      <li><input type="checkbox" id="d38c8"><label for="d38c8"><code>withoutExceptionHandling()</code> bilan haqiqiy istisnoni ko'rdim</label></li>
+      <li><input type="checkbox" id="d38c9"><label for="d38c9"><b><code>@can</code> ni olib, testni qizil qildim</b> 🔴</label></li>
+      <li><input type="checkbox" id="d38c10"><label for="d38c10">10 test / 27 tekshiruv yashil</label></li>
+      <li><input type="checkbox" id="d38c11"><label for="d38c11">Ishni commit qildim</label></li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 11) SINAB KO'RAMIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Dasturchi nomzod formani ko'rmasligini test qildi:</p>
+    <div class="codefile">
+      <div class="fname">tests/Feature/VakansiyaTest.php</div>
+      <code class="cmd" data-cmd="test('nomzod qo\'shish formasini ko\'rmaydi', function () {
+    $nomzod = User::factory()-&gt;create(['rol' =&gt; Rol::Nomzod]);
+
+    $this-&gt;actingAs($nomzod)-&gt;get('/vakansiyalar')
+        -&gt;assertDontSee('Yangi vakansiya');
+});">test('nomzod qo\'shish formasini ko\'rmaydi', function () {
+    $nomzod = User::factory()-&gt;create(['rol' =&gt; Rol::Nomzod]);
+
+    $this-&gt;actingAs($nomzod)-&gt;get('/vakansiyalar')
+        -&gt;assertDontSee('Yangi vakansiya');
+});</code>
+    </div>
+    <p>Oradan bir oy o'tdi. Dizayner sarlavhani <b>«Yangi e'lon»</b> ga
+    o'zgartirdi, va yo'l-yo'lakay kimdir <code>@can</code> ni ham olib
+    tashladi — endi formani <b>hamma</b> ko'radi.</p>
+    <p>Test nima deydi?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <div class="natija">✓ nomzod qo'shish formasini ko'rmaydi
+
+Yashil. Holbuki nomzod formani KO'RIB TURIBDI.</div>
+        <p>Sabab: test <code>'Yangi vakansiya'</code> matnini qidiryapti,
+        sahifada esa endi <code>'Yangi e'lon'</code>. Matn topilmadi — demak
+        <code>assertDontSee</code> <b>bajarildi</b>.</p>
+        <p class="expect">⚠️ <code>assertDontSee</code> «yo'q»ni tasdiqlaydi,
+        va «yo'q» bo'lishining <b>ikki sababi</b> bor: himoya ishlayapti
+        <b>yoki</b> siz noto'g'ri narsani qidiryapsiz. Test ikkalasini
+        ajrata olmaydi.</p>
+        <p><b>Birinchi yechim — juftlab yozish:</b></p>
+        <div class="natija">test('ish beruvchi formani ko\'radi', ...)-&gt;assertSee('Yangi vakansiya');
+test('nomzod formani ko\'rmaydi', ...)-&gt;assertDontSee('Yangi vakansiya');</div>
+        <p>Matn o'zgarsa <b>birinchisi</b> darhol qiziradi va sizni
+        ogohlantiradi.</p>
+        <p><b>Ikkinchi yechim — kuchliroq:</b> ko'rinishni emas,
+        <b>huquqni</b> tekshiring:</p>
+        <div class="natija">$this-&gt;actingAs($nomzod)
+    -&gt;post('/vakansiyalar', ['nom' =&gt; 'Test nomi', 'maosh' =&gt; 1])
+    -&gt;assertForbidden();</div>
+        <p>Bu test dizaynga <b>umuman bog'liq emas</b>: sarlavha ham,
+        tugma ham, tartib ham o'zgarishi mumkin — <b>403</b> qolaveradi.</p>
+        <p>🔑 <b>Qoida:</b> <code>assertDontSee</code> — ko'rinish uchun
+        <b>qo'shimcha</b> tekshiruv. Asosiy himoya har doim status bilan
+        tekshirilsin. Bu 33-darsdagi «yashirish — himoya emas» qoidasining
+        testdagi ko'rinishi.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span> Nega
+    <code>assertSee("Qo'shildi")</code> apostrof bilan ham ishlaydi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Izlanayotgan matn ham avtomatik ekranlanadi</button></li>
+      <li><button class="quiz-option">Sahifadagi barcha teglar olib tashlanadi</button></li>
+      <li><button class="quiz-option">Apostrof avtomatik ravishda e'tiborsiz qoldiriladi</button></li>
+    </ul>
+    <div class="quiz-explain">Blade <code>{{ }}</code> ichini ekranlaydi, HTML'da
+    <code>Qo&amp;#039;shildi</code> turadi. <code>assertSee</code> esa
+    <b>izlanayotgan matnni ham</b> ekranlaydi — shuning uchun mos keladi.
+    ⚠️ Ikkinchi argument <code>false</code> qo'ysangiz ekranlash o'chadi va
+    o'zbekcha matn <b>topilmay qoladi</b>.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span> Testda
+    <code>from()</code> yozilmasa <code>back()</code> qayerga qaytaradi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Redirect sayt bosh sahifasiga qaytadi</button></li>
+      <li><button class="quiz-option">Redirect avvalgi sahifaga to'g'ri qaytadi</button></li>
+      <li><button class="quiz-option">Redirect umuman yuborilmasdan xato beradi</button></li>
+    </ul>
+    <div class="quiz-explain">Testda <code>Referer</code> sarlavhasi yo'q —
+    brauzer emassiz. O'lchandi: <code>Location: http://localhost:8000</code>.
+    ⚠️ Va bunday holatda xato xabari chalg'itadi:
+    <code>Call to a member function all() on array</code>. Yechim —
+    <code>-&gt;from('/vakansiyalar')</code>.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span>
+    <code>withoutExceptionHandling()</code> nima qiladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Haqiqiy istisno xato sifatida ko'rsatiladi</button></li>
+      <li><button class="quiz-option">Barcha istisnolar butunlay e'tiborsiz qoldiriladi</button></li>
+      <li><button class="quiz-option">Test istisno chiqsa ham o'tadi</button></li>
+    </ul>
+    <div class="quiz-explain">Odatda Laravel istisnoni ushlab, chiroyli HTTP
+    javobga (403, 500) aylantiradi. Bu metod uni o'chiradi va siz
+    <code>AuthorizationException</code> ni <b>manba faylida</b> ko'rasiz —
+    403 ni <b>kim</b> qo'yganini bilib olasiz. 🔍 Tashxis tugagach qatorni
+    olib tashlang.</div>
+  </div>
+
+  <!-- ═══════════════ 12) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+    <p class="recall-intro">Avval o'zingiz javob bering, keyin ochib tekshiring.
+    Oxirgi ikkitasi — <a href="0037-nega-test-kerak.html">37-darsni</a> takrorlash.</p>
+
+    <details class="recall">
+      <summary>Validatsiya testida nechta narsa tekshiriladi?</summary>
+      <div class="answer"><p><b>Uchta:</b> qayerga qaytdi
+      (<code>assertRedirect</code>), qaysi maydonlarda xato bor
+      (<code>assertSessionHasErrors</code>) va bazaga <b>yozilmadi</b>
+      (<code>assertDatabaseMissing</code>). Oxirgisisiz test to'liq
+      emas.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary><code>assertSee</code> va <code>assertSeeText</code> farqi?</summary>
+      <div class="answer"><p><code>assertSee</code> HTML kodida qidiradi
+      (izlanayotgan matnni ekranlab). <code>assertSeeText</code> avval
+      <b>teglarni tashlaydi</b> — matn <code>&lt;b&gt;</code> bilan bo'lingan
+      bo'lsa shu kerak.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Nega <code>assertDontSee</code> yolg'on xotirjamlik beradi?</summary>
+      <div class="answer"><p>«Yo'q» bo'lishining ikki sababi bor: himoya
+      ishlayapti <b>yoki</b> matn o'zgargan. Test ajrata olmaydi. Yechim —
+      juftlab yozish yoki <b>huquqni</b> tekshirish
+      (<code>assertForbidden</code>).</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: <code>RefreshDatabase</code> nima qiladi?</summary>
+      <div class="answer"><p>Har test <b>oldidan</b> migratsiyalarni bajaradi,
+      <b>keyin</b> o'zgarishlarni bekor qiladi.
+      <code>tests/Pest.php</code> da yoqiladi — standart holda izohga
+      olingan.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: <code>assert</code>siz test nima bo'ladi?</summary>
+      <div class="answer"><p><code>risky</code> deb belgilanadi (sariq
+      <b>!</b>), lekin <b>chiqish kodi 0</b> — to'plam baribir o'tadi.
+      Ogohlantirishni faqat o'qigan odam ko'radi.</p></div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 13) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Cho'ntak xulosasi</span>
+    <ul>
+      <li>Javobda bir necha qatlam bor: <b>status</b>, <b>sarlavhalar</b>,
+      <b>HTML</b>, <b>sessiya</b>, <b>ko'rinish</b> — har biriga alohida
+      savol.</li>
+      <li>Status: <code>assertOk()</code> · <code>assertForbidden()</code> ·
+      <code>assertNotFound()</code> — <code>assertStatus(403)</code> dan
+      <b>o'qilishi</b> yaxshiroq.</li>
+      <li>Assertion metodlari javobning o'zini qaytaradi — <b>zanjir</b> qilib
+      yozing.</li>
+      <li><code>assertRedirect('/manzil')</code> ·
+      <code>assertRedirectToRoute('nom')</code> — ikkinchisi manzil o'zgarsa
+      ham ishlaydi.</li>
+      <li>⚠️ <b><code>from()</code></b>: testda <code>Referer</code> yo'q,
+      shuning uchun <code>back()</code> sayt <b>ildiziga</b> qaytaradi
+      (<code>http://localhost:8000</code>). <code>back()</code> ishlatadigan
+      har bir so'rovda <code>-&gt;from('/qayerdan')</code>.</li>
+      <li>⚠️ Redirect tekshiruvi yiqilganda <b>sessiyada validatsiya xatosi
+      bo'lsa</b>, Pest chalg'ituvchi xabar beradi:
+      <code>Call to a member function all() on array</code>. Manzilni
+      <code>dump()</code> bilan qarang.</li>
+      <li><code>assertSessionHasErrors(['nom', 'maosh'])</code> — 35-darsdagi
+      qoidalarni qulflaydi. Xatosiz holatda:
+      <code>Session is missing expected key [errors].</code></li>
+      <li><code>assertSessionHas('xabar', '…')</code> — flash xabar.</li>
+      <li>⚠️ <b>O'zbekcha apostrof:</b> Blade ekranlaydi
+      (<code>Qo&amp;#039;shildi</code>), lekin <code>assertSee</code>
+      <b>izlanayotgan matnni ham</b> ekranlaydi — shuning uchun
+      <code>assertSee("Qo'shildi")</code> <b>ishlaydi</b>. Ikkinchi argument
+      <code>false</code> qo'ysangiz — <b>yiqiladi</b>.</li>
+      <li><code>false</code> ni faqat <b>HTML teg</b> qidirganda ishlating:
+      <code>assertSee('&lt;form', false)</code>.</li>
+      <li><code>assertSeeText</code> teglarni tashlab qidiradi — matn
+      <code>&lt;b&gt;</code> bilan bo'lingan bo'lsa.</li>
+      <li><code>assertSee([...])</code> massiv bilan,
+      <code>assertSeeInOrder([...])</code> tartib bilan.</li>
+      <li>⚠️ <code>assertDontSee</code> <b>yolg'on xotirjamlik</b> beradi:
+      matn o'zgarsa ham o'tadi. Juftlab yozing yoki
+      <code>assertForbidden()</code> bilan huquqni tekshiring.</li>
+      <li><code>assertViewIs('vakansiyalar.index')</code> ·
+      <code>assertViewHas('vakansiyalar')</code> — dizayndan mustaqil.</li>
+      <li><code>followingRedirects()</code> — redirect'ni oxirigacha kuzatadi
+      (keyin <code>assertRedirect</code> ishlatib bo'lmaydi).</li>
+      <li>🔍 <code>withoutExceptionHandling()</code> — 403/500 ortidagi
+      <b>haqiqiy istisno</b>. Tashxis tugagach olib tashlang.</li>
+      <li>Mo'rt testdan qoching: uzun aniq matnga emas, <b>eng qisqa ishonchli
+      belgi</b>ga bog'laning.</li>
+      <li><b>Natija:</b> 10 test, 27 tekshiruv, <b>0.22 soniya</b> —
+      29–35-darslar qulflandi.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p>Bugungi testlarda ma'lumotni har safar <b>qo'lda</b> yasadik:
+    <code>User::factory()-&gt;create([...])</code>, keyin
+    <code>Vakansiya::create([...])</code>, keyin yana...</p>
+    <p>Ammo IshTop'da bog'lanishlar bor: vakansiyaning <b>kompaniyasi</b>,
+    <b>ko'nikmalari</b> (26–27-darslar). Ularni testda qo'lda yasash uzoq va
+    xatoga moyil.</p>
+    <p>39-darsda <b>baza bilan test</b>ga chuqurroq kiramiz: factory
+    <b>holatlari</b> (state), <code>has()</code> va <code>for()</code> bilan
+    bog'langan ma'lumot yasash, <code>assertDatabaseCount</code>,
+    <code>assertModelMissing</code> va <code>RefreshDatabase</code>ning
+    muqobillari.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel — HTTP Tests</b>:
+    <a href="https://laravel.com/docs/13.x/http-tests">laravel.com/docs/13.x/http-tests</a>
+    — so'rov yuborish, <code>from</code>, <code>followingRedirects</code>,
+    barcha <code>assert*</code> metodlari.<sup><a href="#fn1">1</a></sup><br>
+    <b>Available Assertions</b>:
+    <a href="https://laravel.com/docs/13.x/http-tests#available-assertions">to'liq
+    ro'yxat</a> — status, sessiya, ko'rinish, JSON.<sup><a href="#fn2">2</a></sup><br>
+    <b>Pest — Expectations</b>:
+    <a href="https://pestphp.com/docs/expectations">pestphp.com/docs/expectations</a>.<sup><a href="#fn3">3</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b> «JSON API'ni qanday test
+    qilaman?», «fayl yuklashni testda qanday sinayman?», «bitta testda nechta
+    assert bo'lishi kerak?», «testlarni qanday tezlashtiraman?» — har qanday
+    savol yaxshi. Ikkinchisiga qisqa javob bor va u 36-darsga bog'lanadi:
+    <code>UploadedFile::fake()-&gt;create('rezyume.pdf')</code> — haqiqiy fayl
+    kerak emas, va u <code>mimes:pdf</code> qoidasidan <b>o'tadi</b> (sinab
+    ko'rdik). Birinchisi esa <b>Modul F</b> — API mavzusida ochiladi:
+    u yerda <code>assertJson</code> va <code>assertJsonPath</code> ishlaydi.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0037-nega-test-kerak.html">Oldingi: Nega test kerak</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel 13 — <a href="https://laravel.com/docs/13.x/http-tests">HTTP Tests</a>.</li>
+      <li id="fn2">Laravel 13 — <a href="https://laravel.com/docs/13.x/http-tests#available-assertions">Available Assertions</a>.</li>
+      <li id="fn3">Pest — <a href="https://pestphp.com/docs/expectations">Expectations</a>.</li>
+      <li id="fn4">Barchasi jonli o'lchangan (PHP 8.3.32, Laravel 13.25.0,
+      Pest 4.7.8): to'liq to'plam <b>10 passed (27 assertions), 0.22s</b> ·
+      apostrof to'rt varianti — <code>assertSee("Qo'shildi: …")</code> ✓,
+      <code>assertSee(…, false)</code> <b>⨯</b>,
+      <code>assertSee("Qo&amp;#039;shildi: …", false)</code> ✓,
+      <code>assertSeeText("Qo'shildi: …")</code> ✓ ·
+      <code>from()</code> siz <code>Location: http://localhost:8000</code>,
+      <code>from('/vakansiyalar')</code> bilan
+      <code>http://localhost:8000/vakansiyalar</code> ·
+      redirect tekshiruvi yiqilganda sessiyada xato bo'lsa
+      <code>Call to a member function all() on array</code>, xatosiz holatda
+      <code>Failed asserting that two strings are equal.</code> ·
+      <code>assertSessionHasErrors</code> xatosiz holatda
+      <code>Session is missing expected key [errors].</code> ·
+      <code>assertSee('ish beruvchi sifatida kirishingiz')</code> <b>⨯</b>
+      (matn <code>&lt;/b&gt;</code> bilan bo'lingan),
+      <code>assertSeeText(...)</code> ✓ ·
+      <code>withoutExceptionHandling()</code> →
+      <code>AuthorizationException: This action is unauthorized.</code>
+      <code>FormRequest.php:337</code> ·
+      <code>assertViewIs</code>, <code>assertViewHas</code>,
+      <code>assertRedirectToRoute</code>, <code>followingRedirects</code>,
+      <code>assertSeeInOrder</code> — hammasi o'tdi ·
+      <code>@can</code> olib tashlanganda «nomzod qo'shish formasini
+      ko'rmaydi» testi <b>qizil</b> bo'ldi.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>
