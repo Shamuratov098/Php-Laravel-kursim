@@ -18,7 +18,7 @@
   izoh esa o'zbekcha.</p>
 
   <p class="lesson-meta">
-    <span>Atamalar: <b>158 ta</b></span>
+    <span>Atamalar: <b>161 ta</b></span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>📱 O'qishga mos</span>
   </p>
@@ -26,7 +26,7 @@
   <div class="callout note">
     <span class="label">Bu hujjat o'sib boradi</span>
     <p>Atama faqat <b>o'z darsi yozilganda</b> qo'shiladi — oldindan emas. Hozir:
-    Modul A–E (1–38-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
+    Modul A–E (1–39-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
     bosqichida qat'iy belgilangan va 73 dars bo'ylab o'zgarmaydi).</p>
   </div>
 
@@ -1301,6 +1301,45 @@
       <code>@can('create', App\Models\Vakansiya::class)</code> — Blade'da
       <code>use</code> yo'q, to'liq yo'l yoziladi.
       <span class="eg">@can('delete', $v) &lt;button&gt;O'chirish&lt;/button&gt; @endcan</span></dd>
+    </div>
+
+    <div class="term" id="factory-bogliqlik">
+      <dt>factory bog'lanishlari <span class="uz">— bog'langan ma'lumot yasash</span></dt>
+      <dd><code>for($model, 'nom')</code> — <code>belongsTo</code> tomoni
+      (nom ixtiyoriy, taxmin <b>birlikda</b>).
+      <code>has($f-&gt;count(4), 'vakansiyalar')</code> —
+      <code>hasMany</code> tomoni.
+      <code>hasAttached($f-&gt;count(3), ['daraja' =&gt; 'yuqori'], 'konikmalar')</code> —
+      ko'pga-ko'p va pivot ustunlari.
+      ⚠️ <code>has()</code>/<code>hasAttached()</code> da bog'lanish nomi
+      <b>majburiy</b>: taxmin avval ko'plik (<code>konikmas</code>), keyin
+      birlik (<code>konikma</code>) qidiradi va o'zbekcha
+      <code>konikmalar()</code> ga yetib bormaydi.
+      <span class="eg">Kompaniya::factory()-&gt;has(Vakansiya::factory()-&gt;count(4), 'vakansiyalar')</span></dd>
+    </div>
+
+    <div class="term" id="factory-zanjiri">
+      <dt>factory zanjiri <span class="uz">— ichma-ich yasalish</span></dt>
+      <dd>⚠️ <code>Vakansiya::factory()-&gt;count(3)-&gt;create()</code> bazada
+      <b>3 kompaniya</b> ham qoldiradi, chunki <code>definition()</code> ichida
+      <code>'kompaniya_id' =&gt; Kompaniya::factory()</code> turadi.
+      To'xtatish: <code>-&gt;for($k, 'kompaniya')</code> (aniq bog'lanish) yoki
+      <code>-&gt;recycle($k)</code> (butun daraxtga tarqaladi).
+      <code>sequence([...], [...])</code> — navbatma-navbat qiymatlar.
+      <span class="eg">Vakansiya::factory()-&gt;count(3)-&gt;for($k, 'kompaniya')-&gt;create()</span></dd>
+    </div>
+
+    <div class="term" id="assert-database">
+      <dt>assertDatabase* <span class="uz">— bazani tekshirish</span></dt>
+      <dd><code>assertDatabaseCount('vakansiyalar', 4)</code> ·
+      <code>assertDatabaseHas</code> / <code>assertDatabaseMissing</code> ·
+      <code>assertModelExists($v)</code> /
+      <code>assertModelMissing($v)</code> (obyekt bilan, shart yozilmaydi).
+      🔍 Jadval nomi o'rniga <b>model klassini</b> bering —
+      <code>assertDatabaseHas(Vakansiya::class, [...])</code> — nom
+      <code>$table</code> dan olinadi va o'zbekcha nomni qo'lda yozish
+      xatosi yo'qoladi.
+      <span class="eg">$this-&gt;assertDatabaseHas(Vakansiya::class, ['nom' =&gt; 'Backend dasturchi']);</span></dd>
     </div>
 
     <div class="term" id="assert-see">

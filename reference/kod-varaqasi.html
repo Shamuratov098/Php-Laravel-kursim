@@ -17,7 +17,7 @@
   muhit ma'lumotlari. Har dars yangi buyruq o'rgatilsa, shu yerga qo'shiladi.</p>
 
   <p class="lesson-meta">
-    <span>Qamrov: <b>1&ndash;38-darslar</b> — muhitdan testlargacha</span>
+    <span>Qamrov: <b>1&ndash;39-darslar</b> — muhitdan testlargacha</span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>💻 Amaliyotga mos</span>
   </p>
@@ -863,6 +863,41 @@
     <p>🔑 <b>Mo'rt testdan qoching:</b> uzun aniq matnga emas, eng qisqa
     ishonchli belgiga bog'laning. Himoyani esa har doim <b>status</b> bilan
     tekshiring, ko'rinish bilan emas.</p>
+  </div>
+
+  <h2>Baza bilan test (39-darsdan)</h2>
+  <table class="sheet">
+    <tr><th>Kod</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>-&gt;for($kompaniya, 'kompaniya')</code></td><td class="note-cell"><code>belongsTo</code> tomoni. Nom <b>ixtiyoriy</b> — taxmin birlikda</td></tr>
+    <tr><td><code>-&gt;has($f-&gt;count(4), 'vakansiyalar')</code></td><td class="note-cell"><code>hasMany</code> tomoni. ⚠️ Nom <b>majburiy</b></td></tr>
+    <tr><td><code>-&gt;hasAttached($f-&gt;count(3), ['daraja' =&gt; 'yuqori'], 'konikmalar')</code></td><td class="note-cell">Ko'pga-ko'p + pivot ustunlari</td></tr>
+    <tr><td><code>-&gt;recycle($kompaniya)</code></td><td class="note-cell">Bitta modelni butun daraxtda qayta ishlatadi</td></tr>
+    <tr><td><code>-&gt;sequence(['shahar' =&gt; 'A'], ['shahar' =&gt; 'B'])</code></td><td class="note-cell">Navbatma-navbat. ⚠️ <code>count</code> bo'linmasa teng emas</td></tr>
+    <tr><td><code>-&gt;yopiq()-&gt;boy()</code></td><td class="note-cell">Holatlar zanjiri — bir maydonda oxirgisi g'olib</td></tr>
+    <tr><td><code>assertDatabaseCount('vakansiyalar', 4)</code></td><td class="note-cell">Jadvalda nechta qator</td></tr>
+    <tr><td><code>assertDatabaseHas(Vakansiya::class, [...])</code></td><td class="note-cell">✅ Jadval nomi <code>$table</code> dan olinadi</td></tr>
+    <tr><td><code>assertModelExists($v)</code> · <code>assertModelMissing($v)</code></td><td class="note-cell">Obyekt bilan — shart yozish shart emas</td></tr>
+    <tr><td><code>php artisan make:factory KonikmaFactory</code></td><td class="note-cell">Factory yasash. Modelda <code>use HasFactory;</code> bo'lsin</td></tr>
+  </table>
+  <div class="callout note">
+    <p>⚠️ <b><code>has()</code> nomi majburiy:</b> taxmin avval <b>ko'plik</b>
+    (<code>Konikma</code>→<code>konikmas</code>), keyin <b>birlik</b>
+    (<code>konikma</code>). O'zbekcha <code>konikmalar()</code> ikkalasiga ham
+    mos emas → <code>Call to undefined method ...::konikma()</code>.
+    <code>for()</code> da shart emas — u ko'plik yasamaydi.</p>
+    <p>⚠️ <b>Factory zanjiri:</b>
+    <code>Vakansiya::factory()-&gt;count(3)</code> bazada <b>3 kompaniya</b> ham
+    qoldiradi (<code>definition()</code> ichida
+    <code>Kompaniya::factory()</code>). To'xtatish —
+    <code>for()</code> yoki <code>recycle()</code>.</p>
+    <p>⚠️ <b>Factory fayli yo'q:</b>
+    <code>Class "Database\Factories\KonikmaFactory" not found</code>.</p>
+    <p>⚠️ <b><code>unique()</code> manbasi tugasa:</b>
+    <code>OverflowException: Maximum retries of 10000 reached</code>.
+    Har <code>unique()</code> uchun savol: <b>manba nechta qiymat beradi?</b></p>
+    <p>🔍 <b>Birinchi Feature test sekinroq</b> (~0.11 s) — migratsiyalar shu
+    yerda bir marta bajariladi. Keyingilari ~0.01 s: har test tranzaksiya
+    ichida ishlab, oxirida bekor qilinadi.</p>
   </div>
 
   <h2>Xatoni o'qish</h2>

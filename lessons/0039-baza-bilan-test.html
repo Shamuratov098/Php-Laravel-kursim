@@ -1,0 +1,1050 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 39 — Baza bilan test: bog'langan ma'lumot</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 39 · MODUL E — TEST (PEST)</p>
+  <h1>Baza bilan test: bog'langan ma'lumot</h1>
+  <p class="lead">37- va 38-darsdagi testlarda ma'lumotni <b>qo'lda</b>
+  yasadik. Ammo IshTop'da bog'lanishlar bor: vakansiyaning <b>kompaniyasi</b>,
+  <b>ko'nikmalari</b>, <b>egasi</b>. Bugun ularni <b>bir qatorda</b> yasashni
+  o'rganamiz — va yo'lda o'zbekcha nomlar tufayli chiqadigan aniq bir tuzoqni
+  ochamiz.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 16 daqiqa</span>
+    <span>💻 Amaliyot ≈ 25 daqiqa</span>
+    <span>Kerak: <a href="0038-feature-test-http.html">Dars 38</a></span>
+  </p>
+
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b>Nega qo'lda yasash yetmaydi</b>
+        <span class="nima">Bir vakansiya uchun kompaniya, egasi va uchta
+        ko'nikma — beshta <code>create()</code> va ular orasidagi
+        bog'lanishlar.</span></li>
+      <li><b><code>for()</code> — «kimga tegishli»</b>
+        <span class="nima"><code>belongsTo</code> tomoni.
+        <code>Vakansiya::factory()-&gt;for($kompaniya, 'kompaniya')</code>.</span></li>
+      <li><b><code>has()</code> — «nimalari bor»</b>
+        <span class="nima"><code>hasMany</code> tomoni. Bitta qatorda
+        kompaniya va uning to'rtta vakansiyasi.</span></li>
+      <li><b>⚠️ O'zbekcha nom tuzog'i</b>
+        <span class="nima">Nomsiz <code>has()</code> <b>ishlamaydi</b>:
+        <code>Call to undefined method ...::konikma()</code>. Laravel qanday
+        taxmin qilishi <b>ochib beriladi</b>.</span></li>
+      <li><b><code>hasAttached()</code> — pivot bilan</b>
+        <span class="nima">27-darsdagi ko'pga-ko'p bog'lanish va
+        <code>daraja</code> pivot ustuni — bitta chaqiruvda.</span></li>
+      <li><b>⚠️ Factory zanjiri</b>
+        <span class="nima">Uchta vakansiya yasasangiz bazada <b>uchta
+        kompaniya</b> paydo bo'ladi. Nega — va qanday to'xtatiladi.</span></li>
+      <li><b><code>recycle()</code></b>
+        <span class="nima">Bitta bog'liq modelni <b>qayta ishlatish</b> —
+        <code>for()</code> ga muqobil, ayniqsa chuqur zanjirlarda.</span></li>
+      <li><b><code>sequence()</code></b>
+        <span class="nima">Navbatma-navbat qiymatlar: ikkita Toshkent, ikkita
+        Buxoro — filtr testlari uchun.</span></li>
+      <li><b>Holatlarni zanjirlash</b>
+        <span class="nima">28-darsdagi <code>yopiq()</code> va
+        <code>boy()</code> birga: <code>-&gt;yopiq()-&gt;boy()</code>.</span></li>
+      <li><b>Baza tekshiruvlari</b>
+        <span class="nima"><code>assertDatabaseCount</code> ·
+        <code>assertModelExists</code> ·
+        <code>assertModelMissing</code>.</span></li>
+      <li><b>🔍 Jadval nomini yozmaslik</b>
+        <span class="nima"><code>assertDatabaseHas(Vakansiya::class, …)</code> —
+        o'zbekcha jadval nomlarida ancha xavfsiz.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima">Nomsiz <code>has()</code> · factory zanjiri ·
+        factory fayli yo'qligi · jadval nomi · <code>recycle</code> ·
+        <code>sequence</code> · birinchi testning sekinligi.</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Bitta vakansiya — beshta chaqiruv</span>
+    <p>«Kompaniyasi va uchta ko'nikmasi bor vakansiya» kerak deylik. Qo'lda
+    shunday bo'ladi:</p>
+    <div class="natija">$kompaniya = Kompaniya::create(['nom' =&gt; 'Softex Lab', ...]);
+
+$vakansiya = Vakansiya::create([
+    'nom' =&gt; 'Backend dasturchi',
+    'maosh' =&gt; 9000000,
+    'kompaniya_id' =&gt; $kompaniya-&gt;id,
+]);
+
+$php   = Konikma::create(['nom' =&gt; 'PHP']);
+$sql   = Konikma::create(['nom' =&gt; 'SQL']);
+$git   = Konikma::create(['nom' =&gt; 'Git']);
+
+$vakansiya-&gt;konikmalar()-&gt;attach([
+    $php-&gt;id =&gt; ['daraja' =&gt; 'yuqori'],
+    $sql-&gt;id =&gt; ['daraja' =&gt; 'yuqori'],
+    $git-&gt;id =&gt; ['daraja' =&gt; 'yuqori'],
+]);</div>
+    <p>Yigirma qator — va bu <b>bitta</b> test uchun. Ikkinchi testda hammasi
+    qaytadan yoziladi.</p>
+    <p>Muammo faqat uzunlikda emas. Bu kodda test <b>nima haqida</b>
+    ekani ko'rinmay qoladi: yigirma qator tayyorgarlik ichida bitta muhim
+    tekshiruv yashirinib yotadi.</p>
+    <p>28-darsdagi factory shu ish uchun yaratilgan. Bugun uning
+    <b>bog'lanishlar</b> bilan ishlaydigan qismini o'rganamiz.</p>
+  </div>
+
+  <!-- ═══════════════ 2) FOR ═══════════════ -->
+  <h2><code>for()</code> — «kimga tegishli»</h2>
+
+  <p>26-darsdagi <code>belongsTo</code> tomoni. Vakansiya <b>kompaniyaga</b>
+  tegishli:</p>
+
+  <div class="codefile">
+    <span class="fname">tests/Feature/BogliqlikTest.php</span>
+    <code class="cmd">$kompaniya = Kompaniya::factory()-&gt;create(['nom' =&gt; 'Softex Lab']);
+
+$vakansiya = Vakansiya::factory()-&gt;for($kompaniya, 'kompaniya')-&gt;create();
+
+expect($vakansiya-&gt;kompaniya-&gt;nom)-&gt;toBe('Softex Lab');</code>
+  </div>
+
+  <p>Ikkinchi argument — <b>bog'lanish metodining nomi</b>. Uni yozmasangiz
+  Laravel taxmin qiladi, va bizning holatda taxmin <b>to'g'ri chiqadi</b>:</p>
+
+  <div class="natija">for($kompaniya)                 →  ishlaydi ✅
+for($kompaniya, 'kompaniya')    →  ishlaydi ✅  (aniq yozilgan)</div>
+
+  <p class="expect">🔍 Nega ishlaydi? <code>for()</code> uchun taxmin
+  <b>birlik</b>da: <code>Kompaniya</code> → <code>kompaniya</code>. Bizdagi
+  metod ham aynan shunday nomlangan. Ko'plik yasalmaydi — shuning uchun
+  muammo yo'q.</p>
+
+  <!-- ═══════════════ 3) HAS ═══════════════ -->
+  <h2><code>has()</code> — «nimalari bor»</h2>
+
+  <div class="codefile">
+    <span class="fname">tests/Feature/BogliqlikTest.php</span>
+    <code class="cmd">$kompaniya = Kompaniya::factory()
+    -&gt;has(Vakansiya::factory()-&gt;count(4), 'vakansiyalar')
+    -&gt;create(['nom' =&gt; 'Softex Lab']);
+
+expect($kompaniya-&gt;vakansiyalar)-&gt;toHaveCount(4);</code>
+  </div>
+
+  <p>Bitta chaqiruvda kompaniya <b>va</b> uning to'rtta vakansiyasi. Har biriga
+  <code>kompaniya_id</code> avtomatik qo'yiladi.</p>
+
+  <div class="callout warning">
+    <span class="label">⚠️ Nomni yozmasangiz — o'zbekcha nomda ishlamaydi</span>
+    <p>Ikkinchi argumentni tashlab ko'ramiz:</p>
+    <div class="natija">Vakansiya::factory()-&gt;has(Konikma::factory()-&gt;count(3))-&gt;create();
+
+BadMethodCallException
+Call to undefined method App\Models\Vakansiya::konikma()</div>
+    <p>Xato xabari <code>konikma()</code> deydi — <b>birlik</b>da. Nega
+    shunday? <b>Sehr yo'q</b>, mexanizm ikki qadamli:</p>
+    <div class="natija">1) ko'plik yasaladi:   Konikma  →  Konikmas  →  konikmas
+   Vakansiya'da konikmas() metodi bormi?  →  YO'Q
+
+2) birlikka qaytiladi: Konikma  →  konikma
+   Vakansiya'da konikma() metodi bormi?   →  YO'Q  →  XATO</div>
+    <p>Bizdagi metod esa <code>konikmalar()</code> deb ataladi — o'zbekcha
+    ko'plik. Laravel'ning inglizcha ko'plik yasovchisi uni
+    <b>hech qachon topa olmaydi</b>.</p>
+    <div class="natija">Str::plural('Konikma')     →  Konikmas
+Str::plural('Vakansiya')   →  Vakansiyas
+Str::plural('Kompaniya')   →  Kompaniyas</div>
+    <p>🔑 <b>Qoida (ADR 0004 ning davomi):</b> o'zbekcha nomli modellarda
+    <code>has()</code> va <code>hasAttached()</code> ga bog'lanish nomini
+    <b>har doim aniq bering</b>. <code>for()</code> da esa shart emas —
+    u ko'plik yasamaydi.</p>
+    <p>🔍 Bu qoida kursda uchinchi marta uchraydi: jadval nomi
+    (<code>$table</code>), <a href="0028-factory-va-seeder.html">factory
+    <code>has()</code></a> va shu yer. Umumiy sabab bitta —
+    <b>ko'plik yasalgan joyda taxmin buziladi</b>.</p>
+  </div>
+
+  <!-- ═══════════════ 4) HASATTACHED ═══════════════ -->
+  <h2><code>hasAttached()</code> — pivot bilan birga</h2>
+
+  <p>27-darsdagi <code>konikmalar()</code> — ko'pga-ko'p bog'lanish, va uning
+  pivot jadvalida <code>daraja</code> ustuni bor. Factory buni ham biladi:</p>
+
+  <div class="codefile">
+    <span class="fname">tests/Feature/BogliqlikTest.php</span>
+    <code class="cmd">$vakansiya = Vakansiya::factory()
+    -&gt;hasAttached(
+        Konikma::factory()-&gt;count(3),      // nimani biriktiramiz
+        ['daraja' =&gt; 'yuqori'],            // pivot ustunlari
+        'konikmalar'                       // bog'lanish nomi (majburiy!)
+    )
+    -&gt;create();
+
+expect($vakansiya-&gt;konikmalar)-&gt;toHaveCount(3);
+expect($vakansiya-&gt;konikmalar-&gt;first()-&gt;pivot-&gt;daraja)-&gt;toBe('yuqori');</code>
+  </div>
+
+  <p class="expect"><b>O'lchangan:</b> uchta ko'nikma yaratildi, pivot jadvalga
+  uchta qator yozildi, har birida <code>daraja = yuqori</code>.</p>
+
+  <div class="natija">$this-&gt;assertDatabaseCount('konikma_vakansiya', 3);   →  ✅</div>
+
+  <p>Pivot jadval nomi — <code>konikma_vakansiya</code> (alifbo tartibida,
+  27-darsdagi kelishuv).</p>
+
+  <!-- ═══════════════ 5) ZANJIR ═══════════════ -->
+  <h2>⚠️ Factory zanjiri: uchta vakansiya — uchta kompaniya</h2>
+
+  <p>Endi kutilmagan narsa. Uchta vakansiya yasaymiz va bazani sanaymiz:</p>
+
+  <div class="natija">Vakansiya::factory()-&gt;count(3)-&gt;create();
+
+vakansiyalar = 3
+kompaniyalar = 3        ← ⚠️ uchta!</div>
+
+  <p>Sababi <code>VakansiyaFactory</code> ning o'zida (28-dars):</p>
+
+  <div class="natija">'kompaniya_id' =&gt; Kompaniya::factory(),</div>
+
+  <p>Ya'ni har bir vakansiya <b>o'ziga</b> kompaniya yasab oladi. Bu ko'pincha
+  aynan kerak narsa — test ma'lumoti to'liq va mustaqil bo'ladi.</p>
+
+  <p>Lekin «bitta kompaniyaning uchta vakansiyasi» kerak bo'lsa, zanjirni
+  to'xtatish kerak. Ikki usul bor:</p>
+
+  <div class="natija">// 1) for() bilan
+$k = Kompaniya::factory()-&gt;create();
+Vakansiya::factory()-&gt;count(3)-&gt;for($k, 'kompaniya')-&gt;create();
+   →  vakansiyalar = 3,  kompaniyalar = 1   ✅
+
+// 2) recycle() bilan
+$k = Kompaniya::factory()-&gt;create();
+Vakansiya::factory()-&gt;count(3)-&gt;recycle($k)-&gt;create();
+   →  vakansiyalar = 3,  kompaniyalar = 1   ✅</div>
+
+  <div class="callout tip">
+    <span class="label"><code>for()</code> yoki <code>recycle()</code></span>
+    <p><code>for()</code> — <b>aniq</b> bog'lanish uchun: «shu vakansiyalar
+    <b>shu</b> kompaniyaga tegishli».</p>
+    <p><code>recycle()</code> — <b>kengroq</b>: «shu modelni <b>qayerda</b>
+    kerak bo'lsa qayta ishlat». Chuqur zanjirlarda foydali: vakansiya ham,
+    uning egasi ham, ko'nikmalari ham bitta kompaniyaga bog'liq bo'lsa,
+    <code>recycle()</code> hammasiga tarqaladi.</p>
+    <p>Boshlanish uchun <code>for()</code> yetadi — u nima
+    bo'layotganini aniqroq ko'rsatadi.</p>
+  </div>
+
+  <!-- ═══════════════ 6) SEQUENCE VA HOLAT ═══════════════ -->
+  <h2><code>sequence()</code> — navbatma-navbat qiymatlar</h2>
+
+  <p>Filtr testi uchun «ikkita Toshkent, ikkita Buxoro» kerak bo'lsa:</p>
+
+  <div class="codefile">
+    <span class="fname">tests/Feature/BogliqlikTest.php</span>
+    <code class="cmd">Vakansiya::factory()
+    -&gt;count(4)
+    -&gt;sequence(
+        ['shahar' =&gt; 'Toshkent'],
+        ['shahar' =&gt; 'Buxoro'],
+    )
+    -&gt;create();</code>
+  </div>
+
+  <div class="natija">Toshkent = 2    Buxoro = 2</div>
+
+  <p>Ro'yxat aylanma: 1-yozuv Toshkent, 2-yozuv Buxoro, 3-yozuv yana Toshkent…
+  Shuning uchun <code>count(4)</code> va ikkita variant — teng ikkiga
+  bo'linadi.</p>
+
+  <h3>Holatlarni zanjirlash</h3>
+
+  <p>28-darsda <code>VakansiyaFactory</code> ga ikkita <b>holat</b> (state)
+  yozgan edik. Ular birga ishlaydi:</p>
+
+  <div class="natija">$v = Vakansiya::factory()-&gt;yopiq()-&gt;boy()-&gt;create();
+
+faol  = false        ← yopiq() dan
+maosh = 3033         ← boy() dan (3000–8000 oralig'ida)</div>
+
+  <p>Har bir holat oldingisining ustiga qo'shiladi. Bir xil maydonni
+  o'zgartirsa — <b>oxirgisi</b> g'olib.</p>
+
+  <!-- ═══════════════ 7) BAZA TEKSHIRUVLARI ═══════════════ -->
+  <h2>Bazani tekshirish</h2>
+
+  <div class="natija">$this-&gt;assertDatabaseCount('vakansiyalar', 4);       // nechta qator bor
+$this-&gt;assertDatabaseHas('vakansiyalar', [...]);    // shunday qator bormi
+$this-&gt;assertDatabaseMissing('vakansiyalar', [...]); // yo'qmi
+$this-&gt;assertModelExists($vakansiya);                // shu yozuv bazadami
+$this-&gt;assertModelMissing($vakansiya);               // o'chirilganmi</div>
+
+  <p><code>assertModelExists</code> va <code>assertModelMissing</code> —
+  <b>obyekt</b> bilan ishlaydi, shart yozish shart emas. O'chirishni
+  tekshirishda eng qulayi:</p>
+
+  <div class="codefile">
+    <span class="fname">tests/Feature/BogliqlikTest.php</span>
+    <code class="cmd">test('o\'chirilgan vakansiya bazadan yo\'qoladi', function () {
+    $vakansiya = Vakansiya::factory()-&gt;create();
+
+    $this-&gt;assertModelExists($vakansiya);
+
+    $vakansiya-&gt;delete();
+
+    $this-&gt;assertModelMissing($vakansiya);
+    $this-&gt;assertDatabaseCount('vakansiyalar', 0);
+});</code>
+  </div>
+
+  <div class="callout tip">
+    <span class="label">🔍 Jadval nomini yozmaslik</span>
+    <p>Birinchi argument sifatida <b>model klassini</b> ham berish mumkin:</p>
+    <div class="natija">$this-&gt;assertDatabaseHas('vakansiyalar', ['nom' =&gt; 'Backend dasturchi']);
+$this-&gt;assertDatabaseHas(Vakansiya::class, ['nom' =&gt; 'Backend dasturchi']);   // ✅</div>
+    <p>Ikkalasi ham ishlaydi (o'lchandi). Lekin ikkinchisi <b>xavfsizroq</b>:
+    jadval nomini Laravel modeldagi <code>$table</code> dan oladi va siz uni
+    <b>qo'lda yozmaysiz</b>.</p>
+    <p>Bu ayniqsa bizda muhim, chunki jadval nomlari o'zbekcha va taxminga
+    mos kelmaydi. Xato yozilsa natija shunday bo'ladi:</p>
+    <div class="natija">assertDatabaseHas('vakansiyas', [...])
+
+QueryException: no such table: vakansiyas
+(Connection: sqlite, Database: :memory:)</div>
+    <p>🔍 Xato xabarining oxiriga qarang: <code>Database: :memory:</code> —
+    37-darsda aytilgan xotira bazasi shu yerda o'z nomini
+    ko'rsatib turibdi.</p>
+  </div>
+
+  <h3>Izolyatsiya — o'z ko'zingiz bilan</h3>
+
+  <p>37-darsda <code>RefreshDatabase</code> «har test toza dunyoda boshlanadi»
+  degan edik. Uni <b>sinab</b> ko'ramiz — ketma-ket uchta test:</p>
+
+  <div class="natija">D  vakansiyalar = 0        ← boshida bo'sh
+E  yaratdim      5        ← beshta qo'shildi
+F  vakansiyalar = 0        ← E dan iz qolmadi</div>
+
+  <p class="expect">🔑 <b>E</b> testi beshta yozuv qoldirdi, <b>F</b> esa
+  ularni ko'rmadi. Testlar tartibi o'zgarsa ham natija o'zgarmaydi — bu
+  38-darsdagi «mo'rt test» muammosining oldini oladi.</p>
+
+  <!-- ═══════════════ 8) HAR XIL HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir bir marta o'qib chiqing,
+  keyin kerak bo'lganda qaytib qarang.</p>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 1</span>
+    <h4>Nomsiz <code>has()</code></h4>
+    <div class="natija">Vakansiya::factory()-&gt;has(Konikma::factory()-&gt;count(3))-&gt;create();
+
+BadMethodCallException
+Call to undefined method App\Models\Vakansiya::konikma()</div>
+    <p>Laravel avval <b>ko'plik</b> (<code>konikmas</code>), keyin
+    <b>birlik</b> (<code>konikma</code>) nomli metod qidiradi. Bizdagi
+    <code>konikmalar()</code> ikkalasiga ham mos emas.</p>
+    <p>✅ Yechim bitta: nomni <b>aniq bering</b>.</p>
+    <div class="natija">-&gt;has(Konikma::factory()-&gt;count(3), 'konikmalar')</div>
+    <p>🔍 Xato xabari <b>birlik</b>ni ko'rsatgani chalg'itishi mumkin —
+    siz <code>konikma()</code> nomli metod yozishga urinishingiz mumkin.
+    Aslida metod bor, faqat nomi boshqacha.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 2</span>
+    <h4>Kutilmagan factory zanjiri</h4>
+    <div class="natija">Vakansiya::factory()-&gt;count(3)-&gt;create();
+   →  vakansiyalar = 3,  kompaniyalar = 3</div>
+    <p>Testda <code>assertDatabaseCount('kompaniyalar', 1)</code> yozgan
+    bo'lsangiz — yiqiladi, va sabab birinchi qarashda ko'rinmaydi.</p>
+    <p>✅ Factory faylini oching va <code>definition()</code> ichida boshqa
+    <code>::factory()</code> chaqiruvlari bor-yo'qligini ko'ring. Bizda:
+    <code>'kompaniya_id' =&gt; Kompaniya::factory()</code>.</p>
+    <p>✅ To'xtatish: <code>-&gt;for($k, 'kompaniya')</code> yoki
+    <code>-&gt;recycle($k)</code>.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 3</span>
+    <h4>Factory fayli yo'q</h4>
+    <div class="natija">Konikma::factory()-&gt;create();
+
+Error: Class "Database\Factories\KonikmaFactory" not found</div>
+    <p>Modelda <code>use HasFactory;</code> bor, lekin factory fayli
+    yozilmagan. Xato aniq va nom ham to'liq ko'rsatilgan.</p>
+    <p>✅ <code>php artisan make:factory KonikmaFactory</code> va
+    <code>definition()</code> ni to'ldiring.</p>
+    <p>🔍 Bu yerda taxmin <b>ishlaydi</b>: <code>App\Models\Konikma</code> →
+    <code>Database\Factories\KonikmaFactory</code>. Ko'plik yasalmaydi,
+    shuning uchun o'zbekcha nom xalaqit bermaydi — 33-darsdagi policy topilishi
+    bilan bir xil naqsh.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 4</span>
+    <h4>Jadval nomi o'rniga model klassi</h4>
+    <div class="natija">assertDatabaseHas('vakansiyalar', [...])        // ishlaydi
+assertDatabaseHas(Vakansiya::class, [...])      // ✅ afzal
+
+assertDatabaseHas('vakansiyas', [...])
+   →  QueryException: no such table: vakansiyas</div>
+    <p>Model klassi berilganda jadval nomi <code>$table</code> dan olinadi —
+    siz uni <b>qo'lda yozmaysiz</b> va xato yozib qo'yish imkoni yo'qoladi.</p>
+    <p>🔍 Bizning loyihada bu ayniqsa qimmatli: jadval nomlari o'zbekcha
+    (<code>vakansiyalar</code>, <code>kompaniyalar</code>,
+    <code>konikmalar</code>) va ularni yoddan yozganda xato qilish oson.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 5</span>
+    <h4><code>recycle()</code> qachon <code>for()</code> dan afzal</h4>
+    <div class="natija">// zanjir chuqur bo'lsa:
+Vakansiya::factory()
+    -&gt;count(3)
+    -&gt;recycle($kompaniya)       // butun daraxtga tarqaladi
+    -&gt;create();</div>
+    <p><code>for()</code> <b>bitta</b> bog'lanishga ta'sir qiladi.
+    <code>recycle()</code> esa berilgan modelni <b>qayerda kerak bo'lsa</b>
+    ishlatadi — ichma-ich yasalayotgan modellarda ham.</p>
+    <p>✅ Oddiy holatda <code>for()</code> ni tanlang: u nima bo'layotganini
+    aniqroq ko'rsatadi. <code>recycle()</code> — uch va undan ko'p daraja
+    bog'langan ma'lumot uchun.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 6</span>
+    <h4><code>sequence()</code> va son mosligi</h4>
+    <div class="natija">-&gt;count(4)-&gt;sequence(['shahar' =&gt; 'Toshkent'], ['shahar' =&gt; 'Buxoro'])
+   →  Toshkent = 2,  Buxoro = 2      ✅
+
+-&gt;count(3)-&gt;sequence(['shahar' =&gt; 'Toshkent'], ['shahar' =&gt; 'Buxoro'])
+   →  Toshkent = 2,  Buxoro = 1      ⚠️ teng emas</div>
+    <p>Ro'yxat aylanma bo'lgani uchun <code>count</code> variantlar soniga
+    <b>bo'linmasa</b> taqsimot teng bo'lmaydi.</p>
+    <p>✅ Testda aniq son kerak bo'lsa, <code>count</code> ni variantlar
+    soniga karrali qiling — yoki ikki alohida <code>create()</code> yozing,
+    bu ancha o'qiladigan bo'ladi.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>Birinchi Feature test nega sekinroq</h4>
+    <div class="natija">✓ kompaniyaning vakansiyalari bog'lanadi        0.11s   ← birinchi
+✓ vakansiyaga ko'nikmalar biriktiriladi         0.01s
+✓ bitta kompaniyaga bir nechta vakansiya        0.01s</div>
+    <p>Birinchi test <b>o'n barobar</b> sekin ko'rinadi. Bu xato emas:
+    migratsiyalar shu yerda bir marta bajariladi.</p>
+    <p>Keyingi testlarda esa <code>RefreshDatabase</code> jadvallarni qayta
+    yasamaydi — u har testni <b>tranzaksiya</b> ichida ishlatib, oxirida
+    bekor qiladi. Shuning uchun 0.01 soniya.</p>
+    <p>✅ Xulosa: to'plam o'sganda vaqt <b>chiziqli</b> o'smaydi. Yuzta test
+    ham bir necha soniyada tugaydi — agar ular ortiqcha ma'lumot
+    yasamasa.</p>
+  </div>
+
+  <!-- ═══════════════ 9) AMALIYOT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    <span class="mode-hint-title">💻 Amaliy qism kompyuterda</span>
+    <p>Amaliyotda <code>KonikmaFactory</code> yasaysiz va bog'langan
+    ma'lumotli beshta test yozasiz. Yo'lda ikkita tuzoqni <b>ataylab</b>
+    ko'rasiz: nomsiz <code>has()</code> va kutilmagan factory zanjiri.</p>
+    <button type="button" class="modebtn" data-set-mode="do">💻 Amaliyot rejimini ko'rish</button>
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <p>Holatni tekshiring</p>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+php artisan test
+ls database/factories/">cd ~/Projects/Learn/ishtop
+php artisan test
+ls database/factories/
+<span class="out">  Tests:    10 passed (27 assertions)</span>
+<span class="out">KompaniyaFactory.php  UserFactory.php  VakansiyaFactory.php</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> 38-darsdagi o'nta test
+        yashil. <code>KonikmaFactory</code> <b>yo'q</b> — uni hozir
+        yasaymiz.</p>
+      </li>
+
+      <li>
+        <p>⚠️ Avval factory yo'qligini ko'ring</p>
+        <div class="cmd" data-cmd="php artisan tinker --execute=&quot;App\Models\Konikma::factory()->create();&quot;">php artisan tinker --execute=&quot;App\Models\Konikma::factory()-&gt;create();&quot;
+<span class="out">Class &quot;Database\Factories\KonikmaFactory&quot; not found</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> aniq xato — klass nomi ham
+        to'liq ko'rsatilgan. Modelda <code>use HasFactory;</code> bor, lekin
+        fayl yozilmagan.</p>
+      </li>
+
+      <li>
+        <p><code>KonikmaFactory</code> ni yasang</p>
+        <div class="cmd" data-cmd="php artisan make:factory KonikmaFactory">php artisan make:factory KonikmaFactory</div>
+        <div class="cmd" data-cmd="# database/factories/KonikmaFactory.php
+
+    public function definition(): array
+    {
+        return [
+            'nom' =&gt; fake()-&gt;unique()-&gt;randomElement([
+                'PHP', 'Laravel', 'MySQL', 'JavaScript', 'Vue', 'Git',
+                'Docker', 'Redis', 'Linux', 'SQL',
+            ]),
+        ];
+    }"># database/factories/KonikmaFactory.php
+
+    public function definition(): array
+    {
+        return [
+            'nom' =&gt; fake()-&gt;unique()-&gt;randomElement([
+                'PHP', 'Laravel', 'MySQL', 'JavaScript', 'Vue', 'Git',
+                'Docker', 'Redis', 'Linux', 'SQL',
+            ]),
+        ];
+    }</div>
+        <div class="cmd" data-cmd="php -l database/factories/KonikmaFactory.php">php -l database/factories/KonikmaFactory.php</div>
+        <p class="why-step">🔍 <code>unique()</code> muhim: ko'nikma nomi
+        takrorlanmasin. Ro'yxatda 10 ta variant bor, shuning uchun bitta testda
+        10 tadan ko'p ko'nikma so'ramang.</p>
+      </li>
+
+      <li>
+        <p>⚠️ Nomsiz <code>has()</code> tuzog'ini ataylab ko'ring</p>
+        <div class="cmd" data-cmd="# tests/Feature/BogliqlikTest.php
+
+&lt;?php
+
+use App\Models\Konikma;
+use App\Models\Kompaniya;
+use App\Models\Vakansiya;
+
+test('nomsiz has() sinovi', function () {
+    $v = Vakansiya::factory()-&gt;has(Konikma::factory()-&gt;count(3))-&gt;create();
+
+    expect($v-&gt;konikmalar)-&gt;toHaveCount(3);
+});"># tests/Feature/BogliqlikTest.php
+
+&lt;?php
+
+use App\Models\Konikma;
+use App\Models\Kompaniya;
+use App\Models\Vakansiya;
+
+test('nomsiz has() sinovi', function () {
+    $v = Vakansiya::factory()-&gt;has(Konikma::factory()-&gt;count(3))-&gt;create();
+
+    expect($v-&gt;konikmalar)-&gt;toHaveCount(3);
+});</div>
+        <div class="cmd" data-cmd="php artisan test --filter=nomsiz">php artisan test --filter=nomsiz
+<span class="out">BadMethodCallException</span>
+<span class="out">Call to undefined method App\Models\Vakansiya::konikma()</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> aynan shu xato.
+        <br>🔑 Diqqat: xabar <code>konikma()</code> — <b>birlik</b>da. Laravel
+        avval <code>konikmas()</code> ni izlab topolmadi, keyin
+        <code>konikma()</code> ga tushdi. Bizdagi metod esa
+        <code>konikmalar()</code>.</p>
+      </li>
+
+      <li>
+        <p>Nomni berib tuzating va pivot qo'shing</p>
+        <div class="cmd" data-cmd="# 'nomsiz has() sinovi' testini shunga almashtiring:
+
+test('vakansiyaga ko\'nikmalar daraja bilan biriktiriladi', function () {
+    $vakansiya = Vakansiya::factory()
+        -&gt;hasAttached(
+            Konikma::factory()-&gt;count(3),
+            ['daraja' =&gt; 'yuqori'],
+            'konikmalar'
+        )
+        -&gt;create();
+
+    expect($vakansiya-&gt;konikmalar)-&gt;toHaveCount(3);
+    expect($vakansiya-&gt;konikmalar-&gt;first()-&gt;pivot-&gt;daraja)-&gt;toBe('yuqori');
+
+    $this-&gt;assertDatabaseCount('konikma_vakansiya', 3);
+});"># 'nomsiz has() sinovi' testini shunga almashtiring:
+
+test('vakansiyaga ko\'nikmalar daraja bilan biriktiriladi', function () {
+    $vakansiya = Vakansiya::factory()
+        -&gt;hasAttached(
+            Konikma::factory()-&gt;count(3),
+            ['daraja' =&gt; 'yuqori'],
+            'konikmalar'
+        )
+        -&gt;create();
+
+    expect($vakansiya-&gt;konikmalar)-&gt;toHaveCount(3);
+    expect($vakansiya-&gt;konikmalar-&gt;first()-&gt;pivot-&gt;daraja)-&gt;toBe('yuqori');
+
+    $this-&gt;assertDatabaseCount('konikma_vakansiya', 3);
+});</div>
+        <div class="cmd" data-cmd="php artisan test --filter=konikmalar">php artisan test --filter=konikmalar
+<span class="out">  ✓ vakansiyaga ko'nikmalar daraja bilan biriktiriladi</span></div>
+      </li>
+
+      <li>
+        <p>⚠️ Factory zanjirini o'lchang</p>
+        <div class="cmd" data-cmd="# tests/Feature/BogliqlikTest.php ga vaqtincha qo'shing
+
+test('zanjir sinovi', function () {
+    Vakansiya::factory()-&gt;count(3)-&gt;create();
+
+    dump('vakansiyalar=' . Vakansiya::count() . '  kompaniyalar=' . Kompaniya::count());
+
+    expect(true)-&gt;toBeTrue();
+});"># tests/Feature/BogliqlikTest.php ga vaqtincha qo'shing
+
+test('zanjir sinovi', function () {
+    Vakansiya::factory()-&gt;count(3)-&gt;create();
+
+    dump('vakansiyalar=' . Vakansiya::count() . '  kompaniyalar=' . Kompaniya::count());
+
+    expect(true)-&gt;toBeTrue();
+});</div>
+        <div class="cmd" data-cmd="php artisan test --filter=zanjir">php artisan test --filter=zanjir
+<span class="out">&quot;vakansiyalar=3  kompaniyalar=3&quot;</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> <b>uchta</b> kompaniya.
+        <code>VakansiyaFactory</code> ni oching va sababni toping:
+        <code>'kompaniya_id' =&gt; Kompaniya::factory()</code>.
+        <br>Ko'rgach bu testni <b>o'chiring</b>.</p>
+      </li>
+
+      <li>
+        <p>Zanjirni <code>for()</code> bilan to'xtating</p>
+        <div class="cmd" data-cmd="# tests/Feature/BogliqlikTest.php ga qo'shing
+
+test('bitta kompaniyaga bir nechta vakansiya', function () {
+    $kompaniya = Kompaniya::factory()-&gt;create();
+
+    Vakansiya::factory()-&gt;count(3)-&gt;for($kompaniya, 'kompaniya')-&gt;create();
+
+    $this-&gt;assertDatabaseCount('vakansiyalar', 3);
+    $this-&gt;assertDatabaseCount('kompaniyalar', 1);
+});
+
+test('kompaniyaning vakansiyalari bog\'lanadi', function () {
+    $kompaniya = Kompaniya::factory()
+        -&gt;has(Vakansiya::factory()-&gt;count(4), 'vakansiyalar')
+        -&gt;create(['nom' =&gt; 'Softex Lab']);
+
+    expect($kompaniya-&gt;vakansiyalar)-&gt;toHaveCount(4);
+
+    $this-&gt;assertDatabaseCount('vakansiyalar', 4);
+    $this-&gt;assertDatabaseCount('kompaniyalar', 1);
+});"># tests/Feature/BogliqlikTest.php ga qo'shing
+
+test('bitta kompaniyaga bir nechta vakansiya', function () {
+    $kompaniya = Kompaniya::factory()-&gt;create();
+
+    Vakansiya::factory()-&gt;count(3)-&gt;for($kompaniya, 'kompaniya')-&gt;create();
+
+    $this-&gt;assertDatabaseCount('vakansiyalar', 3);
+    $this-&gt;assertDatabaseCount('kompaniyalar', 1);
+});
+
+test('kompaniyaning vakansiyalari bog\'lanadi', function () {
+    $kompaniya = Kompaniya::factory()
+        -&gt;has(Vakansiya::factory()-&gt;count(4), 'vakansiyalar')
+        -&gt;create(['nom' =&gt; 'Softex Lab']);
+
+    expect($kompaniya-&gt;vakansiyalar)-&gt;toHaveCount(4);
+
+    $this-&gt;assertDatabaseCount('vakansiyalar', 4);
+    $this-&gt;assertDatabaseCount('kompaniyalar', 1);
+});</div>
+        <p class="why-step">🔍 Ikkinchi testda kompaniya <b>bitta</b>, chunki
+        <code>has()</code> vakansiyalarni <b>mavjud</b> kompaniyaga bog'laydi —
+        yangi yasamaydi.</p>
+      </li>
+
+      <li>
+        <p>Holat va o'chirishni tekshiring</p>
+        <div class="cmd" data-cmd="# tests/Feature/BogliqlikTest.php ga qo'shing
+
+test('yopiq vakansiyalar ro\'yxatda ko\'rinmaydi', function () {
+    $kompaniya = Kompaniya::factory()-&gt;create();
+
+    Vakansiya::factory()-&gt;count(2)-&gt;for($kompaniya, 'kompaniya')-&gt;create(['faol' =&gt; true]);
+    Vakansiya::factory()-&gt;count(3)-&gt;for($kompaniya, 'kompaniya')-&gt;yopiq()-&gt;create();
+
+    $this-&gt;assertDatabaseCount('vakansiyalar', 5);
+
+    expect(Vakansiya::faol()-&gt;count())-&gt;toBe(2);
+});
+
+test('o\'chirilgan vakansiya bazadan yo\'qoladi', function () {
+    $vakansiya = Vakansiya::factory()-&gt;create();
+
+    $this-&gt;assertModelExists($vakansiya);
+
+    $vakansiya-&gt;delete();
+
+    $this-&gt;assertModelMissing($vakansiya);
+    $this-&gt;assertDatabaseCount('vakansiyalar', 0);
+});"># tests/Feature/BogliqlikTest.php ga qo'shing
+
+test('yopiq vakansiyalar ro\'yxatda ko\'rinmaydi', function () {
+    $kompaniya = Kompaniya::factory()-&gt;create();
+
+    Vakansiya::factory()-&gt;count(2)-&gt;for($kompaniya, 'kompaniya')-&gt;create(['faol' =&gt; true]);
+    Vakansiya::factory()-&gt;count(3)-&gt;for($kompaniya, 'kompaniya')-&gt;yopiq()-&gt;create();
+
+    $this-&gt;assertDatabaseCount('vakansiyalar', 5);
+
+    expect(Vakansiya::faol()-&gt;count())-&gt;toBe(2);
+});
+
+test('o\'chirilgan vakansiya bazadan yo\'qoladi', function () {
+    $vakansiya = Vakansiya::factory()-&gt;create();
+
+    $this-&gt;assertModelExists($vakansiya);
+
+    $vakansiya-&gt;delete();
+
+    $this-&gt;assertModelMissing($vakansiya);
+    $this-&gt;assertDatabaseCount('vakansiyalar', 0);
+});</div>
+        <p class="why-step">🔍 Birinchisi 29-darsdagi <code>faol()</code>
+        scope'ini qulflaydi: yopiq vakansiyalar bazada bor, lekin scope
+        ularni <b>chiqarmaydi</b>.</p>
+      </li>
+
+      <li>
+        <p>To'liq to'plamni ishga tushiring</p>
+        <div class="cmd" data-cmd="php artisan test">php artisan test
+<span class="out">  Tests:    15 passed (40 assertions)</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> 15 test yashil.
+        <br>🔍 Birinchi Feature test ~0.11 s, qolganlari ~0.01 s —
+        migratsiyalar bir marta bajarilgani shundan ko'rinadi.</p>
+      </li>
+
+      <li>
+        <p>Ishni saqlang</p>
+        <div class="cmd" data-cmd="php artisan test
+git add -A
+git commit -m &quot;39-dars: bog'langan ma'lumot bilan test&quot;">php artisan test
+git add -A
+git commit -m &quot;39-dars: bog'langan ma'lumot bilan test&quot;</div>
+        <p class="expect"><b>Kutilgan natija:</b> avval yashil, keyin
+        commit.</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><input type="checkbox" id="d39c1"><label for="d39c1"><b>Factory fayli yo'qligidagi xatoni ko'rdim</b> ⚠️</label></li>
+      <li><input type="checkbox" id="d39c2"><label for="d39c2"><code>KonikmaFactory</code> ni yasadim</label></li>
+      <li><input type="checkbox" id="d39c3"><label for="d39c3"><b>Nomsiz <code>has()</code> tuzog'ini ataylab ko'rdim</b> ⚠️</label></li>
+      <li><input type="checkbox" id="d39c4"><label for="d39c4"><code>hasAttached</code> bilan pivot ustunini to'ldirdim</label></li>
+      <li><input type="checkbox" id="d39c5"><label for="d39c5"><b>Uchta vakansiya uchta kompaniya yasashini o'lchadim</b></label></li>
+      <li><input type="checkbox" id="d39c6"><label for="d39c6"><code>for()</code> bilan zanjirni to'xtatdim</label></li>
+      <li><input type="checkbox" id="d39c7"><label for="d39c7"><code>has()</code> bilan kompaniya + 4 vakansiya yasadim</label></li>
+      <li><input type="checkbox" id="d39c8"><label for="d39c8">Holat (<code>yopiq()</code>) bilan scope'ni qulfladim</label></li>
+      <li><input type="checkbox" id="d39c9"><label for="d39c9"><code>assertModelExists</code> va <code>assertModelMissing</code> ishlatdim</label></li>
+      <li><input type="checkbox" id="d39c10"><label for="d39c10">15 test / 40 tekshiruv yashil</label></li>
+      <li><input type="checkbox" id="d39c11"><label for="d39c11">Ishni commit qildim</label></li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 10) SINAB KO'RAMIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p><code>KonikmaFactory</code> shunday yozilgan — o'nta variantdan
+    <b>takrorlanmas</b> qiymat tanlaydi:</p>
+    <div class="codefile">
+      <div class="fname">database/factories/KonikmaFactory.php</div>
+      <code class="cmd" data-cmd="    public function definition(): array
+    {
+        return [
+            'nom' =&gt; fake()-&gt;unique()-&gt;randomElement([
+                'PHP', 'Laravel', 'MySQL', 'JavaScript', 'Vue', 'Git',
+                'Docker', 'Redis', 'Linux', 'SQL',
+            ]),
+        ];
+    }">    public function definition(): array
+    {
+        return [
+            'nom' =&gt; fake()-&gt;unique()-&gt;randomElement([
+                'PHP', 'Laravel', 'MySQL', 'JavaScript', 'Vue', 'Git',
+                'Docker', 'Redis', 'Linux', 'SQL',
+            ]),
+        ];
+    }</code>
+    </div>
+    <p>Dasturchi «ko'p ko'nikmali vakansiya» testini yozdi va
+    <code>count(15)</code> so'radi. Nima bo'ladi — o'nta ko'nikma yasaladimi,
+    yoki takrorlanadimi, yoki?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <div class="natija">OverflowException
+Maximum retries of 10000 reached without finding a unique value</div>
+        <p>Na o'nta, na takrorlangan — <b>istisno</b>. <code>unique()</code>
+        yangi qiymat topilmagach 10 000 marta qayta urinadi, keyin taslim
+        bo'ladi.</p>
+        <p class="expect">⚠️ Xato xabari <b>sababni aytmaydi</b>: unda na
+        <code>Konikma</code>, na <code>randomElement</code>, na «ro'yxat
+        tugadi» degan gap bor. Siz esa <code>count(15)</code> ni ayblab
+        o'ylamaysiz — chunki 15 ta yozuv so'rash mutlaqo oddiy narsa.</p>
+        <p>🔑 <b>Tashxis qoidasi:</b> <code>Maximum retries</code> so'zini
+        ko'rsangiz, factory'da <code>unique()</code> ni izlang va uning
+        <b>manba ro'yxati</b> qanchaligini sanang.</p>
+        <p><b>Uch yechim bor</b>, va tanlov testning maqsadiga bog'liq:</p>
+        <div class="natija">// 1) chegarada qolish — ro'yxat 10 ta, demak ko'pi bilan 10
+-&gt;count(10)
+
+// 2) ro'yxatni kengaytirish
+'nom' =&gt; fake()-&gt;unique()-&gt;word()
+
+// 3) takrorlanmaslikni son bilan ta'minlash
+'nom' =&gt; 'Ko\'nikma ' . fake()-&gt;unique()-&gt;numberBetween(1, 9999)</div>
+        <p>🔍 Uchinchisi testlarda ko'pincha eng ma'qul: qiymat
+        <b>chiroyli emas</b>, lekin <b>hech qachon tugamaydi</b> va test
+        nechta yozuv so'rasa ham ishlaydi. Testda ma'lumotning chiroyli
+        bo'lishi shart emas — <b>ishonchli</b> bo'lishi kerak.</p>
+        <p>🔑 Va umumiy saboq: <code>unique()</code> yozgan har bir joyda
+        savol bering — <b>«manba nechta qiymat bera oladi?»</b></p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span> O'zbekcha nomli
+    bog'lanishda <code>has()</code> qanday ishlatiladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Nomni aniq ko'rsatish kerak bo'ladi</button></li>
+      <li><button class="quiz-option">Laravel nomni to'g'ri topib oladi</button></li>
+      <li><button class="quiz-option">Model nomini inglizcha yozish kerak</button></li>
+    </ul>
+    <div class="quiz-explain">Laravel avval <b>ko'plik</b>
+    (<code>konikmas</code>), keyin <b>birlik</b> (<code>konikma</code>) nomli
+    metod qidiradi. Bizdagi <code>konikmalar()</code> ikkalasiga ham mos emas →
+    <code>Call to undefined method ...::konikma()</code>.
+    🔍 <code>for()</code> da esa shart emas — u ko'plik yasamaydi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span>
+    <code>Vakansiya::factory()-&gt;count(3)-&gt;create()</code> bazada nima
+    qoldiradi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Uchta vakansiya uchta kompaniya yasaydi</button></li>
+      <li><button class="quiz-option">Uchta vakansiya bitta kompaniya yasaydi</button></li>
+      <li><button class="quiz-option">Uchta vakansiya kompaniyasiz qolib ketadi</button></li>
+    </ul>
+    <div class="quiz-explain"><code>VakansiyaFactory</code> ichida
+    <code>'kompaniya_id' =&gt; Kompaniya::factory()</code> turibdi — har bir
+    vakansiya <b>o'ziga</b> kompaniya yasaydi. Zanjirni to'xtatish uchun
+    <code>-&gt;for($k, 'kompaniya')</code> yoki
+    <code>-&gt;recycle($k)</code>.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span>
+    <code>assertDatabaseHas</code> ga nimani berish afzal?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Model klassini bering jadval nomini emas</button></li>
+      <li><button class="quiz-option">Jadval nomini har doim qo'lda yozing</button></li>
+      <li><button class="quiz-option">Ikkalasi ham bir xil xavf tug'diradi</button></li>
+    </ul>
+    <div class="quiz-explain"><code>assertDatabaseHas(Vakansiya::class, [...])</code>
+    jadval nomini modeldagi <code>$table</code> dan oladi. Bizda jadval nomlari
+    o'zbekcha va taxminga mos kelmaydi, shuning uchun qo'lda yozish xatoga
+    ochiq: <code>no such table: vakansiyas</code>.</div>
+  </div>
+
+  <!-- ═══════════════ 11) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+    <p class="recall-intro">Avval o'zingiz javob bering, keyin ochib tekshiring.
+    Oxirgi ikkitasi — <a href="0038-feature-test-http.html">38-darsni</a> takrorlash.</p>
+
+    <details class="recall">
+      <summary><code>for()</code> va <code>has()</code> farqi nimada?</summary>
+      <div class="answer"><p><code>for()</code> — <code>belongsTo</code> tomoni
+      («kimga tegishli»), <code>has()</code> — <code>hasMany</code> tomoni
+      («nimalari bor»). <code>hasAttached()</code> esa ko'pga-ko'p uchun,
+      pivot ustunlari bilan.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Nega <code>has()</code> da nom majburiy, <code>for()</code> da yo'q?</summary>
+      <div class="answer"><p><code>has()</code> taxminda <b>ko'plik</b>
+      yasaydi (<code>Konikma</code> → <code>konikmas</code>) va o'zbekcha
+      <code>konikmalar()</code> ga yetib bormaydi. <code>for()</code> esa
+      <b>birlik</b> ishlatadi — <code>kompaniya</code> aynan mos
+      keladi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Factory zanjirini qanday to'xtatasiz?</summary>
+      <div class="answer"><p><code>-&gt;for($model, 'nom')</code> — aniq bir
+      bog'lanish uchun, yoki <code>-&gt;recycle($model)</code> — butun
+      daraxtga tarqaladi. Aks holda har yozuv o'ziga bog'liq modellarni
+      yasaydi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: nega <code>from()</code> kerak?</summary>
+      <div class="answer"><p>Testda <code>Referer</code> yo'q, shuning uchun
+      <code>back()</code> sayt <b>ildiziga</b> qaytaradi. Orqaga qaytaradigan
+      har bir so'rovda <code>-&gt;from('/qayerdan')</code> yozing.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: <code>assertSee</code> apostrof bilan qanday ishlaydi?</summary>
+      <div class="answer"><p>Ishlaydi — chunki <code>assertSee</code>
+      <b>izlanayotgan matnni ham</b> ekranlaydi. Ikkinchi argument
+      <code>false</code> qo'ysangiz <b>yiqiladi</b>: HTML'da
+      <code>Qo&amp;#039;shildi</code> turadi.</p></div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 12) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Cho'ntak xulosasi</span>
+    <ul>
+      <li><code>for($model, 'nom')</code> — <code>belongsTo</code> tomoni
+      («kimga tegishli»). Nom <b>ixtiyoriy</b>: taxmin birlikda va o'zbekcha
+      nomga mos keladi.</li>
+      <li><code>has($factory-&gt;count(4), 'vakansiyalar')</code> —
+      <code>hasMany</code> tomoni. ⚠️ Nom <b>majburiy</b>.</li>
+      <li>⚠️ <b>Nega majburiy:</b> taxmin avval <b>ko'plik</b>
+      (<code>Konikma</code> → <code>konikmas</code>), keyin <b>birlik</b>
+      (<code>konikma</code>). O'zbekcha <code>konikmalar()</code> ikkalasiga
+      ham mos emas → <code>Call to undefined method ...::konikma()</code>.</li>
+      <li><code>hasAttached($factory-&gt;count(3), ['daraja' =&gt; 'yuqori'],
+      'konikmalar')</code> — ko'pga-ko'p va pivot ustunlari bitta
+      chaqiruvda.</li>
+      <li>⚠️ <b>Factory zanjiri:</b>
+      <code>Vakansiya::factory()-&gt;count(3)</code> bazada <b>3 kompaniya</b>
+      ham qoldiradi — sababi <code>definition()</code> ichidagi
+      <code>Kompaniya::factory()</code>.</li>
+      <li>Zanjirni to'xtatish: <code>-&gt;for($k, 'kompaniya')</code> (aniq
+      bog'lanish) yoki <code>-&gt;recycle($k)</code> (butun daraxtga).</li>
+      <li><code>sequence([...], [...])</code> — navbatma-navbat qiymatlar.
+      ⚠️ <code>count</code> variantlar soniga bo'linmasa taqsimot teng
+      bo'lmaydi.</li>
+      <li>Holatlar zanjirlanadi: <code>-&gt;yopiq()-&gt;boy()</code>. Bir xil
+      maydonni o'zgartirsa — <b>oxirgisi</b> g'olib.</li>
+      <li><code>assertDatabaseCount('vakansiyalar', 4)</code> ·
+      <code>assertModelExists($v)</code> ·
+      <code>assertModelMissing($v)</code>.</li>
+      <li>🔍 <b>Jadval nomini yozmang:</b>
+      <code>assertDatabaseHas(Vakansiya::class, [...])</code> — nom
+      <code>$table</code> dan olinadi. Xato yozilsa:
+      <code>no such table: vakansiyas</code>.</li>
+      <li>⚠️ Factory fayli yo'q bo'lsa:
+      <code>Class "Database\Factories\KonikmaFactory" not found</code>.
+      🔍 Bu yerda taxmin <b>ishlaydi</b> — ko'plik yasalmaydi.</li>
+      <li>⚠️ <code>unique()</code> manbasi tugasa:
+      <code>OverflowException: Maximum retries of 10000 reached</code>.
+      Har <code>unique()</code> uchun savol: <b>manba nechta qiymat
+      beradi?</b></li>
+      <li>Izolyatsiya o'lchandi: <b>0 → 5 → 0</b>. Testlar bir-biriga iz
+      qoldirmaydi.</li>
+      <li>🔍 Birinchi Feature test ~0.11 s, qolganlari ~0.01 s —
+      migratsiyalar <b>bir marta</b> bajariladi, keyin har test tranzaksiya
+      ichida ishlaydi.</li>
+      <li><b>Natija:</b> 15 test, 40 tekshiruv — 26–29-darsdagi bog'lanishlar
+      va scope ham qulflandi.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p>Endi bog'langan ma'lumotni bir qatorda yasay olasiz. Testlar
+    IshTop'ning ma'lumot qatlamini qamrab oldi.</p>
+    <p>Lekin 30–32-darsdagi <b>auth oqimi</b> hali test bilan qoplanmagan:
+    ro'yxatdan o'tish, kirish, chiqish, rate limiting. Va policy'ni
+    <b>HTTP orqali</b> emas, <b>to'g'ridan-to'g'ri</b> tekshirish ham
+    boshqa mavzu.</p>
+    <p>40-darsda shularni yozamiz: <code>assertGuest</code>,
+    <code>assertAuthenticated</code>, <code>assertAuthenticatedAs</code>,
+    policy'ni <code>$user-&gt;can(...)</code> bilan sinash va
+    31-darsdagi so'rov cheklovini test qilish.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel — Database Testing</b>:
+    <a href="https://laravel.com/docs/13.x/database-testing">laravel.com/docs/13.x/database-testing</a>
+    — <code>RefreshDatabase</code>, factory bog'lanishlari,
+    <code>assertDatabase*</code>.<sup><a href="#fn1">1</a></sup><br>
+    <b>Factory Relationships</b>:
+    <a href="https://laravel.com/docs/13.x/eloquent-factories#factory-relationships">has,
+    for, hasAttached, recycle</a>.<sup><a href="#fn2">2</a></sup><br>
+    <b>Sequences</b>:
+    <a href="https://laravel.com/docs/13.x/eloquent-factories#sequences">factory
+    sequence</a>.<sup><a href="#fn3">3</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b> «testda seeder ishlatsam
+    bo'ladimi?», «katta to'plamni qanday tezlashtiraman?», «har test uchun
+    ma'lumot yasash o'rniga bir marta yasab bo'lmaydimi?», «MySQL'da
+    <code>RefreshDatabase</code> shunday ishlaydimi?» — har qanday savol
+    yaxshi. Uchinchisiga qisqa javob: <b>mumkin, lekin ehtiyot bo'ling</b> —
+    umumiy ma'lumot 38-darsdagi «ba'zan yiqiladigan test» muammosini
+    qaytaradi. Oxirgisiga: <b>ha</b>, lekin MySQL'da migratsiyalar sezilarli
+    sekinroq, shuning uchun testlar uchun SQLite <code>:memory:</code>
+    saqlanadi — 37-darsdagi <code>phpunit.xml</code> shuning uchun
+    shunday yozilgan.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0038-feature-test-http.html">Oldingi: Feature test — HTTP</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel 13 — <a href="https://laravel.com/docs/13.x/database-testing">Database Testing</a>.</li>
+      <li id="fn2">Laravel 13 — <a href="https://laravel.com/docs/13.x/eloquent-factories#factory-relationships">Factory Relationships</a>.</li>
+      <li id="fn3">Laravel 13 — <a href="https://laravel.com/docs/13.x/eloquent-factories#sequences">Sequences</a>.</li>
+      <li id="fn4">Barchasi jonli o'lchangan (PHP 8.3.32, Laravel 13.25.0,
+      Pest 4.7.8, SQLite <code>:memory:</code>): to'liq to'plam
+      <b>15 passed (40 assertions)</b> ·
+      <code>Konikma::factory()</code> factory faylsiz →
+      <code>Class "Database\Factories\KonikmaFactory" not found</code> ·
+      <code>for($k)</code> nomsiz <b>ishladi</b>,
+      <code>for($k, 'kompaniya')</code> ham ·
+      <code>has(Konikma::factory()-&gt;count(3))</code> nomsiz →
+      <code>BadMethodCallException: Call to undefined method
+      App\Models\Vakansiya::konikma()</code> ·
+      <code>Str::plural</code>: <code>Konikma→Konikmas</code>,
+      <code>Vakansiya→Vakansiyas</code>, <code>Kompaniya→Kompaniyas</code> ·
+      <code>hasAttached(..., ['daraja' =&gt; 'yuqori'], 'konikmalar')</code> →
+      3 ko'nikma, pivot <code>konikma_vakansiya</code> da 3 qator ·
+      <code>count(3)</code> vakansiya → <b>3 kompaniya</b>;
+      <code>for()</code> yoki <code>recycle()</code> bilan → <b>1</b> ·
+      <code>sequence()</code> → Toshkent 2 / Buxoro 2 ·
+      <code>yopiq()-&gt;boy()</code> → <code>faol=false</code>,
+      <code>maosh=3033</code> ·
+      <code>assertDatabaseHas</code> jadval nomi bilan <b>va</b>
+      <code>Vakansiya::class</code> bilan — ikkalasi ishladi;
+      <code>'vakansiyas'</code> → <code>no such table</code> ·
+      izolyatsiya: 0 → 5 → 0 ·
+      <code>unique()</code> 10 talik ro'yxatdan 15 ta so'ralganda →
+      <code>OverflowException: Maximum retries of 10000 reached without
+      finding a unique value</code>.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>
