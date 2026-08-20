@@ -17,7 +17,7 @@
   muhit ma'lumotlari. Har dars yangi buyruq o'rgatilsa, shu yerga qo'shiladi.</p>
 
   <p class="lesson-meta">
-    <span>Qamrov: <b>1&ndash;40-darslar</b> — muhitdan testlargacha</span>
+    <span>Qamrov: <b>1&ndash;41-darslar</b> — muhitdan testlargacha</span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>💻 Amaliyotga mos</span>
   </p>
@@ -932,6 +932,40 @@
     <code>CACHE_STORE=array</code>.</p>
     <p>🔍 <b>Auth testlari sekinroq</b> (~0.2–1 s) — parol xeshlash ataylab
     sekin; <code>BCRYPT_ROUNDS=4</code> yumshatadi.</p>
+  </div>
+
+  <h2>PHPUnit uslubi va TDD (41-darsdan)</h2>
+  <table class="sheet">
+    <tr><th>PHPUnit</th><th class="note-cell">Pest</th></tr>
+    <tr><td><code>class X extends Tests\TestCase</code></td><td class="note-cell">Klass kerak emas — <code>test('nom', fn () =&gt; ...)</code></td></tr>
+    <tr><td><code>use RefreshDatabase;</code> (klass ichida)</td><td class="note-cell">⚠️ <code>tests/Pest.php</code> avtomatik ulaydi</td></tr>
+    <tr><td><code>public function test_...()</code></td><td class="note-cell">⚠️ <code>test_</code> yo'q → <b>jimgina o'tkazib yuboriladi</b></td></tr>
+    <tr><td><code>#[Test]</code> atributi</td><td class="note-cell"><code>test_</code> prefiksisiz ishlatish uchun</td></tr>
+    <tr><td><code>setUp()</code> + <code>parent::setUp()</code></td><td class="note-cell"><code>beforeEach(function () { ... })</code></td></tr>
+    <tr><td><code>assertSame($kutilgan, $haqiqiy)</code></td><td class="note-cell"><code>expect($haqiqiy)-&gt;toBe($kutilgan)</code> — ⚠️ tartib teskari</td></tr>
+    <tr><td><code>assertEquals</code></td><td class="note-cell"><code>toEqual</code> — tipni e'tiborsiz qoldiradi</td></tr>
+    <tr><td><code>assertTrue</code> · <code>assertNull</code> · <code>assertCount</code></td><td class="note-cell"><code>toBeTrue</code> · <code>toBeNull</code> · <code>toHaveCount</code></td></tr>
+    <tr><td><code>#[DataProvider('nom')]</code> + <code>static function</code></td><td class="note-cell"><code>-&gt;with([[...], [...]])</code></td></tr>
+    <tr><td><code>make:test X --phpunit</code></td><td class="note-cell"><code>Tests\TestCase</code> (Laravel bor)</td></tr>
+    <tr><td><code>make:test X --phpunit --unit</code></td><td class="note-cell">⚠️ <code>PHPUnit\Framework\TestCase</code> — Laravel <b>yo'q</b></td></tr>
+  </table>
+  <div class="callout note">
+    <p>🔑 <b>O'zgarmaydigan qism:</b> <code>actingAs</code>,
+    <code>post</code>, <code>assertForbidden</code>,
+    <code>assertDatabaseHas</code>, <code>User::factory()</code> — ikkala
+    uslubda <b>bir xil</b>, chunki ular Laravel'niki.</p>
+    <p>⚠️ <b>Argument tartibi:</b> PHPUnit'da <b>kutilgan birinchi</b>,
+    Pest'da <b>haqiqiy birinchi</b>. Adashsangiz xato xabari teskari
+    o'qiladi. Diffda <code>-</code> — kutilgan, <code>+</code> — haqiqiy.</p>
+    <p>⚠️ <b>Yashil to'plam ≠ hamma narsa tekshirilgan.</b> Yangi test yozgach
+    <code>Tests: N passed</code> dagi <b>N ortdimi</b> — shuni kuzating.</p>
+    <p><b>🔴 RED → 🟢 GREEN → 🔵 REFACTOR:</b> kod yozilmasdan test (qizil) →
+    eng sodda yechim (yashil) → shaklni tozalash (xulq o'zgarmaydi).
+    🔑 Har aylanada <b>eski testlar yashil qolishi</b> — ishonchning
+    manbai.</p>
+    <p>🔍 TDD tez aylana talab qiladi: Unit test <b>~0.04 s</b>. Sof mantiqni
+    (formatlash, hisob-kitob) Laravel'siz klassga ajratsangiz, aylana shu
+    tezlikda bo'ladi.</p>
   </div>
 
   <h2>Xatoni o'qish</h2>

@@ -1,0 +1,1384 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 41 — PHPUnit ko'rinishi va red → green → refactor</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 41 · MODUL E — TEST (PEST)</p>
+  <h1>PHPUnit ko'rinishi va red → green → refactor</h1>
+  <p class="lead">Modul E'da Pest bilan ishladik. Ammo dunyodagi Laravel
+  loyihalarining katta qismi hali ham <b>PHPUnit</b> uslubida yozilgan —
+  ochilgan har bir eski loyihada shu ko'rinishni uchratasiz. Bugun ikkalasini
+  <b>yonma-yon</b> qo'yamiz, keyin <b>test-birinchi</b> yozishni sinab
+  ko'ramiz: yiqiladigan test → eng sodda kod → tozalash.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 16 daqiqa</span>
+    <span>💻 Amaliyot ≈ 25 daqiqa</span>
+    <span>Kerak: <a href="0040-auth-va-policy-testi.html">Dars 40</a></span>
+  </p>
+
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b>Nega PHPUnit uslubi kerak</b>
+        <span class="nima">Yozmasangiz ham <b>o'qiy olishingiz</b> shart:
+        eski loyihalar, qo'llanmalar va StackOverflow javoblari shu
+        uslubda.</span></li>
+      <li><b>Bitta test — ikki ko'rinish</b>
+        <span class="nima">Xuddi shu tekshiruv Pest'da va PHPUnit'da.
+        Nima o'zgaradi, nima o'zgarmaydi.</span></li>
+      <li><b>⚠️ PHPUnit klassiga <code>tests/Pest.php</code> ta'sir qilmaydi</b>
+        <span class="nima">Birinchi ishga tushirish
+        <code>no such table: users</code> beradi. Sabab va bir qatorli
+        yechim.</span></li>
+      <li><b>Nomlash: <code>test_</code> prefiksi</b>
+        <span class="nima">Metod nomi <code>test_</code> bilan boshlanishi
+        shart. Pest uni chiqishda <b>o'qiladigan</b> jumlaga
+        aylantiradi.</span></li>
+      <li><b><code>setUp()</code> va <code>beforeEach()</code></b>
+        <span class="nima">Har testdan oldingi tayyorgarlik — ikki uslubda.
+        ⚠️ <code>parent::setUp()</code> unutilmasin.</span></li>
+      <li><b>Tekshiruvlar lug'ati</b>
+        <span class="nima"><code>assertSame</code> ↔ <code>toBe</code>,
+        <code>assertEquals</code> ↔ <code>toEqual</code> va boshqalar —
+        jadval bilan.</span></li>
+      <li><b>⚠️ Argument tartibi teskari</b>
+        <span class="nima">PHPUnit: <b>kutilgan</b> birinchi. Pest: haqiqiy
+        birinchi. Adashsangiz xato xabari <b>teskari</b> chiqadi —
+        o'lchandi.</span></li>
+      <li><b>Data provider ↔ <code>with()</code></b>
+        <span class="nima">Bitta testdan bir nechta holat. PHPUnit'da
+        <b>nomlangan</b> to'plamlar chiroyliroq chiqadi.</span></li>
+      <li><b><code>make:test --phpunit</code></b>
+        <span class="nima">🔍 <code>--unit</code> bilan birga
+        <code>PHPUnit\Framework\TestCase</code> chiqadi — Laravel
+        <b>umuman</b> yo'q.</span></li>
+      <li><b>🔴 RED — yiqiladigan test</b>
+        <span class="nima">Kod yozilmasdan turib test yoziladi va
+        <b>ataylab</b> yiqitiladi. Nega bu qadam tashlab ketilmaydi.</span></li>
+      <li><b>🟢 GREEN → 🔵 REFACTOR</b>
+        <span class="nima">Eng sodda kod, keyin tozalash. Ikkinchi aylanada
+        <code>null</code> holati qo'shiladi va birinchi test <b>yashil
+        qoladi</b>.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima"><code>RefreshDatabase</code> ·
+        <code>--unit</code> · <code>assertEquals</code> ·
+        argument tartibi · <code>test_</code> prefiksi ·
+        «keyin yozaman» · refaktoring xavfsizligi.</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">O'qish — yozishdan muhimroq</span>
+    <p>Pest 2021-yilda chiqdi. Undan oldingi <b>o'n yillik</b> Laravel kodi —
+    va bugungi ko'p loyihalar — PHPUnit uslubida yozilgan:</p>
+    <div class="natija">class VakansiyaTest extends TestCase
+{
+    public function test_nomzod_vakansiya_qosha_olmaydi(): void
+    {
+        // ...
+    }
+}</div>
+    <p>Siz yangi loyihada Pest yozishingiz mumkin. Lekin:</p>
+    <div class="natija">eski loyihaga qo'shilsangiz       →  PHPUnit testlarini o'qiysiz
+paket kodini ochsangiz            →  PHPUnit testlari
+StackOverflow javobi              →  odatda PHPUnit
+Laravel'ning o'z manba kodi       →  PHPUnit</div>
+    <p>Shuning uchun maqsad — <b>ikkalasini o'qiy olish</b> va kerak bo'lganda
+    birini ikkinchisiga o'girish. Yaxshi xabar: ular <b>bir xil</b> asosda
+    ishlaydi. Pest — PHPUnit ustidagi qobiq, 37-darsda aytilgandek.</p>
+  </div>
+
+  <!-- ═══════════════ 2) YONMA-YON ═══════════════ -->
+  <h2>Bitta test — ikki ko'rinish</h2>
+
+  <p>38-darsdagi testni PHPUnit uslubida qayta yozamiz:</p>
+
+  <div class="codefile">
+    <span class="fname">Pest uslubi — tests/Feature/VakansiyaTest.php</span>
+    <code class="cmd">&lt;?php
+
+use App\Enums\Rol;
+use App\Models\User;
+
+test('nomzod vakansiya qo\'sha olmaydi', function () {
+    $nomzod = User::factory()-&gt;create(['rol' =&gt; Rol::Nomzod]);
+
+    $this-&gt;actingAs($nomzod)
+        -&gt;post('/vakansiyalar', ['nom' =&gt; 'Backend dasturchi', 'maosh' =&gt; 9000000])
+        -&gt;assertForbidden();
+
+    $this-&gt;assertDatabaseMissing('vakansiyalar', ['nom' =&gt; 'Backend dasturchi']);
+});</code>
+  </div>
+
+  <div class="codefile">
+    <span class="fname">PHPUnit uslubi — tests/Feature/PhpunitUslubTest.php</span>
+    <code class="cmd">&lt;?php
+
+namespace Tests\Feature;                              // ← namespace kerak
+
+use App\Enums\Rol;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;    // ← qo'lda
+use Tests\TestCase;
+
+class PhpunitUslubTest extends TestCase               // ← klass
+{
+    use RefreshDatabase;                              // ← qo'lda
+
+    public function test_nomzod_vakansiya_qosha_olmaydi(): void
+    {
+        $nomzod = User::factory()-&gt;create(['rol' =&gt; Rol::Nomzod]);
+
+        $this-&gt;actingAs($nomzod)
+            -&gt;post('/vakansiyalar', ['nom' =&gt; 'Backend dasturchi', 'maosh' =&gt; 9000000])
+            -&gt;assertForbidden();
+
+        $this-&gt;assertDatabaseMissing('vakansiyalar', ['nom' =&gt; 'Backend dasturchi']);
+    }
+}</code>
+  </div>
+
+  <p><b>O'zgarmagan qismga qarang:</b> <code>actingAs</code>,
+  <code>post</code>, <code>assertForbidden</code>,
+  <code>assertDatabaseMissing</code>, <code>User::factory()</code> — hammasi
+  <b>aynan bir xil</b>. Chunki bu metodlar Laravel'niki, Pest'niki emas.</p>
+
+  <div class="natija">O'zgargani:   namespace · class · use RefreshDatabase · public function test_...
+
+O'zgarmagani: TEKSHIRUVLARNING O'ZI</div>
+
+  <div class="callout warning">
+    <span class="label">⚠️ Birinchi ishga tushirish yiqiladi</span>
+    <p><code>use RefreshDatabase;</code> ni yozmasdan ishlatsangiz:</p>
+    <div class="natija">SQLSTATE[HY000]: General error: 1 no such table: users
+(Connection: sqlite, Database: :memory:)</div>
+    <p>37-darsdagi <code>tests/Pest.php</code> ni eslang:</p>
+    <div class="natija">pest()-&gt;extend(TestCase::class)
+    -&gt;use(RefreshDatabase::class)
+    -&gt;in('Feature');</div>
+    <p>Bu sozlama <b>Pest fayllariga</b> qo'llanadi — qo'lda yozilgan PHPUnit
+    klasslariga <b>emas</b>. Klass o'zi nimani ishlatishini <b>o'zi</b> e'lon
+    qilishi kerak.</p>
+    <p>🔍 Shuning uchun <code>make:test --phpunit</code> yasagan skelet
+    <code>RefreshDatabase</code> ni <b>import qilib</b> beradi — ishlatilmagan
+    holda ham. Bu eslatma.</p>
+  </div>
+
+  <!-- ═══════════════ 3) NOMLASH ═══════════════ -->
+  <h2>Nomlash va chiqish</h2>
+
+  <p>PHPUnit metodning nomi <code>test_</code> bilan <b>boshlanishi</b> shart —
+  aks holda u test deb hisoblanmaydi va <b>jimgina o'tkazib
+  yuboriladi</b>.</p>
+
+  <p>Pest esa uni chiqishda o'qiladigan jumlaga aylantiradi:</p>
+
+  <div class="natija">kodda:      public function test_nomzod_vakansiya_qosha_olmaydi()
+chiqishda:  ✓ nomzod vakansiya qosha olmaydi</div>
+
+  <p class="expect">🔍 Diqqat: <code>qosha</code> — apostrofsiz. Metod nomida
+  <code>'</code> yozib bo'lmaydi, shuning uchun PHPUnit uslubida o'zbekcha
+  nomlar biroz g'aliz chiqadi. Pest'dagi <code>test('...')</code> esa
+  <b>istalgan</b> matnni oladi — 37-darsda shuning uchun
+  <code>test()</code> ni tanlagan edik.</p>
+
+  <h3>Tayyorgarlik: <code>setUp()</code> ↔ <code>beforeEach()</code></h3>
+
+  <div class="natija">// PHPUnit                              // Pest
+protected function setUp(): void          beforeEach(function () {
+{                                             $this-&gt;tayyorgarlik = '...';
+    parent::setUp();          ← ⚠️        });
+    $this-&gt;tayyorgarlik = '...';
+}</div>
+
+  <p>⚠️ PHPUnit'da <code>parent::setUp()</code> ni unutmang: Laravel'ni ishga
+  tushiradigan kod aynan o'sha yerda. Unutsangiz ilova ko'tarilmaydi.</p>
+
+  <p>Pest'da bu muammo yo'q — <code>beforeEach()</code> ichida
+  ota-metod chaqirilmaydi.</p>
+
+  <!-- ═══════════════ 4) LUG'AT ═══════════════ -->
+  <h2>Tekshiruvlar lug'ati</h2>
+
+  <div class="natija">PHPUnit                              Pest
+─────────────────────────────────────────────────────────────────
+$this-&gt;assertSame($k, $h)            expect($h)-&gt;toBe($k)
+$this-&gt;assertEquals($k, $h)          expect($h)-&gt;toEqual($k)
+$this-&gt;assertTrue($h)                expect($h)-&gt;toBeTrue()
+$this-&gt;assertFalse($h)               expect($h)-&gt;toBeFalse()
+$this-&gt;assertNull($h)                expect($h)-&gt;toBeNull()
+$this-&gt;assertCount(3, $h)            expect($h)-&gt;toHaveCount(3)
+$this-&gt;assertStringContainsString    expect($h)-&gt;toContain(...)
+$this-&gt;assertNotSame($k, $h)         expect($h)-&gt;not-&gt;toBe($k)</div>
+
+  <p>Laravel qo'shgan tekshiruvlar — <code>assertDatabaseHas</code>,
+  <code>assertForbidden</code>, <code>assertGuest</code> — <b>ikkala</b>
+  uslubda ham <code>$this-&gt;</code> orqali chaqiriladi. Ular Pest'niki emas,
+  Laravel'niki.</p>
+
+  <h3><code>assertSame</code> va <code>assertEquals</code></h3>
+
+  <div class="natija">$this-&gt;assertEquals('5', 5);     // ✅ o'tadi — qiymat teng
+$this-&gt;assertSame('5', 5);       // ⨯ yiqiladi — tip boshqa
+
+expect('5')-&gt;toEqual(5);         // ✅
+expect('5')-&gt;toBe(5);            // ⨯</div>
+
+  <p><code>assertSame</code>/<code>toBe</code> — <code>===</code> bilan bir xil:
+  qiymat <b>va</b> tip. 35-darsdagi «validatsiya tipni o'zgartirmaydi» qoidasini
+  eslang: <code>integer</code> qoidasidan o'tgan maosh baribir
+  <code>string</code>. O'shanday joyda <code>toBe</code> ni tanlasangiz test
+  sizga <b>haqiqatni</b> aytadi.</p>
+
+  <div class="callout warning">
+    <span class="label">⚠️ Argument tartibi teskari</span>
+    <div class="natija">PHPUnit:   assertSame($KUTILGAN, $haqiqiy)     ← kutilgan BIRINCHI
+Pest:      expect($haqiqiy)-&gt;toBe($KUTILGAN)   ← haqiqiy BIRINCHI</div>
+    <p>Adashsangiz test baribir <b>to'g'ri</b> ishlaydi (tenglik ikki tomonlama),
+    lekin <b>xato xabari teskari</b> chiqadi:</p>
+    <div class="natija">$this-&gt;assertSame('haqiqiy natija', 'kutilgan natija');   // ⚠️ teskari
+
+Failed asserting that two strings are identical.
+-'haqiqiy natija'        ← minus = KUTILGAN deb ko'rsatilyapti
++'kutilgan natija'       ← plyus  = HAQIQIY deb ko'rsatilyapti</div>
+    <p>Ya'ni siz «kutgan narsam <code>haqiqiy natija</code> edi» degan
+    xabarni o'qiysiz — va tashxis butunlay noto'g'ri yo'nalishga ketadi.</p>
+    <p>🔑 Yodda tuting: <code>-</code> qatori — <b>kutilgan</b>,
+    <code>+</code> qatori — <b>haqiqiy</b>. Diff shu tartibda o'qiladi.</p>
+  </div>
+
+  <!-- ═══════════════ 5) DATASET ═══════════════ -->
+  <h2>Bir nechta holat: data provider ↔ <code>with()</code></h2>
+
+  <div class="codefile">
+    <span class="fname">Pest — tests/Unit/MaoshTest.php</span>
+    <code class="cmd">test('maosh o\'qiladigan ko\'rinishda chiqadi', function (?int $miqdor, string $kutilgan) {
+    expect(Maosh::format($miqdor))-&gt;toBe($kutilgan);
+})-&gt;with([
+    [9000000, "9 000 000 so'm"],
+    [500, "500 so'm"],
+    [0, "0 so'm"],
+    [null, 'Kelishuv asosida'],
+]);</code>
+  </div>
+
+  <div class="codefile">
+    <span class="fname">PHPUnit — tests/Unit/MaoshPhpunitTest.php</span>
+    <code class="cmd">use PHPUnit\Framework\Attributes\DataProvider;
+
+    #[DataProvider('maoshHolatlari')]
+    public function test_maosh_oqiladigan_korinishda_chiqadi(?int $miqdor, string $kutilgan): void
+    {
+        $this-&gt;assertSame($kutilgan, Maosh::format($miqdor));
+    }
+
+    public static function maoshHolatlari(): array
+    {
+        return [
+            'katta son' =&gt; [9000000, "9 000 000 so'm"],
+            'kichik son' =&gt; [500, "500 so'm"],
+            'nol' =&gt; [0, "0 so'm"],
+            'ko\'rsatilmagan' =&gt; [null, 'Kelishuv asosida'],
+        ];
+    }</code>
+  </div>
+
+  <p>Ikkalasi ham bitta test tanasidan <b>to'rtta</b> test yasaydi:</p>
+
+  <div class="natija">✓ maosh oqiladigan korinishda chiqadi with data set "katta son"
+✓ maosh oqiladigan korinishda chiqadi with data set "kichik son"
+✓ maosh oqiladigan korinishda chiqadi with data set "nol"
+✓ maosh oqiladigan korinishda chiqadi with data set "ko'rsatilmagan"
+
+✓ maosh o'qiladigan ko'rinishda chiqadi with (9000000, '9 000 000 so'm')
+✓ maosh o'qiladigan ko'rinishda chiqadi with (500, '500 so'm')
+✓ maosh o'qiladigan ko'rinishda chiqadi with (0, '0 so'm')
+✓ maosh o'qiladigan ko'rinishda chiqadi with (null, 'Kelishuv asosida')</div>
+
+  <p class="expect">🔍 Bu yerda PHPUnit <b>ustunroq</b>: nomlangan to'plamlar
+  (<code>'katta son' =&gt; [...]</code>) chiqishda o'qiladigan bo'lib turadi.
+  Pest esa qiymatlarni o'zini ko'rsatadi. Pest'da ham nom berish mumkin, lekin
+  yozilishi biroz uzunroq.</p>
+
+  <p>🔑 Muhimi: <b>to'rtta alohida test</b>. Bittasi yiqilsa, qaysi biri
+  ekani darhol ko'rinadi — <code>foreach</code> bilan yozilgan bitta testda
+  esa bu ma'lumot yo'qoladi.</p>
+
+  <h3>Generator bayroqlari</h3>
+
+  <div class="natija">php artisan make:test XTest                    →  Pest (standart)
+php artisan make:test XTest --phpunit          →  class ... extends Tests\TestCase
+php artisan make:test XTest --phpunit --unit   →  class ... extends PHPUnit\Framework\TestCase</div>
+
+  <p class="expect">⚠️ Oxirgisiga diqqat: <code>--unit</code> bilan birga
+  <b>PHPUnit'ning o'z</b> <code>TestCase</code> i olinadi — Laravel <b>umuman
+  ko'tarilmaydi</b>. 40-darsdagi
+  <code>A facade root has not been set.</code> xatosining sababi ham shu
+  edi.</p>
+
+  <!-- ═══════════════ 6) TDD ═══════════════ -->
+  <h2>🔴🟢🔵 Red → Green → Refactor</h2>
+
+  <p>Shu paytgacha biz <b>kodni yozib</b>, keyin unga test yozdik. Endi
+  teskarisini sinaymiz — va farqni o'z ko'zingiz bilan ko'rasiz.</p>
+
+  <p>Vazifa oddiy: vakansiyalar ro'yxatida maosh <code>9000000</code> deb
+  chiqyapti. Uni <b>o'qiladigan</b> qilamiz.</p>
+
+  <div class="natija">hozir:    Backend dasturchi — 9000000 · Softex Lab
+kerak:    Backend dasturchi — 9 000 000 so'm · Softex Lab</div>
+
+  <h3>🔴 RED — kod yozilmasdan turib test</h3>
+
+  <div class="codefile">
+    <span class="fname">tests/Unit/MaoshTest.php</span>
+    <code class="cmd">&lt;?php
+
+use App\Support\Maosh;
+
+test('maosh o\'qiladigan ko\'rinishda chiqadi', function () {
+    expect(Maosh::format(9000000))-&gt;toBe("9 000 000 so'm");
+});</code>
+  </div>
+
+  <p><code>App\Support\Maosh</code> klassi hali <b>mavjud emas</b>. Ishga
+  tushiramiz:</p>
+
+  <div class="natija">⨯ maosh o'qiladigan ko'rinishda chiqadi                0.01s
+
+Error: Class "App\Support\Maosh" not found
+   at tests/Unit/MaoshTest.php:6</div>
+
+  <div class="callout tip">
+    <span class="label">Nega bu qadam tashlab ketilmaydi</span>
+    <p>«Kod yo'q-ku, albatta yiqiladi» — to'g'ri. Lekin qizil rangni
+    <b>ko'rish</b> ikki narsani isbotlaydi:</p>
+    <div class="natija">1) test HAQIQATAN ishga tushyapti  (fayl topildi, sintaksis to'g'ri)
+2) u AYNAN kutgan sababdan yiqilyapti  (klass yo'q, boshqa narsa emas)</div>
+    <p>37-darsdagi <code>risky</code> testni eslang: hech nima tekshirmaydigan
+    test ham «o'tadi». Qizilni ko'rmasdan yozilgan test <b>hech qachon</b>
+    yiqilmaydigan bo'lib chiqishi mumkin — va siz buni bilmaysiz.</p>
+    <p>🔑 Qoida: <b>hech qachon qizilni ko'rmagan test — testmas.</b></p>
+  </div>
+
+  <h3>🟢 GREEN — eng sodda kod</h3>
+
+  <div class="codefile">
+    <span class="fname">app/Support/Maosh.php</span>
+    <code class="cmd">&lt;?php
+
+namespace App\Support;
+
+class Maosh
+{
+    public static function format(int $miqdor): string
+    {
+        return number_format($miqdor, 0, '.', ' ') . " so'm";
+    }
+}</code>
+  </div>
+
+  <div class="natija">✓ maosh o'qiladigan ko'rinishda chiqadi
+
+Tests:    1 passed (1 assertions)
+Duration: 0.04s</div>
+
+  <p class="expect">🔍 <b>0.04 soniya.</b> Bu TDD'ning ishlashiga sabab
+  bo'ladigan raqam: aylana shunchalik tez bo'lsa, uni <b>o'nlab marta</b>
+  aylantirish mumkin. Feature testda (~0.2 s) ham chidasa bo'ladi, lekin
+  brauzerda qo'lda tekshirish (~30 s) bilan TDD ishlamaydi.</p>
+
+  <h3>🔴 Ikkinchi aylana — yangi holat</h3>
+
+  <p>Endi yangi talab: maosh ko'rsatilmagan bo'lsa «Kelishuv asosida»
+  yozilsin.</p>
+
+  <div class="codefile">
+    <span class="fname">tests/Unit/MaoshTest.php — qo'shildi</span>
+    <code class="cmd">test('maosh ko\'rsatilmagan bo\'lsa kelishuv deyiladi', function () {
+    expect(Maosh::format(null))-&gt;toBe('Kelishuv asosida');
+});</code>
+  </div>
+
+  <div class="natija">✓ maosh o'qiladigan ko'rinishda chiqadi              ← eskisi YASHIL
+⨯ maosh ko'rsatilmagan bo'lsa kelishuv deyiladi
+
+TypeError: App\Support\Maosh::format(): Argument #1 ($miqdor)
+must be of type int, null given
+
+Tests:    1 failed, 1 passed</div>
+
+  <p class="expect">🔑 <b>Eng muhim kuzatuv:</b> birinchi test <b>yashil
+  qoldi</b>. Siz aniq bilasiz — yangi talab eskisini buzmadi. Bu ishonch
+  har qo'shilgan test bilan <b>ortib boradi</b>.</p>
+
+  <h3>🟢 Yashil</h3>
+
+  <div class="codefile">
+    <span class="fname">app/Support/Maosh.php</span>
+    <code class="cmd">    public static function format(?int $miqdor): string    // ← ?int
+    {
+        if ($miqdor === null) {
+            return 'Kelishuv asosida';
+        }
+
+        return number_format($miqdor, 0, '.', ' ') . " so'm";
+    }</code>
+  </div>
+
+  <div class="natija">✓ maosh o'qiladigan ko'rinishda chiqadi
+✓ maosh ko'rsatilmagan bo'lsa kelishuv deyiladi
+
+Tests:    2 passed (2 assertions)</div>
+
+  <h3>🔵 REFACTOR — kod ham, test ham</h3>
+
+  <p>Refaktoring — <b>xulqni o'zgartirmasdan</b> shaklni yaxshilash. Ikkita
+  testni bitta dataset'ga yig'amiz va chekka holatlarni ham qo'shamiz:</p>
+
+  <div class="codefile">
+    <span class="fname">tests/Unit/MaoshTest.php — refaktoring</span>
+    <code class="cmd">test('maosh o\'qiladigan ko\'rinishda chiqadi', function (?int $miqdor, string $kutilgan) {
+    expect(Maosh::format($miqdor))-&gt;toBe($kutilgan);
+})-&gt;with([
+    [9000000, "9 000 000 so'm"],
+    [500, "500 so'm"],
+    [0, "0 so'm"],
+    [null, 'Kelishuv asosida'],
+]);</code>
+  </div>
+
+  <div class="natija">Tests:    4 passed (4 assertions)
+Duration: 0.04s</div>
+
+  <p>Ikkita test o'rniga <b>to'rtta</b> — va yozuv <b>qisqardi</b>. Yangi
+  chekka holatlar (<code>500</code>, <code>0</code>) birinchi urinishdayoq
+  yashil chiqdi, ya'ni kod ular uchun ham to'g'ri edi.</p>
+
+  <h3>Ilovaga ulash</h3>
+
+  <p>Endi funksiyani haqiqiy joyiga qo'yamiz:</p>
+
+  <div class="codefile">
+    <span class="fname">app/Models/Vakansiya.php</span>
+    <code class="cmd">use App\Support\Maosh;
+
+    public function maoshFormat(): string
+    {
+        return Maosh::format($this-&gt;maosh);
+    }</code>
+  </div>
+
+  <div class="codefile">
+    <span class="fname">resources/views/vakansiyalar/index.blade.php</span>
+    <code class="cmd">— {{ $v-&gt;maoshFormat() }} · {{ $v-&gt;kompaniya?-&gt;nom ?? 'kompaniya ko\'rsatilmagan' }}</code>
+  </div>
+
+  <p>Va ko'rinishni ham qulflaymiz — 38-darsdagi <code>assertSee</code>
+  bilan:</p>
+
+  <div class="codefile">
+    <span class="fname">tests/Feature/MaoshKorinishTest.php</span>
+    <code class="cmd">test('ro\'yxatda maosh o\'qiladigan ko\'rinishda chiqadi', function () {
+    $kompaniya = Kompaniya::factory()-&gt;create();
+
+    Vakansiya::factory()-&gt;for($kompaniya, 'kompaniya')-&gt;create([
+        'nom' =&gt; 'Backend dasturchi',
+        'maosh' =&gt; 9000000,
+    ]);
+
+    $this-&gt;get('/vakansiyalar')
+        -&gt;assertOk()
+        -&gt;assertSee("9 000 000 so'm");
+});</code>
+  </div>
+
+  <div class="natija">Tests:    38 passed (94 assertions)
+Duration: 1.84s</div>
+
+  <p class="expect">🔑 Ko'rinish fayli o'zgartirildi — va <b>oldingi 37 ta
+  test yashil qoldi</b>. Aynan shu narsa refaktoringni <b>mumkin</b> qiladi:
+  siz o'zgartirasiz, to'plam esa «hech nima buzilmadi» deb tasdiqlaydi.</p>
+
+  <div class="callout tip">
+    <span class="label">TDD har doim kerakmi?</span>
+    <p>Yo'q. U <b>bir asbob</b>, dogma emas. Amalda yaxshi ishlaydigan
+    joylar:</p>
+    <div class="natija">✅ sof mantiq (formatlash, hisob-kitob, qoidalar)   — tez aylana
+✅ xato tuzatish: avval xatoni ko'rsatuvchi test    — «qaytmasin»
+✅ talab aniq bo'lganda                            — kutilgan natija ma'lum
+
+⚠️ interfeys izlayotganda (dizayn hali noaniq)
+⚠️ tashqi tizim bilan tanishayotganda</div>
+    <p>🔑 <b>Xato tuzatishdagi qo'llanishi eng qimmatlisi:</b> xatoni ko'rgach,
+    avval uni <b>ko'rsatuvchi</b> test yozing (qizil), keyin tuzating (yashil).
+    Shunda o'sha xato hech qachon jimgina qaytmaydi.</p>
+  </div>
+
+  <!-- ═══════════════ 7) HAR XIL HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir bir marta o'qib chiqing,
+  keyin kerak bo'lganda qaytib qarang.</p>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 1</span>
+    <h4>PHPUnit klassida <code>RefreshDatabase</code> yo'q</h4>
+    <div class="natija">no such table: users
+(Connection: sqlite, Database: :memory:)</div>
+    <p><code>tests/Pest.php</code> dagi sozlama <b>Pest fayllariga</b>
+    qo'llanadi. Qo'lda yozilgan klass o'zi e'lon qilishi kerak.</p>
+    <p>✅ Klass ichiga <code>use RefreshDatabase;</code> qo'ying (import ham
+    kerak).</p>
+    <p>🔍 Teskari holat ham bor: Pest faylida <code>uses(RefreshDatabase::class)</code>
+    deb <b>ikkinchi marta</b> yozish zarar qilmaydi, lekin ortiqcha —
+    u allaqachon <code>tests/Pest.php</code> da ulangan.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 2</span>
+    <h4><code>--phpunit --unit</code> — Laravel yo'q</h4>
+    <div class="natija">class XTest extends PHPUnit\Framework\TestCase    ← Laravel'niki EMAS
+
+RuntimeException: A facade root has not been set.</div>
+    <p>Bu skelet <b>ataylab</b> shunday: sof PHP mantiqni Laravel'siz sinash
+    uchun. Lekin unda <code>User::factory()</code>, <code>config()</code>,
+    <code>route()</code> — hech biri ishlamaydi.</p>
+    <p>✅ Laravel kerak bo'lsa <code>Tests\TestCase</code> dan meros oling
+    (<code>--phpunit</code> <b>siz</b> <code>--unit</code>).
+    Yoki testni <code>Feature</code> ga ko'chiring.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 3</span>
+    <h4><code>assertEquals</code> jimgina o'tkazadi</h4>
+    <div class="natija">$this-&gt;assertEquals('5', 5);      // ✅ o'tadi
+$this-&gt;assertSame('5', 5);        // ⨯ yiqiladi</div>
+    <p><code>assertEquals</code> tipni e'tiborsiz qoldiradi. Ko'pincha bu
+    qulay, lekin ba'zan <b>haqiqiy xatoni</b> yashiradi — masalan API
+    javobida son o'rniga matn qaytayotganini.</p>
+    <p>✅ Shubha bo'lsa <code>assertSame</code> / <code>toBe</code> dan
+    boshlang. Kerak bo'lsa keyin bo'shatasiz — teskarisi qiyinroq.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 4</span>
+    <h4>Argument tartibi almashib ketsa</h4>
+    <div class="natija">assertSame($haqiqiy, $kutilgan)    // ⚠️ teskari
+
+Failed asserting that two strings are identical.
+-'haqiqiy natija'      ← «kutilgan» deb ko'rsatilyapti
++'kutilgan natija'</div>
+    <p>Test baribir to'g'ri ishlaydi, lekin <b>tashxis buziladi</b>: siz
+    xato xabarini teskari o'qiysiz va muammoni noto'g'ri joyda qidirasiz.</p>
+    <p>✅ Yodda tuting: PHPUnit'da <b>kutilgan birinchi</b>, Pest'da
+    <b>haqiqiy birinchi</b>. Diffda <code>-</code> — kutilgan,
+    <code>+</code> — haqiqiy.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 5</span>
+    <h4><code>test_</code> prefiksi unutilsa</h4>
+    <div class="natija">public function nomzod_qosha_olmaydi(): void   // ⚠️ test_ yo'q
+
+→  test UMUMAN ishga tushmaydi, xato ham chiqmaydi</div>
+    <p>Eng xavfli tur: to'plam <b>yashil</b>, chunki test <b>mavjud emas</b>
+    deb hisoblanadi. 37-darsdagi <code>risky</code> holatidan ham yomonroq —
+    u hech bo'lmasa sariq belgi berardi.</p>
+    <p>✅ Test sonini kuzating: yangi test yozgach
+    <code>Tests: N passed</code> dagi <b>N ortdimi?</b> Ortmagan bo'lsa —
+    prefiksni tekshiring.</p>
+    <p>🔍 Muqobil: metod ustiga <code>#[Test]</code> atributi qo'yish
+    (<code>PHPUnit\Framework\Attributes\Test</code>). O'shanda nom
+    <code>test_</code> bilan boshlanishi shart emas.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 6</span>
+    <h4>«Testni keyin yozaman»</h4>
+    <p>Kod yozilib bo'lgach test yozish — mumkin, va biz 37–40-darslarda
+    aynan shunday qildik. Lekin bitta xavf bor: kod <b>tayyor</b> bo'lgani
+    uchun test uni <b>tasdiqlashga</b> moslashib qoladi.</p>
+    <div class="natija">// kod shunday yozilgan bo'lsa:
+return $miqdor . ' som';           // apostrofsiz, xato
+
+// keyin yozilgan test ham shunga moslashadi:
+expect(...)-&gt;toBe('9000000 som');  // ⚠️ xatoni QULFLAB qo'ydi</div>
+    <p>✅ Test-birinchi yozilganda kutilgan natijani <b>talabdan</b> olasiz,
+    koddan emas. Shuning uchun TDD ayniqsa <b>aniq talab</b> bo'lgan
+    joylarda kuchli.</p>
+    <p>🔑 Keyin yozayotgan bo'lsangiz ham qoidani saqlang: testni yozgach
+    kodni <b>ataylab buzib</b>, qizilni ko'ring (37-dars).</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>Refaktoring — testlar ruxsat beradi</h4>
+    <div class="natija">ko'rinish fayli o'zgartirildi  →  38 test yashil qoldi</div>
+    <p>Testsiz refaktoring — <b>umid</b>. Testlar bilan — <b>tekshirilgan
+    o'zgarish</b>.</p>
+    <p>✅ Refaktoring qoidasi: <b>bitta vaqtda bitta narsa</b>. Yo xulqni
+    o'zgartirasiz (yangi test bilan), yo shaklni tozalaysiz (testlar
+    o'zgarmaydi). Ikkalasini birga qilsangiz, test qizarganda sababini
+    ajratib bo'lmaydi.</p>
+    <p>🔍 Shu darsda ikkalasi ham ko'rindi: <code>?int</code> ga o'tish —
+    <b>xulq</b> (yangi test), dataset'ga yig'ish — <b>shakl</b> (xulq
+    o'zgarmadi).</p>
+  </div>
+
+  <!-- ═══════════════ 8) AMALIYOT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    <span class="mode-hint-title">💻 Amaliy qism kompyuterda</span>
+    <p>Amaliyotda bitta testni ikki uslubda yozasiz, keyin
+    <b>test-birinchi</b> usulida yangi funksiya qurasiz — qizil, yashil,
+    tozalash. Yo'lda <code>test_</code> prefiksi unutilganda test
+    <b>jimgina yo'qolib qolishini</b> ham ko'rasiz.</p>
+    <button type="button" class="modebtn" data-set-mode="do">💻 Amaliyot rejimini ko'rish</button>
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <p>Holatni tekshiring</p>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+php artisan test">cd ~/Projects/Learn/ishtop
+php artisan test
+<span class="out">  Tests:    27 passed (79 assertions)</span></div>
+      </li>
+
+      <li>
+        <p>PHPUnit skeletini ko'ring</p>
+        <div class="cmd" data-cmd="php artisan make:test SinovTest --phpunit
+php artisan make:test SinovUnitTest --phpunit --unit">php artisan make:test SinovTest --phpunit
+php artisan make:test SinovUnitTest --phpunit --unit</div>
+        <div class="cmd" data-cmd="head -12 tests/Feature/SinovTest.php
+head -8 tests/Unit/SinovUnitTest.php">head -12 tests/Feature/SinovTest.php
+head -8 tests/Unit/SinovUnitTest.php
+<span class="out">use Tests\TestCase;                    ← Feature: Laravel bor</span>
+<span class="out">use PHPUnit\Framework\TestCase;        ← Unit: Laravel YO'Q</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> ikkita <b>boshqa</b>
+        <code>TestCase</code>. Feature skeletida
+        <code>RefreshDatabase</code> import qilingan — eslatma sifatida.</p>
+        <div class="cmd" data-cmd="rm tests/Feature/SinovTest.php tests/Unit/SinovUnitTest.php">rm tests/Feature/SinovTest.php tests/Unit/SinovUnitTest.php</div>
+      </li>
+
+      <li>
+        <p>⚠️ PHPUnit uslubida test yozing — <code>RefreshDatabase</code> siz</p>
+        <div class="cmd" data-cmd="# tests/Feature/PhpunitUslubTest.php
+
+&lt;?php
+
+namespace Tests\Feature;
+
+use App\Enums\Rol;
+use App\Models\User;
+use Tests\TestCase;
+
+class PhpunitUslubTest extends TestCase
+{
+    public function test_nomzod_vakansiya_qosha_olmaydi(): void
+    {
+        $nomzod = User::factory()-&gt;create(['rol' =&gt; Rol::Nomzod]);
+
+        $this-&gt;actingAs($nomzod)-&gt;post('/vakansiyalar', [
+            'nom' =&gt; 'Backend dasturchi',
+            'maosh' =&gt; 9000000,
+        ])-&gt;assertForbidden();
+
+        $this-&gt;assertDatabaseMissing('vakansiyalar', ['nom' =&gt; 'Backend dasturchi']);
+    }
+}"># tests/Feature/PhpunitUslubTest.php
+
+&lt;?php
+
+namespace Tests\Feature;
+
+use App\Enums\Rol;
+use App\Models\User;
+use Tests\TestCase;
+
+class PhpunitUslubTest extends TestCase
+{
+    public function test_nomzod_vakansiya_qosha_olmaydi(): void
+    {
+        $nomzod = User::factory()-&gt;create(['rol' =&gt; Rol::Nomzod]);
+
+        $this-&gt;actingAs($nomzod)-&gt;post('/vakansiyalar', [
+            'nom' =&gt; 'Backend dasturchi',
+            'maosh' =&gt; 9000000,
+        ])-&gt;assertForbidden();
+
+        $this-&gt;assertDatabaseMissing('vakansiyalar', ['nom' =&gt; 'Backend dasturchi']);
+    }
+}</div>
+        <div class="cmd" data-cmd="php artisan test tests/Feature/PhpunitUslubTest.php">php artisan test tests/Feature/PhpunitUslubTest.php
+<span class="out">no such table: users</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> aynan shu xato.
+        <code>tests/Pest.php</code> dagi sozlama bu klassga
+        <b>tegmaydi</b>.</p>
+      </li>
+
+      <li>
+        <p>Bir qatorda tuzating</p>
+        <div class="cmd" data-cmd="# tests/Feature/PhpunitUslubTest.php
+
+use Illuminate\Foundation\Testing\RefreshDatabase;   # import
+
+class PhpunitUslubTest extends TestCase
+{
+    use RefreshDatabase;                             # klass ichida"># tests/Feature/PhpunitUslubTest.php
+
+use Illuminate\Foundation\Testing\RefreshDatabase;   # import
+
+class PhpunitUslubTest extends TestCase
+{
+    use RefreshDatabase;                             # klass ichida</div>
+        <div class="cmd" data-cmd="php artisan test tests/Feature/PhpunitUslubTest.php">php artisan test tests/Feature/PhpunitUslubTest.php
+<span class="out">  ✓ nomzod vakansiya qosha olmaydi</span></div>
+        <p class="why-step">🔍 Chiqishga qarang: <code>qosha</code> —
+        apostrofsiz. Metod nomida <code>'</code> yozib bo'lmaydi.</p>
+      </li>
+
+      <li>
+        <p>⚠️ <code>test_</code> prefiksini ataylab unuting</p>
+        <div class="cmd" data-cmd="# PhpunitUslubTest.php ga qo'shing:
+
+    public function ataylab_yiqiladigan(): void
+    {
+        $this-&gt;assertTrue(false);
+    }"># PhpunitUslubTest.php ga qo'shing:
+
+    public function ataylab_yiqiladigan(): void
+    {
+        $this-&gt;assertTrue(false);
+    }</div>
+        <div class="cmd" data-cmd="php artisan test tests/Feature/PhpunitUslubTest.php">php artisan test tests/Feature/PhpunitUslubTest.php
+<span class="out">  ✓ nomzod vakansiya qosha olmaydi</span>
+<span class="out">  Tests:    1 passed</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> to'plam <b>yashil</b> —
+        <code>assertTrue(false)</code> bo'lsa ham! Metod test deb
+        hisoblanmadi va <b>jimgina o'tkazib yuborildi</b>.
+        <br>🔑 Yangi test yozgach <code>Tests: N passed</code> dagi
+        <b>N ortdimi</b> — shuni kuzating. Endi metodni <b>o'chiring</b>.</p>
+      </li>
+
+      <li>
+        <p>🔴 RED — kod yozilmasdan turib test</p>
+        <div class="cmd" data-cmd="# tests/Unit/MaoshTest.php
+
+&lt;?php
+
+use App\Support\Maosh;
+
+test('maosh o\'qiladigan ko\'rinishda chiqadi', function () {
+    expect(Maosh::format(9000000))-&gt;toBe(&quot;9 000 000 so'm&quot;);
+});"># tests/Unit/MaoshTest.php
+
+&lt;?php
+
+use App\Support\Maosh;
+
+test('maosh o\'qiladigan ko\'rinishda chiqadi', function () {
+    expect(Maosh::format(9000000))-&gt;toBe(&quot;9 000 000 so'm&quot;);
+});</div>
+        <div class="cmd" data-cmd="php artisan test tests/Unit/MaoshTest.php">php artisan test tests/Unit/MaoshTest.php
+<span class="out">Error: Class &quot;App\Support\Maosh&quot; not found</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> qizil — va sabab
+        <b>aynan</b> kutgan narsangiz: klass yo'q.</p>
+      </li>
+
+      <li>
+        <p>🟢 GREEN — eng sodda kod</p>
+        <div class="cmd" data-cmd="mkdir -p app/Support">mkdir -p app/Support</div>
+        <div class="cmd" data-cmd="# app/Support/Maosh.php
+
+&lt;?php
+
+namespace App\Support;
+
+class Maosh
+{
+    public static function format(int $miqdor): string
+    {
+        return number_format($miqdor, 0, '.', ' ') . &quot; so'm&quot;;
+    }
+}"># app/Support/Maosh.php
+
+&lt;?php
+
+namespace App\Support;
+
+class Maosh
+{
+    public static function format(int $miqdor): string
+    {
+        return number_format($miqdor, 0, '.', ' ') . &quot; so'm&quot;;
+    }
+}</div>
+        <div class="cmd" data-cmd="php artisan test tests/Unit/MaoshTest.php">php artisan test tests/Unit/MaoshTest.php
+<span class="out">  ✓ maosh o'qiladigan ko'rinishda chiqadi</span>
+<span class="out">  Duration: 0.04s</span></div>
+        <p class="why-step">🔍 <b>0.04 soniya</b> — TDD aylanasi shu tezlikda
+        bo'lgani uchun ishlaydi.</p>
+      </li>
+
+      <li>
+        <p>🔴🟢 Ikkinchi aylana — <code>null</code> holati</p>
+        <div class="cmd" data-cmd="# tests/Unit/MaoshTest.php ga qo'shing
+
+test('maosh ko\'rsatilmagan bo\'lsa kelishuv deyiladi', function () {
+    expect(Maosh::format(null))-&gt;toBe('Kelishuv asosida');
+});"># tests/Unit/MaoshTest.php ga qo'shing
+
+test('maosh ko\'rsatilmagan bo\'lsa kelishuv deyiladi', function () {
+    expect(Maosh::format(null))-&gt;toBe('Kelishuv asosida');
+});</div>
+        <div class="cmd" data-cmd="php artisan test tests/Unit/MaoshTest.php">php artisan test tests/Unit/MaoshTest.php
+<span class="out">  ✓ maosh o'qiladigan ko'rinishda chiqadi</span>
+<span class="out">  ⨯ maosh ko'rsatilmagan bo'lsa kelishuv deyiladi</span>
+<span class="out">TypeError: Argument #1 ($miqdor) must be of type int, null given</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> yangisi qizil,
+        <b>eskisi yashil</b>. Endi yashil qiling:</p>
+        <div class="cmd" data-cmd="# app/Support/Maosh.php
+
+    public static function format(?int $miqdor): string
+    {
+        if ($miqdor === null) {
+            return 'Kelishuv asosida';
+        }
+
+        return number_format($miqdor, 0, '.', ' ') . &quot; so'm&quot;;
+    }"># app/Support/Maosh.php
+
+    public static function format(?int $miqdor): string
+    {
+        if ($miqdor === null) {
+            return 'Kelishuv asosida';
+        }
+
+        return number_format($miqdor, 0, '.', ' ') . &quot; so'm&quot;;
+    }</div>
+        <div class="cmd" data-cmd="php artisan test tests/Unit/MaoshTest.php">php artisan test tests/Unit/MaoshTest.php
+<span class="out">  Tests:    2 passed (2 assertions)</span></div>
+      </li>
+
+      <li>
+        <p>🔵 REFACTOR — dataset'ga yig'ing</p>
+        <div class="cmd" data-cmd="# tests/Unit/MaoshTest.php — ikkala testni almashtiring
+
+test('maosh o\'qiladigan ko\'rinishda chiqadi', function (?int $miqdor, string $kutilgan) {
+    expect(Maosh::format($miqdor))-&gt;toBe($kutilgan);
+})-&gt;with([
+    [9000000, &quot;9 000 000 so'm&quot;],
+    [500, &quot;500 so'm&quot;],
+    [0, &quot;0 so'm&quot;],
+    [null, 'Kelishuv asosida'],
+]);"># tests/Unit/MaoshTest.php — ikkala testni almashtiring
+
+test('maosh o\'qiladigan ko\'rinishda chiqadi', function (?int $miqdor, string $kutilgan) {
+    expect(Maosh::format($miqdor))-&gt;toBe($kutilgan);
+})-&gt;with([
+    [9000000, &quot;9 000 000 so'm&quot;],
+    [500, &quot;500 so'm&quot;],
+    [0, &quot;0 so'm&quot;],
+    [null, 'Kelishuv asosida'],
+]);</div>
+        <div class="cmd" data-cmd="php artisan test tests/Unit/MaoshTest.php">php artisan test tests/Unit/MaoshTest.php
+<span class="out">  Tests:    4 passed (4 assertions)</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> ikkita test o'rniga
+        <b>to'rtta</b>, yozuv esa qisqardi. Yangi holatlar
+        (<code>500</code>, <code>0</code>) birinchi urinishdayoq yashil.</p>
+      </li>
+
+      <li>
+        <p>PHPUnit'dagi muqobilini yozing</p>
+        <div class="cmd" data-cmd="# tests/Unit/MaoshPhpunitTest.php
+
+&lt;?php
+
+namespace Tests\Unit;
+
+use App\Support\Maosh;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\TestCase;
+
+class MaoshPhpunitTest extends TestCase
+{
+    #[DataProvider('maoshHolatlari')]
+    public function test_maosh_oqiladigan_korinishda_chiqadi(?int $miqdor, string $kutilgan): void
+    {
+        $this-&gt;assertSame($kutilgan, Maosh::format($miqdor));
+    }
+
+    public static function maoshHolatlari(): array
+    {
+        return [
+            'katta son' =&gt; [9000000, &quot;9 000 000 so'm&quot;],
+            'kichik son' =&gt; [500, &quot;500 so'm&quot;],
+            'nol' =&gt; [0, &quot;0 so'm&quot;],
+            'ko\'rsatilmagan' =&gt; [null, 'Kelishuv asosida'],
+        ];
+    }
+}"># tests/Unit/MaoshPhpunitTest.php
+
+&lt;?php
+
+namespace Tests\Unit;
+
+use App\Support\Maosh;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\TestCase;
+
+class MaoshPhpunitTest extends TestCase
+{
+    #[DataProvider('maoshHolatlari')]
+    public function test_maosh_oqiladigan_korinishda_chiqadi(?int $miqdor, string $kutilgan): void
+    {
+        $this-&gt;assertSame($kutilgan, Maosh::format($miqdor));
+    }
+
+    public static function maoshHolatlari(): array
+    {
+        return [
+            'katta son' =&gt; [9000000, &quot;9 000 000 so'm&quot;],
+            'kichik son' =&gt; [500, &quot;500 so'm&quot;],
+            'nol' =&gt; [0, &quot;0 so'm&quot;],
+            'ko\'rsatilmagan' =&gt; [null, 'Kelishuv asosida'],
+        ];
+    }
+}</div>
+        <div class="cmd" data-cmd="php artisan test tests/Unit">php artisan test tests/Unit
+<span class="out">  ✓ maosh oqiladigan korinishda chiqadi with data set &quot;katta son&quot;</span>
+<span class="out">  ✓ maosh o'qiladigan ko'rinishda chiqadi with (9000000, '9 000 000 so'm')</span></div>
+        <p class="why-step">🔍 PHPUnit'da <b>nomlangan</b> to'plamlar chiqishda
+        o'qiladigan bo'lib turadi — bu uning ustunligi.
+        <br>⚠️ Bu fayl <code>PHPUnit\Framework\TestCase</code> dan meros oladi
+        va Laravel'siz ishlaydi — <code>Maosh</code> sof PHP klassi bo'lgani
+        uchun bu mumkin.</p>
+      </li>
+
+      <li>
+        <p>Ilovaga ulang va ko'rinishni qulflang</p>
+        <div class="cmd" data-cmd="# app/Models/Vakansiya.php
+
+use App\Support\Maosh;
+
+    public function maoshFormat(): string
+    {
+        return Maosh::format($this-&gt;maosh);
+    }
+
+# resources/views/vakansiyalar/index.blade.php
+#   {{ $v-&gt;maosh }}  →  {{ $v-&gt;maoshFormat() }}"># app/Models/Vakansiya.php
+
+use App\Support\Maosh;
+
+    public function maoshFormat(): string
+    {
+        return Maosh::format($this-&gt;maosh);
+    }
+
+# resources/views/vakansiyalar/index.blade.php
+#   {{ $v-&gt;maosh }}  →  {{ $v-&gt;maoshFormat() }}</div>
+        <div class="cmd" data-cmd="# tests/Feature/MaoshKorinishTest.php
+
+&lt;?php
+
+use App\Models\Kompaniya;
+use App\Models\Vakansiya;
+
+test('ro\'yxatda maosh o\'qiladigan ko\'rinishda chiqadi', function () {
+    $kompaniya = Kompaniya::factory()-&gt;create();
+
+    Vakansiya::factory()-&gt;for($kompaniya, 'kompaniya')-&gt;create([
+        'nom' =&gt; 'Backend dasturchi',
+        'maosh' =&gt; 9000000,
+    ]);
+
+    $this-&gt;get('/vakansiyalar')
+        -&gt;assertOk()
+        -&gt;assertSee(&quot;9 000 000 so'm&quot;);
+});"># tests/Feature/MaoshKorinishTest.php
+
+&lt;?php
+
+use App\Models\Kompaniya;
+use App\Models\Vakansiya;
+
+test('ro\'yxatda maosh o\'qiladigan ko\'rinishda chiqadi', function () {
+    $kompaniya = Kompaniya::factory()-&gt;create();
+
+    Vakansiya::factory()-&gt;for($kompaniya, 'kompaniya')-&gt;create([
+        'nom' =&gt; 'Backend dasturchi',
+        'maosh' =&gt; 9000000,
+    ]);
+
+    $this-&gt;get('/vakansiyalar')
+        -&gt;assertOk()
+        -&gt;assertSee(&quot;9 000 000 so'm&quot;);
+});</div>
+        <div class="cmd" data-cmd="php artisan test">php artisan test
+<span class="out">  Tests:    38 passed (94 assertions)</span>
+<span class="out">  Duration: 1.84s</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> 38 test yashil.
+        <br>🔑 Ko'rinish fayli o'zgardi — va <b>oldingi 37 ta test yashil
+        qoldi</b>. Refaktoringni mumkin qiladigan narsa aynan shu.</p>
+      </li>
+
+      <li>
+        <p>Ishni saqlang</p>
+        <div class="cmd" data-cmd="php artisan test
+git add -A
+git commit -m &quot;41-dars: PHPUnit uslubi va TDD bilan maosh formati&quot;">php artisan test
+git add -A
+git commit -m &quot;41-dars: PHPUnit uslubi va TDD bilan maosh formati&quot;</div>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><input type="checkbox" id="d41c1"><label for="d41c1">Ikkala PHPUnit skeletini ko'rdim (<code>--phpunit</code>, <code>--unit</code>)</label></li>
+      <li><input type="checkbox" id="d41c2"><label for="d41c2"><b><code>RefreshDatabase</code> siz <code>no such table</code> xatosini ko'rdim</b> ⚠️</label></li>
+      <li><input type="checkbox" id="d41c3"><label for="d41c3">Bir qatorda tuzatdim va PHPUnit testini yashil qildim</label></li>
+      <li><input type="checkbox" id="d41c4"><label for="d41c4"><b><code>test_</code> siz metod jimgina yo'qolishini ko'rdim</b> ⚠️</label></li>
+      <li><input type="checkbox" id="d41c5"><label for="d41c5">🔴 Kod yozilmasdan turib testni qizil qildim</label></li>
+      <li><input type="checkbox" id="d41c6"><label for="d41c6">🟢 Eng sodda kod bilan yashil qildim</label></li>
+      <li><input type="checkbox" id="d41c7"><label for="d41c7"><b>Ikkinchi aylanada eski test yashil qolganini ko'rdim</b></label></li>
+      <li><input type="checkbox" id="d41c8"><label for="d41c8">🔵 Dataset'ga yig'dim — 2 test o'rniga 4 ta</label></li>
+      <li><input type="checkbox" id="d41c9"><label for="d41c9">PHPUnit data provider bilan ham yozdim</label></li>
+      <li><input type="checkbox" id="d41c10"><label for="d41c10">Ilovaga uladim, 38 test yashil qoldi</label></li>
+      <li><input type="checkbox" id="d41c11"><label for="d41c11">Ishni commit qildim</label></li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 9) SINAB KO'RAMIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Dasturchi eski loyihaga qo'shildi va u yerda shunday testni topdi:</p>
+    <div class="codefile">
+      <div class="fname">tests/Feature/VakansiyaTest.php</div>
+      <code class="cmd" data-cmd="class VakansiyaTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_ish_beruvchi_vakansiya_qosha_oladi(): void
+    {
+        $u = User::factory()-&gt;create(['rol' =&gt; Rol::IshBeruvchi]);
+
+        $this-&gt;actingAs($u)-&gt;post('/vakansiyalar', [
+            'nom' =&gt; 'Backend dasturchi',
+            'maosh' =&gt; 9000000,
+        ]);
+
+        $this-&gt;assertDatabaseHas('vakansiyalar', ['nom' =&gt; 'Backend dasturchi']);
+    }
+
+    public function nomzod_qosha_olmasligi_kerak(): void
+    {
+        $u = User::factory()-&gt;create(['rol' =&gt; Rol::Nomzod]);
+
+        $this-&gt;actingAs($u)-&gt;post('/vakansiyalar', [
+            'nom' =&gt; 'Backend dasturchi',
+            'maosh' =&gt; 9000000,
+        ])-&gt;assertForbidden();
+    }
+}">class VakansiyaTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_ish_beruvchi_vakansiya_qosha_oladi(): void
+    {
+        $u = User::factory()-&gt;create(['rol' =&gt; Rol::IshBeruvchi]);
+
+        $this-&gt;actingAs($u)-&gt;post('/vakansiyalar', [
+            'nom' =&gt; 'Backend dasturchi',
+            'maosh' =&gt; 9000000,
+        ]);
+
+        $this-&gt;assertDatabaseHas('vakansiyalar', ['nom' =&gt; 'Backend dasturchi']);
+    }
+
+    public function nomzod_qosha_olmasligi_kerak(): void
+    {
+        $u = User::factory()-&gt;create(['rol' =&gt; Rol::Nomzod]);
+
+        $this-&gt;actingAs($u)-&gt;post('/vakansiyalar', [
+            'nom' =&gt; 'Backend dasturchi',
+            'maosh' =&gt; 9000000,
+        ])-&gt;assertForbidden();
+    }
+}</code>
+    </div>
+    <p>To'plam <b>yashil</b>. Dasturchi «rol tizimi test bilan qoplangan» deb
+    xulosa qildi. Haqmi?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <div class="natija">✓ ish beruvchi vakansiya qosha oladi
+
+Tests:    1 passed        ← BITTA, ikkita emas</div>
+        <p>Ikkinchi metod <code>test_</code> bilan boshlanmaydi — u
+        <b>umuman ishga tushmagan</b>. Xato ham, ogohlantirish ham yo'q:
+        PHPUnit uni oddiy metod deb hisoblaydi.</p>
+        <p class="expect">⚠️ Ya'ni «nomzod qo'sha olmaydi» qoidasi
+        <b>umuman tekshirilmayapti</b>. Policy'ni buzsangiz to'plam yashil
+        qolaveradi — 37-darsdagi eng xavfli holat.</p>
+        <p>🔑 <b>Tashxis usuli:</b> fayldagi test metodlarini <b>sanang</b> va
+        chiqishdagi <code>Tests: N passed</code> bilan solishtiring. Ikkitasi
+        bo'lishi kerak edi — bittasi chiqdi.</p>
+        <p><b>Ikki yechim:</b></p>
+        <div class="natija">public function test_nomzod_qosha_olmasligi_kerak(): void   // prefiks
+
+#[Test]                                                     // yoki atribut
+public function nomzod_qosha_olmasligi_kerak(): void</div>
+        <p>🔍 Va shu yerda Pest'ning ustunligi ko'rinadi:
+        <code>test('nomzod qo\'sha olmaydi', ...)</code> da bunday tuzoq
+        <b>yo'q</b> — funksiya nomi emas, <code>test()</code> chaqiruvining
+        o'zi testni ro'yxatga oladi.</p>
+        <p><b>Umumiy saboq:</b> «to'plam yashil» — «hamma narsa tekshirilgan»
+        degani emas. Nechta test <b>bo'lishi kerak</b> edi, degan savolni ham
+        bering.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span> PHPUnit klassida
+    <code>no such table</code> chiqsa sabab nima?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Klass o'zi RefreshDatabase e'lon qilishi kerak</button></li>
+      <li><button class="quiz-option">Pest sozlamasi barcha fayllarga avtomatik qo'llanadi</button></li>
+      <li><button class="quiz-option">PHPUnit klasslarida baza umuman kerak emas</button></li>
+    </ul>
+    <div class="quiz-explain"><code>tests/Pest.php</code> dagi
+    <code>-&gt;use(RefreshDatabase::class)-&gt;in('Feature')</code> faqat
+    <b>Pest fayllariga</b> qo'llanadi. Qo'lda yozilgan klass ichiga
+    <code>use RefreshDatabase;</code> qo'yish kerak — shuning uchun
+    <code>--phpunit</code> skeleti uni import qilib beradi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span> Argument tartibi
+    ikki uslubda qanday?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">PHPUnit kutilgan birinchi Pest haqiqiy birinchi</button></li>
+      <li><button class="quiz-option">Ikkalasida ham haqiqiy qiymat birinchi yoziladi</button></li>
+      <li><button class="quiz-option">Tartib muhim emas natija bir xil</button></li>
+    </ul>
+    <div class="quiz-explain"><code>assertSame($kutilgan, $haqiqiy)</code> va
+    <code>expect($haqiqiy)-&gt;toBe($kutilgan)</code>. Adashsangiz test baribir
+    ishlaydi, lekin <b>xato xabari teskari</b> chiqadi va tashxis noto'g'ri
+    yo'nalishga ketadi. Diffda <code>-</code> — kutilgan,
+    <code>+</code> — haqiqiy.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span> Nega 🔴 qadamni
+    tashlab ketmaslik kerak?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Test haqiqatan ishlayotganini va sababini isbotlaydi</button></li>
+      <li><button class="quiz-option">Kod yozishdan oldin vaqtni tejash uchun</button></li>
+      <li><button class="quiz-option">PHPUnit talab qiladigan majburiy birinchi qadam</button></li>
+    </ul>
+    <div class="quiz-explain">Qizilni ko'rish ikki narsani tasdiqlaydi: test
+    <b>ishga tushyapti</b> va <b>aynan kutgan sababdan</b> yiqilyapti.
+    Hech qachon qizil bo'lmagan test — 37-darsdagi <code>risky</code> yoki
+    bugungi <code>test_</code> siz metod kabi <b>yolg'on xotirjamlik</b>
+    berishi mumkin.</div>
+  </div>
+
+  <!-- ═══════════════ 10) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+    <p class="recall-intro">Avval o'zingiz javob bering, keyin ochib tekshiring.
+    Oxirgi ikkitasi — <a href="0040-auth-va-policy-testi.html">40-darsni</a> takrorlash.</p>
+
+    <details class="recall">
+      <summary>Ikki uslubda nima o'zgaradi, nima o'zgarmaydi?</summary>
+      <div class="answer"><p>O'zgaradi: <code>namespace</code>, klass,
+      <code>use RefreshDatabase</code>, <code>test_</code> prefiksi.
+      <b>O'zgarmaydi:</b> tekshiruvlarning o'zi — <code>actingAs</code>,
+      <code>assertForbidden</code>, <code>assertDatabaseHas</code>. Ular
+      Laravel'niki.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Red → Green → Refactor nima beradi?</summary>
+      <div class="answer"><p>🔴 test ishlayotganini isbotlaydi ·
+      🟢 eng sodda yechim · 🔵 shaklni tozalash, <b>xulq
+      o'zgarmasdan</b>. Har aylanada eski testlar yashil qolishi —
+      ishonchning manbai.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary><code>assertSame</code> va <code>assertEquals</code> farqi?</summary>
+      <div class="answer"><p><code>assertSame</code> — <code>===</code>
+      (qiymat va tip), <code>assertEquals</code> — faqat qiymat.
+      <code>assertEquals('5', 5)</code> o'tadi, <code>assertSame</code>
+      yiqiladi. Shubha bo'lsa <code>assertSame</code>/<code>toBe</code> dan
+      boshlang.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: <code>assertAuthenticated</code> nega yetarli emas?</summary>
+      <div class="answer"><p>U «kimdir kirgan» deydi — «har doim birinchi
+      foydalanuvchini kiritadigan» buzuq koddan ham o'tadi. Kirish testida
+      <code>assertAuthenticatedAs($user)</code>.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: policy testi nega <code>Feature</code> da?</summary>
+      <div class="answer"><p><code>tests/Pest.php</code> Laravel'ni faqat
+      <code>Feature</code> da ko'taradi. Unit'da
+      <code>A facade root has not been set.</code> chiqadi. «Feature» —
+      <b>HTTP</b> emas, <b>Laravel kerak</b> degani.</p></div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 11) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Cho'ntak xulosasi</span>
+    <ul>
+      <li>Pest — PHPUnit <b>ustidagi qobiq</b>. Tekshiruvlarning o'zi
+      (<code>actingAs</code>, <code>assertDatabaseHas</code>…) ikkala uslubda
+      <b>bir xil</b> — ular Laravel'niki.</li>
+      <li>PHPUnit uslubi: <code>namespace</code> · <code>class ... extends
+      Tests\TestCase</code> · <code>public function test_...()</code>.</li>
+      <li>⚠️ <code>tests/Pest.php</code> sozlamasi <b>PHPUnit klasslariga
+      qo'llanmaydi</b> → <code>no such table: users</code>. Yechim: klass ichiga
+      <code>use RefreshDatabase;</code>.</li>
+      <li>⚠️ <code>test_</code> prefiksi yo'q metod <b>jimgina o'tkazib
+      yuboriladi</b> — xato ham, ogohlantirish ham yo'q. Muqobil:
+      <code>#[Test]</code> atributi.</li>
+      <li>🔑 Yangi test yozgach <code>Tests: N passed</code> dagi <b>N
+      ortdimi</b> — shuni kuzating.</li>
+      <li><code>setUp()</code> ↔ <code>beforeEach()</code>.
+      ⚠️ PHPUnit'da <code>parent::setUp()</code> majburiy.</li>
+      <li>Lug'at: <code>assertSame</code> ↔ <code>toBe</code> ·
+      <code>assertEquals</code> ↔ <code>toEqual</code> ·
+      <code>assertTrue</code> ↔ <code>toBeTrue</code> ·
+      <code>assertCount</code> ↔ <code>toHaveCount</code>.</li>
+      <li>⚠️ <b>Argument tartibi teskari:</b>
+      <code>assertSame($kutilgan, $haqiqiy)</code> va
+      <code>expect($haqiqiy)-&gt;toBe($kutilgan)</code>. Adashsangiz xato
+      xabari teskari o'qiladi. Diffda <code>-</code> kutilgan,
+      <code>+</code> haqiqiy.</li>
+      <li><code>#[DataProvider]</code> ↔ <code>-&gt;with([...])</code> — bitta
+      test tanasidan bir nechta test. PHPUnit'da <b>nomlangan</b> to'plamlar
+      o'qilishi qulayroq.</li>
+      <li><code>make:test X --phpunit</code> → <code>Tests\TestCase</code>.
+      ⚠️ <code>--phpunit --unit</code> → <code>PHPUnit\Framework\TestCase</code>,
+      Laravel <b>umuman yo'q</b>.</li>
+      <li><b>🔴 RED:</b> kod yozilmasdan test. Qizilni ko'rish test
+      <b>ishlayotganini</b> va <b>aynan kutgan sababdan</b> yiqilayotganini
+      isbotlaydi.</li>
+      <li><b>🟢 GREEN:</b> eng sodda yechim. <b>🔵 REFACTOR:</b> shaklni
+      tozalash, xulq o'zgarmaydi.</li>
+      <li>🔑 Ikkinchi aylanada <b>eski test yashil qoldi</b> — yangi talab
+      eskisini buzmagani shundan bilinadi.</li>
+      <li>TDD tez aylana talab qiladi: Unit test <b>0.04 s</b>. Brauzerda
+      qo'lda tekshirish bilan TDD ishlamaydi.</li>
+      <li>TDD eng foydali joylar: <b>sof mantiq</b>, <b>xato tuzatish</b>
+      (avval xatoni ko'rsatuvchi test), <b>talab aniq</b> bo'lganda.</li>
+      <li><b>Natija:</b> 38 test, 94 tekshiruv. Ko'rinish o'zgartirildi —
+      qolgan 37 tasi yashil qoldi.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars — yangi modul</span>
+    <p><b>Modul E tugadi.</b> IshTop endi 38 ta test bilan qo'riqlanadi:
+    sahifalar, validatsiya, rollar, egalik, bog'lanishlar, auth oqimi va
+    formatlash. Va siz ikkala test uslubini ham o'qiy olasiz.</p>
+    <p>42-darsdan <b>Modul F — API qatlami</b> boshlanadi. Shu paytgacha
+    IshTop faqat <b>HTML</b> qaytardi: Blade render qilinib, brauzerga
+    sahifa borardi. Endi <b>ikkinchi ko'rinish qatlami</b> qo'shamiz —
+    o'sha bir Eloquent ma'lumoti <b>JSON</b> bo'lib chiqadi.</p>
+    <p>Boshlanishi: <code>routes/api.php</code>, <code>json()</code> javoblari
+    va status kodlar — <b>200</b>, <b>201</b>, <b>404</b>, <b>422</b>.
+    Testlar ham davom etadi: u yerda <code>assertJson</code> va
+    <code>assertJsonPath</code> ishlaydi.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>PHPUnit — Writing Tests</b>:
+    <a href="https://docs.phpunit.de/en/12.5/writing-tests-for-phpunit.html">docs.phpunit.de</a>
+    — <code>setUp</code>, tekshiruvlar, <code>#[Test]</code> va
+    <code>#[DataProvider]</code> atributlari.<sup><a href="#fn1">1</a></sup><br>
+    <b>Pest — Migrating from PHPUnit</b>:
+    <a href="https://pestphp.com/docs/migrating-from-phpunit-guide">pestphp.com</a>
+    — ikki uslub o'rtasidagi moslik.<sup><a href="#fn2">2</a></sup><br>
+    <b>Pest — Datasets</b>:
+    <a href="https://pestphp.com/docs/datasets">with() bilan bir nechta
+    holat</a>.<sup><a href="#fn3">3</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b> «eski loyihani Pest'ga
+    o'girish kerakmi?», «TDD'ni har doim ishlatasizmi?», «testlar kodni
+    sekinlashtirmaydimi?», «qancha qamrov (coverage) yetarli?» — har qanday
+    savol yaxshi. Birinchisiga qisqa javob: <b>shart emas</b> — ikkala uslub
+    <b>bir to'plamda</b> yonma-yon ishlaydi, biz buni shu darsda ko'rdik.
+    Yangi testlarni Pest'da yozing, eskilariga tegmang. Oxirgisiga esa
+    javobim: raqamni emas, <b>xavfni</b> qarang — pul, huquq va ma'lumot
+    yo'qolishi bilan bog'liq oqimlar 100% qoplansin, qolgani
+    <b>ehtiyojga qarab</b>.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0040-auth-va-policy-testi.html">Oldingi: Auth va policy testi</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">PHPUnit 12 — <a href="https://docs.phpunit.de/en/12.5/writing-tests-for-phpunit.html">Writing Tests</a>.</li>
+      <li id="fn2">Pest — <a href="https://pestphp.com/docs/migrating-from-phpunit-guide">Migrating from PHPUnit</a>.</li>
+      <li id="fn3">Pest — <a href="https://pestphp.com/docs/datasets">Datasets</a>.</li>
+      <li id="fn4">Barchasi jonli o'lchangan (PHP 8.3.32, Laravel 13.25.0,
+      Pest 4.7.8, PHPUnit 12.5): to'liq to'plam
+      <b>38 passed (94 assertions), 1.84s</b> ·
+      PHPUnit klassi <code>use RefreshDatabase;</code> siz →
+      <code>no such table: users</code>, qo'shilgach yashil ·
+      <code>make:test --phpunit</code> → <code>Tests\TestCase</code>,
+      <code>--phpunit --unit</code> → <code>PHPUnit\Framework\TestCase</code> ·
+      <code>test_</code> prefiksisiz metod (<code>assertTrue(false)</code>
+      bilan) <b>umuman ishga tushmadi</b>, to'plam yashil qoldi;
+      <code>#[Test]</code> atributi bilan ishga tushdi ·
+      <code>assertEquals('5', 5)</code> o'tdi, <code>assertSame('5', 5)</code>
+      yiqildi · teskari tartibda
+      <code>-'haqiqiy natija' / +'kutilgan natija'</code> ·
+      TDD aylanasi: <code>Class "App\Support\Maosh" not found</code> →
+      1 passed (0.04s) → <code>TypeError ... must be of type int, null
+      given</code> (eski test <b>yashil qoldi</b>) → 2 passed →
+      dataset bilan <b>4 passed</b> ·
+      <code>#[DataProvider]</code> nomlangan to'plamlar:
+      <code>with data set "katta son"</code> ·
+      ko'rinish fayli o'zgartirilgandan keyin qolgan <b>37 test yashil</b> ·
+      Unit'da <code>new Vakansiya([...])</code> →
+      <code>Call to a member function connection() on null</code> (shuning
+      uchun <code>Maosh</code> sof PHP klassi qilib ajratildi).</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

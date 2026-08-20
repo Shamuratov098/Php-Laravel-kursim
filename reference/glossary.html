@@ -18,7 +18,7 @@
   izoh esa o'zbekcha.</p>
 
   <p class="lesson-meta">
-    <span>Atamalar: <b>164 ta</b></span>
+    <span>Atamalar: <b>167 ta</b></span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>📱 O'qishga mos</span>
   </p>
@@ -26,7 +26,7 @@
   <div class="callout note">
     <span class="label">Bu hujjat o'sib boradi</span>
     <p>Atama faqat <b>o'z darsi yozilganda</b> qo'shiladi — oldindan emas. Hozir:
-    Modul A–E (1–40-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
+    Modul A–E (1–41-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
     bosqichida qat'iy belgilangan va 73 dars bo'ylab o'zgarmaydi).</p>
   </div>
 
@@ -1431,6 +1431,45 @@
       <code>FormRequest.php:337</code>). Tashxis qo'yishning eng tez usuli.
       🔍 Ish tugagach qatorni <b>olib tashlang</b>.
       <span class="eg">$this-&gt;withoutExceptionHandling()-&gt;actingAs($u)-&gt;post(...)</span></dd>
+    </div>
+
+    <div class="term" id="phpunit-uslubi">
+      <dt>PHPUnit uslubi <span class="uz">— klassga asoslangan test</span></dt>
+      <dd><code>class X extends Tests\TestCase</code> +
+      <code>public function test_...()</code>. Eski loyihalar, paketlar va
+      Laravel'ning o'z kodi shu uslubda — <b>o'qiy olish shart</b>.
+      ⚠️ <code>tests/Pest.php</code> sozlamasi bunday klasslarga
+      <b>qo'llanmaydi</b>: <code>use RefreshDatabase;</code> ni qo'lda yozing,
+      aks holda <code>no such table</code>.
+      ⚠️ <code>test_</code> prefiksisiz metod <b>jimgina o'tkazib
+      yuboriladi</b> — muqobil <code>#[Test]</code> atributi.
+      Tekshiruvlarning o'zi (<code>actingAs</code>,
+      <code>assertDatabaseHas</code>) ikkala uslubda bir xil.
+      <span class="eg">public function test_nomzod_qosha_olmaydi(): void</span></dd>
+    </div>
+
+    <div class="term" id="tdd">
+      <dt>red → green → refactor <span class="uz">— test-birinchi aylana</span></dt>
+      <dd>🔴 kod yozilmasdan test (qizilni <b>ko'rish</b> shart: test
+      ishlayotganini va aynan kutgan sababdan yiqilayotganini isbotlaydi) →
+      🟢 eng sodda yechim → 🔵 shaklni tozalash, <b>xulq o'zgarmasdan</b>.
+      🔑 Har aylanada eski testlar yashil qolishi ishonch beradi.
+      Tez aylana kerak: Unit test ~0.04 s. Eng foydali joylar — sof mantiq,
+      xato tuzatish (avval xatoni ko'rsatuvchi test) va talab aniq bo'lgan
+      vazifalar.
+      <span class="eg">Class "App\Support\Maosh" not found  →  1 passed  →  4 passed</span></dd>
+    </div>
+
+    <div class="term" id="dataset">
+      <dt>dataset / data provider <span class="uz">— bitta testdan bir nechta</span></dt>
+      <dd>Pest: <code>-&gt;with([[9000000, "9 000 000 so'm"], [null, 'Kelishuv asosida']])</code>.
+      PHPUnit: <code>#[DataProvider('nom')]</code> + <code>public static
+      function nom(): array</code>. Ikkalasi bitta test tanasidan
+      <b>alohida testlar</b> yasaydi — bittasi yiqilsa qaysi biri ekani
+      darhol ko'rinadi.
+      🔍 PHPUnit'da <b>nomlangan</b> to'plamlar chiqishda o'qiladigan bo'ladi:
+      <code>with data set "katta son"</code>.
+      <span class="eg">})-&gt;with([[500, "500 so'm"], [0, "0 so'm"]]);</span></dd>
     </div>
 
     <div class="term" id="pest">
