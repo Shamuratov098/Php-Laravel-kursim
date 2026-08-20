@@ -1,0 +1,1247 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 40 — Auth oqimi va policy testi</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 40 · MODUL E — TEST (PEST)</p>
+  <h1>Auth oqimi va policy testi</h1>
+  <p class="lead">IshTop'ning ma'lumot qatlami test bilan qoplandi. Ammo
+  30–32-darsdagi <b>auth oqimi</b> — ro'yxatdan o'tish, kirish, chiqish va
+  so'rov cheklovi — hali yozib qo'yilmagan. Bugun shularni yozamiz, va
+  policy'ni <b>HTTP so'rovsiz</b>, to'g'ridan-to'g'ri sinashni
+  o'rganamiz.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 15 daqiqa</span>
+    <span>💻 Amaliyot ≈ 24 daqiqa</span>
+    <span>Kerak: <a href="0039-baza-bilan-test.html">Dars 39</a></span>
+  </p>
+
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b>Kim kirgan — uchta savol</b>
+        <span class="nima"><code>assertGuest()</code> ·
+        <code>assertAuthenticated()</code> ·
+        <code>assertAuthenticatedAs($user)</code>. Farqi va qachon
+        qaysi biri.</span></li>
+      <li><b>Ro'yxatdan o'tish oqimi</b>
+        <span class="nima">34-darsdagi rol tanlash ham shu yerda qulflanadi:
+        <code>rol</code> saqlandimi va odam <b>darhol</b> kirdimi.</span></li>
+      <li><b>Rad etilgan holatlar</b>
+        <span class="nima">Rolsiz yuborish va band email — ikkalasida ham
+        <b>foydalanuvchi yaratilmasligi</b> tekshiriladi.</span></li>
+      <li><b>Kirish: to'g'ri va xato parol</b>
+        <span class="nima"><code>assertAuthenticatedAs</code> va
+        <code>assertGuest</code> — bitta oqimning ikki tomoni.</span></li>
+      <li><b>🔍 Xato xabarini aniq tekshirish</b>
+        <span class="nima"><code>assertSessionHasErrors(['email' =&gt;
+        'Email yoki parol xato.'])</code> — kalit emas, <b>matn</b>
+        bo'yicha.</span></li>
+      <li><b>⚠️ <code>session('errors')</code> tuzog'i</b>
+        <span class="nima">U <b>massiv</b> bo'lib turadi.
+        38-darsdagi sirli <code>Call to a member function all() on array</code>
+        xatosining <b>ildizi</b> shu — o'lchab ko'rsatiladi.</span></li>
+      <li><b>Chiqish</b>
+        <span class="nima"><code>post('/chiqish')</code> dan keyin
+        <code>assertGuest()</code>.</span></li>
+      <li><b>So'rov cheklovini test qilish</b>
+        <span class="nima">31-darsdagi <code>RateLimiter</code>: beshta xato
+        urinish, oltinchisida boshqa xabar.</span></li>
+      <li><b>🔍 Cheklov keyingi testga o'tmaydi</b>
+        <span class="nima"><code>phpunit.xml</code> dagi
+        <code>CACHE_STORE=array</code> tufayli — bu ham
+        o'lchandi.</span></li>
+      <li><b>Policy — HTTP'siz</b>
+        <span class="nima"><code>$user-&gt;can('update', $vakansiya)</code>.
+        Route ham, controller ham, forma ham kerak emas.</span></li>
+      <li><b><code>Gate::forUser()</code></b>
+        <span class="nima">Boshqa odam nomidan tekshirish:
+        <code>allows()</code> va <code>denies()</code>.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima"><code>session('errors')</code> ·
+        <code>assertAuthenticated</code> vs <code>As</code> · sekin auth
+        testlari · cheklov qoldig'i · policy testi qayerda yashaydi ·
+        <code>actingAs</code> chegarasi · faqat taqiqni tekshirish.</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Auth — eng qimmat oqim</span>
+    <p>37-darsda «eng qimmat joylardan boshlang» degan edik: pul, huquq va
+    ma'lumot yo'qolishi bilan bog'liq oqimlar. IshTop'da eng qimmatlisi —
+    <b>auth</b>.</p>
+    <p>Chunki bu yerda buzilish <b>jimgina</b> bo'ladi:</p>
+    <div class="natija">parol tekshiruvi buzilsa    →  hamma hammaning hisobiga kiradi
+rol saqlanmasa              →  hamma nomzod bo'lib qoladi
+chiqish ishlamasa           →  umumiy kompyuterda sessiya ochiq qoladi
+cheklov ishlamasa           →  parolni bittalab tanlash mumkin</div>
+    <p>Bularning hech biri xato sahifasi ko'rsatmaydi. Sayt <b>ishlayveradi</b>
+    — 37-darsdagi policy misolidagidek.</p>
+    <p>Va yana bir sabab bor: auth oqimini qo'lda tekshirish eng zerikarli ish.
+    Ro'yxatdan o'tish, chiqish, boshqa odam bo'lib kirish, xato parol kiritish,
+    besh marta xato kiritish... Buni bir marta yozib qo'yish — bir umrga
+    yetadi.</p>
+  </div>
+
+  <!-- ═══════════════ 2) UCHTA SAVOL ═══════════════ -->
+  <h2>Kim kirgan: uchta savol</h2>
+
+  <div class="natija">$this-&gt;assertGuest();                  // hech kim kirmagan
+$this-&gt;assertAuthenticated();          // kimdir kirgan (kimligi muhim emas)
+$this-&gt;assertAuthenticatedAs($user);   // AYNAN shu odam kirgan</div>
+
+  <p>Uchtasi uch xil savolga javob beradi va ularni chalkashtirmaslik muhim:</p>
+
+  <div class="natija">ro'yxatdan o'tish  →  assertAuthenticated()      («odam kirdimi?»)
+kirish             →  assertAuthenticatedAs($u)  («aynan Ali kirdimi?»)
+xato parol         →  assertGuest()              («kirmaganmi?»)
+chiqish            →  assertGuest()</div>
+
+  <p class="expect">🔑 <code>assertAuthenticated()</code> zaifroq: u
+  «kimdir kirgan» deydi. Kirish testida <b>aynan kim</b> kirganini tekshirish
+  kerak — aks holda «har doim birinchi foydalanuvchini kiritadigan» buzuq kod
+  ham o'tib ketardi.</p>
+
+  <!-- ═══════════════ 3) RO'YXAT ═══════════════ -->
+  <h2>Ro'yxatdan o'tish oqimi</h2>
+
+  <div class="codefile">
+    <span class="fname">tests/Feature/AuthTest.php</span>
+    <code class="cmd">test('nomzod ro\'yxatdan o\'tadi va darhol kiradi', function () {
+    $javob = $this-&gt;post('/royxatdan-otish', [
+        'name' =&gt; 'Nodira',
+        'email' =&gt; 'nodira@example.uz',
+        'password' =&gt; 'parol1234',
+        'password_confirmation' =&gt; 'parol1234',
+        'rol' =&gt; 'nomzod',
+    ]);
+
+    $javob-&gt;assertRedirect('/vakansiyalar');
+
+    $this-&gt;assertDatabaseHas(User::class, ['email' =&gt; 'nodira@example.uz']);
+    $this-&gt;assertAuthenticated();
+
+    expect(User::where('email', 'nodira@example.uz')-&gt;first()-&gt;rol)
+        -&gt;toBe(Rol::Nomzod);
+});</code>
+  </div>
+
+  <p>To'rtta narsa bir joyda tekshirildi: <b>qayerga</b> qaytdi, foydalanuvchi
+  <b>yaratildimi</b>, u <b>darhol kirdimi</b>, va 34-darsdagi <b>rol</b>
+  to'g'ri saqlandimi.</p>
+
+  <p>Oxirgi <code>expect()</code> ga alohida qarang: <code>-&gt;toBe(Rol::Nomzod)</code>
+  — matn emas, <b>enum</b> bilan solishtiryapmiz. Agar cast qo'shilmagan
+  bo'lsa (34-dars), bu tekshiruv <b>yiqiladi</b>.</p>
+
+  <h3>Rad etilishi kerak bo'lgan holatlar</h3>
+
+  <div class="codefile">
+    <span class="fname">tests/Feature/AuthTest.php</span>
+    <code class="cmd">test('rol tanlanmasa ro\'yxatdan o\'tkazilmaydi', function () {
+    $this-&gt;from('/royxatdan-otish')-&gt;post('/royxatdan-otish', [
+        'name' =&gt; 'Nodira',
+        'email' =&gt; 'nodira@example.uz',
+        'password' =&gt; 'parol1234',
+        'password_confirmation' =&gt; 'parol1234',
+    ])-&gt;assertSessionHasErrors(['rol' =&gt; 'Rolni tanlang.']);
+
+    $this-&gt;assertGuest();
+    $this-&gt;assertDatabaseMissing(User::class, ['email' =&gt; 'nodira@example.uz']);
+});</code>
+  </div>
+
+  <p class="expect">🔑 Uchta qatlam yana: xato xabari chiqdimi, odam
+  <b>kirmadimi</b>, va bazaga <b>yozilmadimi</b>. Uchinchisisiz test to'liq
+  emas — foydalanuvchi yaratib, keyin xato ko'rsatadigan kod ham bo'lishi
+  mumkin.</p>
+
+  <div class="callout tip">
+    <span class="label">🔍 Xato xabarini <b>matn</b> bilan tekshirish</span>
+    <p>38-darsda <code>assertSessionHasErrors(['rol'])</code> yozgan edik —
+    «shu maydonda xato bor». Endi kuchliroq shakl:</p>
+    <div class="natija">assertSessionHasErrors(['rol'])                        // maydon bo'yicha
+assertSessionHasErrors(['rol' =&gt; 'Rolni tanlang.'])    // MATN bo'yicha  ✅</div>
+    <p>Ikkinchisi 34-darsda yozgan o'zbekcha xabaringizni ham qulflaydi.
+    Kimdir uni ingliz tiliga qaytarsa yoki o'chirsa — test aytadi.</p>
+  </div>
+
+  <!-- ═══════════════ 4) KIRISH ═══════════════ -->
+  <h2>Kirish: ikki tomon</h2>
+
+  <div class="codefile">
+    <span class="fname">tests/Feature/AuthTest.php</span>
+    <code class="cmd">test('to\'g\'ri parol bilan kiriladi', function () {
+    $user = User::factory()-&gt;create(['email' =&gt; 'ali@example.uz']);
+
+    $this-&gt;post('/kirish', [
+        'email' =&gt; 'ali@example.uz',
+        'password' =&gt; 'password',
+    ])-&gt;assertRedirect('/vakansiyalar');
+
+    $this-&gt;assertAuthenticatedAs($user);
+});
+
+test('xato parol bilan kirib bo\'lmaydi', function () {
+    User::factory()-&gt;create(['email' =&gt; 'ali@example.uz']);
+
+    $this-&gt;from('/kirish')-&gt;post('/kirish', [
+        'email' =&gt; 'ali@example.uz',
+        'password' =&gt; 'xato-parol',
+    ])-&gt;assertSessionHasErrors(['email' =&gt; 'Email yoki parol xato.']);
+
+    $this-&gt;assertGuest();
+});</code>
+  </div>
+
+  <p class="expect">🔍 <code>'password' =&gt; 'password'</code> — bu
+  <code>UserFactory</code> dagi <b>standart parol</b>. Fabrika har
+  foydalanuvchiga shu parolni qo'yadi, shuning uchun testda uni bilib
+  turasiz.</p>
+
+  <p>Ikkinchi testdagi xabar 30-darsdagi qoidani ham qulflaydi: xato
+  <b>«Email yoki parol xato»</b> deyiladi, «bunday email yo'q» emas.
+  Bu <i>user enumeration</i> dan himoya, va endi u <b>yozib qo'yilgan</b>.</p>
+
+  <h3>Chiqish</h3>
+
+  <div class="natija">$this-&gt;actingAs($user)-&gt;post('/chiqish')-&gt;assertRedirect('/vakansiyalar');
+
+$this-&gt;assertGuest();</div>
+
+  <p><code>actingAs()</code> bilan kirdik, so'rov yubordik, keyin
+  <b>mehmon</b> bo'lganini tasdiqladik — uch qator.</p>
+
+  <!-- ═══════════════ 5) CHEKLOV ═══════════════ -->
+  <h2>So'rov cheklovini test qilish</h2>
+
+  <p>31-darsda <code>RateLimiter</code> qo'shgan edik: beshta xato urinishdan
+  keyin kirish vaqtincha to'xtatiladi. Uni ham yozib qo'yamiz.</p>
+
+  <div class="codefile">
+    <span class="fname">tests/Feature/AuthTest.php</span>
+    <code class="cmd">test('besh urinishdan keyin so\'rov cheklanadi', function () {
+    User::factory()-&gt;create(['email' =&gt; 'ali@example.uz']);
+
+    foreach (range(1, 5) as $urinish) {
+        $this-&gt;from('/kirish')-&gt;post('/kirish', [
+            'email' =&gt; 'ali@example.uz',
+            'password' =&gt; 'xato-parol',
+        ]);
+    }
+
+    // oltinchi urinish — endi PAROL TO'G'RI
+    $javob = $this-&gt;from('/kirish')-&gt;post('/kirish', [
+        'email' =&gt; 'ali@example.uz',
+        'password' =&gt; 'password',
+    ]);
+
+    $javob-&gt;assertSessionHasErrors(['email']);
+    expect(session('errors')-&gt;get('email')[0])-&gt;toContain("Juda ko'p urinish");
+
+    $this-&gt;assertGuest();
+});</code>
+  </div>
+
+  <p class="expect">🔑 Oltinchi urinishda parol <b>to'g'ri</b> — va baribir
+  kiritilmadi. Aynan shu narsa cheklov ishlayotganini isbotlaydi. Agar parolni
+  xato qoldirsak, test cheklovni emas, oddiy xatoni tekshirgan bo'lardi.</p>
+
+  <p><b>O'lchangan xabar:</b></p>
+
+  <div class="natija">Juda ko'p urinish. 59 soniyadan keyin qayta urining.</div>
+
+  <p>Shuning uchun <code>toContain</code> ishlatildi, <code>toBe</code> emas:
+  soniyalar soni har safar boshqacha bo'ladi.</p>
+
+  <div class="callout tip">
+    <span class="label">🔍 Cheklov keyingi testga o'tmaydi</span>
+    <p>Tabiiy savol: birinchi test besh urinish sarfladi — ikkinchi test
+    <b>allaqachon cheklangan</b> holatda boshlanmaydimi?</p>
+    <p>Yo'q. 37-darsdagi <code>phpunit.xml</code> ga qayting:</p>
+    <div class="natija">&lt;env name="CACHE_STORE" value="array"/&gt;</div>
+    <p><code>RateLimiter</code> hisoblagichni <b>keshda</b> saqlaydi, kesh esa
+    testda <code>array</code> — ya'ni oddiy PHP massivi, har test uchun
+    yangi.</p>
+    <p>Buni sinab ko'rdik: cheklov testidan <b>keyin</b> turgan test odatdagi
+    <code>Email yoki parol xato.</code> xabarini oldi — cheklov xabarini
+    emas.</p>
+  </div>
+
+  <!-- ═══════════════ 6) SESSION ERRORS ═══════════════ -->
+  <div class="callout warning">
+    <span class="label">⚠️ <code>session('errors')</code> — 38-darsdagi sirning yechimi</span>
+    <p>Yuqoridagi testda <code>session('errors')-&gt;get('email')</code> yozdik
+    va u ishladi. Lekin bitta qatorni olib tashlasangiz — buziladi:</p>
+    <div class="natija">// assertSessionHasErrors CHAQIRILMASDAN:
+session('errors')  →  turi: array
+
+// assertSessionHasErrors dan KEYIN:
+session('errors')  →  ViewErrorBag   (-&gt;get() ishlaydi)</div>
+    <p>Ya'ni <code>session('errors')</code> boshida <b>oddiy massiv</b> bo'lib
+    turadi va faqat tekshiruvdan keyin obyektga aylanadi.</p>
+    <p>🔑 <b>Va mana 38-darsdagi sirning javobi.</b> U yerda redirect
+    tekshiruvi yiqilganda tushunarsiz xato chiqqan edi:</p>
+    <div class="natija">Call to a member function all() on array</div>
+    <p>Endi sabab aniq: xato xabarini yasashda Laravel
+    <code>session('errors')-&gt;all()</code> ni chaqiradi, u esa o'sha paytda
+    hali <b>massiv</b>. Xato sizning kodingizda emas edi.</p>
+    <p>✅ Amaliy qoida: sessiyaga <b>qo'lda</b> tegmang. Iloji boricha
+    <code>assertSessionHasErrors(['email' =&gt; 'matn'])</code> ishlating —
+    u ham qisqaroq, ham bu tuzoqqa tushmaydi. Faqat matnning
+    <b>bir qismini</b> tekshirish kerak bo'lgandagina sessiyani o'qing, va
+    o'shanda ham <code>assertSessionHasErrors</code> dan <b>keyin</b>.</p>
+  </div>
+
+  <!-- ═══════════════ 7) POLICY ═══════════════ -->
+  <h2>Policy'ni HTTP'siz sinash</h2>
+
+  <p>38-darsda policy'ni <b>so'rov orqali</b> tekshirdik: begona odam
+  tahrirlash sahifasini ochib <b>403</b> oldi. Bu to'g'ri va kerakli test.</p>
+
+  <p>Lekin policy'ning o'zi — oddiy PHP klassi. Uni <b>to'g'ridan-to'g'ri</b>
+  sinash mumkin, va bu ancha tez hamda aniqroq:</p>
+
+  <div class="codefile">
+    <span class="fname">tests/Feature/VakansiyaPolicyTest.php</span>
+    <code class="cmd">test('vakansiyani faqat egasi tahrirlay oladi', function () {
+    $egasi = User::factory()-&gt;create(['rol' =&gt; Rol::IshBeruvchi]);
+    $begona = User::factory()-&gt;create(['rol' =&gt; Rol::IshBeruvchi]);
+    $nomzod = User::factory()-&gt;create(['rol' =&gt; Rol::Nomzod]);
+
+    $vakansiya = Vakansiya::factory()-&gt;for($egasi, 'egasi')-&gt;create();
+
+    expect($egasi-&gt;can('update', $vakansiya))-&gt;toBeTrue();
+    expect($begona-&gt;can('update', $vakansiya))-&gt;toBeFalse();
+    expect($nomzod-&gt;can('update', $vakansiya))-&gt;toBeFalse();
+});</code>
+  </div>
+
+  <p>Route yo'q, controller yo'q, forma yo'q, HTML yo'q. Faqat <b>qoida</b>.</p>
+
+  <div class="natija">HTTP orqali:      «begona odam tahrirlash sahifasini ocholmaydi»
+To'g'ridan:       «begona odam update qila olmaydi»</div>
+
+  <p class="expect">🔑 Ikkalasi ham kerak, chunki ikki xil narsani himoya
+  qiladi. Policy testi <b>qoidani</b> qulflaydi; HTTP testi esa o'sha qoida
+  controllerga <b>ulanganini</b> qulflaydi. Policy to'g'ri bo'lib,
+  <code>authorize()</code> chaqirilmasa — faqat ikkinchisi tutadi.</p>
+
+  <h3><code>Gate::forUser()</code></h3>
+
+  <div class="natija">expect(Gate::forUser($egasi)-&gt;allows('delete', $vakansiya))-&gt;toBeTrue();
+expect(Gate::forUser($begona)-&gt;denies('delete', $vakansiya))-&gt;toBeTrue();</div>
+
+  <p>33-darsdagi <code>Gate::forUser()</code> testda ayni muddao: kimning
+  nomidan tekshirayotganingizni <b>aniq</b> yozasiz.
+  <code>$user-&gt;can(...)</code> bilan farqi yo'q — qaysi biri o'qilishi
+  qulay bo'lsa, o'shani tanlang.</p>
+
+  <div class="callout tip">
+    <span class="label">Policy testi qayerda yashaydi</span>
+    <p>«Bu Unit test-ku?» degan savol tug'iladi. Mantiqan — ha, u bitta
+    klassni tekshiryapti. Lekin unga <b>baza kerak</b>:
+    <code>User::factory()</code> va <code>Vakansiya::factory()</code>
+    yozuv yaratadi.</p>
+    <p>37-darsdagi <code>tests/Pest.php</code> ni eslang:</p>
+    <div class="natija">pest()-&gt;extend(TestCase::class)
+    -&gt;use(RefreshDatabase::class)
+    -&gt;in('Feature');           ← faqat Feature papkasiga</div>
+    <p>Shuning uchun policy testini <code>tests/Feature/</code> ga qo'yamiz.
+    🔑 <b>Xulosa:</b> «Feature» papkasi <i>albatta HTTP</i> degani emas —
+    u <i>baza kerak</i> degani.</p>
+  </div>
+
+  <!-- ═══════════════ 8) HAR XIL HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir bir marta o'qib chiqing,
+  keyin kerak bo'lganda qaytib qarang.</p>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 1</span>
+    <h4><code>session('errors')</code> ga erta murojaat</h4>
+    <div class="natija">$this-&gt;post('/kirish', [...]);
+
+session('errors')-&gt;get('email')
+   →  Error: Call to a member function get() on array</div>
+    <p>Sessiyadagi xatolar <code>assertSessionHasErrors</code> chaqirilmaguncha
+    <b>oddiy massiv</b> bo'lib turadi.</p>
+    <p>✅ Ikki yechim: matnni to'g'ridan-to'g'ri tekshiring
+    (<code>assertSessionHasErrors(['email' =&gt; 'matn'])</code>) yoki sessiyani
+    <b>assertion'dan keyin</b> o'qing.</p>
+    <p>🔍 38-darsdagi <code>Call to a member function all() on array</code>
+    ham aynan shu sabab edi — faqat u yerda <code>-&gt;all()</code> ni
+    <b>Laravel'ning o'zi</b> chaqirgan.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 2</span>
+    <h4><code>assertAuthenticated()</code> yetarli deb o'ylash</h4>
+    <div class="natija">$this-&gt;post('/kirish', ['email' =&gt; 'ali@example.uz', 'password' =&gt; 'password']);
+$this-&gt;assertAuthenticated();        // ⚠️ «kimdir kirdi»</div>
+    <p>Bu test <b>har doim birinchi foydalanuvchini kiritadigan</b> buzuq kodda
+    ham o'tadi. «Kimdir kirdi» — kirish tizimi uchun juda past talab.</p>
+    <p>✅ Kirish testida <code>assertAuthenticatedAs($user)</code> ishlating.
+    <code>assertAuthenticated()</code> ni esa ro'yxatdan o'tish kabi
+    «foydalanuvchi hozirgina yaratilgan» holatlarda qoldiring.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 3</span>
+    <h4>Auth testlari sekinroq</h4>
+    <div class="natija">✓ to'g'ri parol bilan kiriladi              0.01s
+✓ xato parol bilan kirib bo'lmaydi         0.21s   ← xeshlash
+✓ besh urinishdan keyin cheklanadi         1.04s   ← olti marta xeshlash</div>
+    <p>Sabab — parol xeshlash <b>ataylab sekin</b> (30-dars). Har xato urinish
+    to'liq xeshlashni talab qiladi.</p>
+    <p>✅ 37-darsdagi <code>phpunit.xml</code> buni allaqachon yumshatgan:
+    <code>BCRYPT_ROUNDS=4</code> (odatda 12). Shusiz cheklov testi
+    <b>bir necha soniya</b> ketardi.</p>
+    <p>🔍 Cheklov testini bittadan ortiq yozmang — u eng qimmat test turi.
+    Bitta yaxshi yozilgani yetadi.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 4</span>
+    <h4>Cheklov qoldig'i — bu yerda muammo yo'q</h4>
+    <div class="natija">&lt;env name="CACHE_STORE" value="array"/&gt;   ← phpunit.xml</div>
+    <p>Haqiqiy saytda <code>RateLimiter</code> hisoblagichi keshda qoladi va
+    31-darsda men sinov paytida o'zimni <b>qamab</b> qo'yganman
+    (<code>php artisan cache:clear</code> kerak bo'lgan).</p>
+    <p>Testda esa kesh <code>array</code> — har test uchun yangi massiv.
+    O'lchandi: cheklov testidan keyingi test odatdagi
+    <code>Email yoki parol xato.</code> xabarini oldi.</p>
+    <p>🔑 Umumiy naqsh: testdagi tashqi holat
+    (<b>kesh</b>, <b>sessiya</b>, <b>fayl</b>, <b>pochta</b>) —
+    <code>phpunit.xml</code> da <b>soxta</b> variantga almashtiriladi.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 5</span>
+    <h4>Policy testi Unit'da ishlamaydi</h4>
+    <div class="natija">tests/Unit/VakansiyaPolicyTest.php
+
+RuntimeException: A facade root has not been set.
+   at vendor/laravel/framework/.../Support/Facades/Facade.php:361</div>
+    <p>Xato kutilganidan ham <b>chuqurroq</b>: gap bazada emas — Unit
+    papkasida <b>Laravel umuman ko'tarilmagan</b>.</p>
+    <p><code>tests/Pest.php</code> ga qayting:</p>
+    <div class="natija">pest()-&gt;extend(TestCase::class)        ← Laravel'ni ishga tushiradi
+    -&gt;use(RefreshDatabase::class)      ← bazani tayyorlaydi
+    -&gt;in('Feature');                   ← FAQAT shu papkaga</div>
+    <p>Ikkala qator ham <code>Feature</code> ga bog'langan. Unit testlar esa
+    oddiy PHP muhitida ishlaydi — <code>User::factory()</code> ichida
+    ishlatilgan facade'lar u yerda mavjud emas.</p>
+    <p>✅ Policy testini <code>tests/Feature/</code> ga qo'ying.
+    <code>Unit</code> — <b>Laravel'siz</b> ishlay oladigan mantiq uchun: enum,
+    hisob-kitob, formatlash (37-darsdagi <code>RolTest</code> shunday).</p>
+    <p>🔍 Yoki <code>-&gt;in('Feature', 'Unit')</code> deb yozib bo'lardi —
+    lekin unda barcha Unit testlar sekinlashadi. Papkaning ma'nosi shunda:
+    <b>tez</b> va <b>sekin</b> testlarni ajratish.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 6</span>
+    <h4><code>actingAs()</code> nimani tekshirmaydi</h4>
+    <div class="natija">$this-&gt;actingAs($user)-&gt;get('/vakansiyalar');   // ✅ qulay
+
+// LEKIN bu test kirish FORMASI ishlashini tekshirmaydi:
+//   parol xeshi to'g'ri solishtiriladimi?
+//   sessiya yoziladimi?
+//   redirect qayerga?</div>
+    <p><code>actingAs()</code> butun kirish jarayonini <b>chetlab o'tadi</b> —
+    aynan shuning uchun qulay. Ammo shu sababdan u kirish tizimini
+    <b>sinamaydi</b>.</p>
+    <p>✅ Naqsh oddiy: kirish oqimini <b>bir marta</b> haqiqiy
+    <code>post('/kirish')</code> bilan tekshiring; qolgan barcha testlarda
+    <code>actingAs()</code> ishlating.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>Faqat taqiqni tekshirish</h4>
+    <div class="natija">expect($begona-&gt;can('update', $vakansiya))-&gt;toBeFalse();   // ⚠️ yolg'iz</div>
+    <p>Bu test <code>update()</code> metodi <b>doim <code>false</code></b>
+    qaytaradigan buzuq policy'da ham o'tadi — va o'shanda egasi ham o'z
+    e'lonini tahrirlay olmaydi.</p>
+    <p>✅ Har doim <b>ikkala tomonni</b> yozing:</p>
+    <div class="natija">expect($egasi-&gt;can('update', $vakansiya))-&gt;toBeTrue();     // ruxsat
+expect($begona-&gt;can('update', $vakansiya))-&gt;toBeFalse();   // taqiq</div>
+    <p>🔑 Bu 38-darsdagi <code>assertDontSee</code> qoidasining aynan o'zi:
+    «yo'q»ni tekshirish yolg'iz o'zi kam narsa isbotlaydi.</p>
+  </div>
+
+  <!-- ═══════════════ 9) AMALIYOT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    <span class="mode-hint-title">💻 Amaliy qism kompyuterda</span>
+    <p>Amaliyotda auth oqimini to'liq qoplaysiz va policy'ni HTTP'siz
+    sinaysiz. Yo'lda <code>session('errors')</code> tuzog'ini <b>ataylab</b>
+    ko'rasiz — o'sha 38-darsda javobsiz qolgan xatoning ildizini.</p>
+    <button type="button" class="modebtn" data-set-mode="do">💻 Amaliyot rejimini ko'rish</button>
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <p>Holatni tekshiring</p>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+php artisan test">cd ~/Projects/Learn/ishtop
+php artisan test
+<span class="out">  Tests:    15 passed (40 assertions)</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> 39-darsdagi 15 ta test
+        yashil.</p>
+      </li>
+
+      <li>
+        <p>Ro'yxatdan o'tish oqimini yozing</p>
+        <div class="cmd" data-cmd="# tests/Feature/AuthTest.php
+
+&lt;?php
+
+use App\Enums\Rol;
+use App\Models\User;
+
+test('nomzod ro\'yxatdan o\'tadi va darhol kiradi', function () {
+    $javob = $this-&gt;post('/royxatdan-otish', [
+        'name' =&gt; 'Nodira',
+        'email' =&gt; 'nodira@example.uz',
+        'password' =&gt; 'parol1234',
+        'password_confirmation' =&gt; 'parol1234',
+        'rol' =&gt; 'nomzod',
+    ]);
+
+    $javob-&gt;assertRedirect('/vakansiyalar');
+
+    $this-&gt;assertDatabaseHas(User::class, ['email' =&gt; 'nodira@example.uz']);
+    $this-&gt;assertAuthenticated();
+
+    expect(User::where('email', 'nodira@example.uz')-&gt;first()-&gt;rol)
+        -&gt;toBe(Rol::Nomzod);
+});"># tests/Feature/AuthTest.php
+
+&lt;?php
+
+use App\Enums\Rol;
+use App\Models\User;
+
+test('nomzod ro\'yxatdan o\'tadi va darhol kiradi', function () {
+    $javob = $this-&gt;post('/royxatdan-otish', [
+        'name' =&gt; 'Nodira',
+        'email' =&gt; 'nodira@example.uz',
+        'password' =&gt; 'parol1234',
+        'password_confirmation' =&gt; 'parol1234',
+        'rol' =&gt; 'nomzod',
+    ]);
+
+    $javob-&gt;assertRedirect('/vakansiyalar');
+
+    $this-&gt;assertDatabaseHas(User::class, ['email' =&gt; 'nodira@example.uz']);
+    $this-&gt;assertAuthenticated();
+
+    expect(User::where('email', 'nodira@example.uz')-&gt;first()-&gt;rol)
+        -&gt;toBe(Rol::Nomzod);
+});</div>
+        <div class="cmd" data-cmd="php artisan test tests/Feature/AuthTest.php">php artisan test tests/Feature/AuthTest.php</div>
+      </li>
+
+      <li>
+        <p>Rad etilishi kerak bo'lgan ikki holat</p>
+        <div class="cmd" data-cmd="# tests/Feature/AuthTest.php ga qo'shing
+
+test('rol tanlanmasa ro\'yxatdan o\'tkazilmaydi', function () {
+    $this-&gt;from('/royxatdan-otish')-&gt;post('/royxatdan-otish', [
+        'name' =&gt; 'Nodira',
+        'email' =&gt; 'nodira@example.uz',
+        'password' =&gt; 'parol1234',
+        'password_confirmation' =&gt; 'parol1234',
+    ])-&gt;assertSessionHasErrors(['rol' =&gt; 'Rolni tanlang.']);
+
+    $this-&gt;assertGuest();
+    $this-&gt;assertDatabaseMissing(User::class, ['email' =&gt; 'nodira@example.uz']);
+});
+
+test('band email bilan ro\'yxatdan o\'tib bo\'lmaydi', function () {
+    User::factory()-&gt;create(['email' =&gt; 'ali@example.uz']);
+
+    $this-&gt;from('/royxatdan-otish')-&gt;post('/royxatdan-otish', [
+        'name' =&gt; 'Boshqa Ali',
+        'email' =&gt; 'ali@example.uz',
+        'password' =&gt; 'parol1234',
+        'password_confirmation' =&gt; 'parol1234',
+        'rol' =&gt; 'nomzod',
+    ])-&gt;assertSessionHasErrors(['email']);
+
+    $this-&gt;assertGuest();
+    expect(User::where('email', 'ali@example.uz')-&gt;count())-&gt;toBe(1);
+});"># tests/Feature/AuthTest.php ga qo'shing
+
+test('rol tanlanmasa ro\'yxatdan o\'tkazilmaydi', function () {
+    $this-&gt;from('/royxatdan-otish')-&gt;post('/royxatdan-otish', [
+        'name' =&gt; 'Nodira',
+        'email' =&gt; 'nodira@example.uz',
+        'password' =&gt; 'parol1234',
+        'password_confirmation' =&gt; 'parol1234',
+    ])-&gt;assertSessionHasErrors(['rol' =&gt; 'Rolni tanlang.']);
+
+    $this-&gt;assertGuest();
+    $this-&gt;assertDatabaseMissing(User::class, ['email' =&gt; 'nodira@example.uz']);
+});
+
+test('band email bilan ro\'yxatdan o\'tib bo\'lmaydi', function () {
+    User::factory()-&gt;create(['email' =&gt; 'ali@example.uz']);
+
+    $this-&gt;from('/royxatdan-otish')-&gt;post('/royxatdan-otish', [
+        'name' =&gt; 'Boshqa Ali',
+        'email' =&gt; 'ali@example.uz',
+        'password' =&gt; 'parol1234',
+        'password_confirmation' =&gt; 'parol1234',
+        'rol' =&gt; 'nomzod',
+    ])-&gt;assertSessionHasErrors(['email']);
+
+    $this-&gt;assertGuest();
+    expect(User::where('email', 'ali@example.uz')-&gt;count())-&gt;toBe(1);
+});</div>
+        <p class="why-step">🔑 Ikkalasida ham <b>uchinchi qatlam</b> bor:
+        foydalanuvchi bazaga <b>yozilmagani</b>. Xato ko'rsatib, ammo yozuvni
+        yaratib qo'yadigan kod ham bo'lishi mumkin.</p>
+      </li>
+
+      <li>
+        <p>Kirish va chiqish</p>
+        <div class="cmd" data-cmd="# tests/Feature/AuthTest.php ga qo'shing
+
+test('to\'g\'ri parol bilan kiriladi', function () {
+    $user = User::factory()-&gt;create(['email' =&gt; 'ali@example.uz']);
+
+    $this-&gt;post('/kirish', [
+        'email' =&gt; 'ali@example.uz',
+        'password' =&gt; 'password',
+    ])-&gt;assertRedirect('/vakansiyalar');
+
+    $this-&gt;assertAuthenticatedAs($user);
+});
+
+test('xato parol bilan kirib bo\'lmaydi', function () {
+    User::factory()-&gt;create(['email' =&gt; 'ali@example.uz']);
+
+    $this-&gt;from('/kirish')-&gt;post('/kirish', [
+        'email' =&gt; 'ali@example.uz',
+        'password' =&gt; 'xato-parol',
+    ])-&gt;assertSessionHasErrors(['email' =&gt; 'Email yoki parol xato.']);
+
+    $this-&gt;assertGuest();
+});
+
+test('chiqilgandan keyin mehmon bo\'ladi', function () {
+    $user = User::factory()-&gt;create();
+
+    $this-&gt;actingAs($user)-&gt;post('/chiqish')-&gt;assertRedirect('/vakansiyalar');
+
+    $this-&gt;assertGuest();
+});"># tests/Feature/AuthTest.php ga qo'shing
+
+test('to\'g\'ri parol bilan kiriladi', function () {
+    $user = User::factory()-&gt;create(['email' =&gt; 'ali@example.uz']);
+
+    $this-&gt;post('/kirish', [
+        'email' =&gt; 'ali@example.uz',
+        'password' =&gt; 'password',
+    ])-&gt;assertRedirect('/vakansiyalar');
+
+    $this-&gt;assertAuthenticatedAs($user);
+});
+
+test('xato parol bilan kirib bo\'lmaydi', function () {
+    User::factory()-&gt;create(['email' =&gt; 'ali@example.uz']);
+
+    $this-&gt;from('/kirish')-&gt;post('/kirish', [
+        'email' =&gt; 'ali@example.uz',
+        'password' =&gt; 'xato-parol',
+    ])-&gt;assertSessionHasErrors(['email' =&gt; 'Email yoki parol xato.']);
+
+    $this-&gt;assertGuest();
+});
+
+test('chiqilgandan keyin mehmon bo\'ladi', function () {
+    $user = User::factory()-&gt;create();
+
+    $this-&gt;actingAs($user)-&gt;post('/chiqish')-&gt;assertRedirect('/vakansiyalar');
+
+    $this-&gt;assertGuest();
+});</div>
+        <p class="why-step">🔍 <code>'password' =&gt; 'password'</code> —
+        <code>UserFactory</code> dagi standart parol.</p>
+      </li>
+
+      <li>
+        <p>⚠️ <code>session('errors')</code> tuzog'ini ataylab ko'ring</p>
+        <div class="cmd" data-cmd="# vaqtinchalik test qo'shing:
+
+test('sessiyaga erta murojaat', function () {
+    User::factory()-&gt;create(['email' =&gt; 'ali@example.uz']);
+
+    $this-&gt;from('/kirish')-&gt;post('/kirish', [
+        'email' =&gt; 'ali@example.uz',
+        'password' =&gt; 'xato-parol',
+    ]);
+
+    dump('turi: ' . get_debug_type(session('errors')));
+
+    expect(session('errors')-&gt;get('email')[0])-&gt;toBe('Email yoki parol xato.');
+});"># vaqtinchalik test qo'shing:
+
+test('sessiyaga erta murojaat', function () {
+    User::factory()-&gt;create(['email' =&gt; 'ali@example.uz']);
+
+    $this-&gt;from('/kirish')-&gt;post('/kirish', [
+        'email' =&gt; 'ali@example.uz',
+        'password' =&gt; 'xato-parol',
+    ]);
+
+    dump('turi: ' . get_debug_type(session('errors')));
+
+    expect(session('errors')-&gt;get('email')[0])-&gt;toBe('Email yoki parol xato.');
+});</div>
+        <div class="cmd" data-cmd="php artisan test --filter=sessiyaga">php artisan test --filter=sessiyaga
+<span class="out">&quot;turi: array&quot;</span>
+<span class="out">Error: Call to a member function get() on array</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> <code>array</code> —
+        <code>ViewErrorBag</code> emas.
+        <br>🔑 Mana 38-darsdagi <code>Call to a member function all() on
+        array</code> xatosining ildizi. Endi testni <b>o'chiring</b>.</p>
+      </li>
+
+      <li>
+        <p>So'rov cheklovini yozing</p>
+        <div class="cmd" data-cmd="# tests/Feature/AuthTest.php ga qo'shing
+
+test('besh urinishdan keyin so\'rov cheklanadi', function () {
+    User::factory()-&gt;create(['email' =&gt; 'ali@example.uz']);
+
+    foreach (range(1, 5) as $urinish) {
+        $this-&gt;from('/kirish')-&gt;post('/kirish', [
+            'email' =&gt; 'ali@example.uz',
+            'password' =&gt; 'xato-parol',
+        ]);
+    }
+
+    $javob = $this-&gt;from('/kirish')-&gt;post('/kirish', [
+        'email' =&gt; 'ali@example.uz',
+        'password' =&gt; 'password',
+    ]);
+
+    $javob-&gt;assertSessionHasErrors(['email']);
+    expect(session('errors')-&gt;get('email')[0])-&gt;toContain(&quot;Juda ko'p urinish&quot;);
+
+    $this-&gt;assertGuest();
+});
+
+test('cheklov keyingi testga o\'tmaydi', function () {
+    User::factory()-&gt;create(['email' =&gt; 'ali@example.uz']);
+
+    $this-&gt;from('/kirish')-&gt;post('/kirish', [
+        'email' =&gt; 'ali@example.uz',
+        'password' =&gt; 'xato-parol',
+    ])-&gt;assertSessionHasErrors(['email' =&gt; 'Email yoki parol xato.']);
+});"># tests/Feature/AuthTest.php ga qo'shing
+
+test('besh urinishdan keyin so\'rov cheklanadi', function () {
+    User::factory()-&gt;create(['email' =&gt; 'ali@example.uz']);
+
+    foreach (range(1, 5) as $urinish) {
+        $this-&gt;from('/kirish')-&gt;post('/kirish', [
+            'email' =&gt; 'ali@example.uz',
+            'password' =&gt; 'xato-parol',
+        ]);
+    }
+
+    $javob = $this-&gt;from('/kirish')-&gt;post('/kirish', [
+        'email' =&gt; 'ali@example.uz',
+        'password' =&gt; 'password',
+    ]);
+
+    $javob-&gt;assertSessionHasErrors(['email']);
+    expect(session('errors')-&gt;get('email')[0])-&gt;toContain(&quot;Juda ko'p urinish&quot;);
+
+    $this-&gt;assertGuest();
+});
+
+test('cheklov keyingi testga o\'tmaydi', function () {
+    User::factory()-&gt;create(['email' =&gt; 'ali@example.uz']);
+
+    $this-&gt;from('/kirish')-&gt;post('/kirish', [
+        'email' =&gt; 'ali@example.uz',
+        'password' =&gt; 'xato-parol',
+    ])-&gt;assertSessionHasErrors(['email' =&gt; 'Email yoki parol xato.']);
+});</div>
+        <p class="why-step">🔑 Oltinchi urinishda parol <b>to'g'ri</b> — va
+        baribir kiritilmaydi. Ikkinchi test esa cheklov keyingi testga
+        <b>o'tmasligini</b> isbotlaydi.</p>
+      </li>
+
+      <li>
+        <p>Policy'ni HTTP'siz sinang</p>
+        <div class="cmd" data-cmd="# tests/Feature/VakansiyaPolicyTest.php
+
+&lt;?php
+
+use App\Enums\Rol;
+use App\Models\User;
+use App\Models\Vakansiya;
+use Illuminate\Support\Facades\Gate;
+
+test('faqat ish beruvchi vakansiya yarata oladi', function () {
+    $ishBeruvchi = User::factory()-&gt;create(['rol' =&gt; Rol::IshBeruvchi]);
+    $nomzod = User::factory()-&gt;create(['rol' =&gt; Rol::Nomzod]);
+
+    expect($ishBeruvchi-&gt;can('create', Vakansiya::class))-&gt;toBeTrue();
+    expect($nomzod-&gt;can('create', Vakansiya::class))-&gt;toBeFalse();
+});
+
+test('vakansiyani faqat egasi tahrirlay oladi', function () {
+    $egasi = User::factory()-&gt;create(['rol' =&gt; Rol::IshBeruvchi]);
+    $begona = User::factory()-&gt;create(['rol' =&gt; Rol::IshBeruvchi]);
+    $nomzod = User::factory()-&gt;create(['rol' =&gt; Rol::Nomzod]);
+
+    $vakansiya = Vakansiya::factory()-&gt;for($egasi, 'egasi')-&gt;create();
+
+    expect($egasi-&gt;can('update', $vakansiya))-&gt;toBeTrue();
+    expect($begona-&gt;can('update', $vakansiya))-&gt;toBeFalse();
+    expect($nomzod-&gt;can('update', $vakansiya))-&gt;toBeFalse();
+});
+
+test('o\'chirish qoidasi tahrirlash bilan bir xil', function () {
+    $egasi = User::factory()-&gt;create(['rol' =&gt; Rol::IshBeruvchi]);
+    $begona = User::factory()-&gt;create(['rol' =&gt; Rol::IshBeruvchi]);
+
+    $vakansiya = Vakansiya::factory()-&gt;for($egasi, 'egasi')-&gt;create();
+
+    expect(Gate::forUser($egasi)-&gt;allows('delete', $vakansiya))-&gt;toBeTrue();
+    expect(Gate::forUser($begona)-&gt;denies('delete', $vakansiya))-&gt;toBeTrue();
+});
+
+test('rol yetarli emas — egalik ham kerak', function () {
+    $ishBeruvchi = User::factory()-&gt;create(['rol' =&gt; Rol::IshBeruvchi]);
+    $boshqasi = User::factory()-&gt;create(['rol' =&gt; Rol::IshBeruvchi]);
+
+    $vakansiya = Vakansiya::factory()-&gt;for($boshqasi, 'egasi')-&gt;create();
+
+    expect($ishBeruvchi-&gt;can('create', Vakansiya::class))-&gt;toBeTrue();
+    expect($ishBeruvchi-&gt;can('update', $vakansiya))-&gt;toBeFalse();
+});"># tests/Feature/VakansiyaPolicyTest.php
+
+&lt;?php
+
+use App\Enums\Rol;
+use App\Models\User;
+use App\Models\Vakansiya;
+use Illuminate\Support\Facades\Gate;
+
+test('faqat ish beruvchi vakansiya yarata oladi', function () {
+    $ishBeruvchi = User::factory()-&gt;create(['rol' =&gt; Rol::IshBeruvchi]);
+    $nomzod = User::factory()-&gt;create(['rol' =&gt; Rol::Nomzod]);
+
+    expect($ishBeruvchi-&gt;can('create', Vakansiya::class))-&gt;toBeTrue();
+    expect($nomzod-&gt;can('create', Vakansiya::class))-&gt;toBeFalse();
+});
+
+test('vakansiyani faqat egasi tahrirlay oladi', function () {
+    $egasi = User::factory()-&gt;create(['rol' =&gt; Rol::IshBeruvchi]);
+    $begona = User::factory()-&gt;create(['rol' =&gt; Rol::IshBeruvchi]);
+    $nomzod = User::factory()-&gt;create(['rol' =&gt; Rol::Nomzod]);
+
+    $vakansiya = Vakansiya::factory()-&gt;for($egasi, 'egasi')-&gt;create();
+
+    expect($egasi-&gt;can('update', $vakansiya))-&gt;toBeTrue();
+    expect($begona-&gt;can('update', $vakansiya))-&gt;toBeFalse();
+    expect($nomzod-&gt;can('update', $vakansiya))-&gt;toBeFalse();
+});
+
+test('o\'chirish qoidasi tahrirlash bilan bir xil', function () {
+    $egasi = User::factory()-&gt;create(['rol' =&gt; Rol::IshBeruvchi]);
+    $begona = User::factory()-&gt;create(['rol' =&gt; Rol::IshBeruvchi]);
+
+    $vakansiya = Vakansiya::factory()-&gt;for($egasi, 'egasi')-&gt;create();
+
+    expect(Gate::forUser($egasi)-&gt;allows('delete', $vakansiya))-&gt;toBeTrue();
+    expect(Gate::forUser($begona)-&gt;denies('delete', $vakansiya))-&gt;toBeTrue();
+});
+
+test('rol yetarli emas — egalik ham kerak', function () {
+    $ishBeruvchi = User::factory()-&gt;create(['rol' =&gt; Rol::IshBeruvchi]);
+    $boshqasi = User::factory()-&gt;create(['rol' =&gt; Rol::IshBeruvchi]);
+
+    $vakansiya = Vakansiya::factory()-&gt;for($boshqasi, 'egasi')-&gt;create();
+
+    expect($ishBeruvchi-&gt;can('create', Vakansiya::class))-&gt;toBeTrue();
+    expect($ishBeruvchi-&gt;can('update', $vakansiya))-&gt;toBeFalse();
+});</div>
+        <p class="why-step">🔍 Bu fayl <code>Feature</code> papkasida —
+        chunki unga <b>baza kerak</b>, HTTP emas.</p>
+      </li>
+
+      <li>
+        <p>To'liq to'plamni ishga tushiring</p>
+        <div class="cmd" data-cmd="php artisan test">php artisan test
+<span class="out">  Tests:    27 passed (79 assertions)</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> 27 test yashil.
+        <br>🔍 Cheklov testi ~1 soniya oladi — bu normal, olti marta parol
+        xeshlanadi.</p>
+      </li>
+
+      <li>
+        <p>🔴 Policy testiga ishonch hosil qiling</p>
+        <div class="cmd" data-cmd="# app/Policies/VakansiyaPolicy.php — vaqtincha:
+
+    public function update(User $user, Vakansiya $vakansiya): bool
+    {
+        return $user-&gt;rol === Rol::IshBeruvchi;   // ← egalik olib tashlandi
+    }"># app/Policies/VakansiyaPolicy.php — vaqtincha:
+
+    public function update(User $user, Vakansiya $vakansiya): bool
+    {
+        return $user-&gt;rol === Rol::IshBeruvchi;   // ← egalik olib tashlandi
+    }</div>
+        <div class="cmd" data-cmd="php artisan test">php artisan test
+<span class="out">  ⨯ vakansiyani faqat egasi tahrirlay oladi</span>
+<span class="out">  ⨯ o'chirish qoidasi tahrirlash bilan bir xil</span>
+<span class="out">  ⨯ rol yetarli emas — egalik ham kerak</span>
+<span class="out">  ⨯ begona ish beruvchi tahrirlay olmaydi</span>
+<span class="out">  Tests:    4 failed, 23 passed (77 assertions)</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> <b>to'rtta</b> test qiziradi:
+        uchtasi bugungi policy testlari, bittasi 38-darsdagi <b>HTTP</b> testi.
+        <br>🔑 Har xil tomondan yozilgan testlar bitta xatoni <b>bir vaqtda</b>
+        tutdi — himoya qatlamlari shunday ishlaydi.
+        <br>🔍 «faqat ish beruvchi vakansiya yarata oladi» testi
+        <b>yashil</b> qoldi, chunki biz <code>create()</code> ga tegmadik.
+        <br>Ko'rgach policy'ni <b>qaytaring</b>.</p>
+      </li>
+
+      <li>
+        <p>Ishni saqlang</p>
+        <div class="cmd" data-cmd="php artisan test
+git add -A
+git commit -m &quot;40-dars: auth oqimi va policy testlari&quot;">php artisan test
+git add -A
+git commit -m &quot;40-dars: auth oqimi va policy testlari&quot;</div>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><input type="checkbox" id="d40c1"><label for="d40c1">Ro'yxatdan o'tish oqimini va rol saqlanishini yozdim</label></li>
+      <li><input type="checkbox" id="d40c2"><label for="d40c2">Rolsiz va band email holatlarini qopladim</label></li>
+      <li><input type="checkbox" id="d40c3"><label for="d40c3"><code>assertAuthenticatedAs</code> bilan <b>aynan kim</b> kirganini tekshirdim</label></li>
+      <li><input type="checkbox" id="d40c4"><label for="d40c4">Xato parol xabarini <b>matn bo'yicha</b> qulfladim</label></li>
+      <li><input type="checkbox" id="d40c5"><label for="d40c5"><b><code>session('errors')</code> massiv ekanini ko'rdim</b> ⚠️</label></li>
+      <li><input type="checkbox" id="d40c6"><label for="d40c6">38-darsdagi xato bilan bog'liqligini tushundim</label></li>
+      <li><input type="checkbox" id="d40c7"><label for="d40c7">So'rov cheklovini test bilan qopladim</label></li>
+      <li><input type="checkbox" id="d40c8"><label for="d40c8">Cheklov keyingi testga o'tmasligini tasdiqladim</label></li>
+      <li><input type="checkbox" id="d40c9"><label for="d40c9">Policy'ni HTTP'siz sinadim (<code>$user-&gt;can</code>)</label></li>
+      <li><input type="checkbox" id="d40c10"><label for="d40c10"><b>Policy'ni buzib, ikkita test qizil bo'lganini ko'rdim</b> 🔴</label></li>
+      <li><input type="checkbox" id="d40c11"><label for="d40c11">27 test / 79 tekshiruv yashil, commit qildim</label></li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 10) SINAB KO'RAMIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Dasturchi kirish testini shunday yozdi:</p>
+    <div class="codefile">
+      <div class="fname">tests/Feature/AuthTest.php</div>
+      <code class="cmd" data-cmd="test('kirish ishlaydi', function () {
+    User::factory()-&gt;create(['email' =&gt; 'ali@example.uz']);
+    User::factory()-&gt;create(['email' =&gt; 'vali@example.uz']);
+
+    $this-&gt;post('/kirish', [
+        'email' =&gt; 'vali@example.uz',
+        'password' =&gt; 'password',
+    ])-&gt;assertRedirect('/vakansiyalar');
+
+    $this-&gt;assertAuthenticated();
+});">test('kirish ishlaydi', function () {
+    User::factory()-&gt;create(['email' =&gt; 'ali@example.uz']);
+    User::factory()-&gt;create(['email' =&gt; 'vali@example.uz']);
+
+    $this-&gt;post('/kirish', [
+        'email' =&gt; 'vali@example.uz',
+        'password' =&gt; 'password',
+    ])-&gt;assertRedirect('/vakansiyalar');
+
+    $this-&gt;assertAuthenticated();
+});</code>
+    </div>
+    <p>Test yashil. Endi tasavvur qiling: kimdir <code>kirish()</code> metodini
+    buzdi va u <b>emaildan qat'i nazar birinchi foydalanuvchini</b> kiritadigan
+    bo'lib qoldi. Test buni tutadimi?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <div class="natija">✓ kirish ishlaydi
+
+Yashil. Holbuki Vali o'rniga ALI kirgan.</div>
+        <p><code>assertAuthenticated()</code> faqat «<b>kimdir</b> kirgan»
+        deydi. Ali ham kimdir — demak tekshiruv bajarildi.</p>
+        <p class="expect">⚠️ Bu 38-darsdagi <code>assertDontSee</code>
+        muammosining boshqa ko'rinishi: tekshiruv <b>juda bo'sh</b>, shuning
+        uchun buzuq kod ham undan o'tib ketadi.</p>
+        <p><b>To'g'ri variant</b> — kimligini aniq ayting:</p>
+        <div class="natija">$vali = User::factory()-&gt;create(['email' =&gt; 'vali@example.uz']);
+...
+$this-&gt;assertAuthenticatedAs($vali);     // ✅ AYNAN Vali</div>
+        <p>🔑 <b>Qoida:</b> <code>assertAuthenticated()</code> ni faqat
+        foydalanuvchi <b>hozirgina yaratilgan</b> joyda ishlating
+        (ro'yxatdan o'tish). Kirish testida har doim
+        <code>assertAuthenticatedAs($user)</code>.</p>
+        <p>🔍 Va yana bir daraja chuqurroq: yuqoridagi testda
+        <b>ikkita</b> foydalanuvchi ataylab yaratilgan. Agar bitta bo'lsa,
+        «birinchi foydalanuvchini kiritadigan» xato <b>umuman
+        ko'rinmaydi</b> — chunki birinchi va kerakli odam bitta.</p>
+        <p><b>Umumiy saboq:</b> test ma'lumoti xatoni <b>ko'rsata oladigan</b>
+        bo'lishi kerak. Bitta yozuv bilan tartib, tanlov va filtr xatolarini
+        tutib bo'lmaydi.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span> Kirish testida qaysi
+    tekshiruv to'g'ri?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">assertAuthenticatedAs aynan kimligini tekshiradi</button></li>
+      <li><button class="quiz-option">assertAuthenticated yetarli va ishonchli</button></li>
+      <li><button class="quiz-option">assertGuest kirganini tasdiqlab beradi</button></li>
+    </ul>
+    <div class="quiz-explain"><code>assertAuthenticated()</code> «kimdir kirgan»
+    deydi — «har doim birinchi foydalanuvchini kiritadigan» buzuq kod ham
+    undan o'tadi. Kirish testida <code>assertAuthenticatedAs($user)</code>
+    ishlating. <code>assertAuthenticated()</code> esa ro'yxatdan o'tish kabi
+    «foydalanuvchi hozirgina yaratilgan» holatlarga qoladi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span> Nega cheklov testi
+    keyingi testga ta'sir qilmaydi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Testda kesh har safar yangidan yasaladi</button></li>
+      <li><button class="quiz-option">RateLimiter testlarda hech qachon ishga tushmaydi</button></li>
+      <li><button class="quiz-option">Har test oxirida kesh qo'lda tozalanadi</button></li>
+    </ul>
+    <div class="quiz-explain"><code>phpunit.xml</code> da
+    <code>CACHE_STORE=array</code> — hisoblagich oddiy PHP massivida yashaydi
+    va har test uchun yangi. Haqiqiy saytda esa u keshda qoladi; 31-darsda
+    <code>php artisan cache:clear</code> aynan shuning uchun kerak
+    bo'lgan.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span> Policy testi nega
+    <code>Feature</code> papkasida turadi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Unit papkasida Laravel umuman ishga tushmaydi</button></li>
+      <li><button class="quiz-option">Policy testlari har doim HTTP yuboradi</button></li>
+      <li><button class="quiz-option">Unit papkasi faqat controller uchun mo'ljallangan</button></li>
+    </ul>
+    <div class="quiz-explain"><code>tests/Pest.php</code> da
+    <code>-&gt;extend(TestCase::class)</code> ham,
+    <code>-&gt;use(RefreshDatabase::class)</code> ham
+    <code>-&gt;in('Feature')</code> ga bog'langan. Unit'da esa
+    <code>A facade root has not been set.</code> chiqadi.
+    🔑 «Feature» papkasi <b>albatta HTTP</b> degani emas — <b>Laravel kerak</b>
+    degani.</div>
+  </div>
+
+  <!-- ═══════════════ 11) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+    <p class="recall-intro">Avval o'zingiz javob bering, keyin ochib tekshiring.
+    Oxirgi ikkitasi — <a href="0039-baza-bilan-test.html">39-darsni</a> takrorlash.</p>
+
+    <details class="recall">
+      <summary>Uchta auth tekshiruvi qanday farq qiladi?</summary>
+      <div class="answer"><p><code>assertGuest()</code> — hech kim kirmagan.
+      <code>assertAuthenticated()</code> — kimdir kirgan.
+      <code>assertAuthenticatedAs($user)</code> — <b>aynan shu odam</b>.
+      Kirish testida uchinchisi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Nega <code>session('errors')</code> ga tegmaslik kerak?</summary>
+      <div class="answer"><p>U <code>assertSessionHasErrors</code>
+      chaqirilmaguncha <b>oddiy massiv</b> bo'lib turadi. 38-darsdagi
+      <code>Call to a member function all() on array</code> xatosining ildizi
+      ham shu. Yaxshisi:
+      <code>assertSessionHasErrors(['email' =&gt; 'matn'])</code>.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Policy testi va HTTP testi nimasi bilan farq qiladi?</summary>
+      <div class="answer"><p>Policy testi <b>qoidani</b> qulflaydi
+      (<code>$user-&gt;can(...)</code>), HTTP testi esa o'sha qoida
+      controllerga <b>ulanganini</b>. Policy to'g'ri bo'lib
+      <code>authorize()</code> chaqirilmasa — faqat ikkinchisi tutadi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: nega <code>has()</code> da nom majburiy?</summary>
+      <div class="answer"><p>Taxmin avval <b>ko'plik</b>
+      (<code>Konikma</code> → <code>konikmas</code>), keyin <b>birlik</b>
+      (<code>konikma</code>) qidiradi. O'zbekcha <code>konikmalar()</code>
+      ikkalasiga ham mos emas.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: factory zanjirini nima to'xtatadi?</summary>
+      <div class="answer"><p><code>-&gt;for($model, 'nom')</code> yoki
+      <code>-&gt;recycle($model)</code>. Aks holda
+      <code>Vakansiya::factory()-&gt;count(3)</code> uchta kompaniya ham
+      yasaydi.</p></div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 12) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Cho'ntak xulosasi</span>
+    <ul>
+      <li>Uchta savol: <code>assertGuest()</code> ·
+      <code>assertAuthenticated()</code> ·
+      <code>assertAuthenticatedAs($user)</code>.</li>
+      <li>⚠️ Kirish testida <b>har doim</b>
+      <code>assertAuthenticatedAs($user)</code> — <code>assertAuthenticated()</code>
+      «har doim birinchi odamni kiritadigan» buzuq koddan ham o'tadi.</li>
+      <li>Ro'yxatdan o'tish testi to'rt qatlamli: redirect · foydalanuvchi
+      yaratildimi · darhol kirdimi · <b>rol</b> to'g'ri saqlandimi
+      (34-dars, enum bilan solishtiring).</li>
+      <li>Rad etilishi kerak bo'lgan holatlarda uchinchi qatlam majburiy:
+      <code>assertDatabaseMissing(User::class, [...])</code>.</li>
+      <li>🔍 Xato xabarini <b>matn</b> bilan qulflang:
+      <code>assertSessionHasErrors(['rol' =&gt; 'Rolni tanlang.'])</code>.</li>
+      <li>⚠️ <code>session('errors')</code> —
+      <code>assertSessionHasErrors</code> chaqirilmaguncha <b>oddiy
+      massiv</b>. 38-darsdagi
+      <code>Call to a member function all() on array</code> xatosining
+      <b>ildizi</b> shu.</li>
+      <li><code>'password' =&gt; 'password'</code> —
+      <code>UserFactory</code> dagi standart parol.</li>
+      <li>Cheklov testi: beshta xato urinish, oltinchisida <b>parol
+      to'g'ri</b> — va baribir kiritilmaydi.
+      <code>toContain("Juda ko'p urinish")</code>, chunki soniyalar
+      o'zgaradi.</li>
+      <li>🔍 Cheklov keyingi testga <b>o'tmaydi</b>:
+      <code>phpunit.xml</code> da <code>CACHE_STORE=array</code>.</li>
+      <li>Policy'ni HTTP'siz sinang:
+      <code>$user-&gt;can('update', $vakansiya)</code> yoki
+      <code>Gate::forUser($u)-&gt;allows(...)</code>.</li>
+      <li>⚠️ Har doim <b>ikkala tomon</b>: ruxsat <code>toBeTrue</code> va
+      taqiq <code>toBeFalse</code>. Yolg'iz taqiq testi «hammaga yo'q»
+      deydigan buzuq policy'dan ham o'tadi.</li>
+      <li>Policy testi va HTTP testi <b>ikki xil narsani</b> qo'riqlaydi:
+      qoidaning o'zi va uning controllerga ulanishi.</li>
+      <li>⚠️ Policy testi <code>Unit</code> da ishlamaydi:
+      <code>A facade root has not been set.</code> —
+      <code>tests/Pest.php</code> Laravel'ni faqat <code>Feature</code> da
+      ko'taradi.</li>
+      <li>🔍 Auth testlari sekinroq (~0.2–1 s) — parol xeshlash ataylab
+      sekin. <code>BCRYPT_ROUNDS=4</code> buni yumshatadi.</li>
+      <li><code>actingAs()</code> kirish jarayonini <b>sinamaydi</b> — uni
+      bir marta haqiqiy <code>post('/kirish')</code> bilan tekshiring,
+      qolganida <code>actingAs()</code> ishlating.</li>
+      <li><b>Natija:</b> 27 test, 79 tekshiruv — auth va huquqlar to'liq
+      qoplandi.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p>Modul E'da Pest bilan ishladik: <code>test()</code>,
+    <code>expect()</code>, HTTP tekshiruvlari, factory bog'lanishlari va
+    auth oqimi. IshTop endi <b>27 ta test</b> bilan qo'riqlanadi.</p>
+    <p>Lekin dunyodagi Laravel loyihalarining katta qismi hali ham
+    <b>PHPUnit</b> uslubida yozilgan: <code>class ... extends TestCase</code>,
+    <code>public function test_...()</code>. Ochilgan har bir eski loyihada
+    shu ko'rinishni uchratasiz.</p>
+    <p>41-darsda ikkalasini <b>yonma-yon</b> qo'yamiz va PHPUnit uslubini
+    o'qishni o'rganamiz. Keyin <b>red → green → refactor</b> aylanasini
+    bosamiz: avval yiqiladigan test, keyin uni yashil qiladigan eng sodda kod,
+    keyin tozalash.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel — Authentication Testing</b>:
+    <a href="https://laravel.com/docs/13.x/http-tests#testing-authentication">actingAs,
+    assertAuthenticated, assertGuest</a>.<sup><a href="#fn1">1</a></sup><br>
+    <b>Session Assertions</b>:
+    <a href="https://laravel.com/docs/13.x/http-tests#session-assertions">assertSessionHasErrors
+    va boshqalar</a>.<sup><a href="#fn2">2</a></sup><br>
+    <b>Rate Limiting</b>:
+    <a href="https://laravel.com/docs/13.x/rate-limiting">RateLimiter
+    fasadi</a>.<sup><a href="#fn3">3</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b> «parolni tiklash oqimini
+    qanday test qilaman?», «email tasdiqlashni-chi?», «testda vaqtni oldinga
+    surish mumkinmi (cheklov tugashini sinash uchun)?», «ikki faktorli
+    kirishni qanday sinayman?» — har qanday savol yaxshi. Uchinchisiga qisqa
+    javob: <b>ha</b> — Laravel'da <code>$this-&gt;travel(61)-&gt;seconds()</code>
+    bor va u cheklov muddati tugashini sinash uchun aynan mo'ljallangan.
+    Ikkinchisi esa <b>pochta</b> mavzusiga bog'liq va u alohida darsda
+    ochiladi: <code>Mail::fake()</code> bilan xat <b>yuborilganini</b>
+    tekshirish mumkin, haqiqiy xat jo'natmasdan.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0039-baza-bilan-test.html">Oldingi: Baza bilan test</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel 13 — <a href="https://laravel.com/docs/13.x/http-tests#testing-authentication">Testing Authentication</a>.</li>
+      <li id="fn2">Laravel 13 — <a href="https://laravel.com/docs/13.x/http-tests#session-assertions">Session Assertions</a>.</li>
+      <li id="fn3">Laravel 13 — <a href="https://laravel.com/docs/13.x/rate-limiting">Rate Limiting</a>.</li>
+      <li id="fn4">Barchasi jonli o'lchangan (PHP 8.3.32, Laravel 13.25.0,
+      Pest 4.7.8): to'liq to'plam <b>27 passed (79 assertions), 1.83s</b> ·
+      ro'yxatdan o'tish → <code>assertAuthenticated</code> va
+      <code>rol</code> <code>Rol::Nomzod</code> bo'lib saqlandi ·
+      rolsiz yuborish → <code>Rolni tanlang.</code>, foydalanuvchi
+      <b>yaratilmadi</b> · band email → xato, hisob <b>bitta</b> qoldi ·
+      to'g'ri parol → <code>assertAuthenticatedAs</code> ·
+      xato parol → <code>Email yoki parol xato.</code> +
+      <code>assertGuest</code> · chiqish → <code>assertGuest</code> ·
+      olti urinishdan keyin <code>Juda ko'p urinish. 59 soniyadan keyin qayta
+      urining.</code> (test 1.04s) · keyingi test odatdagi xabarni oldi —
+      cheklov <b>o'tmadi</b> · <code>session('errors')</code> turi
+      <code>assertSessionHasErrors</code> gacha <b><code>array</code></b>,
+      keyin <code>ViewErrorBag</code> ·
+      policy to'g'ridan-to'g'ri: egasi <code>true</code>, begona
+      <code>false</code>, nomzod <code>false</code> ·
+      <code>Gate::forUser</code> <code>allows</code>/<code>denies</code> ·
+      policy'dagi egalik sharti olib tashlanganda <b>4 test</b> qizardi
+      (3 policy + 1 HTTP), <code>create()</code> testi yashil qoldi ·
+      policy testi <code>tests/Unit</code> ga ko'chirilganda
+      <code>RuntimeException: A facade root has not been set.</code></li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

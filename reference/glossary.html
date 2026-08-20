@@ -1363,7 +1363,10 @@
       har bir so'rovdan oldin <code>-&gt;from('/qayerdan')</code> yozing.
       ⚠️ Redirect tekshiruvi yiqilganda sessiyada validatsiya xatosi bo'lsa,
       chalg'ituvchi xabar chiqadi:
-      <code>Call to a member function all() on array</code>.
+      <code>Call to a member function all() on array</code>. Sababi:
+      xabar yasashda <code>session('errors')</code> o'qiladi, u esa
+      <code>assertSessionHasErrors</code> chaqirilmaguncha oddiy
+      <b>massiv</b> bo'lib turadi.
       <span class="eg">$this-&gt;actingAs($u)-&gt;from('/vakansiyalar')-&gt;post(...)</span></dd>
     </div>
 

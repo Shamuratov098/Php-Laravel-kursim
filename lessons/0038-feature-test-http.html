@@ -461,6 +461,14 @@ sessiyada xato YO'Q  →  Failed asserting that two strings are equal.</div>
     <p>Birinchi xabar butunlay boshqa tomonga olib ketadi: siz kodingizdan
     <code>-&gt;all()</code> qidira boshlaysiz — holbuki u yerda hech qanday
     <code>all()</code> yo'q.</p>
+    <p>🔍 <b>Sababi nima?</b> Tekshiruv yiqilganda Pest xato xabariga
+    sessiyadagi xatolarni qo'shmoqchi bo'ladi va <code>session('errors')</code>
+    ni o'qiydi. Lekin o'sha paytda u hali <b>oddiy massiv</b> —
+    <code>ViewErrorBag</code> obyektiga aylantirilmagan:</p>
+    <div class="natija">assertSessionHasErrors chaqirilmasdan:  session('errors') turi = array
+assertSessionHasErrors dan keyin:      ViewErrorBag  (-&gt;get() ishlaydi)</div>
+    <p>Ya'ni xato <b>sizning kodingizda emas</b>, tekshiruvning xabar yasash
+    qismida. Shuning uchun uni qidirib vaqt yo'qotmang.</p>
     <p>✅ <b>Tashxis:</b> shu xabarni ko'rsangiz, avval redirect manzilini
     o'z ko'zingiz bilan qarang:</p>
     <div class="natija">dump($javob-&gt;headers-&gt;get('Location'));
