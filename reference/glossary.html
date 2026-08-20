@@ -18,7 +18,7 @@
   izoh esa o'zbekcha.</p>
 
   <p class="lesson-meta">
-    <span>Atamalar: <b>161 ta</b></span>
+    <span>Atamalar: <b>164 ta</b></span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>📱 O'qishga mos</span>
   </p>
@@ -26,7 +26,7 @@
   <div class="callout note">
     <span class="label">Bu hujjat o'sib boradi</span>
     <p>Atama faqat <b>o'z darsi yozilganda</b> qo'shiladi — oldindan emas. Hozir:
-    Modul A–E (1–39-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
+    Modul A–E (1–40-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
     bosqichida qat'iy belgilangan va 73 dars bo'ylab o'zgarmaydi).</p>
   </div>
 
@@ -1301,6 +1301,48 @@
       <code>@can('create', App\Models\Vakansiya::class)</code> — Blade'da
       <code>use</code> yo'q, to'liq yo'l yoziladi.
       <span class="eg">@can('delete', $v) &lt;button&gt;O'chirish&lt;/button&gt; @endcan</span></dd>
+    </div>
+
+    <div class="term" id="auth-assert">
+      <dt>auth tekshiruvlari <span class="uz">— kim kirgan</span></dt>
+      <dd><code>assertGuest()</code> — hech kim kirmagan ·
+      <code>assertAuthenticated()</code> — kimdir kirgan ·
+      <code>assertAuthenticatedAs($user)</code> — <b>aynan shu odam</b>.
+      ⚠️ Kirish testida har doim uchinchisi:
+      <code>assertAuthenticated()</code> «har doim birinchi foydalanuvchini
+      kiritadigan» buzuq koddan ham o'tadi.
+      <a href="#acting-as">actingAs()</a> esa kirish jarayonini
+      <b>sinamaydi</b> — uni bir marta haqiqiy <code>post('/kirish')</code>
+      bilan tekshiring.
+      <span class="eg">$this-&gt;post('/kirish', [...]); $this-&gt;assertAuthenticatedAs($user);</span></dd>
+    </div>
+
+    <div class="term" id="session-errors-tuzogi">
+      <dt>session('errors') tuzog'i <span class="uz">— massiv yoki obyekt</span></dt>
+      <dd>⚠️ Sessiyadagi xatolar <code>assertSessionHasErrors</code>
+      chaqirilmaguncha <b>oddiy massiv</b> bo'lib turadi; keyin
+      <code>ViewErrorBag</code> ga aylanadi. Erta murojaat qilsangiz —
+      <code>Call to a member function get() on array</code>.
+      🔑 Bu 38-darsdagi <code>Call to a member function all() on array</code>
+      xatosining <b>ildizi</b> ham: xabar yasashda Laravel'ning o'zi
+      <code>-&gt;all()</code> chaqiradi.
+      ✅ Yaxshisi sessiyaga tegmang:
+      <code>assertSessionHasErrors(['email' =&gt; 'matn'])</code>.
+      <span class="eg">-&gt;assertSessionHasErrors(['rol' =&gt; 'Rolni tanlang.'])</span></dd>
+    </div>
+
+    <div class="term" id="policy-testi">
+      <dt>policy testi <span class="uz">— qoidani HTTP'siz sinash</span></dt>
+      <dd><code>$user-&gt;can('update', $vakansiya)</code> yoki
+      <code>Gate::forUser($u)-&gt;allows(...)</code> — route ham, controller ham
+      kerak emas. ⚠️ Har doim <b>ikkala tomon</b>: ruxsat
+      <code>toBeTrue</code> va taqiq <code>toBeFalse</code>.
+      🔑 Policy testi <b>qoidani</b> qulflaydi, HTTP testi esa o'sha qoida
+      controllerga <b>ulanganini</b> — ikkalasi ham kerak.
+      ⚠️ <code>tests/Unit</code> da ishlamaydi:
+      <code>A facade root has not been set.</code> — <code>tests/Pest.php</code>
+      Laravel'ni faqat <code>Feature</code> da ko'taradi.
+      <span class="eg">expect($egasi-&gt;can('update', $vakansiya))-&gt;toBeTrue();</span></dd>
     </div>
 
     <div class="term" id="factory-bogliqlik">

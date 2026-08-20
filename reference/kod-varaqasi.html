@@ -17,7 +17,7 @@
   muhit ma'lumotlari. Har dars yangi buyruq o'rgatilsa, shu yerga qo'shiladi.</p>
 
   <p class="lesson-meta">
-    <span>Qamrov: <b>1&ndash;39-darslar</b> — muhitdan testlargacha</span>
+    <span>Qamrov: <b>1&ndash;40-darslar</b> — muhitdan testlargacha</span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>💻 Amaliyotga mos</span>
   </p>
@@ -898,6 +898,40 @@
     <p>🔍 <b>Birinchi Feature test sekinroq</b> (~0.11 s) — migratsiyalar shu
     yerda bir marta bajariladi. Keyingilari ~0.01 s: har test tranzaksiya
     ichida ishlab, oxirida bekor qilinadi.</p>
+  </div>
+
+  <h2>Auth va policy testi (40-darsdan)</h2>
+  <table class="sheet">
+    <tr><th>Kod</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>assertGuest()</code></td><td class="note-cell">Hech kim kirmagan</td></tr>
+    <tr><td><code>assertAuthenticated()</code></td><td class="note-cell">Kimdir kirgan — ⚠️ zaif tekshiruv</td></tr>
+    <tr><td><code>assertAuthenticatedAs($user)</code></td><td class="note-cell">✅ <b>Aynan shu odam</b> — kirish testida shu</td></tr>
+    <tr><td><code>assertSessionHasErrors(['rol' =&gt; 'Rolni tanlang.'])</code></td><td class="note-cell">Xabarni <b>matn</b> bo'yicha qulflaydi</td></tr>
+    <tr><td><code>$user-&gt;can('update', $vakansiya)</code></td><td class="note-cell">Policy — HTTP'siz</td></tr>
+    <tr><td><code>Gate::forUser($u)-&gt;allows(...)</code> · <code>denies(...)</code></td><td class="note-cell">Boshqa odam nomidan</td></tr>
+    <tr><td><code>'password' =&gt; 'password'</code></td><td class="note-cell"><code>UserFactory</code> dagi standart parol</td></tr>
+    <tr><td><code>$this-&gt;travel(61)-&gt;seconds()</code></td><td class="note-cell">Vaqtni oldinga surish (cheklov tugashini sinash)</td></tr>
+  </table>
+  <div class="callout note">
+    <p>⚠️ <b><code>session('errors')</code>:</b>
+    <code>assertSessionHasErrors</code> chaqirilmaguncha <b>oddiy massiv</b>.
+    Erta tegsangiz <code>Call to a member function get() on array</code> —
+    va 38-darsdagi <code>...all() on array</code> ham shu sabab.</p>
+    <p>⚠️ <b>Policy testi <code>Unit</code> da ishlamaydi:</b>
+    <code>A facade root has not been set.</code> —
+    <code>tests/Pest.php</code> Laravel'ni faqat <code>Feature</code> da
+    ko'taradi. «Feature» papkasi <b>HTTP</b> emas, <b>Laravel kerak</b>
+    degani.</p>
+    <p>🔑 <b>Ikkala tomonni yozing:</b> ruxsat <code>toBeTrue</code> <b>va</b>
+    taqiq <code>toBeFalse</code>. Yolg'iz taqiq testi «hammaga yo'q» deydigan
+    buzuq policy'dan ham o'tadi.</p>
+    <p>🔍 <b>Cheklov testi:</b> oltinchi urinishda parol <b>to'g'ri</b> bo'lsin
+    — aks holda cheklovni emas, oddiy xatoni tekshirgan bo'lasiz.
+    <code>toContain("Juda ko'p urinish")</code>, chunki soniyalar o'zgaradi.
+    Cheklov keyingi testga <b>o'tmaydi</b>:
+    <code>CACHE_STORE=array</code>.</p>
+    <p>🔍 <b>Auth testlari sekinroq</b> (~0.2–1 s) — parol xeshlash ataylab
+    sekin; <code>BCRYPT_ROUNDS=4</code> yumshatadi.</p>
   </div>
 
   <h2>Xatoni o'qish</h2>
