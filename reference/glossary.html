@@ -18,7 +18,7 @@
   izoh esa o'zbekcha.</p>
 
   <p class="lesson-meta">
-    <span>Atamalar: <b>170 ta</b></span>
+    <span>Atamalar: <b>174 ta</b></span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>📱 O'qishga mos</span>
   </p>
@@ -26,7 +26,7 @@
   <div class="callout note">
     <span class="label">Bu hujjat o'sib boradi</span>
     <p>Atama faqat <b>o'z darsi yozilganda</b> qo'shiladi — oldindan emas. Hozir:
-    Modul A–F (1–42-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
+    Modul A–F (1–43-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
     bosqichida qat'iy belgilangan va 73 dars bo'ylab o'zgarmaydi).</p>
   </div>
 
@@ -1301,6 +1301,63 @@
       <code>@can('create', App\Models\Vakansiya::class)</code> — Blade'da
       <code>use</code> yo'q, to'liq yo'l yoziladi.
       <span class="eg">@can('delete', $v) &lt;button&gt;O'chirish&lt;/button&gt; @endcan</span></dd>
+    </div>
+
+    <div class="term" id="api-resource">
+      <dt>API Resource <span class="uz">— javob shaklining shartnomasi</span></dt>
+      <dd><code>make:resource VakansiyaResource</code> →
+      <code>toArray()</code> ichida <b>siz</b> tanlagan maydonlar.
+      Baza <b>ichki</b> narsa, API <b>tashqi shartnoma</b> — resource ularni
+      ajratadi. <code>Resource::collection($ro'yxat)</code> ·
+      <code>Resource::make($bitta)</code> ·
+      <code>-&gt;response()-&gt;setStatusCode(201)</code>.
+      🔑 Kalit <b>qo'shish</b> xavfsiz, <b>o'chirish</b> va
+      <b>nom o'zgartirish</b> mijozning kodini buzadi.
+      <span class="eg">'maosh_matni' =&gt; $this-&gt;maoshFormat(),</span></dd>
+    </div>
+
+    <div class="term" id="data-orami">
+      <dt>data o'rami <span class="uz">— resource javobni o'raydi</span></dt>
+      <dd>⚠️ Ro'yxat <code>{"data": [...]}</code>, bitta obyekt ham
+      <code>{"data": {...}}</code>. Testlarda yo'llar bir qavat pastga
+      tushadi: <code>assertJsonPath('data.nom', ...)</code>,
+      <code>assertJsonCount(3, 'data')</code>.
+      O'ram kerak, chunki sahifalashda <code>links</code> va
+      <code>meta</code> ga joy kerak
+      (<code>meta.total</code>, <code>links.next</code>).
+      ⚠️ <code>withoutWrapping()</code> sahifalashda <b>ishlamaydi</b> —
+      natija nomuvofiq API.
+      <span class="eg">{"data": [...], "links": {...}, "meta": {...}}</span></dd>
+    </div>
+
+    <div class="term" id="when-loaded">
+      <dt>whenLoaded / whenHas <span class="uz">— shartli maydonlar</span></dt>
+      <dd><code>whenLoaded('kompaniya')</code> — bog'lanish yuklanmagan bo'lsa
+      kalit <b>umuman chiqmaydi</b> (<code>null</code> emas) va
+      <b>so'rov yubormaydi</b> (N+1 dan himoya).
+      <code>whenHas('faol')</code> — <b>atribut</b> modelda bo'lmasa
+      (masalan <code>create()</code> dan keyin).
+      Oila: <code>when</code>, <code>whenNotNull</code>,
+      <code>whenCounted</code>, <code>whenPivotLoaded</code>.
+      🔍 Filtrlash <code>toArray()</code> da emas, <b>javob yasalganda</b> —
+      u yergacha <code>MissingValue</code> turadi.
+      ⚠️ <code>with()</code> ni olib tashlasangiz xato chiqmaydi, lekin kalit
+      javobdan tushadi — shartnoma jimgina buziladi.
+      <span class="eg">'kompaniya' =&gt; KompaniyaResource::make($this-&gt;whenLoaded('kompaniya')),</span></dd>
+    </div>
+
+    <div class="term" id="scope-toqnashuvi">
+      <dt>scope va ustun to'qnashuvi <span class="uz">— ArgumentCountError</span></dt>
+      <dd>⚠️ Ustun ham, <a href="#scope">scope</a> ham bir xil nomlangan
+      bo'lsa (<code>faol</code>): atribut topilmaganda Eloquent <b>metod</b>
+      qidiradi va scope'ni argumentsiz chaqiradi →
+      <code>Too few arguments to function ...::faol(), 0 passed</code>.
+      🔍 Xato <b>tanlab</b> chiqadi: bazadan o'qilgan modellarda atribut bor,
+      faqat <code>create()</code> qaytargan modelda yo'q.
+      Solishtiring: atribut yo'q + metod yo'q → <code>null</code>.
+      Yechimlar: <code>whenHas()</code> · <code>fresh()</code> · scope nomini
+      o'zgartirish.
+      <span class="eg">'faol' =&gt; $this-&gt;whenHas('faol', fn () =&gt; (bool) $this-&gt;faol),</span></dd>
     </div>
 
     <div class="term" id="rest-api">

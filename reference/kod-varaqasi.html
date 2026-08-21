@@ -17,7 +17,7 @@
   muhit ma'lumotlari. Har dars yangi buyruq o'rgatilsa, shu yerga qo'shiladi.</p>
 
   <p class="lesson-meta">
-    <span>Qamrov: <b>1&ndash;42-darslar</b> — muhitdan API'gacha</span>
+    <span>Qamrov: <b>1&ndash;43-darslar</b> — muhitdan API'gacha</span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>💻 Amaliyotga mos</span>
   </p>
@@ -1003,6 +1003,50 @@
     <p>⚠️ <b>Model to'g'ridan-to'g'ri qaytarilsa</b> barcha ustunlar mijozga
     ketadi va bazaga ustun qo'shsangiz API javobi <b>o'zgaradi</b>. Baza
     ichki, API tashqi shartnoma.</p>
+  </div>
+
+  <h2>API Resource (43-darsdan)</h2>
+  <table class="sheet">
+    <tr><th>Kod</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>php artisan make:resource VakansiyaResource</code></td><td class="note-cell"><code>app/Http/Resources/</code> ga klass</td></tr>
+    <tr><td><code>toArray(Request $request): array</code></td><td class="note-cell">Javob shaklini <b>siz</b> yozasiz</td></tr>
+    <tr><td><code>$this-&gt;nom</code></td><td class="note-cell">O'ralgan <b>modelning</b> maydoni (<code>__get</code>)</td></tr>
+    <tr><td><code>Resource::collection($ro'yxat)</code></td><td class="note-cell">Ko'plik uchun</td></tr>
+    <tr><td><code>Resource::make($bitta)</code></td><td class="note-cell">Bitta obyekt uchun</td></tr>
+    <tr><td><code>-&gt;response()-&gt;setStatusCode(201)</code></td><td class="note-cell">201 kerak bo'lganda</td></tr>
+    <tr><td><code>whenLoaded('kompaniya')</code></td><td class="note-cell">Yuklanmagan bo'lsa kalit <b>chiqmaydi</b>, so'rov ham yubormaydi</td></tr>
+    <tr><td><code>whenHas('faol', fn () =&gt; ...)</code></td><td class="note-cell">Atribut modelda bo'lmasa kalit chiqmaydi</td></tr>
+    <tr><td><code>when($shart, $qiymat)</code> · <code>whenNotNull</code> · <code>whenCounted</code></td><td class="note-cell">Shartli maydonlar oilasi</td></tr>
+    <tr><td><code>KompaniyaResource::make($this-&gt;whenLoaded(...))</code></td><td class="note-cell">Ichma-ich resource</td></tr>
+    <tr><td><code>$vakansiya-&gt;fresh()</code></td><td class="note-cell">Baza standartlarini olib keladi (<code>create()</code> dan keyin)</td></tr>
+    <tr><td><code>-&gt;additional(['meta' =&gt; [...]])</code></td><td class="note-cell">Javobga <code>data</code> yonida yangi qavat</td></tr>
+  </table>
+  <div class="callout note">
+    <p>⚠️ <b><code>data</code> o'rami</b> ro'yxatga ham, bitta obyektga ham
+    qo'llanadi. Testlarda: <code>assertJsonCount(3, 'data')</code> ·
+    <code>assertJsonPath('data.nom', ...)</code> ·
+    <code>assertJsonStructure(['data' =&gt; [...]])</code>.
+    O'ram kerak, chunki sahifalashda <code>links</code> va <code>meta</code>
+    ga joy kerak.</p>
+    <p>⚠️ <b>Scope va ustun bir xil nomlansa:</b> atribut topilmasa Eloquent
+    <b>metod</b> qidiradi va scope'ni argumentsiz chaqiradi →
+    <code>ArgumentCountError</code>. Faqat <b>yangi yaratilgan</b> modelda
+    chiqadi (bazadan o'qilganida atribut bor).
+    <br>Solishtiring: atribut yo'q + metod yo'q → <code>null</code> ·
+    atribut yo'q + metod <b>bor</b> → 💥</p>
+    <p>🔍 <code>whenLoaded</code> filtrlashi <code>toArray()</code> da
+    <b>emas</b>, javob yasalganda bo'ladi — u yergacha
+    <code>MissingValue</code> turadi. Resource'ni <b>haqiqiy javob</b>
+    orqali tekshiring.</p>
+    <p>⚠️ <code>with()</code> ni olib tashlash xato bermaydi, lekin
+    <code>whenLoaded</code> kalitni javobdan <b>olib tashlaydi</b> —
+    shartnoma jimgina buziladi. <code>assertJsonStructure</code> shuni
+    tutadi.</p>
+    <p>⚠️ <code>withoutWrapping()</code> sahifalashda <b>ishlamaydi</b>
+    (<code>data/links/meta</code> qoladi) → nomuvofiq API.</p>
+    <p>🔑 <b>Shartnoma qoidasi:</b> kalit <b>qo'shish</b> xavfsiz,
+    <b>o'chirish</b> va <b>nom o'zgartirish</b> buzuvchi. Kerak bo'lsa —
+    versiyalash (<code>/api/v1</code>, <code>/api/v2</code>).</p>
   </div>
 
   <h2>Xatoni o'qish</h2>

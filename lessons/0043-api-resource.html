@@ -1,0 +1,1179 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 43 — API Resource: javob shaklini boshqarish</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 43 · MODUL F — API QATLAMI</p>
+  <h1>API Resource: javob shaklini boshqarish</h1>
+  <p class="lead">42-darsda API ishladi, lekin bitta muammoni <b>ataylab</b>
+  ochiq qoldirdik: javob bazangizning ko'zgusi edi. <code>user_id</code>,
+  <code>created_at</code> — hammasi mijozga ketdi, va bazaga ustun
+  qo'shsangiz API <b>o'z-o'zidan</b> o'zgarardi. Bugun javob shaklini
+  <b>alohida faylga</b> ko'chiramiz.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 16 daqiqa</span>
+    <span>💻 Amaliyot ≈ 25 daqiqa</span>
+    <span>Kerak: <a href="0042-rest-json-status.html">Dars 42</a></span>
+  </p>
+
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b>Baza ichki, API tashqi</b>
+        <span class="nima">Nega javob shakli <b>shartnoma</b> va u bazadan
+        mustaqil bo'lishi kerak.</span></li>
+      <li><b><code>make:resource</code></b>
+        <span class="nima">Yasalgan skelet va uning yagona metodi —
+        <code>toArray()</code>.</span></li>
+      <li><b>Shaklni o'zingiz yozasiz</b>
+        <span class="nima">Yetti maydon tanladik — qolgan beshtasi javobdan
+        <b>butunlay yo'qoldi</b>. O'lchandi.</span></li>
+      <li><b>⚠️ <code>data</code> o'rami</b>
+        <span class="nima">Resource javobni <code>data</code> ichiga
+        <b>o'raydi</b> — ro'yxatni ham, bitta obyektni ham. Eski testlar
+        buziladi.</span></li>
+      <li><b><code>whenLoaded()</code></b>
+        <span class="nima">Bog'lanish yuklanmagan bo'lsa kalit
+        <b>umuman chiqmaydi</b> — <code>null</code> ham emas.
+        HTTP orqali o'lchandi.</span></li>
+      <li><b>Ichma-ich resource</b>
+        <span class="nima"><code>KompaniyaResource</code> ichkarida:
+        kompaniyaning ham faqat kerakli maydonlari.</span></li>
+      <li><b>🔍 Hisoblangan maydon</b>
+        <span class="nima"><code>maosh_matni</code> — 41-darsdagi
+        <code>maoshFormat()</code> javobga qo'shiladi. Bazada bunday ustun
+        <b>yo'q</b>.</span></li>
+      <li><b>⚠️ Scope va ustun nomi to'qnashuvi</b>
+        <span class="nima">Darsning eng qiziq topilmasi:
+        <code>ArgumentCountError</code> va u <b>faqat</b>
+        <code>store</code> da chiqadi.</span></li>
+      <li><b><code>whenHas()</code> va <code>fresh()</code></b>
+        <span class="nima">Ikki yechim, ikki xil maqsad — ikkalasi ham
+        o'lchandi.</span></li>
+      <li><b>Sahifalash bilan</b>
+        <span class="nima"><code>paginate()</code> +
+        <code>collection()</code> → <code>data</code>,
+        <code>links</code>, <code>meta</code>.</span></li>
+      <li><b>Testlarni yangilash</b>
+        <span class="nima"><code>assertJsonPath('data.nom', ...)</code> va
+        «ichki maydonlar <b>chiqmasin</b>» testi.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima"><code>data</code> o'rami · scope to'qnashuvi ·
+        <code>whenLoaded</code> · <code>whenHas</code> ·
+        <code>withoutWrapping</code> tuzog'i · N+1 · shartnoma
+        buzilishi.</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Baza — ichki, API — tashqi shartnoma</span>
+    <p>42-darsdagi javobga yana bir marta qarang:</p>
+    <div class="natija">{"id":31,"nom":"...","maosh":7000000,"shahar":null,"faol":1,
+ "kompaniya_id":null,"created_at":"...","updated_at":"...",
+ "masofadan":0,"user_id":null,"kompaniya":null}</div>
+    <p>O'n bitta maydon — va ularning <b>hech biri</b> ataylab tanlanmagan.
+    Ular shunchaki <code>vakansiyalar</code> jadvalidagi ustunlar.</p>
+    <p>Bu ikki muammo tug'diradi:</p>
+    <div class="natija">1) Ichki narsa tashqariga chiqadi
+   user_id, kompaniya_id — mijozga kerak emas, lekin ko'rinadi
+
+2) Baza o'zgarsa API ham o'zgaradi
+   ustun qo'shdingiz     →  javobga yangi kalit tushdi
+   ustun nomini o'zgartirdingiz  →  mijozning kodi BUZILDI</div>
+    <p>Ikkinchisi jiddiyroq. Mijoz — mobil ilova bo'lishi mumkin, va uning
+    yangi versiyasi <b>oylab</b> tarqaladi. Siz esa bazangizni
+    o'zgartirishdan qo'rqib qolasiz.</p>
+    <p class="expect">🔑 Yechim — <b>ajratish</b>: baza o'zingizniki, javob
+    shakli esa mijoz bilan tuzilgan <b>shartnoma</b>. Ikkalasi alohida
+    yashasin.</p>
+  </div>
+
+  <!-- ═══════════════ 2) MAKE:RESOURCE ═══════════════ -->
+  <h2><code>make:resource</code> — shartnoma fayli</h2>
+
+  <div class="cmd" data-cmd="php artisan make:resource VakansiyaResource
+php artisan make:resource KompaniyaResource">php artisan make:resource VakansiyaResource
+php artisan make:resource KompaniyaResource
+<span class="out"> INFO  Resource [app/Http/Resources/VakansiyaResource.php] created successfully.</span></div>
+
+  <div class="codefile">
+    <span class="fname">app/Http/Resources/VakansiyaResource.php — yasalgan holicha</span>
+    <code class="cmd">class VakansiyaResource extends JsonResource
+{
+    public function toArray(Request $request): array
+    {
+        return parent::toArray($request);      // ← «modeldagi hamma narsa»
+    }
+}</code>
+  </div>
+
+  <p><code>parent::toArray()</code> aynan 42-darsdagi xulqni beradi — modelni
+  butunlay. Uni <b>o'z ro'yxatimiz</b> bilan almashtiramiz:</p>
+
+  <div class="codefile">
+    <span class="fname">app/Http/Resources/VakansiyaResource.php</span>
+    <code class="cmd">class VakansiyaResource extends JsonResource
+{
+    public function toArray(Request $request): array
+    {
+        return [
+            'id' =&gt; $this-&gt;id,
+            'nom' =&gt; $this-&gt;nom,
+            'maosh' =&gt; $this-&gt;maosh,
+            'maosh_matni' =&gt; $this-&gt;maoshFormat(),          // ← 41-darsdan
+            'shahar' =&gt; $this-&gt;shahar,
+            'faol' =&gt; $this-&gt;whenHas('faol', fn () =&gt; (bool) $this-&gt;faol),
+            'kompaniya' =&gt; KompaniyaResource::make($this-&gt;whenLoaded('kompaniya')),
+        ];
+    }
+}</code>
+  </div>
+
+  <div class="codefile">
+    <span class="fname">app/Http/Resources/KompaniyaResource.php</span>
+    <code class="cmd">class KompaniyaResource extends JsonResource
+{
+    public function toArray(Request $request): array
+    {
+        return [
+            'id' =&gt; $this-&gt;id,
+            'nom' =&gt; $this-&gt;nom,
+        ];
+    }
+}</code>
+  </div>
+
+  <p><code>$this-&gt;id</code> — bu resource'ning emas, <b>o'ralgan
+  modelning</b> maydoni. <code>JsonResource</code> o'ziga tushmagan
+  murojaatlarni modelga uzatadi. <b>Sehr yo'q:</b> bu PHP'ning
+  <code>__get</code> mexanizmi.</p>
+
+  <h3>Controllerda</h3>
+
+  <div class="codefile">
+    <span class="fname">app/Http/Controllers/Api/VakansiyaController.php</span>
+    <code class="cmd">use App\Http\Resources\VakansiyaResource;
+
+    public function index()
+    {
+        $vakansiyalar = Vakansiya::query()-&gt;with('kompaniya')-&gt;latest('id')-&gt;take(10)-&gt;get();
+
+        return VakansiyaResource::collection($vakansiyalar);      // ko'plik
+    }
+
+    public function show(string $id)
+    {
+        $vakansiya = Vakansiya::with('kompaniya')-&gt;findOrFail($id);
+
+        return VakansiyaResource::make($vakansiya);               // bitta
+    }
+
+    public function store(Request $request)
+    {
+        $tekshirilgan = $request-&gt;validate([ /* ... */ ]);
+
+        $vakansiya = Vakansiya::create($tekshirilgan);
+
+        return VakansiyaResource::make($vakansiya-&gt;fresh())
+            -&gt;response()
+            -&gt;setStatusCode(201);
+    }</code>
+  </div>
+
+  <p><code>JsonResponse</code> tip belgisi olib tashlandi: resource
+  <b>o'zi</b> javobga aylanadi. 201 kerak bo'lganda esa
+  <code>-&gt;response()-&gt;setStatusCode(201)</code> bilan javobga
+  o'tamiz.</p>
+
+  <!-- ═══════════════ 3) NATIJA ═══════════════ -->
+  <h2>Natija — o'lchangan</h2>
+
+  <div class="natija">OLDIN (42-dars):
+{"id":31,"nom":"...","maosh":7000000,"shahar":null,"faol":1,
+ "kompaniya_id":null,"created_at":"...","updated_at":"...",
+ "masofadan":0,"user_id":null,"kompaniya":null}
+
+KEYIN:
+{"data":{"id":2,"nom":"Full-stack mutaxassis","maosh":1081,
+         "maosh_matni":"1 081 so'm","shahar":"Toshkent","faol":true,
+         "kompaniya":{"id":1,"nom":"Uzum Group"}}}</div>
+
+  <p>Uch narsa o'zgardi:</p>
+
+  <div class="natija">1) user_id · kompaniya_id · created_at · updated_at · masofadan  →  YO'QOLDI
+2) maosh_matni  →  QO'SHILDI  (bazada bunday ustun YO'Q)
+3) faol: 1  →  faol: true    (haqiqiy mantiqiy qiymat)</div>
+
+  <p class="expect">🔍 <code>maosh_matni</code> ga alohida qarang: u
+  41-darsda TDD bilan qurgan <code>maoshFormat()</code> metodidan keladi.
+  Mijoz endi sonni <b>o'zi formatlamaydi</b> — server tayyor matn beradi va
+  formatlash <b>bir joyda</b> qoladi.</p>
+
+  <!-- ═══════════════ 4) DATA ═══════════════ -->
+  <div class="callout warning">
+    <span class="label">⚠️ <code>data</code> o'rami — eski testlar buziladi</span>
+    <p>Javobning eng yuqori qavatiga qarang: <code>{"data": ...}</code>.
+    Resource javobni <b>o'raydi</b> — va bu ro'yxatga ham, bitta obyektga ham
+    tegishli:</p>
+    <div class="natija">ro'yxat:  {"data": [ {...}, {...} ]}
+bitta:    {"data": {...}}</div>
+    <p>42-darsdagi testlarni ishga tushirsak:</p>
+    <div class="natija">⨯ ro'yxat JSON qaytaradi
+  Failed asserting that actual size 1 matches expected size 3.
+
+⨯ bitta vakansiya JSON qaytaradi
+  Failed asserting that null is identical to 'Backend dasturchi'.</div>
+    <p>Birinchisi: <code>assertJsonCount(3)</code> endi <b>yuqori qavatni</b>
+    sanaydi — u yerda bitta kalit bor (<code>data</code>). Ikkinchisi:
+    <code>assertJsonPath('nom', ...)</code> yo'li endi
+    <code>data.nom</code>.</p>
+    <div class="natija">assertJsonCount(3)              →  assertJsonCount(3, 'data')
+assertJsonPath('nom', ...)      →  assertJsonPath('data.nom', ...)
+assertJsonStructure(['*' =&gt; ...])→  assertJsonStructure(['data' =&gt; ['*' =&gt; ...]])</div>
+    <p>🔑 Bu <b>yaxshi</b> narsa: testlar javob shakli o'zgarganini darhol
+    aytdi. Agar ular bo'lmaganda, mijoz buni <b>sizdan oldin</b> bilardi.</p>
+    <p>🔍 Nega o'rash umuman kerak? Chunki javobga <b>qo'shimcha</b>
+    ma'lumot kerak bo'ladi — sahifalash, meta, xatolar. Ular
+    <code>data</code> yonida yashaydi.</p>
+  </div>
+
+  <!-- ═══════════════ 5) WHENLOADED ═══════════════ -->
+  <h2><code>whenLoaded()</code> — yuklangan bo'lsa qo'sh</h2>
+
+  <div class="natija">'kompaniya' =&gt; KompaniyaResource::make($this-&gt;whenLoaded('kompaniya')),</div>
+
+  <p>Ikki holatni HTTP orqali o'lchadik:</p>
+
+  <div class="natija">with('kompaniya') BILAN
+  kalitlar: id, nom, maosh, maosh_matni, shahar, faol, kompaniya
+  kompaniya: {"id": 1, "nom": "Uzum Group"}
+
+with('kompaniya') SIZ
+  kalitlar: id, nom, maosh, maosh_matni, shahar, faol
+  kompaniya kaliti bormi:  YO'Q</div>
+
+  <p class="expect">🔑 E'tibor bering: kalit <code>null</code> emas —
+  <b>umuman yo'q</b>. Bu muhim farq: <code>null</code> «kompaniyasi yo'q»
+  degani, kalitning yo'qligi esa «bu javobda so'ralmagan» degani.</p>
+
+  <div class="callout tip">
+    <span class="label">Sehr yo'q: <code>MissingValue</code></span>
+    <p><code>whenLoaded()</code> bog'lanish yuklanmagan bo'lsa
+    <code>MissingValue</code> nomli maxsus obyekt qaytaradi. U
+    <code>toArray()</code> natijasida <b>hali turadi</b> — biz buni sinab
+    ko'rdik:</p>
+    <div class="natija">$resource-&gt;toArray($request) natijasi:
+   kalitlar: id, nom, maosh, maosh_matni, shahar, faol, kompaniya
+   kompaniya kaliti bormi:  HA        ← hali bor!</div>
+    <p>Filtrlash <b>javob yasalganda</b> bo'ladi: Laravel massivni ko'rib
+    chiqadi va <code>MissingValue</code> bo'lgan kalitlarni
+    <b>tashlaydi</b>.</p>
+    <p>🔍 Amaliy xulosa: resource'ni tekshirayotganda
+    <code>toArray()</code> ga emas, <b>haqiqiy javobga</b> qarang —
+    <code>$this-&gt;getJson(...)</code> bilan.</p>
+    <p>⚠️ Va nega umuman <code>whenLoaded</code>? Chunki
+    <code>$this-&gt;kompaniya</code> deb yozsangiz, yuklanmagan holatda
+    Eloquent <b>yangi so'rov</b> yuboradi — 29-darsdagi <b>N+1</b> muammosi
+    qaytadi. <code>whenLoaded</code> so'rov yubormaydi.</p>
+  </div>
+
+  <!-- ═══════════════ 6) TO'QNASHUV ═══════════════ -->
+  <div class="callout warning">
+    <span class="label">⚠️ Scope va ustun nomi to'qnashuvi</span>
+    <p>Resource yozilgach uchta test yashil, bittasi esa <b>500</b> berdi —
+    va faqat <code>store</code> da:</p>
+    <div class="natija">ArgumentCountError
+Too few arguments to function App\Models\Vakansiya::faol(), 0 passed
+   at app/Models/Vakansiya.php:22
+
+   #[Scope]
+   protected function faol(Builder $so_rov): void      ← 29-darsdagi scope</div>
+    <p>Nima bo'ldi? Zanjirni bosqichma-bosqich ochamiz:</p>
+    <div class="natija">1) Vakansiya::create(['nom' =&gt; ..., 'maosh' =&gt; ...])
+   →  modelda faqat SHU ikki atribut bor
+
+2) Resource $this-&gt;faol ni so'radi
+
+3) Eloquent: «faol nomli atribut yo'q»
+   →  «unda faol() nomli METOD bormi?»
+   →  BOR — bu 29-darsdagi scope
+   →  uni 0 argument bilan chaqiradi  →  💥</div>
+    <p class="expect">🔑 Sabab: ustun ham, scope ham <b>bir xil nomlangan</b>.
+    Modelda atribut mavjud bo'lganda muammo yo'q — Eloquent metodgacha
+    bormaydi. Shuning uchun xato <b>faqat</b> yangi yaratilgan modelda
+    chiqdi.</p>
+    <p>🔍 Solishtiring: <code>shahar</code> atributi ham yo'q edi, lekin u
+    xato bermadi — chunki <code>shahar()</code> nomli metod <b>yo'q</b>.
+    U shunchaki <code>null</code> bo'ldi.</p>
+    <div class="natija">atribut yo'q + metod yo'q   →  null           (xavfsiz)
+atribut yo'q + metod BOR    →  metod chaqiriladi  💥</div>
+  </div>
+
+  <h3>Ikki yechim</h3>
+
+  <div class="natija">// 1) Resource tomonda — mudofaa
+'faol' =&gt; $this-&gt;whenHas('faol', fn () =&gt; (bool) $this-&gt;faol),
+   →  atribut yo'q bo'lsa kalit CHIQMAYDI, xato ham yo'q
+
+// 2) Controller tomonda — to'liq javob
+return VakansiyaResource::make($vakansiya-&gt;fresh())
+   →  bazadan qayta o'qiydi, standart qiymatlar bilan birga</div>
+
+  <p><code>fresh()</code> nega kerak — o'lchandik:</p>
+
+  <div class="natija">create() dan keyin faol atributi bormi:  false
+fresh() dan keyin faol:                  1</div>
+
+  <p class="expect">🔑 Ustunning standart qiymati <b>bazada</b> yashaydi
+  (<code>default '1'</code>), PHP modelida emas. <code>create()</code>
+  qaytargan obyekt siz bergan maydonlarni <b>biladi</b>, baza qo'ygan
+  qiymatlarni <b>bilmaydi</b>.</p>
+
+  <p>Amalda <b>ikkalasi</b> ham qilinadi: <code>fresh()</code> javobni to'liq
+  qiladi, <code>whenHas</code> esa kelajakdagi shunday to'qnashuvlardan
+  himoyalaydi.</p>
+
+  <p class="expect">🔍 Uchinchi yechim ham bor va u eng chuquri: scope nomini
+  ustun nomidan <b>farqli</b> qilish (masalan <code>faqatFaol</code>). Lekin
+  bu 29-darsdagi kodni o'zgartirishni talab qiladi va mavjud
+  chaqiruvlarni ham.</p>
+
+  <!-- ═══════════════ 7) SAHIFALASH ═══════════════ -->
+  <h2>Sahifalash bilan birga</h2>
+
+  <p>29-darsdagi <code>paginate()</code> resource bilan birga ishlaydi va
+  javobga <b>ikkita yangi qavat</b> qo'shadi:</p>
+
+  <div class="natija">$vakansiyalar = Vakansiya::with('kompaniya')-&gt;paginate(3);
+
+return VakansiyaResource::collection($vakansiyalar);</div>
+
+  <div class="natija">yuqori kalitlar:  data, links, meta
+
+links:  first, last, prev, next
+meta:   current_page, from, last_page, links, path, per_page, to, total
+        meta.total = 29    meta.per_page = 3</div>
+
+  <p class="expect">🔑 Endi <code>data</code> o'ramining sababi ko'rinadi:
+  <code>links</code> va <code>meta</code> ga <b>joy kerak</b>. Agar javob
+  to'g'ridan-to'g'ri massiv bo'lganda, ularni qo'yadigan yer bo'lmasdi.</p>
+
+  <p>Mijoz uchun bu tayyor shartnoma: u <code>meta.total</code> dan umumiy
+  sonni, <code>links.next</code> dan keyingi sahifa manzilini oladi — va
+  buni <b>o'zi hisoblamaydi</b>.</p>
+
+  <!-- ═══════════════ 8) TEST ═══════════════ -->
+  <h2>Testlarni yangilaymiz</h2>
+
+  <p>Ikki ish qilamiz: mavjud testlarni <code>data</code> ga moslash va
+  <b>yangi</b> test qo'shish — «ichki maydonlar chiqmasin».</p>
+
+  <div class="codefile">
+    <span class="fname">tests/Feature/ApiVakansiyaTest.php</span>
+    <code class="cmd">test('ro\'yxat JSON qaytaradi', function () {
+    $kompaniya = Kompaniya::factory()-&gt;create(['nom' =&gt; 'Softex Lab']);
+    Vakansiya::factory()-&gt;count(3)-&gt;for($kompaniya, 'kompaniya')-&gt;create();
+
+    $javob = $this-&gt;getJson('/api/vakansiyalar');
+
+    $javob-&gt;assertOk();
+    $javob-&gt;assertJsonCount(3, 'data');                    // ← 'data' qo'shildi
+    $javob-&gt;assertJsonStructure([
+        'data' =&gt; [
+            '*' =&gt; ['id', 'nom', 'maosh', 'maosh_matni', 'kompaniya' =&gt; ['id', 'nom']],
+        ],
+    ]);
+});
+
+test('javobda ichki maydonlar chiqmaydi', function () {
+    Vakansiya::factory()-&gt;create();
+
+    $javob = $this-&gt;getJson('/api/vakansiyalar');
+
+    $kalitlar = array_keys($javob-&gt;json('data.0'));
+
+    expect($kalitlar)-&gt;not-&gt;toContain('user_id');
+    expect($kalitlar)-&gt;not-&gt;toContain('kompaniya_id');
+    expect($kalitlar)-&gt;not-&gt;toContain('created_at');
+    expect($kalitlar)-&gt;not-&gt;toContain('updated_at');
+});
+
+test('bitta vakansiya JSON qaytaradi', function () {
+    $vakansiya = Vakansiya::factory()-&gt;create([
+        'nom' =&gt; 'Backend dasturchi',
+        'maosh' =&gt; 9000000,
+    ]);
+
+    $this-&gt;getJson("/api/vakansiyalar/{$vakansiya-&gt;id}")
+        -&gt;assertOk()
+        -&gt;assertJsonPath('data.nom', 'Backend dasturchi')
+        -&gt;assertJsonPath('data.maosh_matni', "9 000 000 so'm");
+});
+
+test('yangi vakansiya 201 bilan yaratiladi', function () {
+    $javob = $this-&gt;postJson('/api/vakansiyalar', [
+        'nom' =&gt; 'Backend dasturchi',
+        'maosh' =&gt; 9000000,
+    ]);
+
+    $javob-&gt;assertCreated();
+    $javob-&gt;assertJsonPath('data.nom', 'Backend dasturchi');
+    $javob-&gt;assertJsonPath('data.faol', true);            // ← fresh() ishlaganini isbotlaydi
+
+    $this-&gt;assertDatabaseHas(Vakansiya::class, ['nom' =&gt; 'Backend dasturchi']);
+});</code>
+  </div>
+
+  <div class="natija">✓ ro'yxat JSON qaytaradi                       0.12s
+✓ javobda ichki maydonlar chiqmaydi            0.01s
+✓ bitta vakansiya JSON qaytaradi               0.01s
+✓ kompaniya yuklanganda ichma-ich chiqadi      0.01s
+✓ mavjud bo'lmagan vakansiya 404 beradi        0.01s
+✓ yangi vakansiya 201 bilan yaratiladi         0.01s
+✓ xato ma'lumot 422 beradi                     0.01s
+
+Tests:    7 passed (47 assertions)</div>
+
+  <p class="expect">🔑 Ikkinchi testga alohida qarang: u <b>«nima
+  bo'lmasligi kerak»</b>ni tekshiryapti. Bunday test kamdan-kam yoziladi,
+  lekin API'da u <b>xavfsizlik</b> testi: ertaga kimdir resource'ga
+  <code>$this-&gt;user_id</code> qo'shsa, test qiziradi.</p>
+
+  <p>Uchinchi testdagi <code>data.faol</code> tekshiruvi esa
+  <code>fresh()</code> ishlayotganini isbotlaydi: usiz bu kalit javobda
+  <b>umuman bo'lmasdi</b> (<code>whenHas</code> tufayli).</p>
+
+  <!-- ═══════════════ 9) HAR XIL HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir bir marta o'qib chiqing,
+  keyin kerak bo'lganda qaytib qarang.</p>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 1</span>
+    <h4><code>data</code> o'rami unutilishi</h4>
+    <div class="natija">assertJsonPath('nom', 'Backend dasturchi')
+   →  Failed asserting that null is identical to 'Backend dasturchi'</div>
+    <p>Resource qo'shilgach javobning <b>butun yo'llari</b> bir qavat
+    pastga tushadi. Xato xabari <code>null</code> deydi va bu chalg'itadi —
+    go'yo maydon yo'q.</p>
+    <p>✅ Yo'l boshiga <code>data.</code> qo'shing.
+    <code>assertJsonCount</code> da esa ikkinchi argument:
+    <code>assertJsonCount(3, 'data')</code>.</p>
+    <p>🔍 Tashxis: <code>dump($javob-&gt;json())</code> — javobning haqiqiy
+    shaklini bir marta ko'rish yetadi.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 2</span>
+    <h4>Scope va ustun bir xil nomlanishi</h4>
+    <div class="natija">ArgumentCountError: Too few arguments to function ...::faol(), 0 passed</div>
+    <p>Atribut mavjud bo'lmaganda Eloquent <b>metod</b> qidiradi va scope'ni
+    topib, uni argumentsiz chaqiradi.</p>
+    <p>⚠️ Xato <b>tanlab</b> chiqadi: bazadan o'qilgan modellarda atribut bor,
+    shuning uchun <code>index</code> va <code>show</code> ishlaydi. Faqat
+    yangi yaratilgan modelda ko'rinadi — va buni sinovda o'tkazib yuborish
+    oson.</p>
+    <p>✅ <code>whenHas()</code> ishlating, yoki <code>fresh()</code> bilan
+    modelni to'ldiring, yoki scope nomini o'zgartiring.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 3</span>
+    <h4><code>whenLoaded</code> — kalit yo'qoladi, <code>null</code> emas</h4>
+    <div class="natija">yuklangan:    "kompaniya": {"id": 1, "nom": "Uzum Group"}
+yuklanmagan:  (kalit umuman YO'Q)
+bog'lanish bo'sh: "kompaniya": null</div>
+    <p>Uch xil holat, uch xil ma'no. Mijoz kodini shunga qarab yozadi:
+    kalit yo'q — «so'ralmagan», <code>null</code> — «yo'q».</p>
+    <p>⚠️ Ba'zi mijozlar kalit yo'qligiga tayyor bo'lmaydi. Shunday hollarda
+    <code>whenLoaded</code> o'rniga har doim yuklab, <code>null</code> qaytarish
+    qulayroq bo'lishi mumkin — lekin unda <code>with()</code> ni
+    <b>hech qachon</b> unutmaslik kerak.</p>
+    <p>🔍 <code>toArray()</code> ni to'g'ridan-to'g'ri chaqirib tekshirmang —
+    u yerda kalit hali turadi (<code>MissingValue</code>). Haqiqiy javobga
+    qarang.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 4</span>
+    <h4>Shartli maydonlar oilasi</h4>
+    <div class="natija">whenLoaded('kompaniya')      →  bog'lanish yuklangan bo'lsa
+whenHas('faol')              →  atribut modelda bor bo'lsa
+when($shart, $qiymat)        →  ixtiyoriy shart
+whenNotNull($qiymat)         →  null bo'lmasa
+whenNull($qiymat)            →  null bo'lsa
+whenCounted('konikmalar')    →  withCount() bilan yuklangan bo'lsa
+whenPivotLoaded('konikma_vakansiya', ...)  →  27-darsdagi pivot uchun</div>
+    <p>Hammasi bir xil ishlaydi: shart bajarilmasa <code>MissingValue</code>
+    qaytadi va kalit javobdan <b>tushib qoladi</b>.</p>
+    <p>🔍 Foydali naqsh — huquqqa qarab maydon berish:</p>
+    <div class="natija">'user_id' =&gt; $this-&gt;when($request-&gt;user()?-&gt;can('update', $this-&gt;resource),
+                        $this-&gt;user_id),</div>
+    <p>Bu 33-darsdagi policy'ni <b>javob shakliga</b> olib kiradi: egasi
+    ko'proq maydon ko'radi.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 5</span>
+    <h4><code>withoutWrapping()</code> tuzog'i</h4>
+    <div class="natija">JsonResource::withoutWrapping();
+
+oddiy ro'yxat   →  [ {...}, {...} ]        ← data YO'Q  ✅
+sahifalangan    →  {"data": ..., "links": ..., "meta": ...}   ⚠️ data BOR</div>
+    <p>«<code>data</code> yoqmadi» deb uni o'chirsangiz, natija
+    <b>nomuvofiq</b> API bo'ladi: bir endpoint o'ralgan, boshqasi yo'q.</p>
+    <p>Sabab oddiy: sahifalashda <code>links</code> va <code>meta</code> ga
+    joy kerak, shuning uchun o'ram <b>majburan</b> qoladi.</p>
+    <p>✅ Tavsiya: <code>data</code> ni <b>qoldiring</b>. U bir kun kelib
+    kerak bo'ladi, va mijozlar unga tayangan bo'ladi.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 6</span>
+    <h4>Resource ichida N+1</h4>
+    <div class="natija">'kompaniya' =&gt; KompaniyaResource::make($this-&gt;kompaniya),   // ⚠️ whenLoaded YO'Q</div>
+    <p>Ro'yxatda 10 ta vakansiya bo'lsa, bu 10 ta <b>qo'shimcha</b> so'rov
+    yuboradi — 29-darsdagi N+1 muammosi aynan qaytadi.</p>
+    <p>Xavfli tomoni: kod <b>ishlaydi</b> va javob to'g'ri chiqadi. Faqat
+    sekin.</p>
+    <p>✅ <code>whenLoaded</code> so'rov yubormaydi — yuklanmagan bo'lsa
+    shunchaki kalitni tashlaydi. Va controllerda <code>with()</code>
+    yozilganini tekshiring.</p>
+    <p>🔍 Tashxis: <code>DB::listen</code> yoki debug paneli bilan so'rovlar
+    sonini sanang — ro'yxat uchun <b>ikkita</b> so'rov bo'lishi kerak
+    (vakansiyalar + kompaniyalar).</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>Shartnomani buzmaslik</h4>
+    <div class="natija">'maosh' =&gt; $this-&gt;maosh          →  'oylik' =&gt; $this-&gt;maosh     ⚠️ MIJOZ BUZILADI
+'maosh' =&gt; $this-&gt;maosh          →  + 'oylik' =&gt; $this-&gt;maosh   ✅ qo'shish xavfsiz</div>
+    <p>API — <b>shartnoma</b>. Kalit <b>qo'shish</b> odatda xavfsiz (eski
+    mijoz uni e'tiborsiz qoldiradi), <b>o'chirish</b> va <b>nomini
+    o'zgartirish</b> esa buzuvchi o'zgarish.</p>
+    <p>✅ Buzuvchi o'zgarish kerak bo'lsa — <b>versiyalash</b>:
+    <code>/api/v1/vakansiyalar</code> va <code>/api/v2/...</code>. Eski
+    versiya bir muddat ishlab turadi.</p>
+    <p>🔑 Endi resource fayli aynan shu shartnomaning <b>yozma
+    ko'rinishi</b>. Uni o'zgartirayotganda «mijozning kodi buziladimi?» degan
+    savolni bering — bazani o'zgartirayotganda esa bermasangiz ham
+    bo'ladi.</p>
+  </div>
+
+  <!-- ═══════════════ 10) AMALIYOT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    <span class="mode-hint-title">💻 Amaliy qism kompyuterda</span>
+    <p>Amaliyotda ikkita resource yozasiz va javob shaklini o'z qo'lingizga
+    olasiz. Yo'lda ikkita narsani <b>ataylab</b> ko'rasiz: <code>data</code>
+    o'rami eski testlarni buzishini va scope bilan ustun nomi
+    to'qnashganda chiqadigan xatoni.</p>
+    <button type="button" class="modebtn" data-set-mode="do">💻 Amaliyot rejimini ko'rish</button>
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <p>Holatni tekshiring</p>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+php artisan test
+curl -s -H &quot;Accept: application/json&quot; http://127.0.0.1:8000/api/vakansiyalar | head -c 300">cd ~/Projects/Learn/ishtop
+php artisan test
+curl -s -H &quot;Accept: application/json&quot; http://127.0.0.1:8000/api/vakansiyalar | head -c 300
+<span class="out">  Tests:    43 passed (128 assertions)</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> javobda
+        <code>user_id</code>, <code>created_at</code>,
+        <code>kompaniya_id</code> — hammasi bor. Shuni o'zgartiramiz.</p>
+      </li>
+
+      <li>
+        <p>Ikkita resource yasang</p>
+        <div class="cmd" data-cmd="php artisan make:resource VakansiyaResource
+php artisan make:resource KompaniyaResource">php artisan make:resource VakansiyaResource
+php artisan make:resource KompaniyaResource</div>
+        <div class="cmd" data-cmd="# app/Http/Resources/KompaniyaResource.php
+
+    public function toArray(Request $request): array
+    {
+        return [
+            'id' =&gt; $this-&gt;id,
+            'nom' =&gt; $this-&gt;nom,
+        ];
+    }"># app/Http/Resources/KompaniyaResource.php
+
+    public function toArray(Request $request): array
+    {
+        return [
+            'id' =&gt; $this-&gt;id,
+            'nom' =&gt; $this-&gt;nom,
+        ];
+    }</div>
+        <div class="cmd" data-cmd="# app/Http/Resources/VakansiyaResource.php
+
+    public function toArray(Request $request): array
+    {
+        return [
+            'id' =&gt; $this-&gt;id,
+            'nom' =&gt; $this-&gt;nom,
+            'maosh' =&gt; $this-&gt;maosh,
+            'maosh_matni' =&gt; $this-&gt;maoshFormat(),
+            'shahar' =&gt; $this-&gt;shahar,
+            'faol' =&gt; (bool) $this-&gt;faol,
+            'kompaniya' =&gt; KompaniyaResource::make($this-&gt;whenLoaded('kompaniya')),
+        ];
+    }"># app/Http/Resources/VakansiyaResource.php
+
+    public function toArray(Request $request): array
+    {
+        return [
+            'id' =&gt; $this-&gt;id,
+            'nom' =&gt; $this-&gt;nom,
+            'maosh' =&gt; $this-&gt;maosh,
+            'maosh_matni' =&gt; $this-&gt;maoshFormat(),
+            'shahar' =&gt; $this-&gt;shahar,
+            'faol' =&gt; (bool) $this-&gt;faol,
+            'kompaniya' =&gt; KompaniyaResource::make($this-&gt;whenLoaded('kompaniya')),
+        ];
+    }</div>
+        <p class="why-step">⚠️ <code>faol</code> qatorini <b>hozircha</b>
+        shunday qoldiring — 6-qadamda u xato beradi va biz sababini
+        ko'ramiz.</p>
+      </li>
+
+      <li>
+        <p>Controllerni resource'ga o'tkazing</p>
+        <div class="cmd" data-cmd="# app/Http/Controllers/Api/VakansiyaController.php
+
+use App\Http\Resources\VakansiyaResource;
+
+#   index():  return VakansiyaResource::collection($vakansiyalar);
+#   show():   return VakansiyaResource::make($vakansiya);
+#   store():  return VakansiyaResource::make($vakansiya)
+#                 -&gt;response()
+#                 -&gt;setStatusCode(201);
+#
+# JsonResponse tip belgilarini olib tashlang"># app/Http/Controllers/Api/VakansiyaController.php
+
+use App\Http\Resources\VakansiyaResource;
+
+#   index():  return VakansiyaResource::collection($vakansiyalar);
+#   show():   return VakansiyaResource::make($vakansiya);
+#   store():  return VakansiyaResource::make($vakansiya)
+#                 -&gt;response()
+#                 -&gt;setStatusCode(201);
+#
+# JsonResponse tip belgilarini olib tashlang</div>
+        <div class="cmd" data-cmd="php -l app/Http/Controllers/Api/VakansiyaController.php">php -l app/Http/Controllers/Api/VakansiyaController.php</div>
+      </li>
+
+      <li>
+        <p>Natijani ko'ring</p>
+        <div class="cmd" data-cmd="php artisan serve">php artisan serve</div>
+        <div class="cmd" data-cmd="curl -s -H &quot;Accept: application/json&quot; http://127.0.0.1:8000/api/vakansiyalar | head -c 300">curl -s -H &quot;Accept: application/json&quot; http://127.0.0.1:8000/api/vakansiyalar | head -c 300
+<span class="out">{"data":[{"id":31,"nom":"...","maosh":7000000,</span>
+<span class="out"> "maosh_matni":"7 000 000 so'm","shahar":null,"faol":true,</span>
+<span class="out"> "kompaniya":null}, ...</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> <code>user_id</code>,
+        <code>created_at</code>, <code>kompaniya_id</code> — <b>yo'q</b>.
+        <code>maosh_matni</code> — <b>bor</b>. <code>faol</code> endi
+        <code>true</code>, <code>1</code> emas.
+        <br>⚠️ Va eng yuqorida <code>data</code> paydo bo'ldi.</p>
+      </li>
+
+      <li>
+        <p>⚠️ Eski testlar buzilganini ko'ring</p>
+        <div class="cmd" data-cmd="php artisan test tests/Feature/ApiVakansiyaTest.php">php artisan test tests/Feature/ApiVakansiyaTest.php
+<span class="out">  ⨯ ro'yxat JSON qaytaradi</span>
+<span class="out">  Failed asserting that actual size 1 matches expected size 3.</span>
+<span class="out">  ⨯ bitta vakansiya JSON qaytaradi</span>
+<span class="out">  Failed asserting that null is identical to 'Backend dasturchi'.</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> testlar qizil.
+        <br>🔑 Bu <b>yaxshi</b>: testlar javob shakli o'zgarganini darhol
+        aytdi. Ular bo'lmaganda buni mijoz sizdan oldin bilardi.</p>
+      </li>
+
+      <li>
+        <p>⚠️ Scope to'qnashuvini ko'ring</p>
+        <div class="cmd" data-cmd="php artisan test --filter=201">php artisan test --filter=201
+<span class="out">  ⨯ yangi vakansiya 201 bilan yaratiladi</span>
+<span class="out">  Failed asserting that 500 is identical to 201.</span></div>
+        <p>Sababni toping:</p>
+        <div class="cmd" data-cmd="# testga vaqtincha qo'shing:
+    $this-&gt;withoutExceptionHandling()
+        -&gt;postJson('/api/vakansiyalar', ['nom' =&gt; 'Backend dasturchi', 'maosh' =&gt; 9000000]);"># testga vaqtincha qo'shing:
+    $this-&gt;withoutExceptionHandling()
+        -&gt;postJson('/api/vakansiyalar', ['nom' =&gt; 'Backend dasturchi', 'maosh' =&gt; 9000000]);</div>
+        <div class="cmd" data-cmd="php artisan test --filter=201">php artisan test --filter=201
+<span class="out">ArgumentCountError</span>
+<span class="out">Too few arguments to function App\Models\Vakansiya::faol(), 0 passed</span>
+<span class="out">   at app/Models/Vakansiya.php:22</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> xato 29-darsdagi
+        <b>scope</b> ga ishora qiladi.
+        <br>🔑 <code>create()</code> qaytargan modelda <code>faol</code>
+        atributi <b>yo'q</b>; Eloquent metod qidiradi va scope'ni topadi.
+        <br>🔍 Nega faqat shu yerda? Chunki <code>index</code> va
+        <code>show</code> dagi modellar <b>bazadan</b> keladi va ularda
+        atribut bor.</p>
+      </li>
+
+      <li>
+        <p>Ikki yechimni qo'llang</p>
+        <div class="cmd" data-cmd="# 1) app/Http/Resources/VakansiyaResource.php
+
+            'faol' =&gt; $this-&gt;whenHas('faol', fn () =&gt; (bool) $this-&gt;faol),
+
+# 2) app/Http/Controllers/Api/VakansiyaController.php — store() da
+
+        return VakansiyaResource::make($vakansiya-&gt;fresh())
+            -&gt;response()
+            -&gt;setStatusCode(201);"># 1) app/Http/Resources/VakansiyaResource.php
+
+            'faol' =&gt; $this-&gt;whenHas('faol', fn () =&gt; (bool) $this-&gt;faol),
+
+# 2) app/Http/Controllers/Api/VakansiyaController.php — store() da
+
+        return VakansiyaResource::make($vakansiya-&gt;fresh())
+            -&gt;response()
+            -&gt;setStatusCode(201);</div>
+        <p class="why-step">🔍 <code>whenHas</code> — mudofaa (xato
+        bermaydi), <code>fresh()</code> — to'liq javob (baza standartlari
+        bilan). Ikkalasi ham kerak.</p>
+      </li>
+
+      <li>
+        <p>Testlarni <code>data</code> ga moslang</p>
+        <div class="cmd" data-cmd="# tests/Feature/ApiVakansiyaTest.php
+
+#   assertJsonCount(3)               →  assertJsonCount(3, 'data')
+#   assertJsonPath('nom', ...)       →  assertJsonPath('data.nom', ...)
+#   assertJsonStructure(['*' =&gt; ...]) →  assertJsonStructure(['data' =&gt; ['*' =&gt; ...]])
+#
+# va 201 testiga qo'shing:
+    $javob-&gt;assertJsonPath('data.faol', true);"># tests/Feature/ApiVakansiyaTest.php
+
+#   assertJsonCount(3)               →  assertJsonCount(3, 'data')
+#   assertJsonPath('nom', ...)       →  assertJsonPath('data.nom', ...)
+#   assertJsonStructure(['*' =&gt; ...]) →  assertJsonStructure(['data' =&gt; ['*' =&gt; ...]])
+#
+# va 201 testiga qo'shing:
+    $javob-&gt;assertJsonPath('data.faol', true);</div>
+        <div class="cmd" data-cmd="php artisan test tests/Feature/ApiVakansiyaTest.php">php artisan test tests/Feature/ApiVakansiyaTest.php</div>
+      </li>
+
+      <li>
+        <p>«Ichki maydonlar chiqmasin» testini yozing</p>
+        <div class="cmd" data-cmd="# tests/Feature/ApiVakansiyaTest.php ga qo'shing
+
+test('javobda ichki maydonlar chiqmaydi', function () {
+    Vakansiya::factory()-&gt;create();
+
+    $javob = $this-&gt;getJson('/api/vakansiyalar');
+
+    $kalitlar = array_keys($javob-&gt;json('data.0'));
+
+    expect($kalitlar)-&gt;not-&gt;toContain('user_id');
+    expect($kalitlar)-&gt;not-&gt;toContain('kompaniya_id');
+    expect($kalitlar)-&gt;not-&gt;toContain('created_at');
+    expect($kalitlar)-&gt;not-&gt;toContain('updated_at');
+});"># tests/Feature/ApiVakansiyaTest.php ga qo'shing
+
+test('javobda ichki maydonlar chiqmaydi', function () {
+    Vakansiya::factory()-&gt;create();
+
+    $javob = $this-&gt;getJson('/api/vakansiyalar');
+
+    $kalitlar = array_keys($javob-&gt;json('data.0'));
+
+    expect($kalitlar)-&gt;not-&gt;toContain('user_id');
+    expect($kalitlar)-&gt;not-&gt;toContain('kompaniya_id');
+    expect($kalitlar)-&gt;not-&gt;toContain('created_at');
+    expect($kalitlar)-&gt;not-&gt;toContain('updated_at');
+});</div>
+        <p class="why-step">🔑 Bu <b>xavfsizlik</b> testi: ertaga kimdir
+        resource'ga <code>user_id</code> qo'shsa, u qiziradi.</p>
+      </li>
+
+      <li>
+        <p>🔍 <code>whenLoaded</code> ni sinab ko'ring</p>
+        <div class="cmd" data-cmd="# app/Http/Controllers/Api/VakansiyaController.php — show() da
+# with('kompaniya') ni VAQTINCHA olib tashlang:
+
+        $vakansiya = Vakansiya::findOrFail($id);"># app/Http/Controllers/Api/VakansiyaController.php — show() da
+# with('kompaniya') ni VAQTINCHA olib tashlang:
+
+        $vakansiya = Vakansiya::findOrFail($id);</div>
+        <div class="cmd" data-cmd="curl -s -H &quot;Accept: application/json&quot; http://127.0.0.1:8000/api/vakansiyalar/2">curl -s -H &quot;Accept: application/json&quot; http://127.0.0.1:8000/api/vakansiyalar/2
+<span class="out">{"data":{"id":2,"nom":"...","maosh":1081,"maosh_matni":"1 081 so'm",</span>
+<span class="out"> "shahar":"Toshkent","faol":true}}          ← kompaniya kaliti YO'Q</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> <code>kompaniya</code>
+        kaliti <b>umuman yo'q</b> — <code>null</code> ham emas.
+        <br>Ko'rgach <code>with('kompaniya')</code> ni <b>qaytaring</b>.</p>
+      </li>
+
+      <li>
+        <p>Sahifalash shaklini ko'ring</p>
+        <div class="cmd" data-cmd="# routes/api.php ga VAQTINCHA qo'shing:
+
+Route::get('/sinov-sahifa', function () {
+    $v = App\Models\Vakansiya::with('kompaniya')-&gt;paginate(3);
+    return App\Http\Resources\VakansiyaResource::collection($v);
+});"># routes/api.php ga VAQTINCHA qo'shing:
+
+Route::get('/sinov-sahifa', function () {
+    $v = App\Models\Vakansiya::with('kompaniya')-&gt;paginate(3);
+    return App\Http\Resources\VakansiyaResource::collection($v);
+});</div>
+        <div class="cmd" data-cmd="curl -s -H &quot;Accept: application/json&quot; http://127.0.0.1:8000/api/sinov-sahifa | head -c 200">curl -s -H &quot;Accept: application/json&quot; http://127.0.0.1:8000/api/sinov-sahifa | head -c 200
+<span class="out">{"data":[...],"links":{"first":...,"last":...,"prev":null,"next":...},</span>
+<span class="out"> "meta":{"current_page":1,"from":1,"last_page":10,...,"total":29}}</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> uchta yuqori kalit —
+        <code>data</code>, <code>links</code>, <code>meta</code>.
+        <br>🔑 Endi <code>data</code> o'ramining sababi ko'rinadi: qo'shimcha
+        ma'lumotga <b>joy kerak</b>.
+        <br>Ko'rgach sinov marshrutini <b>o'chiring</b>.</p>
+      </li>
+
+      <li>
+        <p>To'liq to'plamni ishga tushiring va saqlang</p>
+        <div class="cmd" data-cmd="php artisan test
+git add -A
+git commit -m &quot;43-dars: API Resource — javob shakli boshqariladi&quot;">php artisan test
+git add -A
+git commit -m &quot;43-dars: API Resource — javob shakli boshqariladi&quot;
+<span class="out">  Tests:    45 passed (141 assertions)</span></div>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><input type="checkbox" id="d43c1"><label for="d43c1">Ikkita resource yasadim va <code>toArray()</code> ni to'ldirdim</label></li>
+      <li><input type="checkbox" id="d43c2"><label for="d43c2">Controllerni <code>collection()</code> va <code>make()</code> ga o'tkazdim</label></li>
+      <li><input type="checkbox" id="d43c3"><label for="d43c3"><b>Ichki maydonlar javobdan yo'qolganini ko'rdim</b></label></li>
+      <li><input type="checkbox" id="d43c4"><label for="d43c4"><code>maosh_matni</code> qo'shilganini tasdiqladim (bazada yo'q maydon)</label></li>
+      <li><input type="checkbox" id="d43c5"><label for="d43c5"><b><code>data</code> o'rami eski testlarni buzganini ko'rdim</b> ⚠️</label></li>
+      <li><input type="checkbox" id="d43c6"><label for="d43c6"><b>Scope to'qnashuvidagi <code>ArgumentCountError</code> ni ko'rdim</b> ⚠️</label></li>
+      <li><input type="checkbox" id="d43c7"><label for="d43c7"><code>whenHas</code> va <code>fresh()</code> bilan tuzatdim</label></li>
+      <li><input type="checkbox" id="d43c8"><label for="d43c8">Testlarni <code>data.</code> yo'liga moslandim</label></li>
+      <li><input type="checkbox" id="d43c9"><label for="d43c9">«Ichki maydonlar chiqmasin» testini yozdim</label></li>
+      <li><input type="checkbox" id="d43c10"><label for="d43c10"><b><code>whenLoaded</code> kalitni butunlay olib tashlashini sinadim</b></label></li>
+      <li><input type="checkbox" id="d43c11"><label for="d43c11">Sahifalashda <code>data/links/meta</code> ni ko'rdim, commit qildim</label></li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 11) SINAB KO'RAMIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Dasturchi ro'yxat endpoint'ini tezlashtirmoqchi. U
+    <code>with('kompaniya')</code> ni olib tashladi — «baribir
+    <code>whenLoaded</code> bor, o'zi hal qiladi» deb:</p>
+    <div class="codefile">
+      <div class="fname">app/Http/Controllers/Api/VakansiyaController.php</div>
+      <code class="cmd" data-cmd="    public function index()
+    {
+        $vakansiyalar = Vakansiya::query()
+            -&gt;latest('id')          // with('kompaniya') OLIB TASHLANDI
+            -&gt;take(10)
+            -&gt;get();
+
+        return VakansiyaResource::collection($vakansiyalar);
+    }">    public function index()
+    {
+        $vakansiyalar = Vakansiya::query()
+            -&gt;latest('id')          // with('kompaniya') OLIB TASHLANDI
+            -&gt;take(10)
+            -&gt;get();
+
+        return VakansiyaResource::collection($vakansiyalar);
+    }</code>
+    </div>
+    <p>Endpoint tezlashadimi? Va mijoz uchun nima o'zgaradi?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <div class="natija">Tezlashadi — LEKIN javob SHAKLI o'zgaradi:
+
+{"data":[{"id":31,"nom":"...","maosh":7000000,"maosh_matni":"...",
+          "shahar":null,"faol":true}]}
+                                        ← "kompaniya" kaliti YO'Q</div>
+        <p>Ha, so'rov soni kamaydi — <code>whenLoaded</code> yuklanmagan
+        bog'lanish uchun <b>so'rov yubormaydi</b>. Lekin natijada
+        <code>kompaniya</code> kaliti javobdan <b>butunlay chiqib
+        ketdi</b>.</p>
+        <p class="expect">⚠️ Mijozning kodi buziladi:
+        <code>vakansiya.kompaniya.nom</code> deb yozgan mobil ilova
+        <code>undefined</code> oladi. Va bu <b>jimgina</b> bo'ladi — server
+        200 qaytaradi, hech qanday xato yo'q.</p>
+        <p>🔑 <code>whenLoaded</code> — <b>xavfsizlik kamari</b>, tezlik
+        vositasi emas. U N+1 dan himoyalaydi, lekin
+        <code>with()</code> ning <b>o'rnini bosmaydi</b>.</p>
+        <div class="natija">with() BOR  + whenLoaded  →  2 so'rov, kalit BOR       ✅
+with() YO'Q + whenLoaded  →  1 so'rov, kalit YO'Q      ⚠️ shartnoma buzildi
+with() YO'Q + $this-&gt;kompaniya →  11 so'rov, kalit BOR  ⚠️ N+1</div>
+        <p>🔍 Va eng yomoni: bu o'zgarishni <b>test tutmaydi</b>, agar
+        testda faqat <code>assertOk()</code> bo'lsa. Shuning uchun
+        <code>assertJsonStructure</code> da <code>kompaniya</code> ni
+        <b>aniq</b> yozganimiz muhim:</p>
+        <div class="natija">$javob-&gt;assertJsonStructure([
+    'data' =&gt; ['*' =&gt; ['id', 'nom', 'maosh', 'maosh_matni',
+                       'kompaniya' =&gt; ['id', 'nom']]],   ← shu qator tutadi
+]);</div>
+        <p><b>Umumiy saboq:</b> javob shakli — shartnoma, va uni
+        <b>test</b> qo'riqlashi kerak. Tezlashtirish uchun qilingan
+        o'zgarish shartnomani buzmasligi shart.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span> Resource javob
+    shakliga nima qo'shadi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Resource javobni data ichiga o'raydi</button></li>
+      <li><button class="quiz-option">Resource faqat ro'yxatlarni data qiladi</button></li>
+      <li><button class="quiz-option">Resource javob shaklini umuman o'zgartirmaydi</button></li>
+    </ul>
+    <div class="quiz-explain">O'ram <b>ikkalasiga</b> ham tegishli:
+    ro'yxat <code>{"data": [...]}</code>, bitta obyekt
+    <code>{"data": {...}}</code>. Shuning uchun testlarda yo'l
+    <code>data.nom</code> bo'ladi va <code>assertJsonCount(3, 'data')</code>
+    yoziladi. 🔑 O'ram kerak, chunki sahifalashda
+    <code>links</code> va <code>meta</code> ga joy kerak.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span>
+    <code>whenLoaded('kompaniya')</code> bog'lanish yuklanmagan bo'lsa
+    nima qiladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Yuklanmagan bo'lsa kalit umuman chiqmaydi</button></li>
+      <li><button class="quiz-option">Yuklanmagan bo'lsa kalit null qaytaradi</button></li>
+      <li><button class="quiz-option">Yuklanmagan bo'lsa so'rov avtomatik yuboriladi</button></li>
+    </ul>
+    <div class="quiz-explain">Kalit <b>butunlay yo'qoladi</b> —
+    <code>null</code> ham emas. Uch xil holat, uch xil ma'no: kalit yo'q —
+    «so'ralmagan», <code>null</code> — «yo'q», obyekt — «bor».
+    🔍 Filtrlash <code>toArray()</code> da emas, <b>javob yasalganda</b>
+    bo'ladi — u yergacha <code>MissingValue</code> turadi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span> Ustun va scope bir xil
+    nomlanganda nima bo'ladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Eloquent scope metodini atribut deb chaqiradi</button></li>
+      <li><button class="quiz-option">Baza standarti PHP modeliga avtomatik tushadi</button></li>
+      <li><button class="quiz-option">Resource yo'q atributni jimgina null qiladi</button></li>
+    </ul>
+    <div class="quiz-explain">Atribut topilmasa Eloquent <b>metod</b>
+    qidiradi va scope'ni argumentsiz chaqiradi →
+    <code>ArgumentCountError</code>. ⚠️ Xato <b>tanlab</b> chiqadi: bazadan
+    o'qilgan modellarda atribut bor, faqat yangi yaratilganida yo'q.
+    Yechim: <code>whenHas()</code>, <code>fresh()</code> yoki scope nomini
+    o'zgartirish.</div>
+  </div>
+
+  <!-- ═══════════════ 12) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+    <p class="recall-intro">Avval o'zingiz javob bering, keyin ochib tekshiring.
+    Oxirgi ikkitasi — <a href="0042-rest-json-status.html">42-darsni</a> takrorlash.</p>
+
+    <details class="recall">
+      <summary>Nega javob shakli bazadan ajratiladi?</summary>
+      <div class="answer"><p>Baza — <b>ichki</b> narsa, API — mijoz bilan
+      <b>shartnoma</b>. Ular yopishib qolsa: ustun qo'shsangiz javob
+      o'zgaradi, ustun nomini o'zgartirsangiz mijozning kodi
+      buziladi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary><code>whenHas</code> va <code>whenLoaded</code> farqi?</summary>
+      <div class="answer"><p><code>whenHas</code> — <b>atribut</b> modelda
+      bormi (masalan <code>create()</code> dan keyin yo'q bo'lishi mumkin).
+      <code>whenLoaded</code> — <b>bog'lanish</b> yuklanganmi. Ikkalasi
+      ham shart bajarilmasa kalitni javobdan olib tashlaydi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary><code>fresh()</code> nega kerak bo'ldi?</summary>
+      <div class="answer"><p>Ustunning standart qiymati <b>bazada</b>
+      yashaydi. <code>create()</code> qaytargan obyekt siz bergan maydonlarni
+      biladi, baza qo'ygan qiymatlarni (masalan
+      <code>faol = 1</code>) bilmaydi. <code>fresh()</code> uni bazadan
+      qayta o'qiydi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: <code>Accept</code> sarlavhasi nega muhim?</summary>
+      <div class="answer"><p>Usiz Laravel so'rovni brauzerdan kelgan deb
+      hisoblaydi: validatsiya xatosi <b>302 + HTML</b>, 404 esa HTML sahifa.
+      Mijoz <code>SyntaxError: Unexpected token '&lt;'</code> ko'radi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: 201 va 422 nimani bildiradi?</summary>
+      <div class="answer"><p><b>201</b> — yangi narsa yaratildi (javobda
+      obyekt va <code>id</code>). <b>422</b> — so'rov to'g'ri o'qildi, lekin
+      ma'lumot qoidaga mos emas. <b>400</b> dan farqli — u so'rovning o'zi
+      buzuq.</p></div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 13) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Cho'ntak xulosasi</span>
+    <ul>
+      <li><b>Baza ichki, API tashqi shartnoma.</b> Resource — o'sha
+      shartnomaning yozma ko'rinishi.</li>
+      <li><code>php artisan make:resource VakansiyaResource</code> →
+      <code>app/Http/Resources/</code>. Yagona metod —
+      <code>toArray()</code>.</li>
+      <li><code>parent::toArray($request)</code> — «modeldagi hamma narsa».
+      Uni <b>o'z ro'yxatingiz</b> bilan almashtiring.</li>
+      <li><code>$this-&gt;id</code> — o'ralgan <b>modelning</b> maydoni.
+      <b>Sehr yo'q:</b> PHP'ning <code>__get</code> mexanizmi.</li>
+      <li>Controllerda: <code>Resource::collection($ro'yxat)</code> ·
+      <code>Resource::make($bitta)</code> ·
+      <code>-&gt;response()-&gt;setStatusCode(201)</code>.</li>
+      <li>⚠️ <b><code>data</code> o'rami</b> — ro'yxatga ham, bitta obyektga
+      ham. Testlarda: <code>assertJsonCount(3, 'data')</code>,
+      <code>assertJsonPath('data.nom', ...)</code>,
+      <code>assertJsonStructure(['data' =&gt; [...]])</code>.</li>
+      <li><code>whenLoaded('kompaniya')</code> — yuklanmagan bo'lsa kalit
+      <b>umuman chiqmaydi</b> (<code>null</code> emas) va <b>so'rov
+      yubormaydi</b>.</li>
+      <li>🔍 Filtrlash <code>toArray()</code> da emas, <b>javob
+      yasalganda</b> — u yergacha <code>MissingValue</code> turadi. Shuning
+      uchun resource'ni <b>haqiqiy javob</b> orqali tekshiring.</li>
+      <li>Shartli oila: <code>whenLoaded</code> · <code>whenHas</code> ·
+      <code>when</code> · <code>whenNotNull</code> ·
+      <code>whenCounted</code> · <code>whenPivotLoaded</code>.</li>
+      <li>Ichma-ich resource: <code>KompaniyaResource::make(...)</code> —
+      kompaniyaning ham faqat kerakli maydonlari.</li>
+      <li>Hisoblangan maydon: <code>maosh_matni</code> —
+      41-darsdagi <code>maoshFormat()</code>. Bazada bunday ustun
+      <b>yo'q</b>.</li>
+      <li>⚠️ <b>Scope va ustun to'qnashuvi:</b> atribut topilmasa Eloquent
+      metod qidiradi va scope'ni argumentsiz chaqiradi →
+      <code>ArgumentCountError</code>. Faqat <b>yangi yaratilgan</b> modelda
+      chiqadi.</li>
+      <li>Solishtiring: atribut yo'q + metod yo'q → <code>null</code> ·
+      atribut yo'q + metod <b>bor</b> → 💥</li>
+      <li>Yechimlar: <code>whenHas()</code> (mudofaa) ·
+      <code>fresh()</code> (to'liq javob) · scope nomini o'zgartirish.</li>
+      <li>🔍 Ustun standarti <b>bazada</b> yashaydi:
+      <code>create()</code> dan keyin <code>faol</code> atributi
+      <b>yo'q</b>, <code>fresh()</code> dan keyin <b>bor</b>.</li>
+      <li>Sahifalash bilan: <code>data</code>, <code>links</code>
+      (first/last/prev/next), <code>meta</code> (current_page, total,
+      per_page…).</li>
+      <li>⚠️ <code>withoutWrapping()</code> sahifalashda <b>ishlamaydi</b> —
+      natija nomuvofiq API. <code>data</code> ni qoldiring.</li>
+      <li>⚠️ <code>with()</code> ni olib tashlash <code>whenLoaded</code>
+      tufayli xato bermaydi, lekin <b>kalitni javobdan olib tashlaydi</b> —
+      shartnoma jimgina buziladi. <code>assertJsonStructure</code> shuni
+      tutadi.</li>
+      <li><b>Natija:</b> 45 test, 141 tekshiruv.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p>API endi tartibli: javob shakli boshqariladi, ichki maydonlar
+    yashiringan, shartnoma testlar bilan qo'riqlanadi.</p>
+    <p>Lekin u hali ham <b>butunlay ochiq</b>: 42-darsda ko'rganimizdek,
+    istalgan odam <code>POST /api/vakansiyalar</code> yuborib e'lon qo'sha
+    oladi. Web tomonda bu 30–34-darslarda hal qilingan edi — sessiya, rol,
+    policy. API'da sessiya <b>yo'q</b>.</p>
+    <p>44-darsda <b>Sanctum</b> tokenlari bilan yopamiz:
+    <code>createToken</code>, <code>Bearer</code> sarlavhasi,
+    <code>auth:sanctum</code> middleware va <code>abilities</code>.
+    <code>install:api</code> Sanctum'ni allaqachon o'rnatgani shundan.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel — Eloquent: API Resources</b>:
+    <a href="https://laravel.com/docs/13.x/eloquent-resources">laravel.com/docs/13.x/eloquent-resources</a>
+    — <code>toArray</code>, <code>collection</code>, o'ram va
+    sahifalash.<sup><a href="#fn1">1</a></sup><br>
+    <b>Conditional Attributes</b>:
+    <a href="https://laravel.com/docs/13.x/eloquent-resources#conditional-attributes">when,
+    whenHas, whenLoaded</a>.<sup><a href="#fn2">2</a></sup><br>
+    <b>Data Wrapping</b>:
+    <a href="https://laravel.com/docs/13.x/eloquent-resources#data-wrapping">data
+    o'rami va uni o'chirish</a>.<sup><a href="#fn3">3</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b> «har model uchun alohida
+    resource kerakmi?», «resource ichida so'rov yozsam bo'ladimi?»,
+    «<code>ResourceCollection</code> qachon kerak?», «javobga o'z meta
+    ma'lumotimni qanday qo'shaman?» — har qanday savol yaxshi. Ikkinchisiga
+    qisqa javob: <b>yozmang</b> — resource <code>foreach</code> ichida
+    ishlaydi va u yerdagi har bir so'rov N+1 ga aylanadi; kerakli
+    ma'lumotni controllerda <code>with()</code> bilan oldindan yuklang.
+    Oxirgisiga esa: <code>-&gt;additional(['meta' =&gt; [...]])</code> —
+    javobga <code>data</code> yonida yangi qavat qo'shadi.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0042-rest-json-status.html">Oldingi: REST, JSON va status kodlar</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel 13 — <a href="https://laravel.com/docs/13.x/eloquent-resources">Eloquent: API Resources</a>.</li>
+      <li id="fn2">Laravel 13 — <a href="https://laravel.com/docs/13.x/eloquent-resources#conditional-attributes">Conditional Attributes</a>.</li>
+      <li id="fn3">Laravel 13 — <a href="https://laravel.com/docs/13.x/eloquent-resources#data-wrapping">Data Wrapping</a>.</li>
+      <li id="fn4">Barchasi jonli o'lchangan (PHP 8.3.32, Laravel 13.25.0,
+      Pest 4.7.8): resource'dan keyin javob
+      <code>{"data":{"id":2,...,"maosh_matni":"1 081 so'm","faol":true,
+      "kompaniya":{"id":1,"nom":"Uzum Group"}}}</code> —
+      <code>user_id</code>, <code>kompaniya_id</code>,
+      <code>created_at</code>, <code>updated_at</code>,
+      <code>masofadan</code> <b>yo'qoldi</b> ·
+      o'ram bitta obyektda ham, ro'yxatda ham ·
+      eski testlar buzildi:
+      <code>actual size 1 matches expected size 3</code> va
+      <code>null is identical to 'Backend dasturchi'</code> ·
+      <code>store</code> → <b>500</b>:
+      <code>ArgumentCountError: Too few arguments to function
+      App\Models\Vakansiya::faol(), 0 passed</code> (29-darsdagi scope) ·
+      <code>create()</code> dan keyin <code>faol</code> atributi
+      <b>yo'q</b>, <code>fresh()</code> dan keyin <b>1</b>;
+      ustun standarti bazada <code>default '1'</code> ·
+      <code>whenHas</code> qo'shilgach <b>201</b> va kalit javobdan tushdi ·
+      <code>whenLoaded</code>: <code>with()</code> bilan <code>kompaniya</code>
+      kaliti <b>bor</b>, usiz <b>umuman yo'q</b>; lekin
+      <code>toArray()</code> da kalit hali turadi (<code>MissingValue</code>) ·
+      sahifalash → <code>data, links, meta</code>
+      (<code>meta.total=29</code>, <code>per_page=3</code>) ·
+      <code>withoutWrapping()</code> oddiy ro'yxatda o'ramni oldi, lekin
+      sahifalashda <code>data, links, meta</code> <b>qoldi</b> ·
+      API testlari <b>7 passed (47 assertions)</b>, to'liq to'plam
+      <b>45 passed (141 assertions), 1.86s</b>.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>
