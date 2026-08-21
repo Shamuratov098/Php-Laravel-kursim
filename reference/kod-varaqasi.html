@@ -17,7 +17,7 @@
   muhit ma'lumotlari. Har dars yangi buyruq o'rgatilsa, shu yerga qo'shiladi.</p>
 
   <p class="lesson-meta">
-    <span>Qamrov: <b>1&ndash;41-darslar</b> — muhitdan testlargacha</span>
+    <span>Qamrov: <b>1&ndash;42-darslar</b> — muhitdan API'gacha</span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>💻 Amaliyotga mos</span>
   </p>
@@ -966,6 +966,43 @@
     <p>🔍 TDD tez aylana talab qiladi: Unit test <b>~0.04 s</b>. Sof mantiqni
     (formatlash, hisob-kitob) Laravel'siz klassga ajratsangiz, aylana shu
     tezlikda bo'ladi.</p>
+  </div>
+
+  <h2>API — REST va JSON (42-darsdan)</h2>
+  <table class="sheet">
+    <tr><th>Kod</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>php artisan install:api</code></td><td class="note-cell">Sanctum · <code>routes/api.php</code> · <code>bootstrap/app.php</code> ga <code>api:</code> · migratsiya</td></tr>
+    <tr><td><code>Route::get('/vakansiyalar', ...)</code></td><td class="note-cell"><code>api.php</code> da → manzil <code>/api/vakansiyalar</code> (prefiks avtomatik)</td></tr>
+    <tr><td><code>response()-&gt;json($model)</code></td><td class="note-cell">Model <code>JsonSerializable</code> ni bajaradi — sehr yo'q</td></tr>
+    <tr><td><code>response()-&gt;json($model, 201)</code></td><td class="note-cell">Yaratilganda — 200 emas</td></tr>
+    <tr><td><code>-&gt;with('kompaniya')</code></td><td class="note-cell">Javobga ichma-ich obyekt qo'shadi; usiz kalit <b>umuman yo'q</b></td></tr>
+    <tr><td><code>findOrFail($id)</code></td><td class="note-cell">API'da <b>404</b> JSON: <code>{"message": "No query results ..."}</code></td></tr>
+    <tr><td><code>$request-&gt;validate([...])</code></td><td class="note-cell">API'da <b>422</b>: <code>{"message":..., "errors":{...}}</code></td></tr>
+    <tr><td><code>shouldRenderJsonWhen(...)</code></td><td class="note-cell"><code>bootstrap/app.php</code> — <code>api/*</code> har doim JSON</td></tr>
+    <tr><td><code>$this-&gt;getJson('/api/...')</code></td><td class="note-cell">Testda — <code>Accept</code> ni o'zi qo'yadi</td></tr>
+    <tr><td><code>assertJsonPath('nom', '...')</code></td><td class="note-cell">Aniq yo'ldagi <b>qiymat</b></td></tr>
+    <tr><td><code>assertJsonStructure(['*' =&gt; ['id','nom']])</code></td><td class="note-cell"><b>Shakl</b> to'g'rimi (qiymat muhim emas)</td></tr>
+    <tr><td><code>assertJsonCount(3)</code> · <code>assertJsonValidationErrors([...])</code></td><td class="note-cell">Element soni · 422 dagi <code>errors</code> kalitlari</td></tr>
+    <tr><td><code>assertCreated()</code> · <code>assertNotFound()</code></td><td class="note-cell">201 · 404</td></tr>
+    <tr><td><code>php artisan route:list --path=api</code></td><td class="note-cell">🔍 Haqiqiy manzillarni ko'rish</td></tr>
+  </table>
+  <div class="callout note">
+    <p>🔑 <b>Statuslar:</b> <b>200</b> ber · <b>201</b> yaratildi ·
+    <b>404</b> topilmadi · <b>422</b> ma'lumot qoidaga mos emas.
+    <b>400</b> dan farqi: 400 — so'rovning <b>o'zi</b> buzuq (JSON sintaksisi).</p>
+    <p>⚠️ <b><code>Accept: application/json</code> eng muhim sarlavha.</b>
+    Usiz validatsiya xatosi <b>302 + HTML</b>, 404 esa HTML sahifa bo'lib
+    qaytadi va mijoz <code>SyntaxError: Unexpected token '&lt;'</code> ko'radi.
+    <code>Content-Type</code> = nima <b>yuboryapman</b>,
+    <code>Accept</code> = nima <b>kutyapman</b>.</p>
+    <p>⚠️ <b><code>APP_DEBUG=true</code></b> da xato javobi <code>file</code>,
+    <code>line</code> va uzun <code>trace</code> ni oshkor qiladi. Serverda
+    <code>false</code> + <code>php artisan config:clear</code>.</p>
+    <p>🔍 <b>API'da CSRF yo'q</b> — tokensiz POST 201 beradi. Bu to'g'ri
+    (cookie ishlatilmaydi), lekin API himoyasini <b>token</b> beradi.</p>
+    <p>⚠️ <b>Model to'g'ridan-to'g'ri qaytarilsa</b> barcha ustunlar mijozga
+    ketadi va bazaga ustun qo'shsangiz API javobi <b>o'zgaradi</b>. Baza
+    ichki, API tashqi shartnoma.</p>
   </div>
 
   <h2>Xatoni o'qish</h2>

@@ -18,7 +18,7 @@
   izoh esa o'zbekcha.</p>
 
   <p class="lesson-meta">
-    <span>Atamalar: <b>167 ta</b></span>
+    <span>Atamalar: <b>170 ta</b></span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>📱 O'qishga mos</span>
   </p>
@@ -26,7 +26,7 @@
   <div class="callout note">
     <span class="label">Bu hujjat o'sib boradi</span>
     <p>Atama faqat <b>o'z darsi yozilganda</b> qo'shiladi — oldindan emas. Hozir:
-    Modul A–E (1–41-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
+    Modul A–F (1–42-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
     bosqichida qat'iy belgilangan va 73 dars bo'ylab o'zgarmaydi).</p>
   </div>
 
@@ -1301,6 +1301,48 @@
       <code>@can('create', App\Models\Vakansiya::class)</code> — Blade'da
       <code>use</code> yo'q, to'liq yo'l yoziladi.
       <span class="eg">@can('delete', $v) &lt;button&gt;O'chirish&lt;/button&gt; @endcan</span></dd>
+    </div>
+
+    <div class="term" id="rest-api">
+      <dt>REST <span class="uz">— manzil narsani, fe'l amalni bildiradi</span></dt>
+      <dd><code>GET /api/vakansiyalar</code> ro'yxat ·
+      <code>POST</code> yaratish · <code>GET /api/vakansiyalar/7</code> bittasi ·
+      <code>PUT</code>/<code>PATCH</code> yangilash ·
+      <code>DELETE</code> o'chirish. ⚠️ Fe'lni manzilga solmang
+      (<code>/api/vakansiyalar/yarat</code>).
+      <code>php artisan install:api</code> API qatlamini yoqadi:
+      Sanctum · <code>routes/api.php</code> ·
+      <code>bootstrap/app.php</code> ga <code>api:</code> qatori · migratsiya.
+      <code>/api</code> prefiksi <b>avtomatik</b>.
+      <span class="eg">Route::post('/vakansiyalar', [VakansiyaController::class, 'store']);</span></dd>
+    </div>
+
+    <div class="term" id="accept-sarlavhasi">
+      <dt>Accept sarlavhasi <span class="uz">— «men nima kutyapman»</span></dt>
+      <dd>⚠️ API'ning eng ko'p vaqt yeydigan tuzog'i.
+      <code>Accept: application/json</code> yuborilmasa Laravel so'rovni
+      brauzerdan kelgan deb hisoblaydi: validatsiya xatosi <b>302 + HTML</b>,
+      404 esa HTML sahifa. Mijoz
+      <code>SyntaxError: Unexpected token '&lt;'</code> ko'radi va muammoni
+      noto'g'ri joyda qidiradi.
+      🔑 <code>Content-Type</code> boshqa savol — u <b>yuborilayotgan</b>
+      ma'lumot shakli. Server tomonda ehtiyot chorasi:
+      <code>shouldRenderJsonWhen</code>. Testda
+      <code>getJson</code>/<code>postJson</code> sarlavhani o'zi qo'yadi.
+      <span class="eg">curl -H "Accept: application/json" ...</span></dd>
+    </div>
+
+    <div class="term" id="status-kod-api">
+      <dt>API status kodlari <span class="uz">— 200 · 201 · 404 · 422</span></dt>
+      <dd><b>200</b> ber · <b>201</b> <b>yaratildi</b> (javobda yangi obyekt va
+      <code>id</code>) · <b>404</b> topilmadi · <b>422</b> so'rov to'g'ri
+      o'qildi, lekin ma'lumot qoidaga mos emas.
+      ⚠️ <b>400</b> dan farqi: 400 — so'rovning <b>o'zi</b> buzuq.
+      422 shakli: <code>{"message": ..., "errors": {"maydon": [...]}}</code> —
+      <a href="#form-request">Form Request</a> xatolarining JSON ko'rinishi.
+      Testda: <code>assertCreated</code>, <code>assertNotFound</code>,
+      <code>assertJsonValidationErrors</code>.
+      <span class="eg">return response()-&gt;json($vakansiya, 201);</span></dd>
     </div>
 
     <div class="term" id="auth-assert">

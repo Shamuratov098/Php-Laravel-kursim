@@ -1,0 +1,1249 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 42 — REST, JSON va status kodlar</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 42 · MODUL F — API QATLAMI</p>
+  <h1>REST, JSON va status kodlar</h1>
+  <p class="lead">Shu paytgacha IshTop faqat <b>HTML</b> qaytardi: Blade render
+  qilinib, brauzerga sahifa borardi. Bugun <b>ikkinchi ko'rinish qatlami</b>
+  qo'shamiz — o'sha bir Eloquent ma'lumoti <b>JSON</b> bo'lib chiqadi. Model
+  ham, baza ham, policy ham o'zgarmaydi: faqat <b>javob shakli</b>
+  boshqacha.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 16 daqiqa</span>
+    <span>💻 Amaliyot ≈ 25 daqiqa</span>
+    <span>Kerak: <a href="0041-phpunit-va-tdd.html">Dars 41</a></span>
+  </p>
+
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b>Bitta ma'lumot — ikki qatlam</b>
+        <span class="nima">Nega API alohida controller talab qiladi va
+        nega model o'zgarmaydi.</span></li>
+      <li><b><code>php artisan install:api</code></b>
+        <span class="nima">Laravel 11+ da <code>routes/api.php</code>
+        <b>yo'q</b>. Buyruq nima qilishi — to'rt qadam,
+        o'lchangan.</span></li>
+      <li><b>REST: resurs, fe'l, manzil</b>
+        <span class="nima">Bir manzil — bir necha amal. Fe'l
+        (<code>GET</code>, <code>POST</code>) ishni belgilaydi.</span></li>
+      <li><b>Model o'zi JSON'ga aylanadi</b>
+        <span class="nima"><code>response()-&gt;json($vakansiya)</code> —
+        <b>sehr yo'q</b>: Eloquent <code>JsonSerializable</code>
+        interfeysini bajaradi.</span></li>
+      <li><b>Status kodlar: 200 · 201 · 404 · 422</b>
+        <span class="nima">Har biri o'lchandi va javob shakli
+        ko'rsatildi.</span></li>
+      <li><b>⚠️ <code>Accept: application/json</code></b>
+        <span class="nima">Sarlavhasiz mijoz <b>302 redirect va HTML</b>
+        oladi. Ikkala holat ham o'lchandi.</span></li>
+      <li><b><code>shouldRenderJsonWhen</code></b>
+        <span class="nima"><code>bootstrap/app.php</code> da bir marta
+        sozlansa, <code>api/*</code> har doim JSON qaytaradi.</span></li>
+      <li><b>⚠️ <code>APP_DEBUG</code> va 404</b>
+        <span class="nima"><code>true</code> bo'lganda javobda <b>fayl
+        yo'li</b> va istisno klassi chiqadi. O'lchandi.</span></li>
+      <li><b>🔍 API'da CSRF yo'q</b>
+        <span class="nima">Token yubormasdan POST qildik va <b>201</b> oldik.
+        Nega bu to'g'ri va nima o'rniga ishlatiladi.</span></li>
+      <li><b>API testlari</b>
+        <span class="nima"><code>getJson</code> · <code>postJson</code> ·
+        <code>assertJsonPath</code> · <code>assertJsonCount</code> ·
+        <code>assertJsonStructure</code> ·
+        <code>assertJsonValidationErrors</code>.</span></li>
+      <li><b>⚠️ Model to'liq ochilib ketdi</b>
+        <span class="nima">Javobda <code>user_id</code>,
+        <code>created_at</code> — hammasi. Bu <b>ataylab</b> qoldirilgan
+        muammo.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima"><code>api.php</code> yo'qligi · <code>Accept</code> ·
+        <code>APP_DEBUG</code> · CSRF · model ochilishi · inglizcha xabarlar ·
+        route nomlari.</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Bitta Eloquent — ikki ko'rinish qatlami</span>
+    <p>IshTop bugun brauzer uchun ishlaydi. Lekin ma'lumot boshqa joylarga ham
+    kerak bo'ladi:</p>
+    <div class="natija">mobil ilova            →  vakansiyalar ro'yxati kerak, HTML emas
+boshqa saytdagi vidjet  →  «oxirgi 5 ta e'lon»
+hamkor kompaniya       →  o'z e'lonlarini avtomatik joylamoqchi</div>
+    <p>Ularning hech biriga <code>&lt;table&gt;</code> kerak emas. Ularga
+    <b>ma'lumot</b> kerak — mashina o'qiy oladigan shaklda. Bu shakl —
+    <b>JSON</b>.</p>
+    <p>Muhim narsa shuki, pastdagi qatlamlar <b>o'zgarmaydi</b>:</p>
+    <div class="natija">baza · model · bog'lanishlar · policy · validatsiya   ← O'ZGARMAYDI
+              ↓                    ↓
+        Blade (HTML)          JSON javob                       ← faqat SHU boshqa</div>
+    <p>Shuning uchun bugun yangi controller yozamiz, lekin
+    <code>Vakansiya</code> modeliga <b>bitta ham qator</b>
+    qo'shmaymiz.</p>
+  </div>
+
+  <!-- ═══════════════ 2) INSTALL:API ═══════════════ -->
+  <h2><code>install:api</code> — API qatlamini yoqish</h2>
+
+  <p>Loyihangizdagi <code>routes/</code> papkasiga qarang:</p>
+
+  <div class="natija">routes/
+├── console.php
+└── web.php          ← api.php YO'Q</div>
+
+  <p>Laravel 11 dan boshlab API qatlami <b>ataylab</b> o'chirilgan holda
+  keladi: har loyihaga ham API kerak emas.<sup><a href="#fn1">1</a></sup>
+  Uni bitta buyruq bilan yoqamiz:</p>
+
+  <div class="cmd" data-cmd="php artisan install:api">php artisan install:api
+<span class="out"> INFO  Published API routes file.</span>
+<span class="out"> INFO  Running migrations.</span>
+<span class="out">  2026_..._create_personal_access_tokens_table .. DONE</span>
+<span class="out"> INFO  API scaffolding installed. Please add the [Laravel\Sanctum\HasApiTokens] trait to your User model.</span></div>
+
+  <p>Buyruq <b>to'rt</b> ish qildi:</p>
+
+  <div class="natija">1) Sanctum paketini o'rnatdi           (token autentifikatsiyasi — shu modulda)
+2) routes/api.php faylini yasadi
+3) bootstrap/app.php ga bitta qator qo'shdi
+4) personal_access_tokens migratsiyasini bajardi</div>
+
+  <p>Uchinchi qadamni o'z ko'zingiz bilan ko'ring:</p>
+
+  <div class="codefile">
+    <span class="fname">bootstrap/app.php</span>
+    <code class="cmd">    -&gt;withRouting(
+        web: __DIR__.'/../routes/web.php',
+        api: __DIR__.'/../routes/api.php',        // ← qo'shildi
+        commands: __DIR__.'/../routes/console.php',
+        health: '/up',
+    )</code>
+  </div>
+
+  <p>Va yasalgan fayl:</p>
+
+  <div class="codefile">
+    <span class="fname">routes/api.php</span>
+    <code class="cmd">Route::get('/user', function (Request $request) {
+    return $request-&gt;user();
+})-&gt;middleware('auth:sanctum');</code>
+  </div>
+
+  <div class="cmd" data-cmd="php artisan route:list --path=api">php artisan route:list --path=api
+<span class="out">GET|HEAD  api/user   routes/api.php:6</span></div>
+
+  <p class="expect">🔍 Manzil <code>api/user</code> — fayl ichida
+  <code>/user</code> deb yozilgan bo'lsa ham. <b>Sehr yo'q:</b>
+  <code>withRouting(api: ...)</code> bu faylga <code>/api</code> prefiksini
+  avtomatik qo'shadi.</p>
+
+  <!-- ═══════════════ 3) REST ═══════════════ -->
+  <h2>REST — manzil emas, resurs</h2>
+
+  <p>24-darsda <code>Route::resource</code> ni ko'rgan edik. API'da o'sha fikr
+  yanada qat'iyroq: <b>manzil narsani</b> bildiradi, <b>fe'l amalni</b>.</p>
+
+  <div class="natija">GET    /api/vakansiyalar        →  ro'yxatni ber
+POST   /api/vakansiyalar        →  yangisini yarat
+GET    /api/vakansiyalar/7      →  7-raqamlisini ber
+PUT    /api/vakansiyalar/7      →  7-raqamlisini yangila
+DELETE /api/vakansiyalar/7      →  7-raqamlisini o'chir</div>
+
+  <p>Ikkita manzil, beshta amal. Fe'lni ko'rgan mijoz nima bo'lishini
+  <b>oldindan</b> biladi — bu REST'ning asosiy foydasi.</p>
+
+  <div class="callout warning">
+    <span class="label">⚠️ Fe'lni manzilga solmang</span>
+    <div class="natija">/api/vakansiyalar/yarat          ⚠️
+/api/vakansiya-ochirish/7        ⚠️
+/api/getVakansiyalar             ⚠️
+
+/api/vakansiyalar   + POST       ✅
+/api/vakansiyalar/7 + DELETE     ✅</div>
+    <p>Birinchi uslubda har amal uchun yangi manzil o'ylab topiladi, va mijoz
+    ularni <b>yodlab</b> olishi kerak. Ikkinchisida qoida <b>bitta</b>.</p>
+  </div>
+
+  <!-- ═══════════════ 4) CONTROLLER ═══════════════ -->
+  <h2>API controlleri</h2>
+
+  <p>Web controllerdan alohida yozamiz — javob shakli boshqa bo'lgani uchun.
+  Papka ham alohida:</p>
+
+  <div class="cmd" data-cmd="php artisan make:controller Api/VakansiyaController">php artisan make:controller Api/VakansiyaController
+<span class="out"> INFO  Controller [app/Http/Controllers/Api/VakansiyaController.php] created successfully.</span></div>
+
+  <div class="codefile">
+    <span class="fname">app/Http/Controllers/Api/VakansiyaController.php</span>
+    <code class="cmd">&lt;?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Models\Vakansiya;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+
+class VakansiyaController extends Controller
+{
+    public function index(): JsonResponse
+    {
+        $vakansiyalar = Vakansiya::query()
+            -&gt;with('kompaniya')
+            -&gt;latest('id')
+            -&gt;take(10)
+            -&gt;get();
+
+        return response()-&gt;json($vakansiyalar);
+    }
+
+    public function show(string $id): JsonResponse
+    {
+        $vakansiya = Vakansiya::with('kompaniya')-&gt;findOrFail($id);
+
+        return response()-&gt;json($vakansiya);
+    }
+
+    public function store(Request $request): JsonResponse
+    {
+        $tekshirilgan = $request-&gt;validate([
+            'nom' =&gt; ['required', 'string', 'min:5', 'max:100'],
+            'maosh' =&gt; ['required', 'integer', 'min:1'],
+        ]);
+
+        $vakansiya = Vakansiya::create($tekshirilgan);
+
+        return response()-&gt;json($vakansiya, 201);
+    }
+}</code>
+  </div>
+
+  <div class="codefile">
+    <span class="fname">routes/api.php</span>
+    <code class="cmd">use App\Http\Controllers\Api\VakansiyaController;
+
+Route::get('/vakansiyalar', [VakansiyaController::class, 'index']);
+Route::get('/vakansiyalar/{id}', [VakansiyaController::class, 'show']);
+Route::post('/vakansiyalar', [VakansiyaController::class, 'store']);</code>
+  </div>
+
+  <div class="callout tip">
+    <span class="label">Sehr yo'q: model qanday JSON bo'ladi</span>
+    <p><code>response()-&gt;json($vakansiya)</code> ishlaydi, chunki Eloquent
+    modeli <code>JsonSerializable</code> interfeysini bajaradi. PHP'ning
+    <code>json_encode</code> funksiyasi shu interfeysni ko'radi va modeldan
+    <b>atributlar massivini</b> so'raydi.</p>
+    <p>Yuklangan bog'lanishlar ham qo'shiladi — shuning uchun
+    <code>with('kompaniya')</code> yozganimizda javobda ichma-ich
+    <code>kompaniya</code> obyekti paydo bo'ldi.</p>
+    <div class="natija">-&gt;with('kompaniya')  →  javobda "kompaniya": { "id": 1, "nom": "Softex Lab", ... }
+without with(...)    →  "kompaniya" kaliti UMUMAN bo'lmaydi</div>
+    <p>🔑 Ya'ni 29-darsdagi <b>N+1</b> muammosi API'da ham xuddi shunday:
+    <code>with()</code> ni unutsangiz ro'yxat sekinlashadi.</p>
+  </div>
+
+  <!-- ═══════════════ 5) STATUS ═══════════════ -->
+  <h2>Status kodlar — o'lchangan</h2>
+
+  <div class="natija">GET  /api/vakansiyalar              →  200   application/json, 10 ta yozuv
+GET  /api/vakansiyalar/30           →  200   bitta obyekt
+GET  /api/vakansiyalar/999999       →  404   {"message": "No query results ..."}
+POST /api/vakansiyalar  (to'g'ri)   →  201   yaratilgan obyekt + id
+POST /api/vakansiyalar  (xato)      →  422   {"message": ..., "errors": {...}}</div>
+
+  <p>Ikkitasi yangi va ular API'ga xos:</p>
+
+  <div class="natija">201 Created      →  «yaratdim». 200 emas, chunki YANGI narsa paydo bo'ldi.
+422 Unprocessable → «so'rovingni tushundim, lekin ma'lumot qoidaga mos emas»</div>
+
+  <p><b>422</b> ni <b>400</b> bilan chalkashtirmang: 400 — so'rovning
+  <b>o'zi</b> buzuq (masalan JSON sintaksisi xato). 422 — so'rov to'g'ri
+  o'qildi, lekin <b>mazmuni</b> qoidalarga mos emas.<sup><a href="#fn3">3</a></sup></p>
+
+  <h3>422 javobining shakli</h3>
+
+  <div class="natija">{
+  "message": "The nom field must be at least 5 characters. (and 1 more error)",
+  "errors": {
+    "nom": ["The nom field must be at least 5 characters."],
+    "maosh": ["The maosh field must be an integer."]
+  }
+}</div>
+
+  <p>Bu shakl <b>Laravel standarti</b> — 20-darsdagi
+  <code>$errors</code> ning JSON ko'rinishi. Mijoz uni maydonlar bo'yicha
+  ajratib, formaning tegishli joyiga chiqara oladi.</p>
+
+  <p class="expect">⚠️ Xabarlar <b>inglizcha</b> — chunki API controllerda
+  <code>messages()</code> yozmadik. 35-darsdagi Form Request bu yerda ham
+  ishlaydi va o'zbekcha xabar berish mumkin.</p>
+
+  <h3>201 javobi</h3>
+
+  <div class="natija">status: 201
+{"nom":"API orqali qoshilgan","maosh":7000000,
+ "updated_at":"2026-08-21T05:02:51.000000Z",
+ "created_at":"2026-08-21T05:02:51.000000Z","id":30}</div>
+
+  <p>Yaratilgan obyekt <b>qaytariladi</b> — va eng muhimi, unda
+  <code>id</code> bor. Mijoz uni saqlab qo'yadi va keyingi so'rovlarda
+  ishlatadi.</p>
+
+  <p class="expect">🔍 Kalitlar tartibiga qarang: <code>id</code> oxirida.
+  Chunki u bazadan qaytgandan <b>keyin</b> qo'shildi. JSON'da kalitlar tartibi
+  ahamiyatsiz — mijoz nom bo'yicha o'qiydi.</p>
+
+  <!-- ═══════════════ 6) ACCEPT ═══════════════ -->
+  <h2>⚠️ <code>Accept</code> — API mijozining eng muhim sarlavhasi</h2>
+
+  <p>Bu darsning eng ko'p vaqt yeydigan tuzog'i. Xuddi shu so'rovni ikki xil
+  yuboramiz — farq faqat <b>bitta sarlavhada</b>:</p>
+
+  <div class="natija">Accept: application/json BILAN
+   →  422   application/json   {"message": ..., "errors": {...}}     ✅
+
+Accept sarlavhasiSIZ
+   →  302   text/html          Location: http://127.0.0.1:8407/       ⚠️
+      &lt;!DOCTYPE html&gt; &lt;meta http-equiv="refresh" ...&gt;</div>
+
+  <p>Nima bo'ldi? Laravel so'rovni <b>brauzerdan</b> kelgan deb hisobladi va
+  35-darsdagi odatiy yo'lni tanladi: validatsiya xatosida
+  <code>back()</code> qilish. Mijoz esa JSON kutayotgan edi.</p>
+
+  <p>404 da ham xuddi shunday:</p>
+
+  <div class="natija">Accept siz 404  →  text/html   &lt;!DOCTYPE html&gt;...   (chiroyli xato sahifasi)</div>
+
+  <div class="callout warning">
+    <span class="label">🔑 Ikki yechim — ikkalasi ham to'g'ri</span>
+    <p><b>1) Mijoz tomonda:</b> har so'rovga sarlavha qo'shing. Bu REST
+    qoidasi va barcha kutubxonalar shuni qiladi.</p>
+    <div class="natija">curl -H "Accept: application/json" ...
+fetch(url, { headers: { 'Accept': 'application/json' } })</div>
+    <p><b>2) Server tomonda:</b> <code>api/*</code> har doim JSON qaytarsin
+    deb bir marta sozlang:</p>
+    <div class="natija">// bootstrap/app.php
+-&gt;withExceptions(function (Exceptions $exceptions): void {
+    $exceptions-&gt;shouldRenderJsonWhen(
+        fn (Request $request) =&gt; $request-&gt;is('api/*') || $request-&gt;expectsJson(),
+    );
+})</div>
+    <p>Shundan keyin <code>Accept</code> siz yuborilgan so'rov ham
+    <b>JSON</b> oladi — biz buni o'lchab ko'rdik.</p>
+    <p>✅ Amalda <b>ikkalasi</b> qilinadi: server ehtiyot chorasi sifatida
+    sozlanadi, mijoz esa baribir to'g'ri sarlavha yuboradi.</p>
+    <p>🔍 Tashxis: API'dan <b>302</b> yoki <code>text/html</code> kelsa —
+    birinchi navbatda <code>Accept</code> sarlavhasini tekshiring. Bu
+    38-darsdagi «xato xabari boshqa tomonga olib ketadi» holatining
+    API'dagi ko'rinishi.</p>
+  </div>
+
+  <!-- ═══════════════ 7) DEBUG ═══════════════ -->
+  <h2>⚠️ <code>APP_DEBUG</code> va xato javoblari</h2>
+
+  <p>404 javobini ikki sozlamada o'lchadik:</p>
+
+  <div class="natija">APP_DEBUG=true
+{
+    "message": "No query results for model [App\\Models\\Vakansiya] 999999",
+    "exception": "Symfony\\Component\\HttpKernel\\Exception\\NotFoundHttpException",
+    "file": "/home/.../vendor/laravel/framework/src/.../Handler.php",
+    "line": 521,
+    "trace": [ ... ]
+}
+
+APP_DEBUG=false
+{
+    "message": "No query results for model [App\\Models\\Vakansiya] 999999"
+}</div>
+
+  <p><code>true</code> bo'lganda javob serveringizning <b>fayl yo'llarini</b>,
+  Laravel versiyasini va butun chaqiruvlar zanjirini oshkor qiladi. Bu
+  ishlab chiqishda foydali, internetda esa <b>xavfli</b>.</p>
+
+  <p class="expect">🔑 <code>.env</code> da <code>APP_DEBUG=false</code> —
+  serverga chiqarishdagi <b>birinchi</b> qoida. API'da uning oqibati ayniqsa
+  yaqqol ko'rinadi: HTML sahifada xato <b>ekranda</b> qolardi, JSON javobda
+  esa u mijozning kodiga <b>matn bo'lib</b> boradi va o'sha yerda
+  saqlanib qolishi mumkin.
+  <br>🔍 O'lchangan: <code>true</code> holatida javobda
+  <code>message</code>, <code>exception</code>, <code>file</code>,
+  <code>line</code> va <b>36 bosqichli</b> <code>trace</code> bo'ldi.</p>
+
+  <p>⚠️ Diqqat: <code>false</code> bo'lganda ham xabar modelning <b>to'liq
+  nomini</b> aytadi: <code>App\Models\Vakansiya</code>. Buni ham yashirish
+  mumkin — <code>bootstrap/app.php</code> da <code>ModelNotFoundException</code>
+  uchun o'z javobingizni berish orqali.</p>
+
+  <!-- ═══════════════ 8) CSRF ═══════════════ -->
+  <h2>🔍 API'da CSRF tokeni yo'q</h2>
+
+  <p>32-darsda CSRF ni o'rgangan edik: tokensiz POST <b>419</b> olardi.
+  API'da esa:</p>
+
+  <div class="natija">curl -X POST /api/vakansiyalar   (token YO'Q)   →  201 Created</div>
+
+  <p>Bu xato emas, <b>ataylab</b> shunday. Sababi:</p>
+
+  <div class="natija">CSRF hujumi        →  brauzer SESSIYA cookie'sini avtomatik yuborishiga tayanadi
+API mijozi         →  sessiya ishlatmaydi, TOKEN yuboradi (shu modulda)
+                      cookie yo'q  →  hujum ham yo'q</div>
+
+  <p><code>routes/web.php</code> va <code>routes/api.php</code> ikki xil
+  middleware to'plamiga tushadi: birinchisida sessiya va CSRF bor,
+  ikkinchisida yo'q.</p>
+
+  <p class="expect">⚠️ Lekin «himoya yo'q» degani emas: hozir bizning API
+  <b>ochiq</b> — istalgan odam vakansiya qo'sha oladi. Shu modulda Sanctum
+  tokenlari bilan yopamiz. <code>install:api</code> Sanctum'ni allaqachon
+  o'rnatib qo'ygani shundan.</p>
+
+  <!-- ═══════════════ 9) TEST ═══════════════ -->
+  <h2>API testlari</h2>
+
+  <p>Modul E'dagi hamma narsa shu yerda ham ishlaydi — faqat
+  <code>get</code>/<code>post</code> o'rniga <code>getJson</code>/<code>postJson</code>
+  ishlatiladi. Ular <code>Accept: application/json</code> sarlavhasini
+  <b>o'zi qo'yadi</b>.</p>
+
+  <div class="codefile">
+    <span class="fname">tests/Feature/ApiVakansiyaTest.php</span>
+    <code class="cmd">test('ro\'yxat JSON qaytaradi', function () {
+    $kompaniya = Kompaniya::factory()-&gt;create(['nom' =&gt; 'Softex Lab']);
+    Vakansiya::factory()-&gt;count(3)-&gt;for($kompaniya, 'kompaniya')-&gt;create();
+
+    $javob = $this-&gt;getJson('/api/vakansiyalar');
+
+    $javob-&gt;assertOk();
+    $javob-&gt;assertJsonCount(3);
+    $javob-&gt;assertJsonStructure([
+        '*' =&gt; ['id', 'nom', 'maosh', 'kompaniya' =&gt; ['id', 'nom']],
+    ]);
+});
+
+test('bitta vakansiya JSON qaytaradi', function () {
+    $vakansiya = Vakansiya::factory()-&gt;create(['nom' =&gt; 'Backend dasturchi']);
+
+    $this-&gt;getJson("/api/vakansiyalar/{$vakansiya-&gt;id}")
+        -&gt;assertOk()
+        -&gt;assertJsonPath('nom', 'Backend dasturchi')
+        -&gt;assertJson(['id' =&gt; $vakansiya-&gt;id]);
+});
+
+test('mavjud bo\'lmagan vakansiya 404 beradi', function () {
+    $this-&gt;getJson('/api/vakansiyalar/999999')
+        -&gt;assertNotFound()
+        -&gt;assertJsonStructure(['message']);
+});
+
+test('yangi vakansiya 201 bilan yaratiladi', function () {
+    $javob = $this-&gt;postJson('/api/vakansiyalar', [
+        'nom' =&gt; 'Backend dasturchi',
+        'maosh' =&gt; 9000000,
+    ]);
+
+    $javob-&gt;assertCreated();
+    $javob-&gt;assertJsonPath('nom', 'Backend dasturchi');
+
+    $this-&gt;assertDatabaseHas(Vakansiya::class, ['nom' =&gt; 'Backend dasturchi']);
+});
+
+test('xato ma\'lumot 422 beradi', function () {
+    $javob = $this-&gt;postJson('/api/vakansiyalar', [
+        'nom' =&gt; 'abc',
+        'maosh' =&gt; 'matn',
+    ]);
+
+    $javob-&gt;assertStatus(422);
+    $javob-&gt;assertJsonValidationErrors(['nom', 'maosh']);
+
+    $this-&gt;assertDatabaseMissing(Vakansiya::class, ['nom' =&gt; 'abc']);
+});</code>
+  </div>
+
+  <div class="natija">✓ ro'yxat JSON qaytaradi                       0.12s
+✓ bitta vakansiya JSON qaytaradi              0.01s
+✓ mavjud bo'lmagan vakansiya 404 beradi       0.01s
+✓ yangi vakansiya 201 bilan yaratiladi        0.01s
+✓ xato ma'lumot 422 beradi                    0.01s
+
+Tests:    5 passed (34 assertions)</div>
+
+  <p>Yangi tekshiruvlar:</p>
+
+  <div class="natija">assertJsonCount(3)              →  massivda nechta element
+assertJsonPath('nom', '...')    →  aniq yo'ldagi qiymat
+assertJson(['id' =&gt; 5])         →  javob SHU kalitlarni o'z ichiga oladimi
+assertJsonStructure([...])      →  SHAKL to'g'rimi (qiymatlar muhim emas)
+assertJsonValidationErrors([...]) →  422 dagi errors kalitlari
+assertCreated()                 →  201
+assertNotFound()                →  404</div>
+
+  <p class="expect">🔑 <code>assertJsonStructure</code> va
+  <code>assertJsonPath</code> farqi muhim: birinchisi <b>shaklni</b>
+  tekshiradi (kalitlar bormi), ikkinchisi <b>qiymatni</b>. Mijoz uchun
+  ikkalasi ham shartnoma — kalit nomi o'zgarsa uning kodi buziladi.</p>
+
+  <!-- ═══════════════ 10) OCHIQ MUAMMO ═══════════════ -->
+  <div class="callout warning">
+    <span class="label">⚠️ Model to'liq ochilib ketdi</span>
+    <p>Javobga yana bir marta qarang:</p>
+    <div class="natija">{
+  "id": 30, "nom": "Backend dasturchi", "maosh": 9000000,
+  "shahar": null, "faol": true, "kompaniya_id": 1,
+  "created_at": "...", "updated_at": "...",
+  "masofadan": false, "user_id": 2          ← ⚠️ ichki maydonlar
+}</div>
+    <p>Mijozga <b>hamma narsa</b> ketdi: ichki kalitlar
+    (<code>kompaniya_id</code>, <code>user_id</code>), texnik vaqt
+    belgilari, va ertaga qo'shiladigan <b>har qanday yangi ustun</b>.</p>
+    <p>Ikki muammo bor:</p>
+    <div class="natija">1) Xavfsizlik   →  ichki ma'lumot tashqariga chiqadi
+2) Shartnoma    →  bazaga ustun qo'shsangiz, API javobi O'ZGARADI
+                   mijozning kodi esa buni kutmaydi</div>
+    <p>🔑 Ikkinchisi jiddiyroq: bazangiz <b>ichki</b> narsa, API esa
+    <b>tashqi shartnoma</b>. Ular bir-biriga yopishib qolmasligi kerak.</p>
+    <p>Bu muammo <b>ataylab</b> ochiq qoldirildi — 43-darsda
+    <b>API Resource</b> bilan yopamiz.</p>
+  </div>
+
+  <!-- ═══════════════ 11) HAR XIL HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir bir marta o'qib chiqing,
+  keyin kerak bo'lganda qaytib qarang.</p>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 1</span>
+    <h4><code>routes/api.php</code> yo'q</h4>
+    <div class="natija">Route::get('/api/vakansiyalar', ...)  →  web.php ga yozilsa ISHLAYDI,
+                                        lekin sessiya va CSRF bilan birga</div>
+    <p>Laravel 11+ da <code>api.php</code> standart holda yo'q. Ko'plab
+    qo'llanmalar undan foydalanadi va «menda bunday fayl yo'q» degan
+    chalkashlik tug'iladi.</p>
+    <p>✅ <code>php artisan install:api</code>. Faylni <b>qo'lda</b> yasash
+    yetarli emas — <code>bootstrap/app.php</code> ga
+    <code>api: ...</code> qatori ham kerak.</p>
+    <p>🔍 API marshrutini <code>web.php</code> ga yozish <b>ishlaydi</b>,
+    lekin u sessiya va CSRF middleware'iga tushadi — tokensiz POST
+    <b>419</b> oladi.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 2</span>
+    <h4><code>Accept</code> sarlavhasi unutilishi</h4>
+    <div class="natija">Accept siz:   422 o'rniga  →  302 + text/html
+              404 o'rniga  →  HTML xato sahifasi</div>
+    <p>Eng ko'p vaqt yeydigan API tuzog'i, chunki xato <b>mijoz tomonda</b>
+    ko'rinadi: JSON kutgan kod HTML oladi va tushunarsiz xato beradi.</p>
+    <p>✅ <code>curl</code> bilan sinayotganda har doim
+    <code>-H "Accept: application/json"</code> qo'shing. Testda
+    <code>getJson</code>/<code>postJson</code> buni <b>o'zi</b> qiladi.</p>
+    <p>✅ Serverda esa <code>shouldRenderJsonWhen</code> ni sozlang — o'shanda
+    <code>api/*</code> har doim JSON qaytaradi.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 3</span>
+    <h4><code>APP_DEBUG=true</code> serverda</h4>
+    <div class="natija">{"message": "...", "exception": "...", "file": "/home/...", "trace": [...]}</div>
+    <p>Javob serveringiz haqida ko'p narsani aytadi: fayl yo'llari,
+    kutubxona versiyalari, chaqiruvlar zanjiri. Hujumchi uchun bu
+    <b>xarita</b>.</p>
+    <p>✅ Serverda <code>APP_DEBUG=false</code>. O'zgartirgandan keyin
+    <code>php artisan config:clear</code>.</p>
+    <p>🔍 Tekshirish oson: <code>curl</code> bilan mavjud bo'lmagan manzilga
+    so'rov yuboring va javobda <code>file</code> kaliti bor-yo'qligiga
+    qarang.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 4</span>
+    <h4>API'da CSRF yo'qligi</h4>
+    <div class="natija">POST /api/vakansiyalar  (tokensiz)  →  201 Created</div>
+    <p>Bu <b>to'g'ri</b>: CSRF hujumi brauzerning cookie'ni avtomatik
+    yuborishiga tayanadi, API mijozi esa cookie emas, <b>token</b>
+    ishlatadi.</p>
+    <p>⚠️ Lekin hozircha bizning API <b>umuman himoyasiz</b> — istalgan odam
+    e'lon qo'sha oladi. Bu Sanctum darsigacha shunday qoladi.</p>
+    <p>🔍 Istisno: agar API'ni <b>brauzerdan</b> sessiya bilan ishlatsangiz
+    (SPA), CSRF yana kerak bo'ladi — Sanctum buning uchun alohida rejimga
+    ega.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 5</span>
+    <h4>Model to'g'ridan-to'g'ri qaytarilishi</h4>
+    <div class="natija">return response()-&gt;json($vakansiya);   →  BARCHA ustunlar mijozga ketadi</div>
+    <p>Bugungi kodimiz aynan shunday. Bazaga yangi ustun qo'shsangiz — u
+    <b>avtomatik</b> API javobiga tushadi, siz xohlaysizmi-yo'qmi.</p>
+    <p>⚠️ Teskarisi ham yomon: ustun nomini o'zgartirsangiz mijozning kodi
+    <b>buziladi</b>, chunki u <code>maosh</code> kalitiga tayangan edi.</p>
+    <p>✅ Vaqtinchalik chora — modelda <code>$hidden</code>. To'liq yechim esa
+    <b>API Resource</b> (43-dars): javob shakli alohida faylda yoziladi va
+    bazadan <b>mustaqil</b> bo'ladi.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 6</span>
+    <h4>Validatsiya xabarlari inglizcha</h4>
+    <div class="natija">"The nom field must be at least 5 characters."</div>
+    <p>Web tomonda 35-darsda <code>messages()</code> yozgan edik, API
+    controllerda esa oddiy <code>$request-&gt;validate([...])</code>
+    ishlatildi.</p>
+    <p>✅ Form Request bu yerda ham ishlaydi — <code>rules()</code>,
+    <code>messages()</code>, <code>authorize()</code> hammasi bir xil.
+    Farqi faqat javob shaklida: web'da 302, API'da <b>422 JSON</b>.</p>
+    <p>🔍 Ya'ni bitta Form Request'ni <b>ikkala</b> controllerda ishlatish
+    mumkin — Laravel javob shaklini <code>Accept</code> ga qarab o'zi
+    tanlaydi.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>Route nomlari va prefiks</h4>
+    <div class="natija">routes/api.php da:   Route::get('/vakansiyalar', ...)
+haqiqiy manzil:      /api/vakansiyalar          ← prefiks avtomatik</div>
+    <p>Prefiksni <b>qo'lda</b> yozsangiz <code>/api/api/vakansiyalar</code>
+    chiqadi — 34-darsdagi <code>make:enum Enums/Rol</code> tuzog'i bilan
+    bir xil naqsh.</p>
+    <p>✅ Nomlash uchun guruh ishlatish qulay:</p>
+    <div class="natija">Route::name('api.')-&gt;group(function () {
+    Route::get('/vakansiyalar', [...])-&gt;name('vakansiyalar.index');
+});
+// →  route('api.vakansiyalar.index')  =  http://.../api/vakansiyalar</div>
+    <p>🔍 <code>php artisan route:list --path=api</code> — haqiqiy manzillarni
+    ko'rishning eng tez usuli.</p>
+  </div>
+
+  <!-- ═══════════════ 12) AMALIYOT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    <span class="mode-hint-title">💻 Amaliy qism kompyuterda</span>
+    <p>Amaliyotda API qatlamini yoqasiz, uchta endpoint yozasiz va
+    <code>curl</code> bilan barcha status kodlarni ko'rasiz. Yo'lda
+    <code>Accept</code> sarlavhasini <b>ataylab</b> tashlab, JSON o'rniga
+    HTML kelishini kuzatasiz.</p>
+    <button type="button" class="modebtn" data-set-mode="do">💻 Amaliyot rejimini ko'rish</button>
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <p>API qatlamini yoqing</p>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+ls routes/
+php artisan install:api">cd ~/Projects/Learn/ishtop
+ls routes/
+php artisan install:api
+<span class="out">console.php  web.php          ← api.php YO'Q</span>
+<span class="out"> INFO  Published API routes file.</span>
+<span class="out"> INFO  API scaffolding installed.</span></div>
+        <div class="cmd" data-cmd="ls routes/
+grep -n 'api:' bootstrap/app.php">ls routes/
+grep -n 'api:' bootstrap/app.php
+<span class="out">api.php  console.php  web.php</span>
+<span class="out">11:        api: __DIR__.'/../routes/api.php',</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> yangi fayl <b>va</b>
+        <code>bootstrap/app.php</code> da yangi qator. Ikkalasi ham kerak.</p>
+      </li>
+
+      <li>
+        <p>API controllerini yasang</p>
+        <div class="cmd" data-cmd="php artisan make:controller Api/VakansiyaController">php artisan make:controller Api/VakansiyaController</div>
+        <div class="cmd" data-cmd="# app/Http/Controllers/Api/VakansiyaController.php
+
+&lt;?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Models\Vakansiya;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+
+class VakansiyaController extends Controller
+{
+    public function index(): JsonResponse
+    {
+        $vakansiyalar = Vakansiya::query()
+            -&gt;with('kompaniya')
+            -&gt;latest('id')
+            -&gt;take(10)
+            -&gt;get();
+
+        return response()-&gt;json($vakansiyalar);
+    }
+
+    public function show(string $id): JsonResponse
+    {
+        $vakansiya = Vakansiya::with('kompaniya')-&gt;findOrFail($id);
+
+        return response()-&gt;json($vakansiya);
+    }
+
+    public function store(Request $request): JsonResponse
+    {
+        $tekshirilgan = $request-&gt;validate([
+            'nom' =&gt; ['required', 'string', 'min:5', 'max:100'],
+            'maosh' =&gt; ['required', 'integer', 'min:1'],
+        ]);
+
+        $vakansiya = Vakansiya::create($tekshirilgan);
+
+        return response()-&gt;json($vakansiya, 201);
+    }
+}"># app/Http/Controllers/Api/VakansiyaController.php
+
+&lt;?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Models\Vakansiya;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+
+class VakansiyaController extends Controller
+{
+    public function index(): JsonResponse
+    {
+        $vakansiyalar = Vakansiya::query()
+            -&gt;with('kompaniya')
+            -&gt;latest('id')
+            -&gt;take(10)
+            -&gt;get();
+
+        return response()-&gt;json($vakansiyalar);
+    }
+
+    public function show(string $id): JsonResponse
+    {
+        $vakansiya = Vakansiya::with('kompaniya')-&gt;findOrFail($id);
+
+        return response()-&gt;json($vakansiya);
+    }
+
+    public function store(Request $request): JsonResponse
+    {
+        $tekshirilgan = $request-&gt;validate([
+            'nom' =&gt; ['required', 'string', 'min:5', 'max:100'],
+            'maosh' =&gt; ['required', 'integer', 'min:1'],
+        ]);
+
+        $vakansiya = Vakansiya::create($tekshirilgan);
+
+        return response()-&gt;json($vakansiya, 201);
+    }
+}</div>
+        <div class="cmd" data-cmd="php -l app/Http/Controllers/Api/VakansiyaController.php">php -l app/Http/Controllers/Api/VakansiyaController.php</div>
+      </li>
+
+      <li>
+        <p>Marshrutlarni yozing</p>
+        <div class="cmd" data-cmd="# routes/api.php — yuqoriga qo'shing
+
+use App\Http\Controllers\Api\VakansiyaController;
+
+Route::get('/vakansiyalar', [VakansiyaController::class, 'index']);
+Route::get('/vakansiyalar/{id}', [VakansiyaController::class, 'show']);
+Route::post('/vakansiyalar', [VakansiyaController::class, 'store']);"># routes/api.php — yuqoriga qo'shing
+
+use App\Http\Controllers\Api\VakansiyaController;
+
+Route::get('/vakansiyalar', [VakansiyaController::class, 'index']);
+Route::get('/vakansiyalar/{id}', [VakansiyaController::class, 'show']);
+Route::post('/vakansiyalar', [VakansiyaController::class, 'store']);</div>
+        <div class="cmd" data-cmd="php artisan route:list --path=api">php artisan route:list --path=api
+<span class="out">GET|HEAD  api/vakansiyalar        Api\VakansiyaController@index</span>
+<span class="out">POST      api/vakansiyalar        Api\VakansiyaController@store</span>
+<span class="out">GET|HEAD  api/vakansiyalar/{id}   Api\VakansiyaController@show</span></div>
+        <p class="why-step">🔍 Fayl ichida <code>/vakansiyalar</code> deb
+        yozildi, manzil esa <code>api/vakansiyalar</code> — prefiks
+        avtomatik.</p>
+      </li>
+
+      <li>
+        <p>200 va 404 ni ko'ring</p>
+        <div class="cmd" data-cmd="php artisan serve">php artisan serve</div>
+        <p>Boshqa terminal oynasida:</p>
+        <div class="cmd" data-cmd="curl -s -o /dev/null -w &quot;%{http_code} %{content_type}\n&quot; -H &quot;Accept: application/json&quot; http://127.0.0.1:8000/api/vakansiyalar
+curl -s -H &quot;Accept: application/json&quot; http://127.0.0.1:8000/api/vakansiyalar/999999">curl -s -o /dev/null -w &quot;%{http_code} %{content_type}\n&quot; -H &quot;Accept: application/json&quot; http://127.0.0.1:8000/api/vakansiyalar
+curl -s -H &quot;Accept: application/json&quot; http://127.0.0.1:8000/api/vakansiyalar/999999
+<span class="out">200 application/json</span>
+<span class="out">{"message":"No query results for model [App\\Models\\Vakansiya] 999999", ...}</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> <b>200</b> va <b>404</b>.
+        <br>⚠️ 404 javobida <code>file</code> va <code>trace</code> kalitlari
+        bormi? Bor bo'lsa — <code>APP_DEBUG=true</code>. Serverda bu
+        <b>xavfli</b>.</p>
+      </li>
+
+      <li>
+        <p>201 va 422 ni ko'ring</p>
+        <div class="cmd" data-cmd="curl -s -o /dev/null -w &quot;%{http_code}\n&quot; -H &quot;Accept: application/json&quot; -H &quot;Content-Type: application/json&quot; -d '{&quot;nom&quot;:&quot;API orqali qoshilgan&quot;,&quot;maosh&quot;:7000000}' http://127.0.0.1:8000/api/vakansiyalar
+curl -s -H &quot;Accept: application/json&quot; -H &quot;Content-Type: application/json&quot; -d '{&quot;nom&quot;:&quot;abc&quot;,&quot;maosh&quot;:&quot;matn&quot;}' http://127.0.0.1:8000/api/vakansiyalar">curl -s -o /dev/null -w &quot;%{http_code}\n&quot; -H &quot;Accept: application/json&quot; -H &quot;Content-Type: application/json&quot; -d '{&quot;nom&quot;:&quot;API orqali qoshilgan&quot;,&quot;maosh&quot;:7000000}' http://127.0.0.1:8000/api/vakansiyalar
+curl -s -H &quot;Accept: application/json&quot; -H &quot;Content-Type: application/json&quot; -d '{&quot;nom&quot;:&quot;abc&quot;,&quot;maosh&quot;:&quot;matn&quot;}' http://127.0.0.1:8000/api/vakansiyalar
+<span class="out">201</span>
+<span class="out">{"message":"The nom field must be at least 5 characters. (and 1 more error)",</span>
+<span class="out"> "errors":{"nom":[...],"maosh":[...]}}</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> <b>201</b> va <b>422</b>.
+        <br>🔍 CSRF tokeni yubormadingiz — va POST baribir ishladi. API
+        marshrutlarida CSRF yo'q.
+        <br>⚠️ Nomda apostrof ishlatmang: <code>curl</code> buyrug'ida bitta
+        qo'shtirnoq ichidagi <code>'</code> shellni buzadi.</p>
+      </li>
+
+      <li>
+        <p>⚠️ <code>Accept</code> ni ataylab tashlang</p>
+        <div class="cmd" data-cmd="curl -s -o /dev/null -w &quot;%{http_code} %{content_type} %{redirect_url}\n&quot; -d &quot;nom=abc&quot; -d &quot;maosh=matn&quot; http://127.0.0.1:8000/api/vakansiyalar">curl -s -o /dev/null -w &quot;%{http_code} %{content_type} %{redirect_url}\n&quot; -d &quot;nom=abc&quot; -d &quot;maosh=matn&quot; http://127.0.0.1:8000/api/vakansiyalar</div>
+        <p class="expect"><b>Kutilgan natija:</b> bu loyihada baribir
+        <b>422 JSON</b> keladi — chunki <code>bootstrap/app.php</code> da
+        <code>shouldRenderJsonWhen</code> sozlangan.
+        <br>🔍 Uni vaqtincha izohga oling va qayta yuboring:
+        o'shanda <b>302</b> va <code>text/html</code> ko'rasiz — Laravel
+        so'rovni brauzerdan kelgan deb hisoblaydi. Ko'rgach
+        <b>qaytaring</b>.</p>
+      </li>
+
+      <li>
+        <p>API testlarini yozing</p>
+        <div class="cmd" data-cmd="# tests/Feature/ApiVakansiyaTest.php
+
+&lt;?php
+
+use App\Models\Kompaniya;
+use App\Models\Vakansiya;
+
+test('ro\'yxat JSON qaytaradi', function () {
+    $kompaniya = Kompaniya::factory()-&gt;create(['nom' =&gt; 'Softex Lab']);
+    Vakansiya::factory()-&gt;count(3)-&gt;for($kompaniya, 'kompaniya')-&gt;create();
+
+    $javob = $this-&gt;getJson('/api/vakansiyalar');
+
+    $javob-&gt;assertOk();
+    $javob-&gt;assertJsonCount(3);
+    $javob-&gt;assertJsonStructure([
+        '*' =&gt; ['id', 'nom', 'maosh', 'kompaniya' =&gt; ['id', 'nom']],
+    ]);
+});
+
+test('mavjud bo\'lmagan vakansiya 404 beradi', function () {
+    $this-&gt;getJson('/api/vakansiyalar/999999')
+        -&gt;assertNotFound()
+        -&gt;assertJsonStructure(['message']);
+});
+
+test('yangi vakansiya 201 bilan yaratiladi', function () {
+    $javob = $this-&gt;postJson('/api/vakansiyalar', [
+        'nom' =&gt; 'Backend dasturchi',
+        'maosh' =&gt; 9000000,
+    ]);
+
+    $javob-&gt;assertCreated();
+    $javob-&gt;assertJsonPath('nom', 'Backend dasturchi');
+
+    $this-&gt;assertDatabaseHas(Vakansiya::class, ['nom' =&gt; 'Backend dasturchi']);
+});
+
+test('xato ma\'lumot 422 beradi', function () {
+    $javob = $this-&gt;postJson('/api/vakansiyalar', [
+        'nom' =&gt; 'abc',
+        'maosh' =&gt; 'matn',
+    ]);
+
+    $javob-&gt;assertStatus(422);
+    $javob-&gt;assertJsonValidationErrors(['nom', 'maosh']);
+
+    $this-&gt;assertDatabaseMissing(Vakansiya::class, ['nom' =&gt; 'abc']);
+});"># tests/Feature/ApiVakansiyaTest.php
+
+&lt;?php
+
+use App\Models\Kompaniya;
+use App\Models\Vakansiya;
+
+test('ro\'yxat JSON qaytaradi', function () {
+    $kompaniya = Kompaniya::factory()-&gt;create(['nom' =&gt; 'Softex Lab']);
+    Vakansiya::factory()-&gt;count(3)-&gt;for($kompaniya, 'kompaniya')-&gt;create();
+
+    $javob = $this-&gt;getJson('/api/vakansiyalar');
+
+    $javob-&gt;assertOk();
+    $javob-&gt;assertJsonCount(3);
+    $javob-&gt;assertJsonStructure([
+        '*' =&gt; ['id', 'nom', 'maosh', 'kompaniya' =&gt; ['id', 'nom']],
+    ]);
+});
+
+test('mavjud bo\'lmagan vakansiya 404 beradi', function () {
+    $this-&gt;getJson('/api/vakansiyalar/999999')
+        -&gt;assertNotFound()
+        -&gt;assertJsonStructure(['message']);
+});
+
+test('yangi vakansiya 201 bilan yaratiladi', function () {
+    $javob = $this-&gt;postJson('/api/vakansiyalar', [
+        'nom' =&gt; 'Backend dasturchi',
+        'maosh' =&gt; 9000000,
+    ]);
+
+    $javob-&gt;assertCreated();
+    $javob-&gt;assertJsonPath('nom', 'Backend dasturchi');
+
+    $this-&gt;assertDatabaseHas(Vakansiya::class, ['nom' =&gt; 'Backend dasturchi']);
+});
+
+test('xato ma\'lumot 422 beradi', function () {
+    $javob = $this-&gt;postJson('/api/vakansiyalar', [
+        'nom' =&gt; 'abc',
+        'maosh' =&gt; 'matn',
+    ]);
+
+    $javob-&gt;assertStatus(422);
+    $javob-&gt;assertJsonValidationErrors(['nom', 'maosh']);
+
+    $this-&gt;assertDatabaseMissing(Vakansiya::class, ['nom' =&gt; 'abc']);
+});</div>
+        <div class="cmd" data-cmd="php artisan test tests/Feature/ApiVakansiyaTest.php">php artisan test tests/Feature/ApiVakansiyaTest.php</div>
+        <p class="why-step">🔍 <code>getJson</code>/<code>postJson</code>
+        <code>Accept: application/json</code> sarlavhasini <b>o'zi</b>
+        qo'yadi — shuning uchun testda oldingi qadamdagi tuzoq
+        uchramaydi.</p>
+      </li>
+
+      <li>
+        <p>⚠️ Javob nimalarni oshkor qilyapti — sanang</p>
+        <div class="cmd" data-cmd="curl -s -H &quot;Accept: application/json&quot; http://127.0.0.1:8000/api/vakansiyalar | head -c 400">curl -s -H &quot;Accept: application/json&quot; http://127.0.0.1:8000/api/vakansiyalar | head -c 400</div>
+        <p class="expect"><b>Kutilgan natija:</b> javobda
+        <code>kompaniya_id</code>, <code>user_id</code>,
+        <code>created_at</code>, <code>updated_at</code> — hammasi bor.
+        <br>🔑 Bu <b>ataylab</b> qoldirilgan muammo: bazangiz ichki narsa,
+        API esa tashqi shartnoma. 43-darsda ajratamiz.</p>
+      </li>
+
+      <li>
+        <p>To'liq to'plamni ishga tushiring va saqlang</p>
+        <div class="cmd" data-cmd="php artisan test
+git add -A
+git commit -m &quot;42-dars: API qatlami — REST, JSON va status kodlar&quot;">php artisan test
+git add -A
+git commit -m &quot;42-dars: API qatlami — REST, JSON va status kodlar&quot;
+<span class="out">  Tests:    43 passed (128 assertions)</span></div>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><input type="checkbox" id="d42c1"><label for="d42c1"><code>install:api</code> qildim va <b>ikkala</b> o'zgarishni ko'rdim</label></li>
+      <li><input type="checkbox" id="d42c2"><label for="d42c2"><code>/api</code> prefiksi avtomatik qo'shilishini tasdiqladim</label></li>
+      <li><input type="checkbox" id="d42c3"><label for="d42c3">Uchta endpoint yozdim: ro'yxat, bitta, yaratish</label></li>
+      <li><input type="checkbox" id="d42c4"><label for="d42c4"><b>200 · 404 · 201 · 422</b> — to'rttasini ham ko'rdim</label></li>
+      <li><input type="checkbox" id="d42c5"><label for="d42c5"><b>CSRF tokensiz POST 201 berganini ko'rdim</b> 🔍</label></li>
+      <li><input type="checkbox" id="d42c6"><label for="d42c6"><b><code>Accept</code> siz 302 va HTML kelishini sinadim</b> ⚠️</label></li>
+      <li><input type="checkbox" id="d42c7"><label for="d42c7">404 javobida <code>file</code> kaliti bor-yo'qligini tekshirdim</label></li>
+      <li><input type="checkbox" id="d42c8"><label for="d42c8"><code>getJson</code>/<code>postJson</code> bilan test yozdim</label></li>
+      <li><input type="checkbox" id="d42c9"><label for="d42c9"><code>assertJsonPath</code> va <code>assertJsonStructure</code> ishlatdim</label></li>
+      <li><input type="checkbox" id="d42c10"><label for="d42c10"><b>Javobda qancha ichki maydon ochilganini sanadim</b> ⚠️</label></li>
+      <li><input type="checkbox" id="d42c11"><label for="d42c11">43 test yashil, commit qildim</label></li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 13) SINAB KO'RAMIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Mobil ilova dasturchisi IshTop API'sidan foydalanmoqchi. U shunday kod
+    yozdi:</p>
+    <div class="codefile">
+      <div class="fname">mobil ilovadagi so'rov</div>
+      <code class="cmd" data-cmd="fetch('https://ishtop.uz/api/vakansiyalar', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ nom: 'abc', maosh: 'matn' })
+})
+  .then(r =&gt; r.json())
+  .then(d =&gt; console.log(d.errors));">fetch('https://ishtop.uz/api/vakansiyalar', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ nom: 'abc', maosh: 'matn' })
+})
+  .then(r =&gt; r.json())
+  .then(d =&gt; console.log(d.errors));</code>
+    </div>
+    <p>Server tomonda <code>shouldRenderJsonWhen</code> <b>sozlanmagan</b>.
+    Dasturchi 422 va xatolar ro'yxatini kutyapti. Nima ko'radi?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <div class="natija">status: 302
+Content-Type: text/html
+Location: https://ishtop.uz/
+
+r.json()  →  SyntaxError: Unexpected token '&lt;'</div>
+        <p>Mijoz <code>Accept</code> sarlavhasini yubormadi. Laravel so'rovni
+        brauzerdan kelgan deb hisobladi va validatsiya xatosida
+        <code>back()</code> qildi — <b>HTML</b> qaytardi.</p>
+        <p class="expect">⚠️ Va endi eng yomoni: xato xabari
+        <b>butunlay boshqa narsa</b> haqida. Dasturchi
+        <code>SyntaxError: Unexpected token '&lt;'</code> ni ko'radi va
+        <b>JSON tahlilida</b> muammo qidira boshlaydi — aslida muammo
+        <b>sarlavhada</b>.</p>
+        <p><code>Content-Type</code> qo'yilgani <b>yordam bermaydi</b>:
+        u «men <b>nima yuboryapman</b>» degani.
+        <code>Accept</code> esa «men <b>nima kutyapman</b>» degani. Ikki xil
+        savol.</p>
+        <div class="natija">Content-Type: application/json   →  yuborayotgan ma'lumot shakli
+Accept: application/json         →  KUTILAYOTGAN javob shakli   ← shu yetishmadi</div>
+        <p>🔑 <b>Ikki tomonlama yechim:</b></p>
+        <div class="natija">// mijoz tomonda
+headers: {
+  'Content-Type': 'application/json',
+  'Accept': 'application/json'          ← qo'shildi
+}
+
+// server tomonda (bootstrap/app.php)
+$exceptions-&gt;shouldRenderJsonWhen(
+    fn (Request $request) =&gt; $request-&gt;is('api/*') || $request-&gt;expectsJson(),
+);</div>
+        <p>🔍 Serverdagi sozlama <b>ehtiyot chorasi</b>: mijozlar xato
+        yozganda ham API o'zini API kabi tutadi. Mijoz tomondagi sarlavha esa
+        <b>to'g'ri usul</b> — u boshqa serverlarda ham ishlaydi.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span>
+    <code>php artisan install:api</code> nima qiladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">routes/api.php yasab Sanctum ham o'rnatadi</button></li>
+      <li><button class="quiz-option">Faqat yangi papka yaratib qo'yadi</button></li>
+      <li><button class="quiz-option">Barcha web marshrutlarni api'ga ko'chiradi</button></li>
+    </ul>
+    <div class="quiz-explain">To'rt ish: Sanctum o'rnatadi ·
+    <code>routes/api.php</code> yasaydi · <code>bootstrap/app.php</code> ga
+    <code>api: ...</code> qatorini qo'shadi · <code>personal_access_tokens</code>
+    migratsiyasini bajaradi. 🔍 Faylni qo'lda yasash <b>yetarli emas</b> —
+    <code>bootstrap/app.php</code> dagi qator ham kerak.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span> API so'rovida
+    <code>Accept: application/json</code> unutilsa nima bo'ladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">JSON o'rniga HTML yoki redirect keladi</button></li>
+      <li><button class="quiz-option">Javob bir xil qoladi farq yo'q</button></li>
+      <li><button class="quiz-option">So'rov umuman qabul qilinmasdan rad etiladi</button></li>
+    </ul>
+    <div class="quiz-explain">O'lchandi: validatsiya xatosida <b>302</b> va
+    <code>text/html</code>, 404 da esa HTML xato sahifasi. Mijoz
+    <code>SyntaxError: Unexpected token '&lt;'</code> ko'radi va muammoni
+    noto'g'ri joyda qidiradi.
+    ⚠️ <code>Content-Type</code> boshqa savolga javob beradi — u
+    <b>yuborayotgan</b> ma'lumot shakli.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span> <b>201</b> va
+    <b>422</b> nimani bildiradi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">201 yaratildi 422 validatsiya xatosi bildiradi</button></li>
+      <li><button class="quiz-option">201 xato 422 muvaffaqiyat degani hisoblanadi</button></li>
+      <li><button class="quiz-option">Ikkalasi ham bir xil ma'noni bildiradi</button></li>
+    </ul>
+    <div class="quiz-explain"><b>201 Created</b> — 200 emas, chunki
+    <b>yangi</b> narsa paydo bo'ldi; javobda yaratilgan obyekt va uning
+    <code>id</code> si qaytariladi.
+    <b>422</b> — so'rov to'g'ri o'qildi, lekin mazmuni qoidaga mos emas.
+    ⚠️ <b>400</b> dan farqi: 400 — so'rovning <b>o'zi</b> buzuq.</div>
+  </div>
+
+  <!-- ═══════════════ 14) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+    <p class="recall-intro">Avval o'zingiz javob bering, keyin ochib tekshiring.
+    Oxirgi ikkitasi — <a href="0041-phpunit-va-tdd.html">41-darsni</a> takrorlash.</p>
+
+    <details class="recall">
+      <summary>Model qanday qilib JSON'ga aylanadi?</summary>
+      <div class="answer"><p><b>Sehr yo'q:</b> Eloquent modeli
+      <code>JsonSerializable</code> interfeysini bajaradi va
+      <code>json_encode</code> undan atributlar massivini so'raydi.
+      Yuklangan bog'lanishlar ham qo'shiladi — shuning uchun
+      <code>with('kompaniya')</code> javob shaklini o'zgartiradi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Nega API'da CSRF tokeni kerak emas?</summary>
+      <div class="answer"><p>CSRF hujumi brauzerning <b>sessiya
+      cookie'sini</b> avtomatik yuborishiga tayanadi. API mijozi sessiya
+      emas, <b>token</b> ishlatadi — cookie yo'q, hujum ham yo'q.
+      ⚠️ Lekin hozircha API umuman himoyasiz.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary><code>Content-Type</code> va <code>Accept</code> farqi?</summary>
+      <div class="answer"><p><code>Content-Type</code> — «men <b>nima
+      yuboryapman</b>». <code>Accept</code> — «men <b>nima kutyapman</b>».
+      API'dan JSON olish uchun ikkinchisi kerak.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: <code>test_</code> prefiksi unutilsa?</summary>
+      <div class="answer"><p>Metod <b>jimgina o'tkazib yuboriladi</b> —
+      xato ham, ogohlantirish ham yo'q. Yangi test yozgach
+      <code>Tests: N passed</code> dagi <b>N ortdimi</b> — shuni
+      kuzating.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: 🔴 qadam nega tashlab ketilmaydi?</summary>
+      <div class="answer"><p>Qizilni ko'rish test <b>ishga tushayotganini</b>
+      va <b>aynan kutgan sababdan</b> yiqilayotganini isbotlaydi. Hech qachon
+      qizil bo'lmagan test yolg'on xotirjamlik berishi mumkin.</p></div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 15) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Cho'ntak xulosasi</span>
+    <ul>
+      <li><b>Bitta Eloquent — ikki ko'rinish qatlami.</b> Baza, model,
+      bog'lanishlar, policy o'zgarmaydi; faqat <b>javob shakli</b>
+      boshqa.</li>
+      <li><code>php artisan install:api</code> — to'rt ish: Sanctum ·
+      <code>routes/api.php</code> · <code>bootstrap/app.php</code> ga
+      <code>api: ...</code> · <code>personal_access_tokens</code>
+      migratsiyasi.</li>
+      <li>⚠️ Faylni qo'lda yasash yetarli emas —
+      <code>bootstrap/app.php</code> dagi qator ham kerak.</li>
+      <li><code>/api</code> prefiksi <b>avtomatik</b>. Qo'lda yozsangiz
+      <code>/api/api/...</code> chiqadi.</li>
+      <li>REST: <b>manzil narsani</b>, <b>fe'l amalni</b> bildiradi.
+      Fe'lni manzilga solmang.</li>
+      <li><b>Sehr yo'q:</b> model <code>JsonSerializable</code> ni bajaradi.
+      <code>with('kompaniya')</code> javobga ichma-ich obyekt qo'shadi —
+      usiz kalit <b>umuman bo'lmaydi</b>.</li>
+      <li>Statuslar: <b>200</b> ber · <b>201</b> yaratildi ·
+      <b>404</b> topilmadi · <b>422</b> ma'lumot qoidaga mos emas
+      (<b>400</b> dan farqli — u so'rovning o'zi buzuq).</li>
+      <li>422 shakli: <code>{"message": ..., "errors": {"maydon": [...]}}</code>
+      — 20-darsdagi <code>$errors</code> ning JSON ko'rinishi.</li>
+      <li>⚠️ <b><code>Accept: application/json</code></b> unutilsa
+      validatsiya xatosi <b>302 + HTML</b> bo'lib qaytadi, 404 esa HTML
+      sahifa. Mijoz <code>SyntaxError: Unexpected token '&lt;'</code>
+      ko'radi.</li>
+      <li><code>Content-Type</code> = nima <b>yuboryapman</b>,
+      <code>Accept</code> = nima <b>kutyapman</b>.</li>
+      <li>Server tomonda ehtiyot chorasi:
+      <code>shouldRenderJsonWhen(fn ($r) =&gt; $r-&gt;is('api/*') || $r-&gt;expectsJson())</code>.</li>
+      <li>⚠️ <code>APP_DEBUG=true</code> da xato javobi <code>file</code>,
+      <code>line</code> va <b>36 bosqichli</b> <code>trace</code> ni oshkor
+      qiladi. Serverda <code>false</code>.</li>
+      <li>🔍 API'da <b>CSRF yo'q</b> — tokensiz POST <b>201</b> berdi.
+      Bu to'g'ri (cookie ishlatilmaydi), lekin API hozircha
+      <b>himoyasiz</b>.</li>
+      <li>Testlar: <code>getJson</code>/<code>postJson</code>
+      (<code>Accept</code> ni o'zi qo'yadi) ·
+      <code>assertJsonPath</code> · <code>assertJsonCount</code> ·
+      <code>assertJsonStructure</code> ·
+      <code>assertJsonValidationErrors</code> ·
+      <code>assertCreated</code> · <code>assertNotFound</code>.</li>
+      <li>⚠️ <b>Ochiq muammo:</b> model to'liq ochildi —
+      <code>user_id</code>, <code>created_at</code> va ertaga qo'shiladigan
+      <b>har qanday ustun</b>. Baza <b>ichki</b>, API <b>tashqi
+      shartnoma</b>.</li>
+      <li><b>Natija:</b> 43 test, 128 tekshiruv.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p>API ishlayapti, lekin u hozir bazangizning <b>ko'zgusi</b>: qaysi ustun
+    bo'lsa, o'sha javobga tushadi. Ustun qo'shsangiz — API o'zgaradi. Ustun
+    nomini o'zgartirsangiz — mijozning kodi buziladi.</p>
+    <p>43-darsda <b>API Resource</b> bilan javob shaklini <b>alohida faylga</b>
+    ko'chiramiz: <code>make:resource</code>, <code>toArray()</code>,
+    <code>whenLoaded()</code> va <code>collection()</code>. Shundan keyin
+    javobda <b>nima bo'lishini siz</b> hal qilasiz, baza emas.</p>
+    <p>O'shanda <code>maoshFormat()</code> ham asqotadi: javobga xom son
+    o'rniga <b>tayyor matn</b> qo'shish mumkin bo'ladi.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel — Routing (API routes)</b>:
+    <a href="https://laravel.com/docs/13.x/routing#api-routes">laravel.com/docs/13.x/routing</a>
+    — <code>install:api</code>, <code>/api</code> prefiksi.<sup><a href="#fn1">1</a></sup><br>
+    <b>HTTP Responses — JSON</b>:
+    <a href="https://laravel.com/docs/13.x/responses#json-responses">response()-&gt;json()</a>.<sup><a href="#fn2">2</a></sup><br>
+    <b>MDN — HTTP status kodlari</b>:
+    <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status">201</a>,
+    <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/422">422</a>.<sup><a href="#fn3">3</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b> «API'da sahifalash
+    qanday qilinadi?», «versiyalash kerakmi (<code>/api/v1</code>)?»,
+    «PUT va PATCH farqi nima?», «API hujjatini qanday yozaman?» — har qanday
+    savol yaxshi. Uchinchisiga qisqa javob: <b>PUT</b> — yozuvni
+    <b>to'liq</b> almashtirish, <b>PATCH</b> — faqat berilgan maydonlarni
+    yangilash. Amalda ko'p loyihalar ikkalasini ham PATCH kabi ishlatadi,
+    lekin nomni to'g'ri tanlash mijozga <b>nima kutishini</b> aytadi.
+    Birinchisi esa 29-darsdagi <code>paginate()</code> bilan bog'liq: u JSON
+    qaytarganda <code>data</code>, <code>links</code> va <code>meta</code>
+    kalitlarini o'zi qo'shadi — 43-darsda ko'ramiz.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0041-phpunit-va-tdd.html">Oldingi: PHPUnit va TDD</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel 13 — <a href="https://laravel.com/docs/13.x/routing#api-routes">Routing: API Routes</a>.</li>
+      <li id="fn2">Laravel 13 — <a href="https://laravel.com/docs/13.x/responses#json-responses">JSON Responses</a>.</li>
+      <li id="fn3">MDN — <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status">HTTP response status codes</a>.</li>
+      <li id="fn4">Barchasi jonli o'lchangan (PHP 8.3.32, Laravel 13.25.0,
+      Pest 4.7.8): <code>install:api</code> Sanctum'ni o'rnatdi,
+      <code>routes/api.php</code> yasadi,
+      <code>bootstrap/app.php</code> ga <code>api: ...</code> qatorini
+      qo'shdi va <code>personal_access_tokens</code> migratsiyasini bajardi ·
+      <code>route:list --path=api</code> da manzil <code>api/user</code>
+      (prefiks avtomatik) ·
+      GET ro'yxat → <b>200</b>, <code>application/json</code>, 10 yozuv,
+      ichida <code>kompaniya</code> obyekti ·
+      <code>with()</code> siz <code>kompaniya</code> kaliti <b>umuman
+      yo'q</b> · GET 999999 → <b>404</b> ·
+      POST to'g'ri → <b>201</b> + yaratilgan obyekt (<code>id</code> oxirida),
+      <b>CSRF tokensiz</b> ·
+      POST xato → <b>422</b> <code>{message, errors}</code> ·
+      <code>Accept</code> siz va <code>shouldRenderJsonWhen</code> o'chirilganda
+      → <b>302</b> <code>text/html</code>, 404 esa HTML sahifa ·
+      <code>APP_DEBUG=true</code> da javob kalitlari:
+      <code>message, exception, file, line, trace</code> (36 bosqich);
+      <code>false</code> da faqat <code>message</code> ·
+      API testlari <b>5 passed (34 assertions)</b>, to'liq to'plam
+      <b>43 passed (128 assertions), 1.84s</b>.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>
