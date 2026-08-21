@@ -1,0 +1,1255 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 44 — Sanctum: token autentifikatsiyasi</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 44 · MODUL F — API QATLAMI</p>
+  <h1>Sanctum: token autentifikatsiyasi</h1>
+  <p class="lead">API tartibli, javob shakli boshqariladi — lekin u
+  <b>butunlay ochiq</b>. Istalgan odam <code>POST /api/vakansiyalar</code>
+  yuborib e'lon qo'sha oladi. Web tomonda buni sessiya hal qilgan edi, API'da
+  esa sessiya <b>yo'q</b>. Bugun uning o'rnini <b>token</b> egallaydi.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 16 daqiqa</span>
+    <span>💻 Amaliyot ≈ 26 daqiqa</span>
+    <span>Kerak: <a href="0043-api-resource.html">Dars 43</a></span>
+  </p>
+
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b>Sessiya yo'q — nima o'rniga</b>
+        <span class="nima">Cookie brauzerniki. API mijozi har so'rovda
+        <b>token</b> yuboradi.</span></li>
+      <li><b>⚠️ <code>HasApiTokens</code> traiti</b>
+        <span class="nima">42-darsdagi <code>install:api</code> shundan
+        ogohlantirgan edi. Usiz:
+        <code>Call to undefined method ...::createToken()</code>.</span></li>
+      <li><b><code>createToken()</code> nima qaytaradi</b>
+        <span class="nima"><code>NewAccessToken</code> obyekti va uning
+        <code>plainTextToken</code> maydoni: <code>id|sirli-qism</code>.</span></li>
+      <li><b>🔍 Bazada token saqlanmaydi</b>
+        <span class="nima">Faqat <b>SHA-256 xeshi</b>. 30-darsdagi parol
+        naqshi — o'lchab isbotlandi.</span></li>
+      <li><b><code>Bearer</code> sarlavhasi</b>
+        <span class="nima"><code>Authorization: Bearer 2|zwa1Xr...</code> —
+        har so'rovda.</span></li>
+      <li><b><code>auth:sanctum</code> middleware</b>
+        <span class="nima">Tokensiz so'rov <b>401</b>
+        <code>{"message":"Unauthenticated."}</code>.</span></li>
+      <li><b>Token berish endpoint'i</b>
+        <span class="nima">Email va parol → token. Xato parolda <b>422</b>,
+        30-darsdagi <i>user enumeration</i> qoidasi bilan birga.</span></li>
+      <li><b><code>abilities</code> — token huquqi</b>
+        <span class="nima">Token <b>nima qila olishi</b>ni chegaralash.
+        Yetmasa <b>403</b> <code>Invalid ability provided.</code></span></li>
+      <li><b>🔑 Uch qatlam: 401 · 403 · 403</b>
+        <span class="nima">Token yo'q · huquq yetmaydi · policy taqiqlaydi.
+        Uchalasi <b>mustaqil</b> — o'lchandi.</span></li>
+      <li><b>Rolni tokenga bog'lash</b>
+        <span class="nima">34-darsdagi rol tokenning huquqlarini belgilaydi:
+        ish beruvchi yozadi, nomzod faqat o'qiydi.</span></li>
+      <li><b>Tokenni bekor qilish</b>
+        <span class="nima"><code>currentAccessToken()-&gt;delete()</code> —
+        «chiqish»ning API'dagi ko'rinishi. Va
+        <code>Sanctum::actingAs()</code> testda.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima">Trait · token bir marta ko'rsatiladi ·
+        <code>Bearer</code> · alias · <code>*</code> huquqi ·
+        401 va 403 farqi · eski testlar.</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Sessiya yo'q — o'rniga nima</span>
+    <p>30-darsda web tomonda kirish shunday ishlagan edi:</p>
+    <div class="natija">forma → parol tekshirildi → sessiyaga yozildi → cookie brauzerga berildi
+keyingi so'rovlarda brauzer cookie'ni AVTOMATIK yuboradi</div>
+    <p>Mobil ilova yoki boshqa server uchun bu ishlamaydi: ularda brauzer
+    ham, cookie mexanizmi ham yo'q. Va 42-darsda ko'rganimizdek,
+    <code>api/*</code> marshrutlari sessiya middleware'iga <b>umuman
+    tushmaydi</b>.</p>
+    <p>O'rniga <b>token</b>: bir marta olinadi va har so'rovda <b>qo'lda</b>
+    yuboriladi.</p>
+    <div class="natija">web:  cookie  →  brauzer avtomatik yuboradi  →  sessiya
+api:  token   →  mijoz QO'LDA yuboradi        →  sessiya YO'Q</div>
+    <p>Laravel'da buning uchun <b>Sanctum</b> paketi bor — va u sizda
+    allaqachon o'rnatilgan: 42-darsdagi <code>install:api</code> uni
+    keltirgan edi.<sup><a href="#fn1">1</a></sup></p>
+  </div>
+
+  <!-- ═══════════════ 2) TRAIT ═══════════════ -->
+  <div class="callout warning">
+    <span class="label">⚠️ Birinchi qadam: <code>HasApiTokens</code></span>
+    <p><code>install:api</code> oxirida shunday degan edi:</p>
+    <div class="natija">INFO  API scaffolding installed.
+Please add the [Laravel\Sanctum\HasApiTokens] trait to your User model.</div>
+    <p>Biz uni 42-darsda <b>ataylab</b> qilmadik. Endi natijasini ko'ramiz:</p>
+    <div class="natija">$user-&gt;createToken('mobil');
+
+BadMethodCallException
+Call to undefined method App\Models\User::createToken()</div>
+    <p>Xato aniq: metod <b>yo'q</b>, chunki u trait bilan keladi.</p>
+    <div class="codefile">
+      <span class="fname">app/Models/User.php</span>
+      <code class="cmd">use Laravel\Sanctum\HasApiTokens;
+
+class User extends Authenticatable
+{
+    use HasApiTokens, HasFactory, Notifiable;      // ← qo'shildi</code>
+    </div>
+    <p>🔍 Bu 33-darsdagi <code>AuthorizesRequests</code> traiti bilan bir xil
+    naqsh: paket o'rnatiladi, lekin modelga <b>siz</b> ulaysiz. Laravel
+    modelingizga o'zi tegmaydi.</p>
+  </div>
+
+  <!-- ═══════════════ 3) CREATETOKEN ═══════════════ -->
+  <h2><code>createToken()</code> — sehr yo'q</h2>
+
+  <div class="natija">$natija = $user-&gt;createToken('mobil ilova');
+
+turi           : Laravel\Sanctum\NewAccessToken
+plainTextToken : 1|2Mkb3YcG1Ca82YAEP5LTyF4betiNQXzAnaF9TmJxa5d59044
+accessToken id : 1</div>
+
+  <p>Token ikki qismdan iborat va ular <b>vertikal chiziq</b> bilan
+  ajratilgan:</p>
+
+  <div class="natija">1 | 2Mkb3YcG1Ca82YAEP5LTyF4betiNQXzAnaF9TmJxa5d59044
+↑        ↑
+id       sirli qism</div>
+
+  <p>Birinchi qism — bazadagi qator raqami (tez topish uchun), ikkinchisi —
+  haqiqiy sir.</p>
+
+  <h3>🔍 Bazada nima yotibdi</h3>
+
+  <div class="natija">name       : mobil ilova
+token      : 0aae20f07a15bf6e253010930e644bb75b4c920b4c741c97ad363983be47232f
+abilities  : ["*"]
+tokenable  : App\Models\User #1
+last_used  : NULL</div>
+
+  <p>Bazadagi <code>token</code> ustuni ochiq tokendan <b>butunlay
+  boshqacha</b>. Solishtirdik:</p>
+
+  <div class="natija">ochiq qismi     : 2Mkb3YcG1Ca82YAEP5LTyF4betiNQXzAnaF9TmJxa5d59044
+bazadagi        : 0aae20f07a15bf6e253010930e644bb75b4c920b4c741c97ad363983be47232f
+
+teng-mi         : false
+hash('sha256', $ochiq) === $bazadagi  :  TRUE   ✅</div>
+
+  <div class="callout tip">
+    <span class="label">30-darsdagi naqsh qaytdi</span>
+    <p>Parollar kabi, tokenlar ham <b>xeshlangan</b> holda saqlanadi. Baza
+    o'g'irlansa, undagi qiymatlar bilan <b>hech nima qilib bo'lmaydi</b> —
+    ular tokenning o'zi emas.</p>
+    <p>Farqi bor: parol uchun <code>bcrypt</code> (ataylab <b>sekin</b>)
+    ishlatiladi, token uchun <code>sha256</code> (<b>tez</b>). Nega?</p>
+    <div class="natija">parol  →  odam o'ylab topadi, qisqa, taxmin qilish mumkin  →  SEKIN xesh kerak
+token  →  server yasaydi, 48 belgi tasodifiy                →  taxmin mumkin emas</div>
+    <p>🔑 Va shundan muhim oqibat: <b>token bir marta ko'rsatiladi</b>.
+    Yo'qotsangiz — qaytarib bo'lmaydi, chunki serverda ham u yo'q. Yangi
+    token olasiz.</p>
+  </div>
+
+  <!-- ═══════════════ 4) HIMOYA ═══════════════ -->
+  <h2>Marshrutlarni himoyalash</h2>
+
+  <div class="codefile">
+    <span class="fname">routes/api.php</span>
+    <code class="cmd">Route::post('/token', [TokenController::class, 'yarat']);      // ochiq
+
+Route::get('/vakansiyalar', [VakansiyaController::class, 'index']);   // ochiq
+Route::get('/vakansiyalar/{id}', [VakansiyaController::class, 'show']);
+
+Route::middleware('auth:sanctum')-&gt;group(function () {          // himoyalangan
+    Route::post('/vakansiyalar', [VakansiyaController::class, 'store']);
+    Route::delete('/token', [TokenController::class, 'ochir']);
+
+    Route::get('/user', fn (Request $request) =&gt; $request-&gt;user());
+});</code>
+  </div>
+
+  <p>Ro'yxatni o'qish <b>ochiq</b> qoldi — vakansiyalar baribir ommaviy.
+  Yozish esa token talab qiladi.</p>
+
+  <p class="expect"><b>O'lchangan:</b></p>
+
+  <div class="natija">tokensiz POST /api/vakansiyalar
+   →  401   {"message":"Unauthenticated."}
+
+Bearer token bilan
+   →  201   {"data":{"id":32,"nom":"Token bilan qoshildi", ...}}
+
+noto'g'ri token bilan
+   →  401</div>
+
+  <p><b>401 Unauthorized</b> — «kim ekaningni bilmayman». Buni 33-darsdagi
+  <b>403</b> bilan chalkashtirmang: 403 «kimligingni bilaman, huquqing
+  yo'q» degani.</p>
+
+  <h3>Token berish endpoint'i</h3>
+
+  <div class="codefile">
+    <span class="fname">app/Http/Controllers/Api/TokenController.php</span>
+    <code class="cmd">    public function yarat(Request $request): JsonResponse
+    {
+        $tekshirilgan = $request-&gt;validate([
+            'email' =&gt; ['required', 'email'],
+            'password' =&gt; ['required'],
+            'qurilma' =&gt; ['required', 'string'],
+        ]);
+
+        $user = User::where('email', $tekshirilgan['email'])-&gt;first();
+
+        if (! $user || ! Hash::check($tekshirilgan['password'], $user-&gt;password)) {
+            throw ValidationException::withMessages([
+                'email' =&gt; 'Email yoki parol xato.',
+            ]);
+        }
+
+        $huquqlar = $user-&gt;rol === Rol::IshBeruvchi
+            ? ['vakansiya:oqish', 'vakansiya:yozish']
+            : ['vakansiya:oqish'];
+
+        $token = $user-&gt;createToken($tekshirilgan['qurilma'], $huquqlar);
+
+        return response()-&gt;json(['token' =&gt; $token-&gt;plainTextToken], 201);
+    }</code>
+  </div>
+
+  <p>Uch narsaga e'tibor bering:</p>
+
+  <div class="natija">1) 'qurilma' majburiy      →  «mobil», «planshet» — keyin qaysi birini
+                              o'chirishni bilish uchun
+
+2) xabar «Email yoki parol xato»  →  30-darsdagi user enumeration qoidasi:
+                                     qaysi biri xato ekanini AYTMAYMIZ
+
+3) huquqlar rolga qarab    →  34-darsdagi rol tokenga ko'chdi</div>
+
+  <p class="expect">🔍 <code>ValidationException::withMessages()</code>
+  ishlatilgani bejiz emas: u API'da <b>422</b> beradi va 42-darsdagi
+  <code>{"message":..., "errors":{...}}</code> shaklini o'zi yasaydi.</p>
+
+  <!-- ═══════════════ 5) ABILITIES ═══════════════ -->
+  <h2><code>abilities</code> — token nima qila oladi</h2>
+
+  <p>Token <b>kim</b> ekanini aytadi. Lekin bitta odamning bir nechta tokeni
+  bo'lishi mumkin va ularning huquqi <b>har xil</b> bo'lishi kerak:</p>
+
+  <div class="natija">mobil ilova       →  o'qish va yozish
+hisobot skripti   →  faqat o'qish
+vidjet            →  faqat o'qish</div>
+
+  <p>Skript o'g'irlansa, u bilan e'lon <b>qo'sha olmaydi</b> — token
+  huquqi yetmaydi.</p>
+
+  <div class="natija">$user-&gt;createToken('mobil', ['vakansiya:oqish', 'vakansiya:yozish']);
+$user-&gt;createToken('hisobot', ['vakansiya:oqish']);
+$user-&gt;createToken('hammasi');                          // ← huquq berilmasa: ["*"]</div>
+
+  <p><b>O'lchangan:</b></p>
+
+  <div class="natija">token: ['vakansiya:oqish']
+   can('vakansiya:oqish')   →  true
+   can('vakansiya:yozish')  →  false
+   can('*')                 →  false      ← ⚠️ yulduzcha «hammasi» EMAS
+
+token: huquqsiz yaratilgan  (abilities = ["*"])
+   can('vakansiya:oqish')   →  true
+   can('vakansiya:yozish')  →  true</div>
+
+  <p class="expect">🔑 <code>*</code> — bu <b>maxsus qiymat</b>: «cheklov
+  yo'q». Uni <code>can('*')</code> deb <b>so'ramang</b> — u shunchaki
+  ro'yxatda bormi degan savol bo'ladi.</p>
+
+  <h3>Marshrutda tekshirish</h3>
+
+  <p>Sanctum ikkita middleware beradi, lekin Laravel 11+ da ularni
+  <b>alias qilib</b> ro'yxatdan o'tkazish kerak — 32-darsdagi kabi:</p>
+
+  <div class="codefile">
+    <span class="fname">bootstrap/app.php</span>
+    <code class="cmd">        $middleware-&gt;alias([
+            'abilities' =&gt; \Laravel\Sanctum\Http\Middleware\CheckAbilities::class,
+            'ability' =&gt; \Laravel\Sanctum\Http\Middleware\CheckForAnyAbility::class,
+            'olchash' =&gt; \App\Http\Middleware\SoravniOlchash::class,
+            // ...
+        ]);</code>
+  </div>
+
+  <div class="codefile">
+    <span class="fname">routes/api.php</span>
+    <code class="cmd">    Route::post('/vakansiyalar', [VakansiyaController::class, 'store'])
+        -&gt;middleware('abilities:vakansiya:yozish');</code>
+  </div>
+
+  <div class="natija">abilities:a,b   →  HAMMA huquq bo'lishi kerak
+ability:a,b     →  BITTASI yetadi</div>
+
+  <p class="expect">Farqni o'lchadik — token faqat
+  <code>vakansiya:oqish</code> huquqiga ega:</p>
+
+  <div class="natija">'abilities:vakansiya:oqish,vakansiya:yozish'   →  403   (yozish yo'q)
+'ability:vakansiya:oqish,vakansiya:yozish'     →  200   (o'qish yetdi)</div>
+
+  <p class="expect"><b>O'lchangan:</b> faqat <code>vakansiya:oqish</code>
+  huquqli token bilan POST →</p>
+
+  <div class="natija">403   {"message": "Invalid ability provided."}</div>
+
+  <!-- ═══════════════ 6) UCH QATLAM ═══════════════ -->
+  <h2>🔑 Uch qatlam va ularning tartibi</h2>
+
+  <p>Endi API'da <b>uchta</b> mustaqil to'siq bor. Ularni alohida-alohida
+  sinab ko'rdik:</p>
+
+  <div class="natija">1) auth:sanctum        token yo'q yoki noto'g'ri
+   →  401   {"message": "Unauthenticated."}
+
+2) abilities:...       token bor, lekin huquqi yetmaydi
+   →  403   {"message": "Invalid ability provided."}
+
+3) policy (33/34-dars) huquq bor, lekin ROL mos emas
+   →  403   {"message": "This action is unauthorized."}</div>
+
+  <p>Uchinchisini isbotlash uchun <b>nomzodga</b> qo'lda yozish huquqli token
+  berdik — ya'ni ikkinchi to'siqdan o'tkazdik:</p>
+
+  <div class="natija">Vali roli: nomzod
+token: ['vakansiya:oqish', 'vakansiya:yozish']    ← huquq BOR
+
+POST /api/vakansiyalar
+   →  403   {"message": "This action is unauthorized."}
+            AccessDeniedHttpException</div>
+
+  <p class="expect">🔑 Ikkala 403 ham bir xil status, lekin <b>xabari
+  boshqa</b> — va bu tashxis uchun muhim:</p>
+
+  <div class="natija">"Invalid ability provided."      →  TOKEN huquqi yetmaydi   →  yangi token kerak
+"This action is unauthorized."   →  ODAM huquqi yetmaydi    →  rol kerak</div>
+
+  <div class="callout tip">
+    <span class="label">Nega ikkalasi ham kerak</span>
+    <p>Ular <b>boshqa savollarga</b> javob beradi:</p>
+    <div class="natija">abilities  →  «bu TOKEN nima qila oladi?»    (qurilma darajasida)
+policy     →  «bu ODAM nima qila oladi?»     (foydalanuvchi darajasida)</div>
+    <p>Ish beruvchining hisobot skripti o'g'irlansa, u <b>o'qish</b>
+    tokeniga ega — policy ruxsat bersa ham, token yozishga yo'l bermaydi.
+    Teskarisi: nomzodga qandaydir yo'l bilan yozish tokeni tegsa, policy
+    to'sadi.</p>
+    <p>🔑 Bu 32-darsdagi «qatlamli himoya» fikrining API'dagi ko'rinishi:
+    har qatlam <b>o'zicha</b> to'g'ri ishlashi kerak.</p>
+  </div>
+
+  <!-- ═══════════════ 7) BEKOR QILISH ═══════════════ -->
+  <h2>Tokenni bekor qilish — «chiqish»</h2>
+
+  <div class="codefile">
+    <span class="fname">app/Http/Controllers/Api/TokenController.php</span>
+    <code class="cmd">    public function ochir(Request $request): JsonResponse
+    {
+        $request-&gt;user()-&gt;currentAccessToken()-&gt;delete();
+
+        return response()-&gt;json(['xabar' =&gt; 'Token o\'chirildi.']);
+    }</code>
+  </div>
+
+  <div class="natija">$request-&gt;user()-&gt;currentAccessToken()-&gt;delete();   //  shu qurilma
+$request-&gt;user()-&gt;tokens()-&gt;delete();               //  HAMMA qurilma</div>
+
+  <p>Ikkinchisi «hamma joydan chiqish» tugmasi — parol o'g'irlangan deb
+  gumon qilinganda kerak bo'ladi.</p>
+
+  <p class="expect">🔍 <code>last_used_at</code> ustuni ham foydali:
+  o'lchadik — token ishlatilganda u <b>avtomatik</b> yangilanadi. Shu bilan
+  «bu token oxirgi marta qachon ishlatilgan?» degan savolga javob bo'ladi
+  va foydalanilmayotgan tokenlarni o'chirish mumkin.</p>
+
+  <div class="natija">#1 mobil ilova  abilities=["*"]                last_used=NULL
+#2 mobil        abilities=["vakansiya:oqish"]  last_used='2026-08-21 07:35:03'</div>
+
+  <!-- ═══════════════ 8) TEST ═══════════════ -->
+  <h2>Testlar: <code>Sanctum::actingAs()</code></h2>
+
+  <p>40-darsdagi <code>actingAs()</code> sessiya uchun edi. Sanctum o'zining
+  variantini beradi va unda <b>huquqlarni</b> ham ko'rsatasiz:</p>
+
+  <div class="codefile">
+    <span class="fname">tests/Feature/ApiTokenTest.php</span>
+    <code class="cmd">use Laravel\Sanctum\Sanctum;
+
+test('ish beruvchi token bilan vakansiya qo\'shadi', function () {
+    $user = User::factory()-&gt;create(['rol' =&gt; Rol::IshBeruvchi]);
+
+    Sanctum::actingAs($user, ['vakansiya:oqish', 'vakansiya:yozish']);
+
+    $this-&gt;postJson('/api/vakansiyalar', [
+        'nom' =&gt; 'Backend dasturchi',
+        'maosh' =&gt; 9000000,
+    ])-&gt;assertCreated();
+
+    $this-&gt;assertDatabaseHas(Vakansiya::class, [
+        'nom' =&gt; 'Backend dasturchi',
+        'user_id' =&gt; $user-&gt;id,
+    ]);
+});
+
+test('yozish huquqisiz token 403 oladi', function () {
+    $user = User::factory()-&gt;create(['rol' =&gt; Rol::IshBeruvchi]);
+
+    Sanctum::actingAs($user, ['vakansiya:oqish']);      // ← yozish YO'Q
+
+    $this-&gt;postJson('/api/vakansiyalar', ['nom' =&gt; 'Huquqsiz', 'maosh' =&gt; 100])
+        -&gt;assertForbidden()
+        -&gt;assertJsonPath('message', 'Invalid ability provided.');
+});
+
+test('nomzod huquqli token bilan ham policy to\'sadi', function () {
+    $user = User::factory()-&gt;create(['rol' =&gt; Rol::Nomzod]);
+
+    Sanctum::actingAs($user, ['vakansiya:oqish', 'vakansiya:yozish']);
+
+    $this-&gt;postJson('/api/vakansiyalar', ['nom' =&gt; 'Nomzod urinishi', 'maosh' =&gt; 100])
+        -&gt;assertForbidden()
+        -&gt;assertJsonPath('message', 'This action is unauthorized.');
+});</code>
+  </div>
+
+  <p>Oxirgi ikkitasi <b>xabar bo'yicha</b> ajratadi — 38-darsdagi
+  <code>assertJsonPath</code> shu yerda uch qatlamni bir-biridan farqlash
+  uchun ishlatildi.</p>
+
+  <h3>Token xeshlanganini test bilan qulflash</h3>
+
+  <div class="codefile">
+    <span class="fname">tests/Feature/ApiTokenTest.php</span>
+    <code class="cmd">test('bazada ochiq token saqlanmaydi', function () {
+    $user = User::factory()-&gt;create(['email' =&gt; 'ali@example.uz']);
+
+    $javob = $this-&gt;postJson('/api/token', [
+        'email' =&gt; 'ali@example.uz',
+        'password' =&gt; 'password',
+        'qurilma' =&gt; 'mobil',
+    ]);
+
+    $ochiq = $javob-&gt;json('token');
+    [$id, $sir] = explode('|', $ochiq, 2);
+
+    $this-&gt;assertDatabaseMissing('personal_access_tokens', ['token' =&gt; $sir]);
+    $this-&gt;assertDatabaseHas('personal_access_tokens', ['token' =&gt; hash('sha256', $sir)]);
+});</code>
+  </div>
+
+  <p class="expect">🔑 Bu <b>xavfsizlik testi</b>: kimdir kelajakda tokenni
+  ochiq saqlaydigan kod yozsa, test darhol qiziradi. 30-darsdagi «parol
+  xeshlanganini tekshirish» bilan bir naqsh.</p>
+
+  <div class="natija">✓ tokensiz so'rov 401 oladi
+✓ to'g'ri parol bilan token beriladi
+✓ xato parol bilan token berilmaydi
+✓ bazada ochiq token saqlanmaydi
+✓ ish beruvchi token bilan vakansiya qo'shadi
+✓ yozish huquqisiz token 403 oladi
+✓ nomzod huquqli token bilan ham policy to'sadi
+✓ token o'chirilgandan keyin ishlamaydi
+
+Tests:    8 passed (20 assertions)</div>
+
+  <div class="callout warning">
+    <span class="label">⚠️ Eski testlar yana buzildi</span>
+    <p>42- va 43-darsdagi ikkita test qizardi:</p>
+    <div class="natija">⨯ yangi vakansiya 201 bilan yaratiladi
+  Failed asserting that 401 is identical to 201.
+
+⨯ xato ma'lumot 422 beradi
+  Failed asserting that 401 is identical to 422.</div>
+    <p>Sabab aniq: POST endi token talab qiladi. Bu 43-darsdagi
+    <code>data</code> o'rami holatining takrori — <b>shartnoma
+    o'zgardi</b>, testlar buni darhol aytdi.</p>
+    <div class="natija">$javob = $this-&gt;postJson(...)      →   Sanctum::actingAs($user, [...]);
+                                       $javob = $this-&gt;postJson(...)</div>
+    <p>🔑 Har safar shu naqsh takrorlanyapti: siz API'ni o'zgartirasiz —
+    testlar mijoz nomidan <b>e'tiroz bildiradi</b>. Testsiz bu e'tirozni
+    haqiqiy mijoz bildirardi.</p>
+  </div>
+
+  <!-- ═══════════════ 9) HAR XIL HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir bir marta o'qib chiqing,
+  keyin kerak bo'lganda qaytib qarang.</p>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 1</span>
+    <h4><code>HasApiTokens</code> traiti unutilishi</h4>
+    <div class="natija">BadMethodCallException
+Call to undefined method App\Models\User::createToken()</div>
+    <p><code>install:api</code> buni <b>aytgan</b> edi, lekin chiqishning
+    oxirgi qatorida — va o'qilmasdan o'tib ketishi oson.</p>
+    <p>✅ <code>use Laravel\Sanctum\HasApiTokens;</code> import qiling va
+    klass ichida <code>use HasApiTokens, HasFactory, Notifiable;</code>.</p>
+    <p>🔍 33-darsdagi <code>AuthorizesRequests</code> bilan bir xil naqsh:
+    paket keladi, modelga <b>siz</b> ulaysiz.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 2</span>
+    <h4>Token bir marta ko'rsatiladi</h4>
+    <div class="natija">$token-&gt;plainTextToken   →  faqat SHU javobda mavjud
+bazadagi qiymat        →  sha256 xeshi, tokenning O'ZI emas</div>
+    <p>Yo'qotsangiz qaytarib bo'lmaydi — serverda ham u yo'q. Bu
+    <b>kamchilik emas</b>, xavfsizlik xususiyati.</p>
+    <p>✅ Mijoz tokenni <b>xavfsiz</b> saqlashi kerak: mobil ilovada
+    keychain/keystore, serverda muhit o'zgaruvchisi. Kodga
+    <b>yozmang</b> — git'ga tushib ketadi.</p>
+    <p>🔍 Yo'qolgan token muammo emas: yangisini oling, eskisini
+    o'chiring.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 3</span>
+    <h4><code>Bearer</code> so'zi unutilishi</h4>
+    <div class="natija">Authorization: 2|zwa1Xr...            ⚠️  →  401
+Authorization: Bearer 2|zwa1Xr...     ✅  →  200</div>
+    <p>Sarlavha ikki qismdan iborat: <b>turi</b> va <b>qiymati</b>.
+    <code>Bearer</code> — «ko'taruvchi», ya'ni «bu tokenni ko'targan odam
+    o'zini tanitgan hisoblanadi».</p>
+    <p>✅ Tashxis: 401 kelsa, birinchi navbatda sarlavhani <b>to'liq</b>
+    chop eting. Ko'pincha muammo <code>Bearer</code> yoki ortiqcha
+    probelda.</p>
+    <p>🔍 42-darsdagi <code>Accept</code> tuzog'i bilan birga: API'da
+    sarlavhalar — eng ko'p vaqt yeydigan joy.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 4</span>
+    <h4><code>abilities</code> middleware alias'siz</h4>
+    <div class="natija">Route::middleware('abilities:vakansiya:yozish')
+
+Target class [abilities] does not exist.</div>
+    <p>Laravel 11+ da Sanctum middleware'lari <b>avtomatik</b> ro'yxatdan
+    o'tmaydi.</p>
+    <p>✅ <code>bootstrap/app.php</code> dagi <code>alias()</code> ga
+    qo'shing — 32-darsdagi <code>olchash</code> va <code>til</code> bilan
+    bir qatorda.</p>
+    <p>🔍 Muqobil: to'liq klass nomini yozish
+    (<code>CheckAbilities::class.':vakansiya:yozish'</code>) — lekin
+    o'qilishi yomon.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 5</span>
+    <h4><code>*</code> huquqi va <code>can('*')</code></h4>
+    <div class="natija">createToken('nom')                    →  abilities = ["*"]
+   can('vakansiya:yozish')  →  true      ← cheklov yo'q
+   can('*')                 →  false     ← ⚠️ kutilmagan</div>
+    <p><code>*</code> — «cheklov yo'q» degan <b>maxsus belgi</b>, oddiy
+    huquq nomi emas. Uni <code>can()</code> ga bermang.</p>
+    <p>⚠️ Va diqqat: huquq <b>ko'rsatilmasa</b> token
+    <b>hamma narsani</b> qila oladi. Ya'ni <code>createToken('nom')</code> —
+    eng keng huquqli token.</p>
+    <p>✅ Har doim huquqlarni <b>aniq</b> yozing. «Keyin qo'sharman» degan
+    token ko'pincha shundayligicha qolib ketadi.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 6</span>
+    <h4>401 va 403 ni ajratish</h4>
+    <div class="natija">401  {"message": "Unauthenticated."}          →  token YO'Q yoki noto'g'ri
+403  {"message": "Invalid ability provided."}  →  TOKEN huquqi yetmaydi
+403  {"message": "This action is unauthorized."} →  ODAM huquqi yetmaydi</div>
+    <p>Uchalasi ham «ruxsat yo'q» deydi, lekin <b>yechimi boshqa</b>:</p>
+    <div class="natija">401  →  qayta kiring, yangi token oling
+403 (ability)  →  kengroq huquqli token so'rang
+403 (policy)   →  rolingiz mos emas — token yordam bermaydi</div>
+    <p>✅ Mijoz kodida shu uch holatni <b>alohida</b> ishlang: 401 da
+    kirish oynasini ko'rsating, 403 da esa xabarni ko'rsating.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>Auth qo'shilishi eski testlarni buzadi</h4>
+    <div class="natija">Failed asserting that 401 is identical to 201.</div>
+    <p>Bu <b>yaxshi</b> holat: himoya qo'shdingiz va testlar buni darhol
+    tasdiqladi. Agar ular yashil qolganda — himoya ishlamayotgan
+    bo'lardi.</p>
+    <p>✅ Tuzatish: <code>Sanctum::actingAs($user, [huquqlar])</code> qo'shing.
+    ⚠️ Faqat <b>ataylab</b> ochiq qolishi kerak bo'lgan endpoint'larda
+    testni o'zgartirmang.</p>
+    <p>🔑 Modul F'da bu naqsh <b>uchinchi marta</b> takrorlandi:
+    <code>data</code> o'rami (43) · auth (44) · va har safar test mijoz
+    nomidan e'tiroz bildirdi.</p>
+  </div>
+
+  <!-- ═══════════════ 10) AMALIYOT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    <span class="mode-hint-title">💻 Amaliy qism kompyuterda</span>
+    <p>Amaliyotda API'ni token bilan yopasiz va uchta qatlamni
+    <b>alohida-alohida</b> sinaysiz. Yo'lda <code>HasApiTokens</code>
+    unutilganda chiqadigan xatoni va bazada tokenning <b>xeshlangan</b>
+    holda yotishini o'z ko'zingiz bilan ko'rasiz.</p>
+    <button type="button" class="modebtn" data-set-mode="do">💻 Amaliyot rejimini ko'rish</button>
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <p>⚠️ Avval traitsiz sinab ko'ring</p>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+php artisan tinker --execute=&quot;App\Models\User::first()->createToken('mobil');&quot;">cd ~/Projects/Learn/ishtop
+php artisan tinker --execute=&quot;App\Models\User::first()-&gt;createToken('mobil');&quot;
+<span class="out">Call to undefined method App\Models\User::createToken()</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> aynan shu xato —
+        <code>install:api</code> 42-darsda shundan ogohlantirgan edi.</p>
+      </li>
+
+      <li>
+        <p>Traitni ulang</p>
+        <div class="cmd" data-cmd="# app/Models/User.php
+
+use Laravel\Sanctum\HasApiTokens;
+
+class User extends Authenticatable
+{
+    use HasApiTokens, HasFactory, Notifiable;"># app/Models/User.php
+
+use Laravel\Sanctum\HasApiTokens;
+
+class User extends Authenticatable
+{
+    use HasApiTokens, HasFactory, Notifiable;</div>
+        <div class="cmd" data-cmd="php -l app/Models/User.php">php -l app/Models/User.php</div>
+      </li>
+
+      <li>
+        <p>🔍 Token ichini ko'ring</p>
+        <div class="cmd" data-cmd="php artisan tinker --execute=&quot;dump(App\Models\User::first()->createToken('sinov')->plainTextToken);&quot;">php artisan tinker --execute=&quot;dump(App\Models\User::first()-&gt;createToken('sinov')-&gt;plainTextToken);&quot;
+<span class="out">"1|2Mkb3YcG1Ca82YAEP5LTyF4betiNQXzAnaF9TmJxa5d59044"</span></div>
+        <div class="cmd" data-cmd="php artisan tinker --execute=&quot;dump(DB::table('personal_access_tokens')->latest('id')->first());&quot;">php artisan tinker --execute=&quot;dump(DB::table('personal_access_tokens')-&gt;latest('id')-&gt;first());&quot;
+<span class="out">name: "sinov"  abilities: ["*"]  last_used_at: null</span>
+<span class="out">token: "0aae20f07a15bf6e253010930e644bb75b4c920b4c741c97ad363983be47232f"</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> bazadagi <code>token</code>
+        ochiq tokendan <b>butunlay boshqacha</b> — u SHA-256 xeshi.
+        <br>🔑 30-darsdagi parol naqshi qaytdi: server ham tokenning o'zini
+        <b>bilmaydi</b>.</p>
+      </li>
+
+      <li>
+        <p>Token berish endpoint'ini yozing</p>
+        <div class="cmd" data-cmd="php artisan make:controller Api/TokenController">php artisan make:controller Api/TokenController</div>
+        <div class="cmd" data-cmd="# app/Http/Controllers/Api/TokenController.php
+
+    public function yarat(Request $request): JsonResponse
+    {
+        $tekshirilgan = $request-&gt;validate([
+            'email' =&gt; ['required', 'email'],
+            'password' =&gt; ['required'],
+            'qurilma' =&gt; ['required', 'string'],
+        ]);
+
+        $user = User::where('email', $tekshirilgan['email'])-&gt;first();
+
+        if (! $user || ! Hash::check($tekshirilgan['password'], $user-&gt;password)) {
+            throw ValidationException::withMessages([
+                'email' =&gt; 'Email yoki parol xato.',
+            ]);
+        }
+
+        $huquqlar = $user-&gt;rol === Rol::IshBeruvchi
+            ? ['vakansiya:oqish', 'vakansiya:yozish']
+            : ['vakansiya:oqish'];
+
+        $token = $user-&gt;createToken($tekshirilgan['qurilma'], $huquqlar);
+
+        return response()-&gt;json(['token' =&gt; $token-&gt;plainTextToken], 201);
+    }
+
+    public function ochir(Request $request): JsonResponse
+    {
+        $request-&gt;user()-&gt;currentAccessToken()-&gt;delete();
+
+        return response()-&gt;json(['xabar' =&gt; 'Token o\'chirildi.']);
+    }"># app/Http/Controllers/Api/TokenController.php
+
+    public function yarat(Request $request): JsonResponse
+    {
+        $tekshirilgan = $request-&gt;validate([
+            'email' =&gt; ['required', 'email'],
+            'password' =&gt; ['required'],
+            'qurilma' =&gt; ['required', 'string'],
+        ]);
+
+        $user = User::where('email', $tekshirilgan['email'])-&gt;first();
+
+        if (! $user || ! Hash::check($tekshirilgan['password'], $user-&gt;password)) {
+            throw ValidationException::withMessages([
+                'email' =&gt; 'Email yoki parol xato.',
+            ]);
+        }
+
+        $huquqlar = $user-&gt;rol === Rol::IshBeruvchi
+            ? ['vakansiya:oqish', 'vakansiya:yozish']
+            : ['vakansiya:oqish'];
+
+        $token = $user-&gt;createToken($tekshirilgan['qurilma'], $huquqlar);
+
+        return response()-&gt;json(['token' =&gt; $token-&gt;plainTextToken], 201);
+    }
+
+    public function ochir(Request $request): JsonResponse
+    {
+        $request-&gt;user()-&gt;currentAccessToken()-&gt;delete();
+
+        return response()-&gt;json(['xabar' =&gt; 'Token o\'chirildi.']);
+    }</div>
+        <p class="why-step">🔍 Kerakli import'lar: <code>App\Enums\Rol</code>,
+        <code>App\Models\User</code>,
+        <code>Illuminate\Support\Facades\Hash</code>,
+        <code>Illuminate\Validation\ValidationException</code>.</p>
+      </li>
+
+      <li>
+        <p>Marshrutlarni himoyalang</p>
+        <div class="cmd" data-cmd="# routes/api.php
+
+Route::post('/token', [TokenController::class, 'yarat']);
+
+Route::get('/vakansiyalar', [VakansiyaController::class, 'index']);
+Route::get('/vakansiyalar/{id}', [VakansiyaController::class, 'show']);
+
+Route::middleware('auth:sanctum')-&gt;group(function () {
+    Route::post('/vakansiyalar', [VakansiyaController::class, 'store'])
+        -&gt;middleware('abilities:vakansiya:yozish');
+
+    Route::delete('/token', [TokenController::class, 'ochir']);
+
+    Route::get('/user', fn (Request $request) =&gt; $request-&gt;user());
+});"># routes/api.php
+
+Route::post('/token', [TokenController::class, 'yarat']);
+
+Route::get('/vakansiyalar', [VakansiyaController::class, 'index']);
+Route::get('/vakansiyalar/{id}', [VakansiyaController::class, 'show']);
+
+Route::middleware('auth:sanctum')-&gt;group(function () {
+    Route::post('/vakansiyalar', [VakansiyaController::class, 'store'])
+        -&gt;middleware('abilities:vakansiya:yozish');
+
+    Route::delete('/token', [TokenController::class, 'ochir']);
+
+    Route::get('/user', fn (Request $request) =&gt; $request-&gt;user());
+});</div>
+        <div class="cmd" data-cmd="# bootstrap/app.php — alias ro'yxatiga:
+
+            'abilities' =&gt; \Laravel\Sanctum\Http\Middleware\CheckAbilities::class,
+            'ability' =&gt; \Laravel\Sanctum\Http\Middleware\CheckForAnyAbility::class,"># bootstrap/app.php — alias ro'yxatiga:
+
+            'abilities' =&gt; \Laravel\Sanctum\Http\Middleware\CheckAbilities::class,
+            'ability' =&gt; \Laravel\Sanctum\Http\Middleware\CheckForAnyAbility::class,</div>
+        <div class="cmd" data-cmd="php artisan route:list --path=api">php artisan route:list --path=api</div>
+      </li>
+
+      <li>
+        <p>API store'ga policy va egasini qo'shing</p>
+        <div class="cmd" data-cmd="# app/Http/Controllers/Api/VakansiyaController.php — store() da
+
+        $this-&gt;authorize('create', Vakansiya::class);
+
+        // ... validate ...
+
+        $vakansiya = Vakansiya::create(
+            $tekshirilgan + ['user_id' =&gt; $request-&gt;user()-&gt;id]
+        );"># app/Http/Controllers/Api/VakansiyaController.php — store() da
+
+        $this-&gt;authorize('create', Vakansiya::class);
+
+        // ... validate ...
+
+        $vakansiya = Vakansiya::create(
+            $tekshirilgan + ['user_id' =&gt; $request-&gt;user()-&gt;id]
+        );</div>
+        <p class="why-step">🔑 Endi 34-darsdagi rol qoidasi API'da ham
+        ishlaydi. Va e'lonning <b>egasi</b> yoziladi.</p>
+      </li>
+
+      <li>
+        <p>Uch qatlamni <code>curl</code> bilan sinang</p>
+        <div class="cmd" data-cmd="php artisan serve">php artisan serve</div>
+        <div class="cmd" data-cmd="curl -s -o /dev/null -w &quot;tokensiz: %{http_code}\n&quot; -H &quot;Accept: application/json&quot; -H &quot;Content-Type: application/json&quot; -d '{&quot;nom&quot;:&quot;Tokensiz&quot;,&quot;maosh&quot;:100}' http://127.0.0.1:8000/api/vakansiyalar">curl -s -o /dev/null -w &quot;tokensiz: %{http_code}\n&quot; -H &quot;Accept: application/json&quot; -H &quot;Content-Type: application/json&quot; -d '{&quot;nom&quot;:&quot;Tokensiz&quot;,&quot;maosh&quot;:100}' http://127.0.0.1:8000/api/vakansiyalar
+<span class="out">tokensiz: 401</span></div>
+        <div class="cmd" data-cmd="curl -s -H &quot;Accept: application/json&quot; -H &quot;Content-Type: application/json&quot; -d '{&quot;email&quot;:&quot;ali@example.uz&quot;,&quot;password&quot;:&quot;parol1234&quot;,&quot;qurilma&quot;:&quot;mobil&quot;}' http://127.0.0.1:8000/api/token">curl -s -H &quot;Accept: application/json&quot; -H &quot;Content-Type: application/json&quot; -d '{&quot;email&quot;:&quot;ali@example.uz&quot;,&quot;password&quot;:&quot;parol1234&quot;,&quot;qurilma&quot;:&quot;mobil&quot;}' http://127.0.0.1:8000/api/token
+<span class="out">{"token":"2|zwa1XrIRUG6lPswkzHpY0bztBk5HaIPy2laVCqa506ea88aa"}</span></div>
+        <p>Tokenni nusxalab, o'zgaruvchiga soling va POST yuboring:</p>
+        <div class="cmd" data-cmd="TOKEN=&quot;bu yerga tokenni qo'ying&quot;
+curl -s -o /dev/null -w &quot;token bilan: %{http_code}\n&quot; -H &quot;Accept: application/json&quot; -H &quot;Content-Type: application/json&quot; -H &quot;Authorization: Bearer $TOKEN&quot; -d '{&quot;nom&quot;:&quot;Token bilan qoshildi&quot;,&quot;maosh&quot;:8000000}' http://127.0.0.1:8000/api/vakansiyalar">TOKEN=&quot;bu yerga tokenni qo'ying&quot;
+curl -s -o /dev/null -w &quot;token bilan: %{http_code}\n&quot; -H &quot;Accept: application/json&quot; -H &quot;Content-Type: application/json&quot; -H &quot;Authorization: Bearer $TOKEN&quot; -d '{&quot;nom&quot;:&quot;Token bilan qoshildi&quot;,&quot;maosh&quot;:8000000}' http://127.0.0.1:8000/api/vakansiyalar
+<span class="out">token bilan: 201</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> <b>401</b> → <b>201</b>.
+        <br>🔍 Endi <code>Bearer</code> so'zini olib tashlab qayta yuboring —
+        yana <b>401</b> olasiz.</p>
+      </li>
+
+      <li>
+        <p>Ikkinchi qatlam: nomzod tokeni bilan</p>
+        <div class="cmd" data-cmd="curl -s -H &quot;Accept: application/json&quot; -H &quot;Content-Type: application/json&quot; -d '{&quot;email&quot;:&quot;vali@example.uz&quot;,&quot;password&quot;:&quot;parol1234&quot;,&quot;qurilma&quot;:&quot;mobil&quot;}' http://127.0.0.1:8000/api/token">curl -s -H &quot;Accept: application/json&quot; -H &quot;Content-Type: application/json&quot; -d '{&quot;email&quot;:&quot;vali@example.uz&quot;,&quot;password&quot;:&quot;parol1234&quot;,&quot;qurilma&quot;:&quot;mobil&quot;}' http://127.0.0.1:8000/api/token</div>
+        <p>Shu token bilan POST yuboring:</p>
+        <div class="natija">403   {"message": "Invalid ability provided."}</div>
+        <p class="expect"><b>Kutilgan natija:</b> <b>403</b> — chunki nomzod
+        tokenida faqat <code>vakansiya:oqish</code> bor.
+        <br>🔑 <b>401 emas:</b> kim ekani <b>ma'lum</b>, huquqi yetmayapti.</p>
+      </li>
+
+      <li>
+        <p>Testlarni yozing</p>
+        <div class="cmd" data-cmd="# tests/Feature/ApiTokenTest.php
+
+&lt;?php
+
+use App\Enums\Rol;
+use App\Models\User;
+use App\Models\Vakansiya;
+use Laravel\Sanctum\Sanctum;
+
+test('tokensiz so\'rov 401 oladi', function () {
+    $this-&gt;postJson('/api/vakansiyalar', ['nom' =&gt; 'Tokensiz', 'maosh' =&gt; 100])
+        -&gt;assertUnauthorized()
+        -&gt;assertJsonPath('message', 'Unauthenticated.');
+});
+
+test('bazada ochiq token saqlanmaydi', function () {
+    User::factory()-&gt;create(['email' =&gt; 'ali@example.uz']);
+
+    $javob = $this-&gt;postJson('/api/token', [
+        'email' =&gt; 'ali@example.uz',
+        'password' =&gt; 'password',
+        'qurilma' =&gt; 'mobil',
+    ]);
+
+    [$id, $sir] = explode('|', $javob-&gt;json('token'), 2);
+
+    $this-&gt;assertDatabaseMissing('personal_access_tokens', ['token' =&gt; $sir]);
+    $this-&gt;assertDatabaseHas('personal_access_tokens', ['token' =&gt; hash('sha256', $sir)]);
+});
+
+test('yozish huquqisiz token 403 oladi', function () {
+    Sanctum::actingAs(
+        User::factory()-&gt;create(['rol' =&gt; Rol::IshBeruvchi]),
+        ['vakansiya:oqish'],
+    );
+
+    $this-&gt;postJson('/api/vakansiyalar', ['nom' =&gt; 'Huquqsiz', 'maosh' =&gt; 100])
+        -&gt;assertForbidden()
+        -&gt;assertJsonPath('message', 'Invalid ability provided.');
+});
+
+test('nomzod huquqli token bilan ham policy to\'sadi', function () {
+    Sanctum::actingAs(
+        User::factory()-&gt;create(['rol' =&gt; Rol::Nomzod]),
+        ['vakansiya:oqish', 'vakansiya:yozish'],
+    );
+
+    $this-&gt;postJson('/api/vakansiyalar', ['nom' =&gt; 'Nomzod', 'maosh' =&gt; 100])
+        -&gt;assertForbidden()
+        -&gt;assertJsonPath('message', 'This action is unauthorized.');
+});"># tests/Feature/ApiTokenTest.php
+
+&lt;?php
+
+use App\Enums\Rol;
+use App\Models\User;
+use App\Models\Vakansiya;
+use Laravel\Sanctum\Sanctum;
+
+test('tokensiz so\'rov 401 oladi', function () {
+    $this-&gt;postJson('/api/vakansiyalar', ['nom' =&gt; 'Tokensiz', 'maosh' =&gt; 100])
+        -&gt;assertUnauthorized()
+        -&gt;assertJsonPath('message', 'Unauthenticated.');
+});
+
+test('bazada ochiq token saqlanmaydi', function () {
+    User::factory()-&gt;create(['email' =&gt; 'ali@example.uz']);
+
+    $javob = $this-&gt;postJson('/api/token', [
+        'email' =&gt; 'ali@example.uz',
+        'password' =&gt; 'password',
+        'qurilma' =&gt; 'mobil',
+    ]);
+
+    [$id, $sir] = explode('|', $javob-&gt;json('token'), 2);
+
+    $this-&gt;assertDatabaseMissing('personal_access_tokens', ['token' =&gt; $sir]);
+    $this-&gt;assertDatabaseHas('personal_access_tokens', ['token' =&gt; hash('sha256', $sir)]);
+});
+
+test('yozish huquqisiz token 403 oladi', function () {
+    Sanctum::actingAs(
+        User::factory()-&gt;create(['rol' =&gt; Rol::IshBeruvchi]),
+        ['vakansiya:oqish'],
+    );
+
+    $this-&gt;postJson('/api/vakansiyalar', ['nom' =&gt; 'Huquqsiz', 'maosh' =&gt; 100])
+        -&gt;assertForbidden()
+        -&gt;assertJsonPath('message', 'Invalid ability provided.');
+});
+
+test('nomzod huquqli token bilan ham policy to\'sadi', function () {
+    Sanctum::actingAs(
+        User::factory()-&gt;create(['rol' =&gt; Rol::Nomzod]),
+        ['vakansiya:oqish', 'vakansiya:yozish'],
+    );
+
+    $this-&gt;postJson('/api/vakansiyalar', ['nom' =&gt; 'Nomzod', 'maosh' =&gt; 100])
+        -&gt;assertForbidden()
+        -&gt;assertJsonPath('message', 'This action is unauthorized.');
+});</div>
+        <div class="cmd" data-cmd="php artisan test tests/Feature/ApiTokenTest.php">php artisan test tests/Feature/ApiTokenTest.php</div>
+      </li>
+
+      <li>
+        <p>⚠️ Eski testlar buzilganini tuzating</p>
+        <div class="cmd" data-cmd="php artisan test">php artisan test
+<span class="out">  ⨯ yangi vakansiya 201 bilan yaratiladi</span>
+<span class="out">  Failed asserting that 401 is identical to 201.</span></div>
+        <div class="cmd" data-cmd="# tests/Feature/ApiVakansiyaTest.php — POST testlariga qo'shing:
+
+    Sanctum::actingAs(
+        User::factory()-&gt;create(['rol' =&gt; Rol::IshBeruvchi]),
+        ['vakansiya:oqish', 'vakansiya:yozish'],
+    );"># tests/Feature/ApiVakansiyaTest.php — POST testlariga qo'shing:
+
+    Sanctum::actingAs(
+        User::factory()-&gt;create(['rol' =&gt; Rol::IshBeruvchi]),
+        ['vakansiya:oqish', 'vakansiya:yozish'],
+    );</div>
+        <p class="expect"><b>Kutilgan natija:</b> yashil.
+        <br>🔑 Testlar himoya <b>haqiqatan</b> qo'shilganini tasdiqladi.</p>
+      </li>
+
+      <li>
+        <p>To'liq to'plamni ishga tushiring va saqlang</p>
+        <div class="cmd" data-cmd="php artisan test
+git add -A
+git commit -m &quot;44-dars: Sanctum token autentifikatsiyasi&quot;">php artisan test
+git add -A
+git commit -m &quot;44-dars: Sanctum token autentifikatsiyasi&quot;
+<span class="out">  Tests:    53 passed (161 assertions)</span></div>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><input type="checkbox" id="d44c1"><label for="d44c1"><b>Traitsiz <code>createToken()</code> xatosini ko'rdim</b> ⚠️</label></li>
+      <li><input type="checkbox" id="d44c2"><label for="d44c2"><code>HasApiTokens</code> ni uladim</label></li>
+      <li><input type="checkbox" id="d44c3"><label for="d44c3"><b>Bazada token xeshlangan holda yotishini tekshirdim</b> 🔍</label></li>
+      <li><input type="checkbox" id="d44c4"><label for="d44c4">Token berish endpoint'ini yozdim (rolga qarab huquq)</label></li>
+      <li><input type="checkbox" id="d44c5"><label for="d44c5"><code>auth:sanctum</code> va <code>abilities</code> middleware'larini uladim</label></li>
+      <li><input type="checkbox" id="d44c6"><label for="d44c6">API store'ga policy va <code>user_id</code> qo'shdim</label></li>
+      <li><input type="checkbox" id="d44c7"><label for="d44c7"><b>401 → 201 o'tishini <code>curl</code> bilan ko'rdim</b></label></li>
+      <li><input type="checkbox" id="d44c8"><label for="d44c8"><b>Nomzod tokeni 403 «Invalid ability» olganini ko'rdim</b></label></li>
+      <li><input type="checkbox" id="d44c9"><label for="d44c9"><code>Sanctum::actingAs()</code> bilan testlar yozdim</label></li>
+      <li><input type="checkbox" id="d44c10"><label for="d44c10">Eski testlarni <code>actingAs</code> bilan tuzatdim</label></li>
+      <li><input type="checkbox" id="d44c11"><label for="d44c11">53 test yashil, commit qildim</label></li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 11) SINAB KO'RAMIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Dasturchi hisobot skripti uchun <b>cheklangan</b> token yasamoqchi.
+    U huquqlarni «keyin qo'sharman» deb qoldirdi:</p>
+    <div class="codefile">
+      <div class="fname">token yaratish</div>
+      <code class="cmd" data-cmd="$token = $user-&gt;createToken('hisobot-skripti');
+
+// keyin tekshirmoqchi bo'ldi:
+$token-&gt;accessToken-&gt;can('*');            // ?
+$token-&gt;accessToken-&gt;can('vakansiya:yozish');   // ?">$token = $user-&gt;createToken('hisobot-skripti');
+
+// keyin tekshirmoqchi bo'ldi:
+$token-&gt;accessToken-&gt;can('*');            // ?
+$token-&gt;accessToken-&gt;can('vakansiya:yozish');   // ?</code>
+    </div>
+    <p>Ikkala tekshiruv nima qaytaradi? Va bu token nima qila oladi?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <div class="natija">bazada:  abilities = ["*"]
+
+can('*')                  →  false     ⚠️ kutilmagan
+can('vakansiya:yozish')   →  true      ⚠️ yanada kutilmagan</div>
+        <p>Ikkala natija ham dastlab g'alati ko'rinadi, lekin mantiq
+        oddiy:</p>
+        <div class="natija">huquq KO'RSATILMASA  →  abilities = ["*"]  →  «cheklov yo'q»
+   →  can('istalgan-narsa')  →  har doim TRUE
+
+can('*')  →  «ro'yxatda '*' degan HUQUQ bormi?» degan savol
+   →  '*' huquq emas, maxsus belgi  →  FALSE</div>
+        <p class="expect">⚠️ Amaliy oqibat: dasturchi <b>eng keng huquqli</b>
+        token yasadi — hisobot skripti uchun. U skript o'g'irlansa, hujumchi
+        e'lon qo'sha, tahrirlay va o'chira oladi.</p>
+        <p>🔑 «Keyin qo'sharman» degan token ko'pincha
+        <b>shundayligicha qolib ketadi</b>. Huquqni <b>darhol</b> yozing:</p>
+        <div class="natija">$user-&gt;createToken('hisobot-skripti', ['vakansiya:oqish']);   ✅</div>
+        <p>Va tekshirishni ham to'g'ri yozing:</p>
+        <div class="natija">can('*')                          ⚠️ hech qachon to'g'ri ishlamaydi
+can('vakansiya:yozish')           ✅ aniq huquqni so'rang</div>
+        <p>🔍 Ikkinchi saboq: <code>abilities</code> — <b>token</b>
+        darajasidagi chegara, u policy'ning o'rnini bosmaydi. Ish beruvchining
+        to'liq huquqli tokeni ham <b>begona</b> vakansiyani tahrirlay
+        olmaydi — u yerda policy turadi (33-dars).</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span> Token bazada qanday
+    saqlanadi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Bazada faqat SHA-256 xeshi saqlanadi</button></li>
+      <li><button class="quiz-option">Bazada ochiq token to'liq saqlanadi</button></li>
+      <li><button class="quiz-option">Bazada token umuman saqlanmay qoladi</button></li>
+    </ul>
+    <div class="quiz-explain">O'lchandi: ochiq token
+    <code>2Mkb3Yc...</code>, bazadagi qiymat esa
+    <code>0aae20f0...</code> — va <code>hash('sha256', $ochiq)</code> unga
+    <b>teng</b>. 30-darsdagi parol naqshi.
+    🔑 Shuning uchun token <b>bir marta</b> ko'rsatiladi: yo'qotsangiz
+    serverda ham u yo'q.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span> <b>401</b> va
+    <b>403</b> qachon qaytadi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">401 token yo'q 403 huquq yetmaydi</button></li>
+      <li><button class="quiz-option">401 huquq yetmaydi 403 token yo'q</button></li>
+      <li><button class="quiz-option">Ikkalasi ham bir xil ma'noni bildiradi</button></li>
+    </ul>
+    <div class="quiz-explain"><b>401</b> «kim ekaningni bilmayman» —
+    <code>{"message":"Unauthenticated."}</code>.
+    <b>403</b> «kimligingni bilaman, huquqing yo'q».
+    🔑 Va 403 ikki xil bo'ladi: <code>Invalid ability provided.</code>
+    (token huquqi) va <code>This action is unauthorized.</code> (policy) —
+    yechimlari ham boshqa.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span>
+    <code>createToken('nom')</code> — huquq ko'rsatilmasa nima bo'ladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Token hamma narsani qila oladi</button></li>
+      <li><button class="quiz-option">Token hech narsa qila olmaydi</button></li>
+      <li><button class="quiz-option">Token faqat o'qish huquqini oladi</button></li>
+    </ul>
+    <div class="quiz-explain">Huquq berilmasa <code>abilities = ["*"]</code> —
+    «cheklov yo'q». Ya'ni bu <b>eng keng</b> huquqli token.
+    ⚠️ Va <code>can('*')</code> baribir <code>false</code> qaytaradi, chunki
+    <code>*</code> — huquq nomi emas, maxsus belgi.
+    ✅ Huquqni <b>darhol</b> yozing.</div>
+  </div>
+
+  <!-- ═══════════════ 12) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+    <p class="recall-intro">Avval o'zingiz javob bering, keyin ochib tekshiring.
+    Oxirgi ikkitasi — <a href="0043-api-resource.html">43-darsni</a> takrorlash.</p>
+
+    <details class="recall">
+      <summary>Nega API'da sessiya emas, token ishlatiladi?</summary>
+      <div class="answer"><p>Sessiya <b>cookie</b>ga tayanadi, cookie esa
+      brauzerniki. Mobil ilova yoki boshqa server uchun bu ishlamaydi. Va
+      <code>api/*</code> marshrutlari sessiya middleware'iga <b>umuman
+      tushmaydi</b>.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Uchta 401/403 qatlami nima bilan farq qiladi?</summary>
+      <div class="answer"><p><b>401</b> — token yo'q yoki noto'g'ri.
+      <b>403 «Invalid ability provided»</b> — token huquqi yetmaydi (yangi
+      token kerak). <b>403 «This action is unauthorized»</b> — odamning
+      roli mos emas (token yordam bermaydi).</p></div>
+    </details>
+
+    <details class="recall">
+      <summary><code>abilities</code> va <code>ability</code> farqi?</summary>
+      <div class="answer"><p><code>abilities:a,b</code> — <b>hamma</b> huquq
+      bo'lishi kerak. <code>ability:a,b</code> — <b>bittasi</b> yetadi.
+      O'lchandi: faqat <code>oqish</code> huquqli token birinchisida
+      <b>403</b>, ikkinchisida <b>200</b> oldi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: <code>whenLoaded</code> nima qiladi?</summary>
+      <div class="answer"><p>Bog'lanish yuklanmagan bo'lsa kalitni javobdan
+      <b>butunlay olib tashlaydi</b> (<code>null</code> emas) va
+      <b>so'rov yubormaydi</b> — N+1 dan himoya.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: <code>data</code> o'rami nimaga kerak?</summary>
+      <div class="answer"><p>Sahifalashda <code>links</code> va
+      <code>meta</code> ga <b>joy kerak</b>. Shuning uchun
+      <code>withoutWrapping()</code> sahifalashda ishlamaydi va API
+      nomuvofiq bo'lib qoladi.</p></div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 13) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Cho'ntak xulosasi</span>
+    <ul>
+      <li>API'da sessiya yo'q: cookie o'rniga <b>token</b>, va uni mijoz
+      <b>qo'lda</b> yuboradi.</li>
+      <li>⚠️ <code>use Laravel\Sanctum\HasApiTokens;</code> — usiz
+      <code>Call to undefined method ...::createToken()</code>.
+      33-darsdagi <code>AuthorizesRequests</code> bilan bir naqsh.</li>
+      <li><code>createToken('nom', [huquqlar])</code> →
+      <code>NewAccessToken</code>. Ochiq token —
+      <code>-&gt;plainTextToken</code>, shakli <code>id|sirli-qism</code>.</li>
+      <li>🔍 <b>Bazada ochiq token YO'Q</b> — faqat
+      <code>hash('sha256', $sir)</code>. O'lchab isbotlandi.
+      🔑 Shuning uchun token <b>bir marta</b> ko'rsatiladi.</li>
+      <li>Mijoz har so'rovda:
+      <code>Authorization: Bearer 2|zwa1Xr...</code>.
+      ⚠️ <code>Bearer</code> so'zi unutilsa — <b>401</b>.</li>
+      <li><code>auth:sanctum</code> middleware: tokensiz →
+      <b>401</b> <code>{"message":"Unauthenticated."}</code>.</li>
+      <li>Token berish: email + parol tekshiriladi, keyin
+      <code>createToken</code>. Xato parolda
+      <code>ValidationException::withMessages()</code> → <b>422</b>, va
+      xabar <b>«Email yoki parol xato»</b> (30-dars).</li>
+      <li><code>abilities</code> — token nima qila olishi.
+      <code>abilities:a,b</code> <b>hammasi</b> kerak,
+      <code>ability:a,b</code> <b>bittasi</b> yetadi (o'lchandi:
+      403 va 200).</li>
+      <li>⚠️ Laravel 11+ da bu middleware'lar
+      <code>bootstrap/app.php</code> da <b>alias</b> qilinadi —
+      32-darsdagi kabi.</li>
+      <li>⚠️ Huquq ko'rsatilmasa <code>abilities = ["*"]</code> —
+      <b>eng keng</b> token. Va <code>can('*')</code> baribir
+      <code>false</code>: <code>*</code> huquq nomi emas.</li>
+      <li>🔑 <b>Uch qatlam, uch xabar:</b>
+      <b>401</b> Unauthenticated · <b>403</b> Invalid ability provided ·
+      <b>403</b> This action is unauthorized. Yechimlari ham boshqa.</li>
+      <li>Rolni tokenga bog'lang: ish beruvchi
+      <code>['oqish','yozish']</code>, nomzod <code>['oqish']</code> —
+      34-darsdagi rol API'ga ko'chdi.</li>
+      <li><code>currentAccessToken()-&gt;delete()</code> — shu qurilma ·
+      <code>tokens()-&gt;delete()</code> — hamma qurilma.</li>
+      <li>🔍 <code>last_used_at</code> avtomatik yangilanadi — foydalanilmagan
+      tokenlarni topish uchun.</li>
+      <li>Testda <code>Sanctum::actingAs($user, [huquqlar])</code>.
+      Uch qatlamni <code>assertJsonPath('message', ...)</code> bilan
+      ajrating.</li>
+      <li>⚠️ Auth qo'shilishi 42/43-darsdagi ikkita testni buzdi
+      (<b>401 vs 201</b>) — bu <b>yaxshi</b>: himoya haqiqatan
+      ishlayotganini testlar tasdiqladi.</li>
+      <li><b>Natija:</b> 53 test, 161 tekshiruv.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p>API endi himoyalangan: token bilan kirasiz, huquqlar chegaralangan,
+    policy ham ishlaydi. Lekin u <b>to'liq emas</b> — hozir faqat uchta amal
+    bor: ro'yxat, bitta yozuv va yaratish.</p>
+    <p>Tahrirlash va o'chirish yo'q. Va marshrutlarni <b>qo'lda</b> bittalab
+    yozyapmiz — 24-darsdagi <code>Route::resource</code> ni eslang.</p>
+    <p>45-darsda <b>to'liq CRUD</b> qilamiz: <code>Route::apiResource</code>
+    beshta marshrutni bir qatorda beradi, <code>update</code> va
+    <code>destroy</code> qo'shiladi, hamda yangi status —
+    <b>204 No Content</b>. Policy o'sha yerda <code>update</code> va
+    <code>delete</code> uchun ham ishlaydi.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel Sanctum</b>:
+    <a href="https://laravel.com/docs/13.x/sanctum">laravel.com/docs/13.x/sanctum</a>
+    — <code>HasApiTokens</code>, <code>createToken</code>, abilities,
+    <code>auth:sanctum</code>.<sup><a href="#fn1">1</a></sup><br>
+    <b>Token Abilities</b>:
+    <a href="https://laravel.com/docs/13.x/sanctum#token-abilities">abilities
+    va ability middleware</a>.<sup><a href="#fn2">2</a></sup><br>
+    <b>MDN — Authorization sarlavhasi</b>:
+    <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Authorization">Bearer
+    sxemasi</a>.<sup><a href="#fn3">3</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b> «token muddati
+    tugashini qanday qo'yaman?», «SPA uchun Sanctum boshqacha ishlaydimi?»,
+    «JWT bilan farqi nima?», «token o'g'irlansa nima qilaman?» — har qanday
+    savol yaxshi. Birinchisiga qisqa javob: <code>config/sanctum.php</code>
+    dagi <code>expiration</code> yoki
+    <code>createToken(..., ..., now()-&gt;addDays(30))</code>. Ikkinchisi
+    ayniqsa muhim: <b>ha</b> — SPA rejimida Sanctum cookie va CSRF bilan
+    ishlaydi, ya'ni 32-darsdagi himoya qaytadi; token rejimi esa mobil va
+    server-server uchun. Oxirgisiga: <code>tokens()-&gt;delete()</code> bilan
+    hamma tokenni bekor qiling va foydalanuvchidan parolni
+    o'zgartirishni so'rang.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0043-api-resource.html">Oldingi: API Resource</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel 13 — <a href="https://laravel.com/docs/13.x/sanctum">Sanctum</a>.</li>
+      <li id="fn2">Laravel 13 — <a href="https://laravel.com/docs/13.x/sanctum#token-abilities">Token Abilities</a>.</li>
+      <li id="fn3">MDN — <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Authorization">Authorization header</a>.</li>
+      <li id="fn4">Barchasi jonli o'lchangan (PHP 8.3.32, Laravel 13.25.0,
+      Sanctum, Pest 4.7.8): traitsiz
+      <code>BadMethodCallException: Call to undefined method
+      App\Models\User::createToken()</code> ·
+      <code>createToken('mobil ilova')</code> →
+      <code>NewAccessToken</code>, <code>plainTextToken</code> =
+      <code>1|2Mkb3YcG1Ca82YAEP5LTyF4betiNQXzAnaF9TmJxa5d59044</code> ·
+      bazada <code>token</code> = <code>0aae20f0...232f</code>,
+      <code>hash('sha256', $sir)</code> unga <b>teng</b>, ochiq token bilan
+      <b>teng emas</b> · <code>abilities</code> standart holda
+      <code>["*"]</code>, <code>last_used_at</code> avval <code>NULL</code>,
+      ishlatilgach <code>2026-08-21 07:35:03</code> ·
+      <code>can('vakansiya:oqish')</code> true,
+      <code>can('vakansiya:yozish')</code> false,
+      <code>can('*')</code> <b>false</b> ·
+      tokensiz POST <b>401</b> <code>{"message":"Unauthenticated."}</code>,
+      Bearer bilan <b>201</b>, noto'g'ri token <b>401</b> ·
+      <code>abilities:oqish,yozish</code> faqat oqish huquqi bilan
+      <b>403</b>, <code>ability:oqish,yozish</code> esa <b>200</b> ·
+      yozish huquqisiz token → <b>403</b>
+      <code>Invalid ability provided.</code> ·
+      nomzodga qo'lda yozish huquqli token berilganda → <b>403</b>
+      <code>This action is unauthorized.</code>
+      (<code>AccessDeniedHttpException</code>) ·
+      Sanctum testlari <b>8 passed (20 assertions)</b> ·
+      auth qo'shilgach 42/43-darsdagi ikkita test <b>401</b> oldi,
+      <code>Sanctum::actingAs</code> bilan tuzatilgach to'liq to'plam
+      <b>53 passed (161 assertions), 1.91s</b>.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

@@ -18,7 +18,7 @@
   izoh esa o'zbekcha.</p>
 
   <p class="lesson-meta">
-    <span>Atamalar: <b>174 ta</b></span>
+    <span>Atamalar: <b>177 ta</b></span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>📱 O'qishga mos</span>
   </p>
@@ -26,7 +26,7 @@
   <div class="callout note">
     <span class="label">Bu hujjat o'sib boradi</span>
     <p>Atama faqat <b>o'z darsi yozilganda</b> qo'shiladi — oldindan emas. Hozir:
-    Modul A–F (1–43-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
+    Modul A–F (1–44-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
     bosqichida qat'iy belgilangan va 73 dars bo'ylab o'zgarmaydi).</p>
   </div>
 
@@ -1301,6 +1301,48 @@
       <code>@can('create', App\Models\Vakansiya::class)</code> — Blade'da
       <code>use</code> yo'q, to'liq yo'l yoziladi.
       <span class="eg">@can('delete', $v) &lt;button&gt;O'chirish&lt;/button&gt; @endcan</span></dd>
+    </div>
+
+    <div class="term" id="sanctum">
+      <dt>Sanctum <span class="uz">— API uchun token autentifikatsiyasi</span></dt>
+      <dd>API'da sessiya yo'q (cookie brauzerniki), o'rniga <b>token</b>.
+      ⚠️ User modeliga <code>use Laravel\Sanctum\HasApiTokens;</code> —
+      usiz <code>Call to undefined method ...::createToken()</code>.
+      <code>createToken('mobil', [huquqlar])</code> →
+      <code>plainTextToken</code> shakli <code>id|sirli-qism</code>.
+      🔍 <b>Bazada ochiq token yo'q</b> — faqat
+      <code>hash('sha256', $sir)</code>, shuning uchun token <b>bir marta</b>
+      ko'rsatiladi. Mijoz har so'rovda
+      <code>Authorization: Bearer ...</code> yuboradi.
+      Testda <code>Sanctum::actingAs($user, [huquqlar])</code>.
+      <span class="eg">$user-&gt;createToken('mobil', ['vakansiya:oqish']);</span></dd>
+    </div>
+
+    <div class="term" id="token-abilities">
+      <dt>token abilities <span class="uz">— token nima qila oladi</span></dt>
+      <dd>Bitta odamning turli tokenlari turli huquqqa ega bo'lishi mumkin.
+      <code>abilities:a,b</code> — <b>hamma</b> huquq kerak;
+      <code>ability:a,b</code> — <b>bittasi</b> yetadi (o'lchandi: 403 va 200).
+      ⚠️ Huquq ko'rsatilmasa <code>["*"]</code> — <b>eng keng</b> token.
+      ⚠️ <code>can('*')</code> baribir <code>false</code>:
+      <code>*</code> huquq nomi emas, maxsus belgi.
+      ⚠️ Laravel 11+ da middleware'lar <code>bootstrap/app.php</code> da
+      <b>alias</b> qilinadi.
+      <span class="eg">-&gt;middleware('abilities:vakansiya:yozish')</span></dd>
+    </div>
+
+    <div class="term" id="401-403-qatlam">
+      <dt>401 va ikkita 403 <span class="uz">— API himoya qatlamlari</span></dt>
+      <dd><b>401</b> <code>Unauthenticated.</code> — token yo'q yoki noto'g'ri
+      («kim ekaningni bilmayman») ·
+      <b>403</b> <code>Invalid ability provided.</code> — <b>token</b> huquqi
+      yetmaydi ·
+      <b>403</b> <code>This action is unauthorized.</code> —
+      <b>odam</b> huquqi yetmaydi (<a href="#policy">policy</a>).
+      🔑 Uchalasi <b>mustaqil</b>: nomzodga qo'lda yozish huquqli token
+      berilganda ham policy to'sdi. Yechimlari ham boshqa: qayta kirish ·
+      kengroq token · rol.
+      <span class="eg">-&gt;assertJsonPath('message', 'Invalid ability provided.')</span></dd>
     </div>
 
     <div class="term" id="api-resource">

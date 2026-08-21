@@ -17,7 +17,7 @@
   muhit ma'lumotlari. Har dars yangi buyruq o'rgatilsa, shu yerga qo'shiladi.</p>
 
   <p class="lesson-meta">
-    <span>Qamrov: <b>1&ndash;43-darslar</b> — muhitdan API'gacha</span>
+    <span>Qamrov: <b>1&ndash;44-darslar</b> — muhitdan API'gacha</span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>💻 Amaliyotga mos</span>
   </p>
@@ -1047,6 +1047,44 @@
     <p>🔑 <b>Shartnoma qoidasi:</b> kalit <b>qo'shish</b> xavfsiz,
     <b>o'chirish</b> va <b>nom o'zgartirish</b> buzuvchi. Kerak bo'lsa —
     versiyalash (<code>/api/v1</code>, <code>/api/v2</code>).</p>
+  </div>
+
+  <h2>Sanctum — token autentifikatsiyasi (44-darsdan)</h2>
+  <table class="sheet">
+    <tr><th>Kod</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>use HasApiTokens, HasFactory, Notifiable;</code></td><td class="note-cell">⚠️ User modeliga. Usiz <code>createToken()</code> yo'q</td></tr>
+    <tr><td><code>$user-&gt;createToken('mobil', ['a','b'])</code></td><td class="note-cell"><code>NewAccessToken</code> qaytaradi</td></tr>
+    <tr><td><code>$token-&gt;plainTextToken</code></td><td class="note-cell">Ochiq token: <code>id|sirli-qism</code>. 🔍 <b>Bir marta</b> ko'rsatiladi</td></tr>
+    <tr><td><code>Authorization: Bearer 2|zwa1Xr...</code></td><td class="note-cell">Mijoz har so'rovda yuboradi</td></tr>
+    <tr><td><code>-&gt;middleware('auth:sanctum')</code></td><td class="note-cell">Tokensiz → <b>401</b> <code>Unauthenticated.</code></td></tr>
+    <tr><td><code>-&gt;middleware('abilities:a,b')</code></td><td class="note-cell"><b>Hamma</b> huquq kerak. Yetmasa <b>403</b></td></tr>
+    <tr><td><code>-&gt;middleware('ability:a,b')</code></td><td class="note-cell"><b>Bittasi</b> yetadi</td></tr>
+    <tr><td><code>$token-&gt;accessToken-&gt;can('a')</code></td><td class="note-cell">Token shu huquqqa egami. ⚠️ <code>can('*')</code> → <b>false</b></td></tr>
+    <tr><td><code>currentAccessToken()-&gt;delete()</code></td><td class="note-cell">Shu qurilmadan chiqish</td></tr>
+    <tr><td><code>$user-&gt;tokens()-&gt;delete()</code></td><td class="note-cell">Hamma qurilmadan chiqish</td></tr>
+    <tr><td><code>Sanctum::actingAs($user, ['a','b'])</code></td><td class="note-cell">Testda token bilan kirish</td></tr>
+    <tr><td><code>ValidationException::withMessages([...])</code></td><td class="note-cell">API'da <b>422</b> + <code>errors</code> shakli</td></tr>
+  </table>
+  <div class="callout note">
+    <p>🔑 <b>Uch qatlam, uch xabar</b> — yechimlari ham boshqa:</p>
+    <p><b>401</b> <code>Unauthenticated.</code> → token yo'q/noto'g'ri →
+    qayta kiring ·
+    <b>403</b> <code>Invalid ability provided.</code> → <b>token</b> huquqi →
+    kengroq token ·
+    <b>403</b> <code>This action is unauthorized.</code> → <b>odam</b> huquqi
+    (policy) → token yordam bermaydi</p>
+    <p>🔍 <b>Bazada ochiq token YO'Q</b> — faqat
+    <code>hash('sha256', $sir)</code>. 30-darsdagi parol naqshi.
+    Farqi: parol uchun sekin <code>bcrypt</code>, token uchun tez
+    <code>sha256</code> (token 48 belgi tasodifiy, taxmin qilib
+    bo'lmaydi).</p>
+    <p>⚠️ <b>Huquq ko'rsatilmasa</b> <code>abilities = ["*"]</code> — bu
+    <b>eng keng</b> token. Huquqni darhol yozing.</p>
+    <p>⚠️ Laravel 11+ da <code>abilities</code>/<code>ability</code>
+    middleware'lari <code>bootstrap/app.php</code> da <b>alias</b>
+    qilinishi kerak.</p>
+    <p>⚠️ <code>Bearer</code> so'zi unutilsa — <b>401</b>. Sarlavhani to'liq
+    chop etib tekshiring.</p>
   </div>
 
   <h2>Xatoni o'qish</h2>
