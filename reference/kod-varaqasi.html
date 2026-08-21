@@ -17,7 +17,7 @@
   muhit ma'lumotlari. Har dars yangi buyruq o'rgatilsa, shu yerga qo'shiladi.</p>
 
   <p class="lesson-meta">
-    <span>Qamrov: <b>1&ndash;44-darslar</b> — muhitdan API'gacha</span>
+    <span>Qamrov: <b>1&ndash;45-darslar</b> — muhitdan API'gacha</span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>💻 Amaliyotga mos</span>
   </p>
@@ -1085,6 +1085,44 @@
     qilinishi kerak.</p>
     <p>⚠️ <code>Bearer</code> so'zi unutilsa — <b>401</b>. Sarlavhani to'liq
     chop etib tekshiring.</p>
+  </div>
+
+  <h2>apiResource — to'liq CRUD (45-darsdan)</h2>
+  <table class="sheet">
+    <tr><th>Kod</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>Route::apiResource('nom', X::class)</code></td><td class="note-cell"><b>5</b> marshrut (<code>resource</code> — 7, <code>create</code>/<code>edit</code> qo'shimcha)</td></tr>
+    <tr><td><code>-&gt;parameters(['vakansiyalar' =&gt; 'vakansiya'])</code></td><td class="note-cell">⚠️ O'zbekcha nomda <b>majburiy</b> — aks holda binding buziladi</td></tr>
+    <tr><td><code>-&gt;names('api.vakansiyalar')</code></td><td class="note-cell">⚠️ Web nomlari bilan to'qnashuvni oldini oladi</td></tr>
+    <tr><td><code>-&gt;only([...])</code> · <code>-&gt;except([...])</code></td><td class="note-cell">Amallarni tanlash (ochiq/himoyalangan guruhlar)</td></tr>
+    <tr><td><code>make:controller X --api</code></td><td class="note-cell">index · store · show · update · destroy</td></tr>
+    <tr><td><code>public function show(Vakansiya $vakansiya)</code></td><td class="note-cell">Route model binding — <code>findOrFail</code> kerak emas, topilmasa <b>404</b></td></tr>
+    <tr><td><code>response()-&gt;noContent()</code></td><td class="note-cell"><b>204</b>, javob tanasi <b>0 bayt</b></td></tr>
+    <tr><td><code>assertNoContent()</code></td><td class="note-cell">Testda 204 ni tekshirish</td></tr>
+    <tr><td><code>getRouteKeyName()</code></td><td class="note-cell">id o'rniga <code>slug</code> bo'yicha binding</td></tr>
+  </table>
+  <div class="callout note">
+    <p>⚠️ <b>O'zbekcha nom tuzog'i — uchinchi ko'rinish.</b>
+    <code>apiResource('vakansiyalar', ...)</code> parametrni
+    <code>{vakansiyalar}</code> qilib qoldiradi (ko'plikni birlikka
+    o'girmaydi). Natijada binding <b>jimgina</b> buziladi:
+    <code>show</code> <b>200</b> beradi, ma'lumot esa <code>null</code>;
+    <code>update</code> esa <b>500</b>.
+    <br>Naqsh: <code>$table</code> (25) · factory <code>has()</code> (39) ·
+    <code>apiResource</code> (45).</p>
+    <p>⚠️ <b>Nom to'qnashuvi.</b> <code>apiResource</code>
+    <code>vakansiyalar.index</code> nomini beradi va u
+    <code>web.php</code> dagi nom bilan to'qnashadi — <b>oxirgisi
+    g'olib</b>. Natijada <code>route('vakansiyalar.index')</code> API
+    manzilini qaytaradi va web ilova buziladi.
+    🔍 Tashxis: <code>php artisan route:list --name=vakansiyalar</code>.</p>
+    <p>🔑 <b>PUT</b> to'liq almashtirish, <b>PATCH</b> qisman — Laravel
+    ikkalasini bir metodga tushiradi, farq <b>ma'noda</b>. Qoidalarda hamma
+    maydon <code>required</code> bo'lsa, amalda faqat PUT mantiqi ishlaydi
+    (haqiqiy PATCH uchun <code>sometimes</code>).</p>
+    <p>🔑 <b>To'siqlar tartibi:</b> <b>401</b> token → <b>403</b> huquq →
+    <b>404</b> yozuv → <b>422</b> ma'lumot.</p>
+    <p>🔍 <b>Commit oldidan to'liq to'plam:</b> bu darsdagi nom to'qnashuvini
+    <code>--filter=Api</code> <b>tutmadi</b> — uni web testlari tutdi.</p>
   </div>
 
   <h2>Xatoni o'qish</h2>

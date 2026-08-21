@@ -1,0 +1,1187 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 45 — apiResource: to'liq CRUD</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 45 · MODUL F — API QATLAMI</p>
+  <h1>apiResource: to'liq CRUD</h1>
+  <p class="lead">API himoyalangan, javob shakli boshqariladi — lekin unda
+  atigi <b>uchta</b> amal bor. Tahrirlash va o'chirish yo'q, marshrutlarni
+  esa qo'lda bittalab yozyapmiz. Bugun <code>Route::apiResource</code> bilan
+  beshtasini <b>bir qatorda</b> beramiz va yangi status bilan
+  tanishamiz — <b>204 No Content</b>.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 16 daqiqa</span>
+    <span>💻 Amaliyot ≈ 26 daqiqa</span>
+    <span>Kerak: <a href="0044-sanctum-token.html">Dars 44</a></span>
+  </p>
+
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b><code>apiResource</code> va <code>resource</code></b>
+        <span class="nima">Beshta marshrut va yettita — farqi
+        <code>create</code>/<code>edit</code> sahifalarida.
+        O'lchandi.</span></li>
+      <li><b><code>make:controller --api</code></b>
+        <span class="nima">Aynan beshta metodli skelet:
+        <code>index</code> · <code>store</code> · <code>show</code> ·
+        <code>update</code> · <code>destroy</code>.</span></li>
+      <li><b>Route model binding</b>
+        <span class="nima"><code>string $id</code> o'rniga
+        <code>Vakansiya $vakansiya</code> — <code>findOrFail</code> ham
+        kerak emas.</span></li>
+      <li><b>⚠️ O'zbekcha nom tuzog'i — uchinchi marta</b>
+        <span class="nima">Parametr <code>{vakansiyalar}</code> bo'lib chiqadi
+        va binding <b>jimgina</b> buziladi: 200, lekin ma'lumot
+        <code>null</code>.</span></li>
+      <li><b><code>-&gt;parameters([...])</code></b>
+        <span class="nima">Bir qatorli yechim va nega u
+        <b>majburiy</b>.</span></li>
+      <li><b>⚠️ Marshrut nomlari to'qnashuvi</b>
+        <span class="nima">Darsning eng qimmat topilmasi:
+        <code>route('vakansiyalar.index')</code> jimgina
+        <code>/api/...</code> ga o'tib ketdi va <b>web testlari</b>
+        buzildi.</span></li>
+      <li><b><code>-&gt;names('api.vakansiyalar')</code></b>
+        <span class="nima">Yechim va 42-darsdagi tavsiyaning
+        isboti.</span></li>
+      <li><b><code>update</code> — PUT va PATCH</b>
+        <span class="nima">Ikkalasi bir metodga tushadi. Farqi
+        <b>ma'noda</b>, kodda emas.</span></li>
+      <li><b><code>destroy</code> → <b>204 No Content</b></b>
+        <span class="nima"><code>response()-&gt;noContent()</code> —
+        javob tanasi <b>butunlay bo'sh</b> (0 bayt, o'lchandi).</span></li>
+      <li><b>Form Request qayta ishlatiladi</b>
+        <span class="nima">35-darsdagi <code>VakansiyaRequest</code>
+        <code>store</code> da ham, <code>update</code> da ham — va u
+        policy'ni ham chaqiradi.</span></li>
+      <li><b><code>only()</code> va guruhlar</b>
+        <span class="nima">Ochiq amallar (o'qish) va himoyalanganlari
+        (yozish) alohida guruhda.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima">Parametr nomi · nom to'qnashuvi ·
+        <code>--api</code> · 204 va tana · PUT/PATCH ·
+        <code>only/except</code> · 404 tartibi.</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Uch amal — va qo'lda yozilgan marshrutlar</span>
+    <p>44-darsdan keyin <code>routes/api.php</code> shunday edi:</p>
+    <div class="natija">Route::get('/vakansiyalar', [VakansiyaController::class, 'index']);
+Route::get('/vakansiyalar/{id}', [VakansiyaController::class, 'show']);
+Route::post('/vakansiyalar', [VakansiyaController::class, 'store']);</div>
+    <p>Ikki muammo bor:</p>
+    <div class="natija">1) Tahrirlash va o'chirish YO'Q  →  API to'liq emas
+2) Har marshrut qo'lda        →  nom, manzil, metod — hammasi qo'lda</div>
+    <p>Ikkinchisi 24-darsdagi <code>Route::resource</code> bilan hal
+    qilingan edi. API uchun uning ukasi bor —
+    <code>apiResource</code>.<sup><a href="#fn1">1</a></sup></p>
+  </div>
+
+  <!-- ═══════════════ 2) APIRESOURCE ═══════════════ -->
+  <h2><code>apiResource</code> — besh marshrut bir qatorda</h2>
+
+  <div class="natija">Route::apiResource('vakansiyalar', VakansiyaController::class);</div>
+
+  <p><b>O'lchangan natija:</b></p>
+
+  <div class="natija">GET|HEAD   api/vakansiyalar          vakansiyalar.index     @index
+POST       api/vakansiyalar          vakansiyalar.store     @store
+GET|HEAD   api/vakansiyalar/{...}    vakansiyalar.show      @show
+PUT|PATCH  api/vakansiyalar/{...}    vakansiyalar.update    @update
+DELETE     api/vakansiyalar/{...}    vakansiyalar.destroy   @destroy
+
+Showing [5] routes</div>
+
+  <p>Endi <code>Route::resource</code> bilan solishtiring — xuddi shu
+  chaqiruv <b>web</b> tomonda:</p>
+
+  <div class="natija">GET|HEAD   sinov-web/create        sinov-web.create   ← QO'SHIMCHA
+GET|HEAD   sinov-web/{...}/edit    sinov-web.edit     ← QO'SHIMCHA
+
+Showing [7] routes</div>
+
+  <p class="expect">🔑 Farq ikkita marshrutda: <code>create</code> va
+  <code>edit</code>. Ular <b>HTML forma sahifalari</b> — «yangi vakansiya
+  qo'shish» va «tahrirlash» oynalari. API'da forma yo'q, shuning uchun ular
+  ham kerak emas.</p>
+
+  <p>Controller skeletini ham shunga moslab yasash mumkin:</p>
+
+  <div class="cmd" data-cmd="php artisan make:controller Api/SinovController --api">php artisan make:controller Api/SinovController --api
+<span class="out">public function index()</span>
+<span class="out">public function store(Request $request)</span>
+<span class="out">public function show(string $id)</span>
+<span class="out">public function update(Request $request, string $id)</span>
+<span class="out">public function destroy(string $id)</span></div>
+
+  <!-- ═══════════════ 3) BINDING ═══════════════ -->
+  <h2>Route model binding</h2>
+
+  <p>Shu paytgacha <code>show</code> shunday edi:</p>
+
+  <div class="natija">public function show(string $id)
+{
+    $vakansiya = Vakansiya::with('kompaniya')-&gt;findOrFail($id);
+    ...
+}</div>
+
+  <p>Laravel buni <b>o'zi</b> qila oladi — tip belgisiga qarab:</p>
+
+  <div class="natija">public function show(Vakansiya $vakansiya)
+{
+    return VakansiyaResource::make($vakansiya-&gt;load('kompaniya'));
+}</div>
+
+  <p><b>Sehr yo'q:</b> Laravel marshrut parametrining <b>nomini</b>
+  (<code>{vakansiya}</code>) metod argumentining <b>nomi</b> bilan
+  solishtiradi. Mos kelsa — o'sha id bo'yicha modelni topadi, topolmasa
+  <b>404</b> beradi.</p>
+
+  <div class="callout warning">
+    <span class="label">⚠️ O'zbekcha nom tuzog'i — uchinchi marta</span>
+    <p><code>apiResource('vakansiyalar', ...)</code> parametr nomini resurs
+    nomidan yasaydi. Ingliz tilida <code>jobs</code> → <code>{job}</code>
+    (birlikka o'giriladi). O'zbekchada esa:</p>
+    <div class="natija">Route::apiResource('vakansiyalar', ...)
+
+api/vakansiyalar/{vakansiyalar}       ← ⚠️ KO'PLIKDA qoldi</div>
+    <p>Metod argumenti esa <code>$vakansiya</code> — nomlar
+    <b>mos kelmaydi</b>, binding ishlamaydi. Va eng yomoni,
+    <b>xato chiqmaydi</b>:</p>
+    <div class="natija">GET /api/vakansiyalar/5
+   status : 200          ← xato yo'qdek
+   data.nom : NULL       ← ⚠️ model bog'lanmagan
+
+PUT /api/vakansiyalar/5
+   status : 500
+   "Attempt to read property \"id\" on null"</div>
+    <p><code>show</code> <b>200</b> qaytardi — chunki resource
+    <code>null</code> ni o'radi. Mijoz «ma'lumot yo'q» deb o'ylaydi, siz esa
+    bazani tekshira boshlaysiz.</p>
+    <p>✅ Yechim bir qator:</p>
+    <div class="natija">Route::apiResource('vakansiyalar', VakansiyaController::class)
+    -&gt;parameters(['vakansiyalar' =&gt; 'vakansiya']);
+
+api/vakansiyalar/{vakansiya}          ← ✅ endi mos</div>
+    <p>🔑 Bu ADR 0004 qoidasining <b>uchinchi</b> ko'rinishi. Naqsh har
+    safar bir xil: <b>Laravel ko'plik yasagan joyda</b> o'zbekcha nom
+    taxminga tushmaydi.</p>
+    <div class="natija">$table            →  qo'lda yozildi        (25-dars)
+factory has()     →  nom aniq berildi      (39-dars)
+apiResource       →  parameters() bilan    (45-dars)</div>
+  </div>
+
+  <!-- ═══════════════ 4) NOM TO'QNASHUVI ═══════════════ -->
+  <div class="callout warning">
+    <span class="label">⚠️ Marshrut nomlari to'qnashuvi</span>
+    <p>Binding tuzatilgach testlarni ishga tushirdik — va <b>beshta web
+    testi</b> qizardi:</p>
+    <div class="natija">⨯ nomzod ro'yxatdan o'tadi va darhol kiradi
+⨯ to'g'ri parol bilan kiriladi
+⨯ chiqilgandan keyin mehmon bo'ladi
+⨯ ish beruvchi vakansiya qo'sha oladi
+  Failed asserting that two strings are equal.</div>
+    <p>API'ga tegishli hech nima o'zgarmagan edi. Sabab boshqa joyda:</p>
+    <div class="natija">route('vakansiyalar.index')  →  /api/vakansiyalar      ⚠️
+route('vakansiyalar.store')  →  /api/vakansiyalar      ⚠️</div>
+    <p><code>apiResource</code> marshrutlarga <b>nom</b> ham beradi:
+    <code>vakansiyalar.index</code>, <code>vakansiyalar.store</code>… Va bu
+    nomlar <code>routes/web.php</code> dagi nomlar bilan <b>aynan bir
+    xil</b>.</p>
+    <p>Bir nom ikki marta ro'yxatdan o'tsa, <b>oxirgisi</b> g'olib chiqadi.
+    API fayli keyin yuklangani uchun <code>redirect()-&gt;route('vakansiyalar.index')</code>
+    endi <b>API manziliga</b> yo'naltirardi.</p>
+    <p>✅ Yechim — nomlarni ajratish:</p>
+    <div class="natija">Route::apiResource('vakansiyalar', VakansiyaController::class)
+    -&gt;parameters(['vakansiyalar' =&gt; 'vakansiya'])
+    -&gt;names('api.vakansiyalar');
+
+route('vakansiyalar.index')      →  /vakansiyalar        ✅
+route('api.vakansiyalar.index')  →  /api/vakansiyalar    ✅</div>
+    <p class="expect">🔑 42-darsda «nomlash uchun guruh ishlatish qulay» deb
+    aytilgan edi. Endi u <b>tavsiya emas, majburiyat</b>: aks holda web
+    ilovangiz jimgina buziladi.</p>
+    <p>🔍 Va yana bir saboq: <b>testlar API o'zgarishini web tomonda
+    tutdi</b>. Testsiz bu xatoni foydalanuvchi topardi — «qo'shish tugmasi
+    JSON qaytaryapti» degan shaklda.</p>
+  </div>
+
+  <!-- ═══════════════ 5) CONTROLLER ═══════════════ -->
+  <h2>To'liq CRUD controlleri</h2>
+
+  <div class="codefile">
+    <span class="fname">app/Http/Controllers/Api/VakansiyaController.php</span>
+    <code class="cmd">use App\Http\Requests\VakansiyaRequest;
+use App\Http\Resources\VakansiyaResource;
+use App\Models\Vakansiya;
+
+class VakansiyaController extends Controller
+{
+    public function index()
+    {
+        $vakansiyalar = Vakansiya::query()-&gt;with('kompaniya')-&gt;latest('id')-&gt;take(10)-&gt;get();
+
+        return VakansiyaResource::collection($vakansiyalar);
+    }
+
+    public function show(Vakansiya $vakansiya)
+    {
+        return VakansiyaResource::make($vakansiya-&gt;load('kompaniya'));
+    }
+
+    public function store(VakansiyaRequest $request)
+    {
+        $vakansiya = Vakansiya::create(
+            $request-&gt;validated() + ['user_id' =&gt; $request-&gt;user()-&gt;id]
+        );
+
+        return VakansiyaResource::make($vakansiya-&gt;fresh())
+            -&gt;response()
+            -&gt;setStatusCode(201);
+    }
+
+    public function update(VakansiyaRequest $request, Vakansiya $vakansiya)
+    {
+        $vakansiya-&gt;update($request-&gt;validated());
+
+        return VakansiyaResource::make($vakansiya-&gt;fresh());
+    }
+
+    public function destroy(Request $request, Vakansiya $vakansiya)
+    {
+        $this-&gt;authorize('delete', $vakansiya);
+
+        $vakansiya-&gt;delete();
+
+        return response()-&gt;noContent();
+    }
+}</code>
+  </div>
+
+  <p><code>update()</code> ga alohida qarang — u <b>uch qator</b>. Validatsiya
+  ham, huquq tekshiruvi ham yo'q. Ikkalasi ham
+  <code>VakansiyaRequest</code> ichida.</p>
+
+  <div class="callout tip">
+    <span class="label">35-darsdagi Form Request qayta ishlaydi</span>
+    <p><code>VakansiyaRequest</code> ni eslang:</p>
+    <div class="natija">public function authorize(): bool
+{
+    $user = $this-&gt;user();
+    if ($user === null) { return false; }
+
+    $vakansiya = $this-&gt;route('vakansiya');       // ← shu yerda ish beradi
+
+    return $vakansiya
+        ? $user-&gt;can('update', $vakansiya)        // tahrirlash
+        : $user-&gt;can('create', Vakansiya::class); // yaratish
+}</div>
+    <p>35-darsda uni <b>web</b> controlleri uchun yozgan edik. Endi u
+    <b>API</b> da ham ishlaydi — bitta qator o'zgartirmasdan.</p>
+    <p>Farq faqat javob shaklida, va uni Laravel <code>Accept</code>
+    sarlavhasiga qarab o'zi tanlaydi:</p>
+    <div class="natija">web:  validatsiya xatosi  →  302 + $errors
+API:  validatsiya xatosi  →  422 + {"message":..., "errors":{...}}
+
+web:  authorize() false   →  403 sahifa
+API:  authorize() false   →  403 {"message":"This action is unauthorized."}</div>
+    <p>🔑 <code>$this-&gt;route('vakansiya')</code> ishlashi uchun parametr
+    nomi <b>aynan</b> <code>vakansiya</code> bo'lishi kerak — yuqoridagi
+    <code>parameters()</code> tuzatishi shu yerda ham asqotdi.</p>
+  </div>
+
+  <h3>Marshrutlar: ochiq va himoyalangan</h3>
+
+  <div class="codefile">
+    <span class="fname">routes/api.php</span>
+    <code class="cmd">Route::apiResource('vakansiyalar', VakansiyaController::class)
+    -&gt;parameters(['vakansiyalar' =&gt; 'vakansiya'])
+    -&gt;names('api.vakansiyalar')
+    -&gt;only(['index', 'show']);                    // o'qish — ochiq
+
+Route::middleware('auth:sanctum')-&gt;group(function () {
+    Route::apiResource('vakansiyalar', VakansiyaController::class)
+        -&gt;parameters(['vakansiyalar' =&gt; 'vakansiya'])
+        -&gt;names('api.vakansiyalar')
+        -&gt;only(['store', 'update', 'destroy'])     // yozish — token bilan
+        -&gt;middleware('abilities:vakansiya:yozish');
+
+    Route::delete('/token', [TokenController::class, 'ochir']);
+    Route::get('/user', fn (Request $request) =&gt; $request-&gt;user());
+});</code>
+  </div>
+
+  <p><code>only([...])</code> — «faqat shu amallarni yasa». Teskarisi ham
+  bor: <code>except([...])</code>.</p>
+
+  <p class="expect">🔍 Bir resursni ikki marta e'lon qilish g'alati
+  ko'rinishi mumkin, lekin bu <b>oddiy naqsh</b>: o'qish hammaga ochiq,
+  yozish esa token va huquq talab qiladi. 44-darsdagi
+  <code>abilities</code> ham shu guruhga tegishli.</p>
+
+  <!-- ═══════════════ 6) UPDATE VA DESTROY ═══════════════ -->
+  <h2><code>update</code>: PUT va PATCH</h2>
+
+  <div class="natija">PUT|PATCH  api/vakansiyalar/{vakansiya}  →  update()</div>
+
+  <p>Ikkala fe'l <b>bitta</b> metodga tushadi. Farqi kodda emas,
+  <b>ma'noda</b>:</p>
+
+  <div class="natija">PUT    →  yozuvni TO'LIQ almashtirish  («mana yangi holati»)
+PATCH  →  faqat berilgan maydonlarni yangilash  («shu ikkitasini o'zgartir»)</div>
+
+  <p class="expect"><b>O'lchangan:</b> ikkalasi ham <b>200</b> qaytardi va
+  yangilangan obyektni berdi. Amalda ko'p loyihalar ikkalasini ham bir xil
+  ishlatadi — lekin fe'lni to'g'ri tanlash mijozga <b>nima kutishini</b>
+  aytadi.</p>
+
+  <div class="natija">PUT   /api/vakansiyalar/5   →  200   data.nom = "Yangilangan nom"
+PATCH /api/vakansiyalar/5   →  200   data.nom = "PATCH bilan nom"</div>
+
+  <h2><code>destroy</code>: 204 No Content</h2>
+
+  <div class="natija">return response()-&gt;noContent();</div>
+
+  <p><b>O'lchangan:</b></p>
+
+  <div class="natija">DELETE /api/vakansiyalar/5
+
+status                : 204
+javob tanasi uzunligi : 0 bayt</div>
+
+  <p><b>204 No Content</b> — «ish bajarildi, qaytaradigan narsa yo'q».
+  O'chirilgan yozuvni qaytarish mantiqsiz bo'lardi: u endi <b>yo'q</b>.</p>
+
+  <div class="natija">200  →  ish bajarildi, mana natija
+201  →  yangi narsa yaratildi, mana u
+204  →  ish bajarildi, tana BO'SH</div>
+
+  <p class="expect">⚠️ 204 javobda tana bo'lmagani uchun mijoz
+  <code>response.json()</code> qilsa <b>xato</b> oladi. To'g'ri kod avval
+  statusni tekshiradi:</p>
+
+  <div class="natija">if (r.status === 204) { /* muvaffaqiyat, o'qiydigan narsa yo'q */ }</div>
+
+  <!-- ═══════════════ 7) TEST ═══════════════ -->
+  <h2>CRUD testlari</h2>
+
+  <p>Bir necha testda bir xil tayyorgarlik takrorlanadi — Pest'da uni
+  oddiy funksiyaga chiqarish mumkin:</p>
+
+  <div class="codefile">
+    <span class="fname">tests/Feature/ApiCrudTest.php</span>
+    <code class="cmd">function ishBeruvchiTokeni(): User
+{
+    $user = User::factory()-&gt;create(['rol' =&gt; Rol::IshBeruvchi]);
+
+    Sanctum::actingAs($user, ['vakansiya:oqish', 'vakansiya:yozish']);
+
+    return $user;
+}
+
+test('egasi vakansiyani tahrirlaydi', function () {
+    $egasi = ishBeruvchiTokeni();
+    $vakansiya = Vakansiya::factory()-&gt;for($egasi, 'egasi')-&gt;create(['nom' =&gt; 'Eski nom']);
+
+    $this-&gt;putJson("/api/vakansiyalar/{$vakansiya-&gt;id}", [
+        'nom' =&gt; 'Yangilangan nom',
+        'maosh' =&gt; 5000000,
+    ])
+        -&gt;assertOk()
+        -&gt;assertJsonPath('data.nom', 'Yangilangan nom')
+        -&gt;assertJsonPath('data.maosh_matni', "5 000 000 so'm");
+
+    $this-&gt;assertDatabaseHas(Vakansiya::class, [
+        'id' =&gt; $vakansiya-&gt;id,
+        'nom' =&gt; 'Yangilangan nom',
+    ]);
+});
+
+test('egasi vakansiyani o\'chiradi va 204 keladi', function () {
+    $egasi = ishBeruvchiTokeni();
+    $vakansiya = Vakansiya::factory()-&gt;for($egasi, 'egasi')-&gt;create();
+
+    $javob = $this-&gt;deleteJson("/api/vakansiyalar/{$vakansiya-&gt;id}");
+
+    $javob-&gt;assertNoContent();
+    expect($javob-&gt;getContent())-&gt;toBe('');
+
+    $this-&gt;assertModelMissing($vakansiya);
+});
+
+test('begona vakansiyani tahrirlay va o\'chira olmaydi', function () {
+    $egasi = User::factory()-&gt;create(['rol' =&gt; Rol::IshBeruvchi]);
+    $vakansiya = Vakansiya::factory()-&gt;for($egasi, 'egasi')-&gt;create(['nom' =&gt; 'Asl nom']);
+
+    ishBeruvchiTokeni();                       // ← boshqa ish beruvchi
+
+    $this-&gt;putJson("/api/vakansiyalar/{$vakansiya-&gt;id}", ['nom' =&gt; 'Bosqinchi nom', 'maosh' =&gt; 100])
+        -&gt;assertForbidden()
+        -&gt;assertJsonPath('message', 'This action is unauthorized.');
+
+    $this-&gt;deleteJson("/api/vakansiyalar/{$vakansiya-&gt;id}")-&gt;assertForbidden();
+
+    $this-&gt;assertDatabaseHas(Vakansiya::class, ['id' =&gt; $vakansiya-&gt;id, 'nom' =&gt; 'Asl nom']);
+});</code>
+  </div>
+
+  <div class="natija">✓ egasi vakansiyani tahrirlaydi                     0.14s
+✓ PATCH ham PUT kabi ishlaydi                       0.01s
+✓ egasi vakansiyani o'chiradi va 204 keladi         0.01s
+✓ begona vakansiyani tahrirlay va o'chira olmaydi   0.01s
+✓ tahrirlashda ham validatsiya ishlaydi             0.01s
+✓ mavjud bo'lmagan vakansiyada 404                  0.01s
+✓ tokensiz tahrirlab bo'lmaydi                      0.01s
+
+Tests:    7 passed (23 assertions)</div>
+
+  <p class="expect">🔑 Oxirgi uch testga e'tibor bering — ular
+  <b>uch qatlamni</b> tekshiryapti: validatsiya (<b>422</b>), mavjudlik
+  (<b>404</b>) va token (<b>401</b>). Har biri boshqa sababdan
+  to'sadi.</p>
+
+  <!-- ═══════════════ 8) HAR XIL HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir bir marta o'qib chiqing,
+  keyin kerak bo'lganda qaytib qarang.</p>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 1</span>
+    <h4>Parametr nomi ko'plikda qolishi</h4>
+    <div class="natija">api/vakansiyalar/{vakansiyalar}    ⚠️
+public function show(Vakansiya $vakansiya)  ← nom mos emas
+
+GET   →  200, lekin data NULL
+PUT   →  500, "Attempt to read property \"id\" on null"</div>
+    <p>Eng xavfli tomoni — <code>show</code> <b>200</b> qaytaradi. Xato
+    yo'qdek ko'rinadi, mijoz esa bo'sh ma'lumot oladi.</p>
+    <p>✅ <code>-&gt;parameters(['vakansiyalar' =&gt; 'vakansiya'])</code>.</p>
+    <p>🔍 Tashxis: <code>php artisan route:list --path=api</code> va
+    parametr nomiga qarang. U metod argumentining nomi bilan <b>aynan</b>
+    mos bo'lishi kerak.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 2</span>
+    <h4>Marshrut nomlari to'qnashuvi</h4>
+    <div class="natija">route('vakansiyalar.index')  →  /api/vakansiyalar   ⚠️ web emas!</div>
+    <p>Bir nom ikki marta ro'yxatdan o'tsa <b>oxirgisi</b> g'olib.
+    <code>api.php</code> keyin yuklanadi — demak API g'olib chiqadi va web
+    ilovangiz jimgina buziladi.</p>
+    <p>✅ <code>-&gt;names('api.vakansiyalar')</code> yoki butun faylni
+    <code>Route::name('api.')-&gt;group(...)</code> ichiga oling.</p>
+    <p>🔍 Tashxis: <code>php artisan route:list --name=vakansiyalar</code> —
+    bir xil nom ikki marta chiqsa, muammo shu.
+    <br>🔑 Bu xatoni <b>web testlari</b> tutdi, API testlari emas.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 3</span>
+    <h4><code>--api</code> bayrog'i</h4>
+    <div class="natija">make:controller X            →  bo'sh klass
+make:controller X --api      →  index, store, show, update, destroy
+make:controller X --resource →  + create, edit  (web uchun)</div>
+    <p>Skelet metodlarning <b>nomini</b> to'g'ri yozib beradi — va bu
+    muhim: <code>apiResource</code> aynan shu nomlarni qidiradi.</p>
+    <p>⚠️ Metod nomini o'zgartirsangiz (masalan <code>ochirish</code>),
+    <code>apiResource</code> uni <b>topolmaydi</b> — 33-darsdagi policy
+    metod nomlari bilan bir xil kelishuv.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 4</span>
+    <h4>204 va bo'sh tana</h4>
+    <div class="natija">status: 204   tana: 0 bayt
+
+// mijoz tomonda:
+const d = await r.json();     ⚠️ xato — o'qiydigan narsa yo'q
+if (r.status === 204) { ... } ✅</div>
+    <p>204 «muvaffaqiyat, lekin qaytaradigan narsa yo'q» degani.</p>
+    <p>🔍 Muqobil yondashuv ham bor: <code>200</code> qaytarib
+    <code>{"xabar": "O'chirildi"}</code> berish. Ikkalasi ham to'g'ri —
+    muhimi <b>bir xil</b> qilish va hujjatda yozish.</p>
+    <p>✅ <code>assertNoContent()</code> — testda 204 ni tekshirishning
+    qisqa yo'li.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 5</span>
+    <h4>PUT va PATCH farqi</h4>
+    <div class="natija">PUT|PATCH  →  ikkalasi ham update() ga tushadi</div>
+    <p>Laravel farq qilmaydi. Farq <b>ma'noda</b>: PUT — to'liq almashtirish,
+    PATCH — qisman yangilash.</p>
+    <p>⚠️ Bizning <code>VakansiyaRequest</code> da <code>nom</code> va
+    <code>maosh</code> <b>ikkalasi ham</b> <code>required</code>. Ya'ni
+    amalda bizda faqat <b>PUT</b> mantiqi ishlaydi: PATCH yuborsangiz ham
+    hamma maydonni berishingiz kerak.</p>
+    <p>✅ Haqiqiy PATCH kerak bo'lsa, qoidalarni <code>sometimes</code>
+    bilan yumshating yoki alohida Form Request yozing.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 6</span>
+    <h4><code>only()</code> va <code>except()</code></h4>
+    <div class="natija">-&gt;only(['index', 'show'])              →  faqat shu ikkitasi
+-&gt;except(['destroy'])                  →  o'chirishdan tashqari hammasi</div>
+    <p>Bir resursni ikki marta e'lon qilish normal: bir qismi ochiq,
+    boshqasi himoyalangan.</p>
+    <p>⚠️ Ikkala e'londa ham <code>parameters()</code> va
+    <code>names()</code> ni <b>takrorlash</b> kerak — ular guruhga emas,
+    e'lonning o'ziga tegishli.</p>
+    <p>🔍 Shu takrorlanishdan qochish uchun ba'zilar hammasini bitta
+    <code>apiResource</code> qilib, himoyani <b>controller ichida</b>
+    (<code>authorize</code>) qo'yadi. Ikkala uslub ham uchraydi.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>404 qachon chiqadi</h4>
+    <div class="natija">GET    /api/vakansiyalar/999999   →  404
+PUT    /api/vakansiyalar/999999   →  404
+DELETE /api/vakansiyalar/999999   →  404</div>
+    <p>Route model binding modelni topolmasa <b>404</b> beradi — controller
+    metodi <b>umuman ishlamaydi</b>.</p>
+    <p>🔑 Muhim tartib: <b>401</b> (token) → <b>403</b> (huquq) →
+    <b>404</b> (yozuv) → <b>422</b> (ma'lumot). Tokensiz so'rov mavjud
+    bo'lmagan yozuvga yuborilsa — <b>401</b> keladi, 404 emas.</p>
+    <p>🔍 Bu ataylab: mavjud bo'lmagan yozuv haqida ma'lumot berishdan
+    oldin <b>kim ekaningizni</b> aniqlash kerak. 30-darsdagi
+    <i>user enumeration</i> fikri bilan bir oiladan.</p>
+  </div>
+
+  <!-- ═══════════════ 9) AMALIYOT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    <span class="mode-hint-title">💻 Amaliy qism kompyuterda</span>
+    <p>Amaliyotda API'ni to'liq CRUD'ga aylantirasiz. Yo'lda <b>ikkita</b>
+    jimgina buziladigan holatni ataylab ko'rasiz: ko'plik parametr
+    (200 lekin bo'sh ma'lumot) va marshrut nomlari to'qnashuvi
+    (web ilova buziladi).</p>
+    <button type="button" class="modebtn" data-set-mode="do">💻 Amaliyot rejimini ko'rish</button>
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <p>Ikki generatorni solishtiring</p>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+php artisan make:controller Api/SinovController --api
+grep 'public function' app/Http/Controllers/Api/SinovController.php
+rm app/Http/Controllers/Api/SinovController.php">cd ~/Projects/Learn/ishtop
+php artisan make:controller Api/SinovController --api
+grep 'public function' app/Http/Controllers/Api/SinovController.php
+rm app/Http/Controllers/Api/SinovController.php
+<span class="out">index · store · show · update · destroy       ← beshta</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> beshta metod.
+        <code>create</code> va <code>edit</code> <b>yo'q</b> — API'da forma
+        sahifalari kerak emas.</p>
+      </li>
+
+      <li>
+        <p>⚠️ Avval <code>parameters()</code> siz yozing</p>
+        <div class="cmd" data-cmd="# routes/api.php — vakansiya marshrutlarini shunga almashtiring:
+
+Route::apiResource('vakansiyalar', VakansiyaController::class)
+    -&gt;only(['index', 'show']);"># routes/api.php — vakansiya marshrutlarini shunga almashtiring:
+
+Route::apiResource('vakansiyalar', VakansiyaController::class)
+    -&gt;only(['index', 'show']);</div>
+        <div class="cmd" data-cmd="php artisan route:list --path=api/vakansiyalar">php artisan route:list --path=api/vakansiyalar
+<span class="out">GET|HEAD  api/vakansiyalar/{vakansiyalar}    ← ⚠️ KO'PLIKDA</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> parametr
+        <code>{vakansiyalar}</code>. Endi controllerda
+        <code>show(Vakansiya $vakansiya)</code> deb yozing va sinang —
+        <b>200</b> keladi, lekin <code>data.nom</code> <code>null</code>
+        bo'ladi.</p>
+      </li>
+
+      <li>
+        <p>Bir qatorda tuzating</p>
+        <div class="cmd" data-cmd="# routes/api.php
+
+Route::apiResource('vakansiyalar', VakansiyaController::class)
+    -&gt;parameters(['vakansiyalar' =&gt; 'vakansiya'])
+    -&gt;only(['index', 'show']);"># routes/api.php
+
+Route::apiResource('vakansiyalar', VakansiyaController::class)
+    -&gt;parameters(['vakansiyalar' =&gt; 'vakansiya'])
+    -&gt;only(['index', 'show']);</div>
+        <div class="cmd" data-cmd="php artisan route:list --path=api/vakansiyalar">php artisan route:list --path=api/vakansiyalar
+<span class="out">GET|HEAD  api/vakansiyalar/{vakansiya}       ← ✅</span></div>
+      </li>
+
+      <li>
+        <p>Controllerni to'liq CRUD'ga o'tkazing</p>
+        <div class="cmd" data-cmd="# app/Http/Controllers/Api/VakansiyaController.php
+
+    public function show(Vakansiya $vakansiya)
+    {
+        return VakansiyaResource::make($vakansiya-&gt;load('kompaniya'));
+    }
+
+    public function store(VakansiyaRequest $request)
+    {
+        $vakansiya = Vakansiya::create(
+            $request-&gt;validated() + ['user_id' =&gt; $request-&gt;user()-&gt;id]
+        );
+
+        return VakansiyaResource::make($vakansiya-&gt;fresh())
+            -&gt;response()
+            -&gt;setStatusCode(201);
+    }
+
+    public function update(VakansiyaRequest $request, Vakansiya $vakansiya)
+    {
+        $vakansiya-&gt;update($request-&gt;validated());
+
+        return VakansiyaResource::make($vakansiya-&gt;fresh());
+    }
+
+    public function destroy(Request $request, Vakansiya $vakansiya)
+    {
+        $this-&gt;authorize('delete', $vakansiya);
+
+        $vakansiya-&gt;delete();
+
+        return response()-&gt;noContent();
+    }"># app/Http/Controllers/Api/VakansiyaController.php
+
+    public function show(Vakansiya $vakansiya)
+    {
+        return VakansiyaResource::make($vakansiya-&gt;load('kompaniya'));
+    }
+
+    public function store(VakansiyaRequest $request)
+    {
+        $vakansiya = Vakansiya::create(
+            $request-&gt;validated() + ['user_id' =&gt; $request-&gt;user()-&gt;id]
+        );
+
+        return VakansiyaResource::make($vakansiya-&gt;fresh())
+            -&gt;response()
+            -&gt;setStatusCode(201);
+    }
+
+    public function update(VakansiyaRequest $request, Vakansiya $vakansiya)
+    {
+        $vakansiya-&gt;update($request-&gt;validated());
+
+        return VakansiyaResource::make($vakansiya-&gt;fresh());
+    }
+
+    public function destroy(Request $request, Vakansiya $vakansiya)
+    {
+        $this-&gt;authorize('delete', $vakansiya);
+
+        $vakansiya-&gt;delete();
+
+        return response()-&gt;noContent();
+    }</div>
+        <p class="why-step">🔑 <code>update()</code> uch qator: validatsiya
+        ham, huquq ham 35-darsdagi <code>VakansiyaRequest</code> ichida.</p>
+      </li>
+
+      <li>
+        <p>Yozish amallarini himoyalang</p>
+        <div class="cmd" data-cmd="# routes/api.php
+
+Route::middleware('auth:sanctum')-&gt;group(function () {
+    Route::apiResource('vakansiyalar', VakansiyaController::class)
+        -&gt;parameters(['vakansiyalar' =&gt; 'vakansiya'])
+        -&gt;only(['store', 'update', 'destroy'])
+        -&gt;middleware('abilities:vakansiya:yozish');
+
+    Route::delete('/token', [TokenController::class, 'ochir']);
+    Route::get('/user', fn (Request $request) =&gt; $request-&gt;user());
+});"># routes/api.php
+
+Route::middleware('auth:sanctum')-&gt;group(function () {
+    Route::apiResource('vakansiyalar', VakansiyaController::class)
+        -&gt;parameters(['vakansiyalar' =&gt; 'vakansiya'])
+        -&gt;only(['store', 'update', 'destroy'])
+        -&gt;middleware('abilities:vakansiya:yozish');
+
+    Route::delete('/token', [TokenController::class, 'ochir']);
+    Route::get('/user', fn (Request $request) =&gt; $request-&gt;user());
+});</div>
+        <div class="cmd" data-cmd="php artisan route:list --path=api/vakansiyalar">php artisan route:list --path=api/vakansiyalar
+<span class="out">Showing [5] routes</span></div>
+      </li>
+
+      <li>
+        <p>⚠️ Endi to'liq to'plamni ishga tushiring</p>
+        <div class="cmd" data-cmd="php artisan test">php artisan test
+<span class="out">  ⨯ nomzod ro'yxatdan o'tadi va darhol kiradi</span>
+<span class="out">  ⨯ to'g'ri parol bilan kiriladi</span>
+<span class="out">  ⨯ chiqilgandan keyin mehmon bo'ladi</span>
+<span class="out">  ⨯ ish beruvchi vakansiya qo'sha oladi</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> <b>web</b> testlari
+        qizardi — API'ga tegishli hech nima o'zgarmagan bo'lsa ham!
+        <br>Sababni toping:</p>
+        <div class="cmd" data-cmd="php artisan tinker --execute=&quot;echo route('vakansiyalar.index', [], false);&quot;">php artisan tinker --execute=&quot;echo route('vakansiyalar.index', [], false);&quot;
+<span class="out">/api/vakansiyalar          ← ⚠️ web emas!</span></div>
+        <p class="expect">🔑 <code>apiResource</code> marshrutlarga
+        <code>vakansiyalar.index</code> kabi <b>nom</b> ham berdi — va u
+        web nomlari bilan to'qnashdi. Oxirgi ro'yxatdan o'tgani
+        g'olib.</p>
+      </li>
+
+      <li>
+        <p>Nomlarni ajrating</p>
+        <div class="cmd" data-cmd="# routes/api.php — IKKALA apiResource ga qo'shing:
+
+    -&gt;names('api.vakansiyalar')"># routes/api.php — IKKALA apiResource ga qo'shing:
+
+    -&gt;names('api.vakansiyalar')</div>
+        <div class="cmd" data-cmd="php artisan tinker --execute=&quot;echo route('vakansiyalar.index', [], false), ' | ', route('api.vakansiyalar.index', [], false);&quot;">php artisan tinker --execute=&quot;echo route('vakansiyalar.index', [], false), ' | ', route('api.vakansiyalar.index', [], false);&quot;
+<span class="out">/vakansiyalar | /api/vakansiyalar          ← ✅</span></div>
+        <div class="cmd" data-cmd="php artisan test">php artisan test</div>
+        <p class="expect"><b>Kutilgan natija:</b> web testlari yana yashil.</p>
+      </li>
+
+      <li>
+        <p>CRUD testlarini yozing</p>
+        <div class="cmd" data-cmd="# tests/Feature/ApiCrudTest.php
+
+&lt;?php
+
+use App\Enums\Rol;
+use App\Models\User;
+use App\Models\Vakansiya;
+use Laravel\Sanctum\Sanctum;
+
+function ishBeruvchiTokeni(): User
+{
+    $user = User::factory()-&gt;create(['rol' =&gt; Rol::IshBeruvchi]);
+
+    Sanctum::actingAs($user, ['vakansiya:oqish', 'vakansiya:yozish']);
+
+    return $user;
+}
+
+test('egasi vakansiyani tahrirlaydi', function () {
+    $egasi = ishBeruvchiTokeni();
+    $vakansiya = Vakansiya::factory()-&gt;for($egasi, 'egasi')-&gt;create(['nom' =&gt; 'Eski nom']);
+
+    $this-&gt;putJson(&quot;/api/vakansiyalar/{$vakansiya-&gt;id}&quot;, [
+        'nom' =&gt; 'Yangilangan nom',
+        'maosh' =&gt; 5000000,
+    ])
+        -&gt;assertOk()
+        -&gt;assertJsonPath('data.nom', 'Yangilangan nom');
+});
+
+test('egasi vakansiyani o\'chiradi va 204 keladi', function () {
+    $egasi = ishBeruvchiTokeni();
+    $vakansiya = Vakansiya::factory()-&gt;for($egasi, 'egasi')-&gt;create();
+
+    $javob = $this-&gt;deleteJson(&quot;/api/vakansiyalar/{$vakansiya-&gt;id}&quot;);
+
+    $javob-&gt;assertNoContent();
+    expect($javob-&gt;getContent())-&gt;toBe('');
+
+    $this-&gt;assertModelMissing($vakansiya);
+});
+
+test('begona vakansiyani tahrirlay va o\'chira olmaydi', function () {
+    $egasi = User::factory()-&gt;create(['rol' =&gt; Rol::IshBeruvchi]);
+    $vakansiya = Vakansiya::factory()-&gt;for($egasi, 'egasi')-&gt;create(['nom' =&gt; 'Asl nom']);
+
+    ishBeruvchiTokeni();
+
+    $this-&gt;putJson(&quot;/api/vakansiyalar/{$vakansiya-&gt;id}&quot;, ['nom' =&gt; 'Bosqinchi nom', 'maosh' =&gt; 100])
+        -&gt;assertForbidden()
+        -&gt;assertJsonPath('message', 'This action is unauthorized.');
+
+    $this-&gt;deleteJson(&quot;/api/vakansiyalar/{$vakansiya-&gt;id}&quot;)-&gt;assertForbidden();
+});"># tests/Feature/ApiCrudTest.php
+
+&lt;?php
+
+use App\Enums\Rol;
+use App\Models\User;
+use App\Models\Vakansiya;
+use Laravel\Sanctum\Sanctum;
+
+function ishBeruvchiTokeni(): User
+{
+    $user = User::factory()-&gt;create(['rol' =&gt; Rol::IshBeruvchi]);
+
+    Sanctum::actingAs($user, ['vakansiya:oqish', 'vakansiya:yozish']);
+
+    return $user;
+}
+
+test('egasi vakansiyani tahrirlaydi', function () {
+    $egasi = ishBeruvchiTokeni();
+    $vakansiya = Vakansiya::factory()-&gt;for($egasi, 'egasi')-&gt;create(['nom' =&gt; 'Eski nom']);
+
+    $this-&gt;putJson(&quot;/api/vakansiyalar/{$vakansiya-&gt;id}&quot;, [
+        'nom' =&gt; 'Yangilangan nom',
+        'maosh' =&gt; 5000000,
+    ])
+        -&gt;assertOk()
+        -&gt;assertJsonPath('data.nom', 'Yangilangan nom');
+});
+
+test('egasi vakansiyani o\'chiradi va 204 keladi', function () {
+    $egasi = ishBeruvchiTokeni();
+    $vakansiya = Vakansiya::factory()-&gt;for($egasi, 'egasi')-&gt;create();
+
+    $javob = $this-&gt;deleteJson(&quot;/api/vakansiyalar/{$vakansiya-&gt;id}&quot;);
+
+    $javob-&gt;assertNoContent();
+    expect($javob-&gt;getContent())-&gt;toBe('');
+
+    $this-&gt;assertModelMissing($vakansiya);
+});
+
+test('begona vakansiyani tahrirlay va o\'chira olmaydi', function () {
+    $egasi = User::factory()-&gt;create(['rol' =&gt; Rol::IshBeruvchi]);
+    $vakansiya = Vakansiya::factory()-&gt;for($egasi, 'egasi')-&gt;create(['nom' =&gt; 'Asl nom']);
+
+    ishBeruvchiTokeni();
+
+    $this-&gt;putJson(&quot;/api/vakansiyalar/{$vakansiya-&gt;id}&quot;, ['nom' =&gt; 'Bosqinchi nom', 'maosh' =&gt; 100])
+        -&gt;assertForbidden()
+        -&gt;assertJsonPath('message', 'This action is unauthorized.');
+
+    $this-&gt;deleteJson(&quot;/api/vakansiyalar/{$vakansiya-&gt;id}&quot;)-&gt;assertForbidden();
+});</div>
+        <div class="cmd" data-cmd="php artisan test tests/Feature/ApiCrudTest.php">php artisan test tests/Feature/ApiCrudTest.php</div>
+      </li>
+
+      <li>
+        <p>204 ni <code>curl</code> bilan ko'ring</p>
+        <div class="cmd" data-cmd="php artisan serve">php artisan serve</div>
+        <div class="cmd" data-cmd="curl -s -o /dev/null -w &quot;status: %{http_code}  tana: %{size_download} bayt\n&quot; -X DELETE -H &quot;Accept: application/json&quot; -H &quot;Authorization: Bearer $TOKEN&quot; http://127.0.0.1:8000/api/vakansiyalar/1">curl -s -o /dev/null -w &quot;status: %{http_code}  tana: %{size_download} bayt\n&quot; -X DELETE -H &quot;Accept: application/json&quot; -H &quot;Authorization: Bearer $TOKEN&quot; http://127.0.0.1:8000/api/vakansiyalar/1
+<span class="out">status: 204  tana: 0 bayt</span></div>
+        <p class="expect"><b>Kutilgan natija:</b> <b>204</b> va tana
+        <b>0 bayt</b>.
+        <br>⚠️ Mijoz kodida <code>r.json()</code> qilmang — o'qiydigan narsa
+        yo'q.</p>
+      </li>
+
+      <li>
+        <p>To'liq to'plamni ishga tushiring va saqlang</p>
+        <div class="cmd" data-cmd="php artisan test
+git add -A
+git commit -m &quot;45-dars: apiResource bilan to'liq CRUD&quot;">php artisan test
+git add -A
+git commit -m &quot;45-dars: apiResource bilan to'liq CRUD&quot;
+<span class="out">  Tests:    60 passed (184 assertions)</span></div>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><input type="checkbox" id="d45c1"><label for="d45c1"><code>--api</code> skeleti beshta metod berishini ko'rdim</label></li>
+      <li><input type="checkbox" id="d45c2"><label for="d45c2"><b>Ko'plik parametr bilan binding jimgina buzilishini ko'rdim</b> ⚠️</label></li>
+      <li><input type="checkbox" id="d45c3"><label for="d45c3"><code>parameters()</code> bilan tuzatdim</label></li>
+      <li><input type="checkbox" id="d45c4"><label for="d45c4">Route model binding bilan <code>findOrFail</code> dan qutuldim</label></li>
+      <li><input type="checkbox" id="d45c5"><label for="d45c5"><code>update</code> va <code>destroy</code> qo'shdim</label></li>
+      <li><input type="checkbox" id="d45c6"><label for="d45c6"><b>Nom to'qnashuvi web testlarini buzganini ko'rdim</b> ⚠️</label></li>
+      <li><input type="checkbox" id="d45c7"><label for="d45c7"><code>names('api.vakansiyalar')</code> bilan ajratdim</label></li>
+      <li><input type="checkbox" id="d45c8"><label for="d45c8">35-darsdagi Form Request API'da ham ishlaganini tasdiqladim</label></li>
+      <li><input type="checkbox" id="d45c9"><label for="d45c9"><b>204 va bo'sh tanani <code>curl</code> bilan ko'rdim</b></label></li>
+      <li><input type="checkbox" id="d45c10"><label for="d45c10">Begona 403 olishini test bilan qulfladim</label></li>
+      <li><input type="checkbox" id="d45c11"><label for="d45c11">60 test yashil, commit qildim</label></li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 10) SINAB KO'RAMIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Dasturchi API'ni <code>apiResource</code> ga o'tkazdi va API
+    testlarini ishga tushirdi:</p>
+    <div class="codefile">
+      <div class="fname">routes/api.php</div>
+      <code class="cmd" data-cmd="Route::apiResource('vakansiyalar', VakansiyaController::class)
+    -&gt;parameters(['vakansiyalar' =&gt; 'vakansiya']);">Route::apiResource('vakansiyalar', VakansiyaController::class)
+    -&gt;parameters(['vakansiyalar' =&gt; 'vakansiya']);</code>
+    </div>
+    <div class="natija">php artisan test --filter=Api
+
+Tests:    15 passed        ← API testlari YASHIL</div>
+    <p>U xursand bo'lib commit qildi. Ertasi kuni foydalanuvchi yozdi:
+    «vakansiya qo'shsam, sahifa o'rniga JSON chiqyapti». Nima
+    bo'ldi?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <div class="natija">route('vakansiyalar.index')  →  /api/vakansiyalar     ⚠️
+
+// web controllerdagi:
+return redirect()-&gt;route('vakansiyalar.index');   →  API manziliga!</div>
+        <p><code>apiResource</code> marshrutlarga <b>nom</b> ham beradi:
+        <code>vakansiyalar.index</code>, <code>vakansiyalar.store</code>…
+        Bu nomlar <code>routes/web.php</code> dagilar bilan <b>aynan bir
+        xil</b>.</p>
+        <p class="expect">⚠️ Bir nom ikki marta ro'yxatdan o'tsa
+        <b>oxirgisi</b> g'olib chiqadi. <code>api.php</code> keyin
+        yuklanadi — demak <code>route()</code> helperi endi <b>API
+        manzilini</b> qaytaradi.</p>
+        <p>🔑 Nega API testlari <b>tutmadi</b>? Chunki ular API
+        manzillarini <b>to'g'ridan-to'g'ri</b> yozadi
+        (<code>'/api/vakansiyalar'</code>), <code>route()</code> helperini
+        ishlatmaydi. Muammo <b>web</b> tomonda edi.</p>
+        <div class="natija">--filter=Api      →  15 passed     ⚠️ chalg'ituvchi
+to'liq to'plam    →  5 ta web testi QIZIL</div>
+        <p>✅ Yechim:</p>
+        <div class="natija">-&gt;names('api.vakansiyalar')
+
+route('vakansiyalar.index')      →  /vakansiyalar
+route('api.vakansiyalar.index')  →  /api/vakansiyalar</div>
+        <p>🔍 <b>Ikkita saboq:</b></p>
+        <div class="natija">1) Commit oldidan TO'LIQ to'plamni ishlating — filtr bilan emas
+   (37-darsda aytilgan edi)
+
+2) API o'zgarishi web tomonni buzishi mumkin — nomlar UMUMIY makon</div>
+        <p><b>Tashxis:</b>
+        <code>php artisan route:list --name=vakansiyalar</code> — bir xil nom
+        ikki marta chiqsa, muammo shu.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span>
+    <code>apiResource</code> va <code>resource</code> farqi nimada?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">apiResource beshta resource yettita marshrut</button></li>
+      <li><button class="quiz-option">Ikkalasi ham yettita marshrut yasaydi</button></li>
+      <li><button class="quiz-option">apiResource faqat GET marshrutlarni yasaydi</button></li>
+    </ul>
+    <div class="quiz-explain">Farq <code>create</code> va <code>edit</code>
+    da — ular <b>HTML forma sahifalari</b>. API'da forma yo'q, shuning uchun
+    ular ham kerak emas.
+    🔍 <code>make:controller X --api</code> ham aynan beshta metodli skelet
+    beradi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span> O'zbekcha resurs
+    nomida parametr bilan nima bo'ladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Parametr ko'plikda chiqadi binding buziladi</button></li>
+      <li><button class="quiz-option">Parametr birlikka avtomatik aylantirib beriladi</button></li>
+      <li><button class="quiz-option">Parametr nomi umuman ahamiyatsiz bo'ladi</button></li>
+    </ul>
+    <div class="quiz-explain"><code>{vakansiyalar}</code> bo'lib qoladi va
+    <code>show(Vakansiya $vakansiya)</code> bilan mos kelmaydi.
+    ⚠️ Eng xavflisi — <b>xato chiqmaydi</b>: <code>show</code> <b>200</b>
+    qaytaradi, lekin ma'lumot <code>null</code>.
+    ✅ <code>-&gt;parameters(['vakansiyalar' =&gt; 'vakansiya'])</code>.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span> <b>204</b> javobi
+    nimani bildiradi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">204 javob tanasi bo'sh bo'ladi</button></li>
+      <li><button class="quiz-option">204 o'chirilgan yozuvni qaytarib beradi</button></li>
+      <li><button class="quiz-option">204 xato yuz berganini bildiradi</button></li>
+    </ul>
+    <div class="quiz-explain">«Ish bajarildi, qaytaradigan narsa yo'q».
+    O'lchandi: tana <b>0 bayt</b>.
+    ⚠️ Mijoz <code>r.json()</code> qilsa xato oladi — avval statusni
+    tekshirishi kerak. Testda <code>assertNoContent()</code>.</div>
+  </div>
+
+  <!-- ═══════════════ 11) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+    <p class="recall-intro">Avval o'zingiz javob bering, keyin ochib tekshiring.
+    Oxirgi ikkitasi — <a href="0044-sanctum-token.html">44-darsni</a> takrorlash.</p>
+
+    <details class="recall">
+      <summary>Route model binding qanday ishlaydi?</summary>
+      <div class="answer"><p>Laravel marshrut parametrining <b>nomini</b>
+      metod argumentining <b>nomi</b> bilan solishtiradi. Mos kelsa modelni
+      topadi, topolmasa <b>404</b>. Nomlar mos kelmasa — binding
+      <b>jimgina</b> ishlamaydi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Nega <code>names()</code> berish majburiy?</summary>
+      <div class="answer"><p><code>apiResource</code>
+      <code>vakansiyalar.index</code> kabi nom beradi va u
+      <code>web.php</code> dagi nom bilan to'qnashadi. Oxirgisi g'olib —
+      <code>route()</code> helperi API manzilini qaytara boshlaydi va
+      <b>web ilova buziladi</b>.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>Nega <code>update()</code> uch qator?</summary>
+      <div class="answer"><p>Validatsiya ham, huquq tekshiruvi ham
+      35-darsdagi <code>VakansiyaRequest</code> ichida. U
+      <code>$this-&gt;route('vakansiya')</code> orqali yaratish va
+      tahrirlashni ajratadi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: token bazada qanday saqlanadi?</summary>
+      <div class="answer"><p>Faqat <code>hash('sha256', $sirli_qism)</code>.
+      Ochiq token bazada <b>yo'q</b> — shuning uchun u bir marta
+      ko'rsatiladi.</p></div>
+    </details>
+
+    <details class="recall">
+      <summary>↩︎ Takrorlash: uchta himoya qatlami qaysilar?</summary>
+      <div class="answer"><p><b>401</b> <code>Unauthenticated.</code> —
+      token yo'q · <b>403</b> <code>Invalid ability provided.</code> —
+      token huquqi · <b>403</b> <code>This action is unauthorized.</code> —
+      policy.</p></div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 12) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Cho'ntak xulosasi</span>
+    <ul>
+      <li><code>Route::apiResource</code> — <b>beshta</b> marshrut,
+      <code>Route::resource</code> — <b>yettita</b>. Farq
+      <code>create</code>/<code>edit</code> forma sahifalarida.</li>
+      <li><code>make:controller X --api</code> — aynan beshta metodli
+      skelet. ⚠️ Metod nomlari <b>kelishuv</b>, o'zgartirilmaydi.</li>
+      <li>Route model binding: <code>string $id</code> +
+      <code>findOrFail</code> o'rniga <code>Vakansiya $vakansiya</code>.
+      Topilmasa <b>404</b>.</li>
+      <li>⚠️ <b>O'zbekcha nom tuzog'i (uchinchi marta):</b> parametr
+      <code>{vakansiyalar}</code> bo'lib qoladi va binding <b>jimgina</b>
+      buziladi — <code>show</code> <b>200</b> beradi, ma'lumot esa
+      <code>null</code>.</li>
+      <li>✅ <code>-&gt;parameters(['vakansiyalar' =&gt; 'vakansiya'])</code>.
+      Naqsh: <code>$table</code> (25) · factory <code>has()</code> (39) ·
+      <code>apiResource</code> (45).</li>
+      <li>⚠️ <b>Nom to'qnashuvi:</b> <code>apiResource</code>
+      <code>vakansiyalar.index</code> nomini beradi va u web nomi bilan
+      to'qnashadi. Oxirgisi g'olib →
+      <code>route('vakansiyalar.index')</code> API manzilini qaytaradi va
+      <b>web ilova buziladi</b>.</li>
+      <li>✅ <code>-&gt;names('api.vakansiyalar')</code> yoki
+      <code>Route::name('api.')-&gt;group(...)</code>.</li>
+      <li>🔑 Bu xatoni <b>web testlari</b> tutdi. <code>--filter=Api</code>
+      bilan ishlatilganda to'plam yashil ko'rinardi — <b>commit oldidan
+      to'liq to'plam</b>.</li>
+      <li><code>update</code>: <b>PUT</b> to'liq almashtirish,
+      <b>PATCH</b> qisman. Laravel ikkalasini bir metodga tushiradi; farq
+      <b>ma'noda</b>.</li>
+      <li>⚠️ Qoidalarda hamma maydon <code>required</code> bo'lsa, amalda
+      faqat PUT mantiqi ishlaydi. Haqiqiy PATCH uchun
+      <code>sometimes</code>.</li>
+      <li><code>destroy</code> → <code>response()-&gt;noContent()</code> →
+      <b>204</b>, tana <b>0 bayt</b> (o'lchandi). Testda
+      <code>assertNoContent()</code>.</li>
+      <li>Statuslar: <b>200</b> mana natija · <b>201</b> yaratildi ·
+      <b>204</b> bajarildi, tana yo'q.</li>
+      <li>35-darsdagi <code>VakansiyaRequest</code> <b>API'da ham</b>
+      ishlaydi — bitta qator o'zgartirmasdan. Javob shaklini Laravel
+      <code>Accept</code> ga qarab tanlaydi.</li>
+      <li><code>only([...])</code> / <code>except([...])</code> — bir
+      resursni ikki guruhga bo'lish. ⚠️ <code>parameters()</code> va
+      <code>names()</code> <b>har ikkala</b> e'londa takrorlanadi.</li>
+      <li>🔑 To'siqlar tartibi: <b>401</b> token → <b>403</b> huquq →
+      <b>404</b> yozuv → <b>422</b> ma'lumot.</li>
+      <li><b>Natija:</b> 60 test, 184 tekshiruv — to'liq CRUD API
+      qulflandi.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p>API endi to'liq: beshta amal, token himoyasi, policy va boshqariladigan
+    javob shakli. Lekin <code>index</code> hali ham <b>oxirgi 10 tasini</b>
+    qaytaradi — xolos.</p>
+    <p>Mijozga esa boshqa narsa kerak: «Toshkentdagi faol vakansiyalar»,
+    «maosh bo'yicha saralangan», «ikkinchi sahifa».</p>
+    <p>46-darsda <b>filtr, qidiruv va saralash</b> qo'shamiz. 29-darsdagi
+    <code>when()</code>, scope va <code>paginate()</code> API'da qanday
+    ishlashini ko'ramiz — va nihoyat <code>data</code> yonida
+    <code>links</code> bilan <code>meta</code> paydo bo'ladi.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel — Resource Controllers</b>:
+    <a href="https://laravel.com/docs/13.x/controllers#api-resource-routes">apiResource,
+    only, except, parameters, names</a>.<sup><a href="#fn1">1</a></sup><br>
+    <b>Route Model Binding</b>:
+    <a href="https://laravel.com/docs/13.x/routing#route-model-binding">laravel.com/docs/13.x/routing</a>.<sup><a href="#fn2">2</a></sup><br>
+    <b>MDN — 204 No Content</b>:
+    <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/204">developer.mozilla.org</a>.<sup><a href="#fn3">3</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b> «ichma-ich resurs
+    qanday bo'ladi (<code>/kompaniyalar/5/vakansiyalar</code>)?»,
+    «<code>shallow()</code> nima?», «id o'rniga <code>slug</code> bilan
+    topish mumkinmi?», «bir nechta yozuvni birdan o'chirsam bo'ladimi?» —
+    har qanday savol yaxshi. Uchinchisiga qisqa javob: <b>ha</b> — modelda
+    <code>getRouteKeyName()</code> ni <code>'slug'</code> qilib qaytaring,
+    binding o'sha ustun bo'yicha qidiradi. Ikkinchisi esa ichma-ich
+    resurslarga tegishli: <code>shallow()</code> «bitta yozuv bilan
+    ishlashda ota-resursni manzilda takrorlamaslik» degani —
+    <code>/vakansiyalar/5</code>, <code>/kompaniyalar/5/vakansiyalar</code>
+    emas.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0044-sanctum-token.html">Oldingi: Sanctum</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel 13 — <a href="https://laravel.com/docs/13.x/controllers#api-resource-routes">API Resource Routes</a>.</li>
+      <li id="fn2">Laravel 13 — <a href="https://laravel.com/docs/13.x/routing#route-model-binding">Route Model Binding</a>.</li>
+      <li id="fn3">MDN — <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/204">204 No Content</a>.</li>
+      <li id="fn4">Barchasi jonli o'lchangan (PHP 8.3.32, Laravel 13.25.0,
+      Pest 4.7.8): <code>apiResource</code> → <b>5</b> marshrut,
+      <code>resource</code> → <b>7</b> (<code>create</code>,
+      <code>edit</code> qo'shimcha) ·
+      <code>make:controller --api</code> → index, store, show, update,
+      destroy ·
+      <code>parameters()</code> siz parametr <code>{vakansiyalar}</code>
+      bo'lib qoldi: <code>show</code> <b>200</b> lekin
+      <code>data.nom</code> <code>NULL</code>, <code>update</code>
+      <b>500</b> <code>Attempt to read property "id" on null</code> ·
+      <code>parameters(['vakansiyalar' =&gt; 'vakansiya'])</code> dan keyin
+      binding ishladi ·
+      ⚠️ nom to'qnashuvi: <code>route('vakansiyalar.index')</code> →
+      <code>/api/vakansiyalar</code>, natijada <b>5 ta web testi</b> qizardi;
+      <code>names('api.vakansiyalar')</code> dan keyin
+      <code>/vakansiyalar</code> va <code>/api/vakansiyalar</code> ajraldi ·
+      <code>destroy</code> → <b>204</b>, javob tanasi <b>0 bayt</b> ·
+      PUT va PATCH ikkalasi <b>200</b> ·
+      begona ish beruvchi update/destroy → <b>403</b>
+      <code>This action is unauthorized.</code> ·
+      tokensiz → <b>401</b>, mavjud emas → <b>404</b>, xato ma'lumot →
+      <b>422</b> ·
+      CRUD testlari <b>7 passed (23 assertions)</b>, to'liq to'plam
+      <b>60 passed (184 assertions), 1.98s</b>.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

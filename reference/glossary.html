@@ -18,7 +18,7 @@
   izoh esa o'zbekcha.</p>
 
   <p class="lesson-meta">
-    <span>Atamalar: <b>177 ta</b></span>
+    <span>Atamalar: <b>180 ta</b></span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>📱 O'qishga mos</span>
   </p>
@@ -26,7 +26,7 @@
   <div class="callout note">
     <span class="label">Bu hujjat o'sib boradi</span>
     <p>Atama faqat <b>o'z darsi yozilganda</b> qo'shiladi — oldindan emas. Hozir:
-    Modul A–F (1–44-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
+    Modul A–F (1–45-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
     bosqichida qat'iy belgilangan va 73 dars bo'ylab o'zgarmaydi).</p>
   </div>
 
@@ -1301,6 +1301,48 @@
       <code>@can('create', App\Models\Vakansiya::class)</code> — Blade'da
       <code>use</code> yo'q, to'liq yo'l yoziladi.
       <span class="eg">@can('delete', $v) &lt;button&gt;O'chirish&lt;/button&gt; @endcan</span></dd>
+    </div>
+
+    <div class="term" id="api-resource-route">
+      <dt>apiResource <span class="uz">— beshta CRUD marshruti</span></dt>
+      <dd><code>Route::apiResource('vakansiyalar', X::class)</code> →
+      <code>index</code>, <code>store</code>, <code>show</code>,
+      <code>update</code>, <code>destroy</code>.
+      <code>Route::resource</code> esa <b>yettita</b> — unda
+      <code>create</code> va <code>edit</code> HTML forma sahifalari ham bor.
+      <code>make:controller X --api</code> mos skelet beradi.
+      ⚠️ Amallarni tanlash: <code>-&gt;only([...])</code> /
+      <code>-&gt;except([...])</code> — ochiq va himoyalangan guruhlar uchun.
+      <span class="eg">-&gt;only(['index', 'show'])</span></dd>
+    </div>
+
+    <div class="term" id="route-model-binding">
+      <dt>route model binding <span class="uz">— parametrdan modelga</span></dt>
+      <dd><code>show(Vakansiya $vakansiya)</code> — Laravel marshrut
+      parametrining <b>nomini</b> argument nomi bilan solishtiradi va modelni
+      o'zi topadi (topilmasa <b>404</b>). <code>findOrFail</code> kerak emas.
+      ⚠️ <b>O'zbekcha nom tuzog'i:</b>
+      <code>apiResource('vakansiyalar', ...)</code> parametrni
+      <code>{vakansiyalar}</code> qilib qoldiradi va binding <b>jimgina</b>
+      buziladi — <code>show</code> <b>200</b> beradi, ma'lumot
+      <code>null</code>.
+      ✅ <code>-&gt;parameters(['vakansiyalar' =&gt; 'vakansiya'])</code>.
+      <span class="eg">public function show(Vakansiya $vakansiya)</span></dd>
+    </div>
+
+    <div class="term" id="marshrut-nom-toqnashuvi">
+      <dt>marshrut nomlari to'qnashuvi <span class="uz">— umumiy makon</span></dt>
+      <dd>⚠️ <code>apiResource</code> marshrutlarga
+      <code>vakansiyalar.index</code> kabi nom beradi.
+      <code>routes/web.php</code> da xuddi shu nom bo'lsa —
+      <b>oxirgisi g'olib</b> (<code>api.php</code> keyin yuklanadi).
+      Natijada <code>route('vakansiyalar.index')</code> API manzilini
+      qaytaradi va <b>web ilova jimgina buziladi</b>.
+      ✅ <code>-&gt;names('api.vakansiyalar')</code> yoki
+      <code>Route::name('api.')-&gt;group(...)</code>.
+      🔍 Tashxis: <code>php artisan route:list --name=vakansiyalar</code>.
+      🔑 Bu xatoni <b>web testlari</b> tutadi, API testlari emas.
+      <span class="eg">route('api.vakansiyalar.index')  →  /api/vakansiyalar</span></dd>
     </div>
 
     <div class="term" id="sanctum">
