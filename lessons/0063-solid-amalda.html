@@ -1,0 +1,1477 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 63 — SOLID amalda</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 63 · MODUL I — ISHLAB CHIQARISHGA TAYYORGARLIK</p>
+  <h1>SOLID — amalda</h1>
+  <p class="lead">Ta'riflarni yodlamaymiz. Beshta tamoyilning
+  har birini <b>o'z kodimizdan</b> topamiz — to'rttasini
+  biz allaqachon to'g'ri qilgan ekanmiz, bittasini esa
+  <b>buzgan ekanmiz</b>. Va bu buzilish jim turgan:
+  <b>xato yo'q, xabar yo'qoladi</b>.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 19 daqiqa</span>
+    <span>💻 Amaliyot ≈ 30 daqiqa</span>
+    <span>Kerak: <a href="0062-service-va-action.html">Dars 62</a></span>
+  </p>
+
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b>SOLID nima uchun kerak</b>
+        <span class="nima">Qoida emas — <b>og'riqning
+        nomi</b>.</span></li>
+      <li><b>S — bitta sabab</b>
+        <span class="nima">62-darsdagi refaktor
+        aynan shu edi.</span></li>
+      <li><b>O — ochiq/yopiq</b>
+        <span class="nima">🔍 <code>SmsXabar</code>
+        qo'shilganda interfeys
+        <b>o'zgarmadi</b>.</span></li>
+      <li><b>⭐ L — o'rnini bosish</b>
+        <span class="nima">🔍 O'z kodimizda
+        <b>buzilgan</b> — o'lchandi.</span></li>
+      <li><b>🔍 Matn qayerga ketdi?</b>
+        <span class="nima"><code>EmailXabar</code>
+        <code>$matn</code> ni <b>tashlab
+        yuborar</b> ekan.</span></li>
+      <li><b>I — interfeys ajratish</b>
+        <span class="nima">🔍 Kengaytirsak:
+        <code>Fatal error ... contains 2 abstract
+        methods</code>.</span></li>
+      <li><b>D — bog'liqlikni ag'darish</b>
+        <span class="nima">🔍
+        <code>config</code> o'zgardi → sinf
+        o'zgardi, listener
+        <b>tegilmadi</b>.</span></li>
+      <li><b>Shartnoma testi</b>
+        <span class="nima">🔍 Bitta test —
+        <b>uchala</b> amalga oshirishni
+        tekshiradi.</span></li>
+      <li><b>🔍 Testlash qiyinligi — signal</b>
+        <span class="nima"><code>Mail::fake()</code>
+        <code>Mail::raw()</code> ni <b>yozib
+        olmaydi</b>.</span></li>
+      <li><b>Konteyner cheklovi</b>
+        <span class="nima">🔍
+        <code>Unresolvable dependency ... string
+        $kalit</code>.</span></li>
+      <li><b>⚠️ SOLID ni haddan oshirish</b>
+        <span class="nima">Har sinfga interfeys —
+        <b>yomon</b> maslahat.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima">Meros · Enum · shartnoma
+        hujjati · <code>final</code> ·
+        qachon <b>e'tibor bermaslik</b>.</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">SOLID — qoida emas, og'riqning nomi</span>
+    <p>SOLID — beshta tamoyilning bosh harflaridan tuzilgan
+    so'z. Ular ko'pincha «qoida» sifatida
+    o'rgatiladi va yodlanadi. Bu — <b>eng foydasiz
+    yo'l</b>.</p>
+    <p>Aslida har bir tamoyil — <b>oldin ko'p marta
+    uchragan og'riqning nomi</b>:</p>
+    <div class="natija">S  →  "bu faylni o'zgartirsam, aloqasiz narsa buzilyapti"
+O  →  "yangi turini qo'shish uchun eski kodni ochishga to'g'ri kelyapti"
+L  →  "interfeys bir xil, lekin xulqi boshqacha chiqdi"
+I  →  "bu metod menga kerak emas, lekin yozishga majburman"
+D  →  "test yozolmayapman, chunki ichida aniq sinf qotib qolgan"</div>
+    <p>🔑 Shuning uchun bugun ta'riflardan emas,
+    <b>kodimizdan</b> boshlaymiz. Har tamoyil
+    uchun: <b>bizda qanday ko'rinadi?</b></p>
+    <p>Va oxirida — <b>eng muhim savol</b>: qachon
+    SOLID ga e'tibor bermaslik kerak?</p>
+  </div>
+
+  <!-- ═══════════════ 2) S ═══════════════ -->
+  <h2>S — Single Responsibility (bitta mas'uliyat)</h2>
+
+  <p>Ko'p aytiladigan ta'rif: «sinf faqat bitta ish
+  qilsin». Bu <b>noaniq</b> — <code>Vakansiya</code>
+  modeli o'nlab ish qiladi.</p>
+
+  <p>Aniqroq ta'rif (Robert Martin'ning o'zi
+  keyinroq shunday aytgan):</p>
+
+  <div class="natija">Sinfning o'zgarishiga BITTA sabab bo'lsin.</div>
+
+  <p>62-darsdagi <code>index()</code> ni eslang. Uni
+  o'zgartirishga <b>to'rtta</b> sabab bor edi:</p>
+
+  <div class="natija">1) tekshirish qoidasi o'zgardi
+2) yangi tartib qo'shildi
+3) yangi filtr qo'shildi
+4) javob shakli o'zgardi</div>
+
+  <p>Ajratgandan keyin har sabab <b>o'z fayliga</b>
+  tegadi:</p>
+
+  <div class="natija">tekshirish  →  VakansiyaQidiruvRequest
+tartib/filtr →  VakansiyaQidiruvi
+javob        →  VakansiyaResource
+HTTP         →  VakansiyaController  (6 qator)</div>
+
+  <div class="callout tip">
+    <span class="label">🔑 Amaliy sinov</span>
+    <p>Faylni ochishdan oldin savol bering: «buni
+    <b>kim</b> o'zgartirishni so'raydi?»</p>
+    <div class="natija">tekshirish qoidasi  →  biznes egasi
+tartib xaritasi     →  mahsulot menejeri
+javob shakli        →  mobil dasturchi
+status kodi         →  backend dasturchi</div>
+    <p>Bir faylda <b>bir necha odamning</b> talabi
+    yashasa — u fayl bo'linishga tayyor.</p>
+  </div>
+
+  <!-- ═══════════════ 3) O ═══════════════ -->
+  <h2>O — Open/Closed (kengaytirishga ochiq, o'zgarishga yopiq)</h2>
+
+  <p>50-darsda <code>XabarYuboruvchi</code> interfeysini
+  yozgandik:</p>
+
+  <div class="natija">interface XabarYuboruvchi
+{
+    public function yubor(string $kimga, string $matn): string;
+}</div>
+
+  <p>Keyin <code>LogXabar</code>, <code>EmailXabar</code>
+  va <code>SmsXabar</code> paydo bo'ldi. Savol:
+  <b>ular qo'shilganda interfeys yoki listener
+  o'zgardimi?</b></p>
+
+  <div class="natija">interfeys metodlari: yubor
+LogXabar     implements XabarYuboruvchi?  HA
+EmailXabar   implements XabarYuboruvchi?  HA
+SmsXabar     implements XabarYuboruvchi?  HA</div>
+
+  <p>Interfeysda hamon <b>bitta</b> metod.
+  <code>XabarYubor</code> listeneri esa uch
+  amalga oshirishning <b>hech birini
+  bilmaydi</b>:</p>
+
+  <div class="natija">class XabarYubor
+{
+    public function __construct(private XabarYuboruvchi $xabar) {}
+
+    public function handle(VakansiyaYaratildi $event): void
+    {
+        $this->xabar->yubor(..., ...);
+    }
+}</div>
+
+  <p>Bu — OCP. Yangi kanal qo'shish uchun
+  <b>yangi fayl</b> yoziladi, eskilari
+  <b>ochilmaydi</b>.</p>
+
+  <p>Ikkinchi misol — 62-darsdagi
+  <code>TARTIBLAR</code>:</p>
+
+  <div class="natija">public const TARTIBLAR = [
+    'nom' => ['nom', 'asc'],
+    ...
+    'yangi' => ['created_at', 'desc'],
+];</div>
+
+  <p>Yangi tartib qo'shish uchun massivga bitta qator
+  qo'shiladi. <code>soRov()</code> metodi
+  <b>tegilmaydi</b> — va tekshirish qoidasi ham
+  o'zi yangilanadi
+  (<code>Rule::in(array_keys(...))</code>).</p>
+
+  <!-- ═══════════════ 4) ⭐ L ═══════════════ -->
+  <h2>⭐ L — Liskov Substitution (o'rnini bosish)</h2>
+
+  <p>Ta'rif: <b>interfeysni amalga oshirgan har sinf
+  boshqasining o'rnini bosa olishi kerak</b> —
+  chaqiruvchi farqni sezmasin.</p>
+
+  <p>Bizda uchta amalga oshirish bor va ular
+  <b>bir xil</b> interfeysni bajaradi. Demak
+  hammasi joyida? Tekshiramiz.</p>
+
+  <p>Uchalasiga <b>bir xil</b> matn beramiz:</p>
+
+  <div class="natija">$y->yubor('a@b.uz', 'SALOM-MATNIM');
+
+  LogXabar   qaytardi: log     ✅
+  SmsXabar   qaytardi: sms     ✅
+  EmailXabar qaytardi: email   ✅</div>
+
+  <p>Uchalasi ham ishladi. Xato yo'q. Endi
+  <b>natijani</b> tekshiramiz:</p>
+
+  <div class="natija">yuborilgan xat: 1 ta
+
+xat ichida 'SALOM-MATNIM' bormi?   YO'Q   ⚠️  MATN YO'QOLDI
+xat ichida vakansiya nomi bormi?   HA</div>
+
+  <div class="callout warn">
+    <span class="label">⚠️ Sababi kodda</span>
+    <div class="natija">class EmailXabar implements XabarYuboruvchi
+{
+    public function yubor(string $kimga, string $matn): string
+    {
+        $vakansiya = Vakansiya::latest('id')->first();    // ← qayerdan?
+
+        Mail::to($kimga)->send(new VakansiyaEloni($vakansiya));
+
+        return 'email';                                   // ← $matn QAYERDA?
+    }
+}</div>
+    <p><code>$matn</code> parametri qabul qilinadi va
+    <b>hech qayerda ishlatilmaydi</b>. Uning
+    o'rniga sinf bazadan <b>oxirgi
+    vakansiyani</b> olib, o'sha haqida xat
+    yuboradi.</p>
+    <p>Ya'ni: kimdir «Salom, parolingiz tiklandi» deb
+    yuborsa, foydalanuvchi <b>butunlay boshqa</b>
+    xat oladi.</p>
+    <p class="expect">🔑 Va PHP buni tutmaydi:
+    parametr <b>ishlatilmasa ham</b> tip
+    to'g'ri, imzo to'g'ri, interfeys
+    bajarilgan.</p>
+  </div>
+
+  <h3>Ikkinchi buzilish: kutilmagan xato</h3>
+
+  <p>Endi bazada vakansiya <b>bo'lmasa</b> nima
+  bo'ladi?</p>
+
+  <div class="natija">LogXabar  (bo'sh jadval)  ->  'log'                    ✅
+SmsXabar  (bo'sh jadval)  ->  'sms'                    ✅
+EmailXabar (bo'sh jadval) ->  TypeError                ⚠️
+
+TypeError: App\Mail\VakansiyaEloni::__construct():
+Argument #1 ($vakansiya) must be of type App\Models\Vakansiya, null given</div>
+
+  <p>Bu ikkinchi LSP buzilishi va u birinchisidan ham
+  jiddiyroq: <code>EmailXabar</code> chaqiruvchidan
+  <b>qo'shimcha shart</b> talab qiladi — «bazada
+  kamida bitta vakansiya bo'lsin». Interfeysda
+  bunday shart <b>yozilmagan</b>.</p>
+
+  <div class="callout tip">
+    <span class="label">🔑 LSP buzilishining ikki turi</span>
+    <div class="natija">1) SHART QATTIQLASHDI  →  "menga qo'shimcha narsa kerak"
+                          (EmailXabar: bazada vakansiya bo'lsin)
+
+2) VA'DA KUCHSIZLASHDI →  "so'raganingizni qilmadim"
+                          ($matn ni tashlab yubordi)</div>
+    <p>Ikkalasi ham <b>tipda ko'rinmaydi</b>. Ularni
+    faqat <b>test</b> tutadi.</p>
+  </div>
+
+  <h3>✅ Tuzatish</h3>
+
+  <div class="natija">class EmailXabar implements XabarYuboruvchi
+{
+    public function yubor(string $kimga, string $matn): string
+    {
+        Mail::to($kimga)->send(new XabarMaktubi($matn));   // $matn ISHLATILDI
+
+        return 'email';
+    }
+}</div>
+
+  <p>Tuzatgandan keyin qayta o'lchadik:</p>
+
+  <div class="natija">  LogXabar   -> log
+  SmsXabar   -> sms
+  EmailXabar -> email
+  yuborilgan xat: 1 ta
+  matn saqlandimi? HA                        ✅
+  bo'sh jadvalda EmailXabar: email           ✅ (xato yo'q)</div>
+
+  <!-- ═══════════════ 5) SHARTNOMA TESTI ═══════════════ -->
+  <h2>Shartnoma testi — LSP ni mixlash</h2>
+
+  <p>Buzilish qaytmasligi uchun <b>bitta</b> test
+  yozamiz va uni <b>hamma</b> amalga oshirishga
+  qo'llaymiz. Pest'da bu <code>dataset</code>
+  bilan qilinadi:</p>
+
+  <div class="codefile">
+    <div class="fname">tests/Feature/ShartnomaTest.php</div>
+    <code class="cmd">dataset('yuboruvchilar', [
+    'log' =&gt; fn () =&gt; new LogXabar,
+    'sms' =&gt; fn () =&gt; new SmsXabar('sinov-kalit'),
+    'email' =&gt; fn () =&gt; new EmailXabar,
+]);
+
+it('shartnomani bajaradi', function (XabarYuboruvchi $yuboruvchi) {
+    Mail::fake();
+
+    $natija = $yuboruvchi-&gt;yubor('kimdir@ishtop.uz', 'Sinov matni');
+
+    expect($natija)-&gt;toBeString()-&gt;not-&gt;toBeEmpty();
+})-&gt;with('yuboruvchilar');
+
+it('bo\'sh bazada ham xato bermaydi', function (XabarYuboruvchi $yuboruvchi) {
+    Mail::fake();
+
+    expect(fn () =&gt; $yuboruvchi-&gt;yubor('kimdir@ishtop.uz', 'Sinov matni'))
+        -&gt;not-&gt;toThrow(Throwable::class);
+})-&gt;with('yuboruvchilar');
+
+it('email yuboruvchi matnni yo\'qotmaydi', function () {
+    Mail::fake();
+
+    (new EmailXabar)-&gt;yubor('kimdir@ishtop.uz', 'ANIQ-MATN-123');
+
+    Mail::assertSent(XabarMaktubi::class, function (XabarMaktubi $xat) {
+        return $xat-&gt;matn === 'ANIQ-MATN-123'
+            &amp;&amp; str_contains((string) $xat-&gt;render(), 'ANIQ-MATN-123');
+    });
+});</code>
+  </div>
+
+  <div class="natija">✓ it shartnomani bajaradi with dataset "log"
+✓ it shartnomani bajaradi with dataset "sms"
+✓ it shartnomani bajaradi with dataset "email"
+✓ it bo'sh bazada ham xato bermaydi with dataset "log"
+✓ it bo'sh bazada ham xato bermaydi with dataset "sms"
+✓ it bo'sh bazada ham xato bermaydi with dataset "email"
+✓ it email yuboruvchi matnni yo'qotmaydi
+
+Tests: 7 passed (10 assertions)</div>
+
+  <div class="callout tip">
+    <span class="label">🔑 Nega bu naqsh qimmatli</span>
+    <p>Ertaga kimdir <code>TelegramXabar</code> yozsa,
+    u <code>dataset</code> ga bir qator qo'shadi —
+    va <b>ikkita test darrov</b> uni tekshiradi.</p>
+    <p>✅ Shartnoma testi — interfeysning
+    <b>bajarilishi mumkin bo'lgan hujjati</b>.
+    Kommentariya emas, <b>o'lchov</b>.</p>
+  </div>
+
+  <!-- ═══════════════ 6) I ═══════════════ -->
+  <h2>I — Interface Segregation (interfeysni ajratish)</h2>
+
+  <p>Ta'rif: <b>hech kim ishlatmaydigan metodni
+  yozishga majbur bo'lmasin</b>.</p>
+
+  <p>Bizning interfeysda bitta metod bor. Uni
+  «boyitib» ko'ramiz — jadvalga qo'yish va bekor
+  qilish qo'shamiz:</p>
+
+  <div class="natija">interface XabarYuboruvchi
+{
+    public function yubor(string $kimga, string $matn): string;
+    public function jadvalga(string $kimga, string $matn, DateTimeInterface $qachon): string;
+    public function bekorQil(string $id): bool;
+}</div>
+
+  <p>Natija:</p>
+
+  <div class="natija">PHP Fatal error:  Class App\Xizmatlar\LogXabar contains 2 abstract methods
+and must therefore be declared abstract or implement the remaining methods
+(App\Xizmatlar\XabarYuboruvchi::jadvalga, App\Xizmatlar\XabarYuboruvchi::bekorQil)</div>
+
+  <div class="callout warn">
+    <span class="label">⚠️ Interfeysni kengaytirish — buzuvchi o'zgarish</span>
+    <p>Bitta faylga ikki qator qo'shdik —
+    <b>uchala</b> sinf ham buzildi. Va ilova
+    umuman ishga tushmaydi.</p>
+    <p>Endi tanlov: har uchalasiga <code>jadvalga()</code>
+    yozish kerak. Lekin <code>LogXabar</code> logga
+    yozadi — u qanday «jadvalga qo'yadi»? Odatda
+    shunday bo'ladi:</p>
+    <div class="natija">public function jadvalga(...): string
+{
+    throw new BadMethodCallException('Qo\'llab-quvvatlanmaydi');   ⚠️ LSP BUZILDI
+}</div>
+    <p>Ya'ni ISP buzilishi <b>LSP buzilishiga</b>
+    olib keladi — tamoyillar bir-biriga
+    bog'liq.</p>
+    <p>✅ To'g'ri yechim — <b>ikkinchi interfeys</b>:</p>
+    <div class="natija">interface XabarYuboruvchi   { public function yubor(...): string; }
+interface JadvalliYuboruvchi { public function jadvalga(...): string; }
+
+class EmailXabar implements XabarYuboruvchi, JadvalliYuboruvchi { }
+class LogXabar   implements XabarYuboruvchi { }                     ✅ tegilmadi</div>
+  </div>
+
+  <p>🔑 Amaliy qoida: <b>agar amalga oshirishlardan
+  birortasi metodni «qo'llab-quvvatlamaydi» desa —
+  u metod noto'g'ri interfeysda.</b></p>
+
+  <!-- ═══════════════ 7) D ═══════════════ -->
+  <h2>D — Dependency Inversion (bog'liqlikni ag'darish)</h2>
+
+  <p>Ta'rif: <b>yuqori qatlam pastki qatlamga emas,
+  ikkalasi ham abstraksiyaga tayansin</b>.</p>
+
+  <p>Bizda: listener <code>EmailXabar</code> ni emas,
+  <code>XabarYuboruvchi</code> ni so'raydi. Qaysi
+  amalga oshirish kelishini
+  <b>provayder</b> hal qiladi (50-dars):</p>
+
+  <div class="natija">$this->app->singleton(
+    XabarYuboruvchi::class,
+    fn () => match (config('ishtop.xabar_drayveri')) {
+        'email' => new EmailXabar(),
+        default => new LogXabar(),
+    }
+);</div>
+
+  <p>Sinab ko'rdik — faqat <b>sozlamani</b>
+  o'zgartirib:</p>
+
+  <div class="natija">config('ishtop.xabar_drayveri') = 'log'
+app(XabarYuboruvchi::class)     = App\Xizmatlar\LogXabar
+
+drayver 'email' bo'lgach        = App\Xizmatlar\EmailXabar</div>
+
+  <p>Listener kodi <b>bir harf ham</b>
+  o'zgarmadi.</p>
+
+  <div class="callout tip">
+    <span class="label">🔑 «Ag'darish» nimasi ag'darilgan?</span>
+    <div class="natija">ODATIY (ag'darilmagan):
+   Listener  ──tayanadi──>  EmailXabar
+   (yuqori qatlam pastkisini BILADI)
+
+AG'DARILGAN:
+   Listener  ──tayanadi──>  XabarYuboruvchi  <──bajaradi──  EmailXabar
+   (ikkalasi ham O'RTADAGI abstraksiyaga tayanadi)</div>
+    <p>E'tibor bering: <b>interfeys kimga
+    tegishli?</b> U <code>App\Xizmatlar</code> da —
+    ya'ni <b>ilovaga</b> tegishli, email
+    kutubxonasiga emas. Shuning uchun ham
+    «ag'darilgan».</p>
+  </div>
+
+  <h3>🔍 Yon topilma: konteyner nimani yasay olmaydi</h3>
+
+  <div class="natija">app(SmsXabar::class)
+
+BindingResolutionException: Unresolvable dependency resolving
+[Parameter #0 [ <required> string $kalit ]] in class App\Xizmatlar\SmsXabar</div>
+
+  <p>62-darsdagi qoida shu yerda ko'rindi:
+  konstruktorda <b>oddiy qiymat</b> (matn, son)
+  bo'lsa — konteyner uni o'zi topa olmaydi,
+  provayderda bog'lash kerak.</p>
+
+  <!-- ═══════════════ 8) TESTLASH SIGNALI ═══════════════ -->
+  <h2>🔍 Testlash qiyinligi — dizayn signali</h2>
+
+  <p>Buzilishni tuzatishda birinchi urinishimiz
+  <code>Mail::raw()</code> edi — eng qisqa yo'l:</p>
+
+  <div class="natija">Mail::raw($matn, fn (Message $xat) => $xat->to($kimga)->subject('IshTop xabari'));</div>
+
+  <p>Ishladi. Lekin testni yozmoqchi
+  bo'lganimizda:</p>
+
+  <div class="natija">Mail::fake();
+(new EmailXabar)->yubor('a@b.uz', 'ANIQ-MATN-123');
+
+MailFake ichida:
+   mailables:       0 ta        ⚠️
+   queuedMailables: 0 ta        ⚠️</div>
+
+  <p><code>Mail::fake()</code> <b>Mailable
+  obyektlarini</b> yozib oladi. <code>Mail::raw()</code>
+  esa hech qanday Mailable yaratmaydi — demak
+  tekshirib bo'lmaydi.</p>
+
+  <div class="callout tip">
+    <span class="label">🔑 Bu — foydali signal</span>
+    <p>«Testlash qiyin» degani ko'pincha «dizayn
+    noto'g'ri» degani.</p>
+    <p>Yechim testni majburlash emas edi —
+    <b>to'g'ri obyekt yaratish</b>
+    (<code>XabarMaktubi</code> mailable'i). Va
+    natijada kod ham yaxshilandi: xatning mavzusi va
+    ko'rinishi endi <b>bitta joyda</b>.</p>
+    <p>✅ Test yozolmayotgan bo'lsangiz, avval
+    <b>kodga</b> qarang, testga emas.</p>
+  </div>
+
+  <!-- ═══════════════ 9) HADDAN OSHIRISH ═══════════════ -->
+  <h2>⚠️ Eng muhim bo'lim: qachon e'tibor bermaslik</h2>
+
+  <p>SOLID o'rganganlar ko'pincha bir xil xatoga
+  tushadi — <b>hamma joyga</b> qo'llash.</p>
+
+  <div class="natija">❌ interface VakansiyaYaratuvchiInterface { }
+   class VakansiyaYarat implements VakansiyaYaratuvchiInterface { }
+   // bitta amalga oshirish. Hech qachon ikkinchisi bo'lmaydi.</div>
+
+  <p>Bu — <b>foyda emas, soliq</b>. Endi har
+  o'zgarishda ikki fayl ochiladi, «bu metod
+  qayerda?» degan savolga javob bir qadam
+  uzoqlashdi.</p>
+
+  <div class="callout warn">
+    <span class="label">🔑 Interfeys qachon kerak?</span>
+    <div class="natija">✅ KERAK:
+   1) HAQIQATAN ikki yoki undan ko'p amalga oshirish bor
+      (XabarYuboruvchi: log, email, sms)
+   2) testda o'rnini bosuvchi kerak
+      (tashqi API, to'lov tizimi)
+   3) chegara — boshqa jamoa/paket bilan kelishuv
+
+❌ KERAK EMAS:
+   1) "kelajakda kerak bo'lar"
+   2) bitta amalga oshirish bor va bo'ladi
+   3) "SOLID shunday deydi"</div>
+    <p>🔍 Bizning ilovamizda <b>bitta</b> interfeys bor
+    — <code>XabarYuboruvchi</code>. Uchta amalga
+    oshirish bilan. Qolgan barcha sinflar
+    interfeyssiz — va bu <b>to'g'ri</b>.</p>
+  </div>
+
+  <p>🔑 Eng foydali fikr: <b>SOLID ni oldindan emas,
+  og'riq paydo bo'lganda qo'llang.</b> Og'riq
+  — bu «yana o'sha faylni ochyapman»,
+  «testni yozolmayapman», «ikkinchi turini
+  qo'shish uchun uchta joyni
+  o'zgartirdim».</p>
+
+  <!-- ═══════════════ 10) HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir
+  bir marta o'qing, keyin kerak bo'lganda qaytib
+  qarang.</p>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 1</span>
+    <h4>Merosda LSP buzilishi</h4>
+    <div class="natija">class Kvadrat extends Turtburchak
+{
+    public function enBer(int $en): void { $this->en = $this->boy = $en; }
+    public function boyBer(int $boy): void { $this->en = $this->boy = $boy; }
+}
+
+$t->enBer(5); $t->boyBer(4);
+echo $t->yuza();      //  Turtburchak: 20      Kvadrat: 16   ⚠️</div>
+    <p>Klassik misol. Matematikada kvadrat —
+    to'rtburchakning turi. Kodda esa
+    <b>emas</b>: u ota-sinfning va'dasini
+    buzadi.</p>
+    <p>✅ Shuning uchun Laravel'da meros kam
+    ishlatiladi: <b>interfeys</b> va
+    <b>trait</b> afzal.</p>
+    <p>🔑 Sinov: «ota-sinf o'rniga bolani qo'ysam,
+    <b>hech kim</b> sezmaydimi?»</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 2</span>
+    <h4>Enum — OCP ning eng oddiy shakli</h4>
+    <div class="natija">enum Rol: string
+{
+    case Admin = 'admin';
+    case Ishberuvchi = 'ishberuvchi';
+
+    public function tahrirlashiMumkinmi(): bool
+    {
+        return match ($this) {
+            self::Admin => true,
+            self::Ishberuvchi => false,
+        };
+    }
+}</div>
+    <p>Yangi rol qo'shsangiz, PHP
+    <code>match</code> da <b>xato beradi</b> —
+    «UnhandledMatchError». Ya'ni til o'zi eslatadi:
+    «bu yerni ham yangila».</p>
+    <p>✅ Bu <code>if/else</code> zanjiridan
+    yaxshiroq: u <b>indamay</b>
+    <code>false</code> qaytaradi.</p>
+    <p>🔑 <code>default =&gt;</code> yozmaslik —
+    ataylab qilingan tanlov.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 3</span>
+    <h4>Shartnomani hujjatlash</h4>
+    <div class="natija">interface XabarYuboruvchi
+{
+    /**
+     * Xabarni yuboradi.
+     *
+     * @param  string  $kimga  Qabul qiluvchi manzili
+     * @param  string  $matn   Yuboriladigan matn — O'ZGARTIRILMASDAN yetkaziladi
+     * @return string  Ishlatilgan kanal nomi ('log', 'email', 'sms')
+     *
+     * Bazaga yoki tashqi holatga TAYANMASLIGI kerak.
+     * Yuborilmasa istisno tashlaydi, jimgina qaytmaydi.
+     */
+    public function yubor(string $kimga, string $matn): string;
+}</div>
+    <p>✅ Tipda ko'rinmaydigan va'dalarni
+    <b>yozib qo'ying</b>: nima kafolatlanadi,
+    nimaga tayanilmaydi, xato qanday
+    beriladi.</p>
+    <p>⚠️ Lekin kommentariya <b>tekshirilmaydi</b>.
+    Shuning uchun eng muhim va'dalar
+    <b>shartnoma testida</b> bo'lsin.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 4</span>
+    <h4><code>final</code> va <code>readonly</code></h4>
+    <div class="natija">final class VakansiyaYarat { }          // meros olinmasin
+final class XabarMaktubi extends Mailable { }
+
+readonly class Filtr                     // yaratilgach o'zgarmasin
+{
+    public function __construct(
+        public ?string $q,
+        public ?string $shahar,
+    ) {}
+}</div>
+    <p><code>final</code> — «bu sinfdan meros
+    olmang». LSP buzilishining eng ko'p
+    manbasini <b>oldindan yopadi</b>.</p>
+    <p><code>readonly</code> — 62-darsdagi
+    <b>holatsizlik</b> qoidasini til darajasida
+    majburlaydi.</p>
+    <p>🔑 Laravel o'zi <code>final</code> ni kam
+    ishlatadi (kengaytirish qulay bo'lsin deb),
+    lekin <b>sizning</b> ilova kodingizda u
+    foydali.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 5</span>
+    <h4>Yashirin bog'liqlik: fasad va <code>new</code></h4>
+    <div class="natija">❌ class HisobXizmati
+   {
+       public function hisobla(): int
+       {
+           $kurs = new ValyutaKursi();          // qotib qolgan
+           return Cache::get('x') * $kurs->ol(); // fasad — yashirin
+       }
+   }</div>
+    <p>Bu sinfning konstruktori bo'sh — «hech
+    narsaga tayanmaydi» degan taassurot beradi.
+    Aslida esa <b>ikkita</b> bog'liqligi bor,
+    ikkalasi ham <b>ichida yashiringan</b>.</p>
+    <p>✅ Konstruktorga chiqaring:</p>
+    <div class="natija">public function __construct(private ValyutaKursi $kurs) {}</div>
+    <p>🔑 51-darsdan eslang: fasadlar testda
+    almashtiriladi (<code>Cache::fake()</code>),
+    shuning uchun ular <b>chidasa bo'ladi</b>.
+    <code>new</code> esa — yo'q.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 6</span>
+    <h4>SOLID va Laravel'ning o'zi</h4>
+    <div class="natija">Illuminate\Contracts\*        →  o'nlab interfeys (DIP)
+Cache::store('redis')         →  drayverlar bir-birini almashtiradi (LSP)
+Mailable, Notification        →  kengaytirasiz, o'zgartirmaysiz (OCP)
+FormRequest / Resource / Job  →  har biri bitta sabab (SRP)</div>
+    <p>🔍 Ya'ni siz SOLID ni <b>o'rganmasdan
+    oldin</b> ham ishlatib kelgansiz — Laravel
+    uni tuzilishga singdirgan.</p>
+    <p>✅ Shuning uchun «Laravel usuli»da yozish
+    ko'pincha yetarli. Tamoyillar
+    <b>freymvork chegarasidan tashqarida</b> —
+    o'z biznes mantiqingizda kerak
+    bo'ladi.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>Kod ko'rikda beriladigan savollar</h4>
+    <div class="natija">S  →  "bu faylni o'zgartirishga nechta sabab bor?"
+O  →  "yangi turini qo'shsam, nechta faylni ochaman?"
+L  →  "bu sinfni birodari bilan almashtirsam, kim sezadi?"
+I  →  "bu metod hamma amalga oshirishga kerakmi?"
+D  →  "buni testda almashtira olamanmi?"</div>
+    <p>✅ Beshta savol — beshta tamoyil. Ta'rifni
+    eslash shart emas.</p>
+    <p>🔑 Va oltinchi savol, eng muhimi:
+    <b>«hozir bu muammo bormi?»</b> Yo'q bo'lsa —
+    tegmang.</p>
+  </div>
+
+  <!-- ═══════════════ 11) AMALIYOT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    💻 Quyida amaliyot bor. Hozir o'qish rejimidasiz — kompyuter
+    yoningizda bo'lganda <b>💻 Amaliyot</b> rejimiga o'ting va
+    shu bo'limdan davom eting.
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <b>DIP ni o'lchang.</b>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+php artisan tinker --execute='
+use App\Xizmatlar\XabarYuboruvchi;
+echo &quot;  drayver: &quot;, config(&quot;ishtop.xabar_drayveri&quot;), PHP_EOL;
+echo &quot;  sinf:    &quot;, get_class(app(XabarYuboruvchi::class)), PHP_EOL;
+config([&quot;ishtop.xabar_drayveri&quot; => &quot;email&quot;]);
+app()->forgetInstance(XabarYuboruvchi::class);
+echo &quot;  email bo\x27lgach: &quot;, get_class(app(XabarYuboruvchi::class)), PHP_EOL;'">cd ~/Projects/Learn/ishtop
+php artisan tinker --execute='
+use App\Xizmatlar\XabarYuboruvchi;
+echo &quot;  drayver: &quot;, config(&quot;ishtop.xabar_drayveri&quot;), PHP_EOL;
+echo &quot;  sinf:    &quot;, get_class(app(XabarYuboruvchi::class)), PHP_EOL;
+config([&quot;ishtop.xabar_drayveri&quot; =&gt; &quot;email&quot;]);
+app()-&gt;forgetInstance(XabarYuboruvchi::class);
+echo &quot;  email bo\x27lgach: &quot;, get_class(app(XabarYuboruvchi::class)), PHP_EOL;'</div>
+        <p class="expect"><code>LogXabar</code> →
+        <code>EmailXabar</code>. Listener
+        <b>tegilmadi</b>.</p>
+      </li>
+
+      <li>
+        <b>OCP ni tekshiring.</b>
+        <div class="cmd" data-cmd="php artisan tinker --execute='
+use App\Xizmatlar\{XabarYuboruvchi, LogXabar, EmailXabar, SmsXabar};
+$r = new ReflectionClass(XabarYuboruvchi::class);
+echo &quot;  interfeys metodlari: &quot;, implode(&quot;, &quot;, array_map(fn($m) => $m->getName(), $r->getMethods())), PHP_EOL;
+foreach ([LogXabar::class, EmailXabar::class, SmsXabar::class] as $c) {
+    printf(&quot;  %-12s implements? %s\n&quot;, class_basename($c), in_array(XabarYuboruvchi::class, class_implements($c)) ? &quot;HA&quot; : &quot;YOQ&quot;);
+}'">php artisan tinker --execute='
+use App\Xizmatlar\{XabarYuboruvchi, LogXabar, EmailXabar, SmsXabar};
+$r = new ReflectionClass(XabarYuboruvchi::class);
+echo &quot;  interfeys metodlari: &quot;, implode(&quot;, &quot;, array_map(fn($m) =&gt; $m-&gt;getName(), $r-&gt;getMethods())), PHP_EOL;
+foreach ([LogXabar::class, EmailXabar::class, SmsXabar::class] as $c) {
+    printf(&quot;  %-12s implements? %s\n&quot;, class_basename($c), in_array(XabarYuboruvchi::class, class_implements($c)) ? &quot;HA&quot; : &quot;YOQ&quot;);
+}'</div>
+        <p class="expect">Interfeysda <b>bitta</b>
+        metod: <code>yubor</code>.</p>
+      </li>
+
+      <li>
+        <b>⭐ LSP buzilishini o'z ko'zingiz bilan
+        ko'ring.</b>
+        <div class="cmd" data-cmd="php artisan tinker --execute='
+if (App\Models\Vakansiya::count() === 0) { App\Models\Vakansiya::factory()->count(3)->for(App\Models\Kompaniya::factory())->create(); }
+Illuminate\Support\Facades\Mail::fake();
+foreach ([new App\Xizmatlar\LogXabar, new App\Xizmatlar\SmsXabar(&quot;k&quot;), new App\Xizmatlar\EmailXabar] as $y) {
+    printf(&quot;  %-12s -> %s\n&quot;, class_basename($y), $y->yubor(&quot;a@b.uz&quot;, &quot;SALOM-MATNIM&quot;));
+}
+$x = Illuminate\Support\Facades\Mail::queued(App\Mail\VakansiyaEloni::class);
+echo &quot;  yuborilgan xat: &quot;, $x->count(), &quot; ta&quot;, PHP_EOL;
+if ($x->count()) {
+    echo &quot;  xat ichida SALOM-MATNIM bormi? &quot;, str_contains((string) $x->first()->render(), &quot;SALOM-MATNIM&quot;) ? &quot;HA&quot; : &quot;YOQ&quot;, PHP_EOL;
+}'">php artisan tinker --execute='
+if (App\Models\Vakansiya::count() === 0) { App\Models\Vakansiya::factory()-&gt;count(3)-&gt;for(App\Models\Kompaniya::factory())-&gt;create(); }
+Illuminate\Support\Facades\Mail::fake();
+foreach ([new App\Xizmatlar\LogXabar, new App\Xizmatlar\SmsXabar(&quot;k&quot;), new App\Xizmatlar\EmailXabar] as $y) {
+    printf(&quot;  %-12s -&gt; %s\n&quot;, class_basename($y), $y-&gt;yubor(&quot;a@b.uz&quot;, &quot;SALOM-MATNIM&quot;));
+}
+$x = Illuminate\Support\Facades\Mail::queued(App\Mail\VakansiyaEloni::class);
+echo &quot;  yuborilgan xat: &quot;, $x-&gt;count(), &quot; ta&quot;, PHP_EOL;
+if ($x-&gt;count()) {
+    echo &quot;  xat ichida SALOM-MATNIM bormi? &quot;, str_contains((string) $x-&gt;first()-&gt;render(), &quot;SALOM-MATNIM&quot;) ? &quot;HA&quot; : &quot;YOQ&quot;, PHP_EOL;
+}'</div>
+        <p class="expect">⚠️ Uchalasi ham «ishladi»,
+        lekin matn <b>yo'qoldi</b>.</p>
+        <p>🔍 Birinchi qator bazada kamida bitta
+        vakansiya borligini kafolatlaydi —
+        <code>EmailXabar</code> shunga
+        <b>tayanadi</b> (bu ham buzilishning bir
+        qismi, keyingi qadamda ko'ramiz).</p>
+      </li>
+
+      <li>
+        <b>Ikkinchi buzilishni ko'ring — bo'sh
+        jadval.</b>
+        <div class="cmd" data-cmd="php artisan tinker --execute='
+Illuminate\Support\Facades\Mail::fake();
+DB::beginTransaction();
+DB::table(&quot;vakansiyalar&quot;)->delete();
+foreach ([new App\Xizmatlar\LogXabar, new App\Xizmatlar\EmailXabar] as $y) {
+    try { printf(&quot;  %-12s -> %s\n&quot;, class_basename($y), $y->yubor(&quot;a@b.uz&quot;, &quot;x&quot;)); }
+    catch (\Throwable $e) { printf(&quot;  %-12s -> %s\n&quot;, class_basename($y), get_class($e)); }
+}
+DB::rollBack();'">php artisan tinker --execute='
+Illuminate\Support\Facades\Mail::fake();
+DB::beginTransaction();
+DB::table(&quot;vakansiyalar&quot;)-&gt;delete();
+foreach ([new App\Xizmatlar\LogXabar, new App\Xizmatlar\EmailXabar] as $y) {
+    try { printf(&quot;  %-12s -&gt; %s\n&quot;, class_basename($y), $y-&gt;yubor(&quot;a@b.uz&quot;, &quot;x&quot;)); }
+    catch (\Throwable $e) { printf(&quot;  %-12s -&gt; %s\n&quot;, class_basename($y), get_class($e)); }
+}
+DB::rollBack();'</div>
+        <p class="expect">⚠️ <code>LogXabar</code> →
+        <code>log</code>, <code>EmailXabar</code> →
+        <code>TypeError</code>.</p>
+      </li>
+
+      <li>
+        <b>✅ Tuzating — avval Mailable.</b>
+        <div class="cmd" data-cmd="php artisan make:mail XabarMaktubi
+mkdir -p resources/views/emails
+printf '{{ $matn }}\n' > resources/views/emails/xabar.blade.php">php artisan make:mail XabarMaktubi
+mkdir -p resources/views/emails
+printf '{{ $matn }}\n' &gt; resources/views/emails/xabar.blade.php</div>
+        <div class="cmd" data-cmd="# app/Mail/XabarMaktubi.php ichida:
+
+public function __construct(public string $matn) {}
+
+public function envelope(): Envelope
+{
+    return new Envelope(subject: 'IshTop xabari');
+}
+
+public function content(): Content
+{
+    return new Content(text: 'emails.xabar', with: ['matn' => $this->matn]);
+}"># app/Mail/XabarMaktubi.php ichida:
+
+public function __construct(public string $matn) {}
+
+public function envelope(): Envelope
+{
+    return new Envelope(subject: 'IshTop xabari');
+}
+
+public function content(): Content
+{
+    return new Content(text: 'emails.xabar', with: ['matn' =&gt; $this-&gt;matn]);
+}</div>
+      </li>
+
+      <li>
+        <b><code>EmailXabar</code> ni shartnomaga
+        moslang.</b>
+        <div class="cmd" data-cmd="cat > app/Xizmatlar/EmailXabar.php <<'PHPEOF'
+&lt;?php
+
+namespace App\Xizmatlar;
+
+use App\Mail\XabarMaktubi;
+use Illuminate\Support\Facades\Mail;
+
+class EmailXabar implements XabarYuboruvchi
+{
+    public function yubor(string $kimga, string $matn): string
+    {
+        Mail::to($kimga)->send(new XabarMaktubi($matn));
+
+        return 'email';
+    }
+}
+PHPEOF
+php -l app/Xizmatlar/EmailXabar.php">cat &gt; app/Xizmatlar/EmailXabar.php &lt;&lt;'PHPEOF'
+&lt;?php
+
+namespace App\Xizmatlar;
+
+use App\Mail\XabarMaktubi;
+use Illuminate\Support\Facades\Mail;
+
+class EmailXabar implements XabarYuboruvchi
+{
+    public function yubor(string $kimga, string $matn): string
+    {
+        Mail::to($kimga)-&gt;send(new XabarMaktubi($matn));
+
+        return 'email';
+    }
+}
+PHPEOF
+php -l app/Xizmatlar/EmailXabar.php</div>
+      </li>
+
+      <li>
+        <b>Shartnoma testini yozing.</b>
+        <div class="cmd" data-cmd="cat > tests/Feature/ShartnomaTest.php <<'PHPEOF'
+&lt;?php
+
+use App\Mail\XabarMaktubi;
+use App\Xizmatlar\EmailXabar;
+use App\Xizmatlar\LogXabar;
+use App\Xizmatlar\SmsXabar;
+use App\Xizmatlar\XabarYuboruvchi;
+use Illuminate\Support\Facades\Mail;
+
+dataset('yuboruvchilar', [
+    'log' => fn () => new LogXabar,
+    'sms' => fn () => new SmsXabar('sinov-kalit'),
+    'email' => fn () => new EmailXabar,
+]);
+
+it('shartnomani bajaradi', function (XabarYuboruvchi $yuboruvchi) {
+    Mail::fake();
+
+    $natija = $yuboruvchi->yubor('kimdir@ishtop.uz', 'Sinov matni');
+
+    expect($natija)->toBeString()->not->toBeEmpty();
+})->with('yuboruvchilar');
+
+it('bo\'sh bazada ham xato bermaydi', function (XabarYuboruvchi $yuboruvchi) {
+    Mail::fake();
+
+    expect(fn () => $yuboruvchi->yubor('kimdir@ishtop.uz', 'Sinov matni'))
+        ->not->toThrow(Throwable::class);
+})->with('yuboruvchilar');
+
+it('email yuboruvchi matnni yo\'qotmaydi', function () {
+    Mail::fake();
+
+    (new EmailXabar)->yubor('kimdir@ishtop.uz', 'ANIQ-MATN-123');
+
+    Mail::assertSent(XabarMaktubi::class, function (XabarMaktubi $xat) {
+        return $xat->matn === 'ANIQ-MATN-123'
+            && str_contains((string) $xat->render(), 'ANIQ-MATN-123');
+    });
+});
+PHPEOF
+php artisan test tests/Feature/ShartnomaTest.php">cat &gt; tests/Feature/ShartnomaTest.php &lt;&lt;'PHPEOF'
+&lt;?php
+
+use App\Mail\XabarMaktubi;
+use App\Xizmatlar\EmailXabar;
+use App\Xizmatlar\LogXabar;
+use App\Xizmatlar\SmsXabar;
+use App\Xizmatlar\XabarYuboruvchi;
+use Illuminate\Support\Facades\Mail;
+
+dataset('yuboruvchilar', [
+    'log' =&gt; fn () =&gt; new LogXabar,
+    'sms' =&gt; fn () =&gt; new SmsXabar('sinov-kalit'),
+    'email' =&gt; fn () =&gt; new EmailXabar,
+]);
+
+it('shartnomani bajaradi', function (XabarYuboruvchi $yuboruvchi) {
+    Mail::fake();
+
+    $natija = $yuboruvchi-&gt;yubor('kimdir@ishtop.uz', 'Sinov matni');
+
+    expect($natija)-&gt;toBeString()-&gt;not-&gt;toBeEmpty();
+})-&gt;with('yuboruvchilar');
+
+it('bo\'sh bazada ham xato bermaydi', function (XabarYuboruvchi $yuboruvchi) {
+    Mail::fake();
+
+    expect(fn () =&gt; $yuboruvchi-&gt;yubor('kimdir@ishtop.uz', 'Sinov matni'))
+        -&gt;not-&gt;toThrow(Throwable::class);
+})-&gt;with('yuboruvchilar');
+
+it('email yuboruvchi matnni yo\'qotmaydi', function () {
+    Mail::fake();
+
+    (new EmailXabar)-&gt;yubor('kimdir@ishtop.uz', 'ANIQ-MATN-123');
+
+    Mail::assertSent(XabarMaktubi::class, function (XabarMaktubi $xat) {
+        return $xat-&gt;matn === 'ANIQ-MATN-123'
+            &amp;&amp; str_contains((string) $xat-&gt;render(), 'ANIQ-MATN-123');
+    });
+});
+PHPEOF
+php artisan test tests/Feature/ShartnomaTest.php</div>
+        <p class="expect"><b>7 passed</b> — uchala
+        yuboruvchi ham shartnomani bajaradi.</p>
+      </li>
+
+      <li>
+        <b>⚠️ ISP ni sinang — interfeysni ataylab
+        kengaytiring.</b>
+        <div class="cmd" data-cmd="cp app/Xizmatlar/XabarYuboruvchi.php /tmp/iface.bak
+cat > app/Xizmatlar/XabarYuboruvchi.php <<'PHPEOF'
+&lt;?php
+
+namespace App\Xizmatlar;
+
+interface XabarYuboruvchi
+{
+    public function yubor(string $kimga, string $matn): string;
+
+    public function jadvalga(string $kimga, string $matn, \DateTimeInterface $qachon): string;
+
+    public function bekorQil(string $id): bool;
+}
+PHPEOF
+php -r 'require &quot;vendor/autoload.php&quot;; new App\Xizmatlar\LogXabar;' 2>&amp;1 | head -3
+cp /tmp/iface.bak app/Xizmatlar/XabarYuboruvchi.php">cp app/Xizmatlar/XabarYuboruvchi.php /tmp/iface.bak
+cat &gt; app/Xizmatlar/XabarYuboruvchi.php &lt;&lt;'PHPEOF'
+&lt;?php
+
+namespace App\Xizmatlar;
+
+interface XabarYuboruvchi
+{
+    public function yubor(string $kimga, string $matn): string;
+
+    public function jadvalga(string $kimga, string $matn, \DateTimeInterface $qachon): string;
+
+    public function bekorQil(string $id): bool;
+}
+PHPEOF
+php -r 'require &quot;vendor/autoload.php&quot;; new App\Xizmatlar\LogXabar;' 2&gt;&amp;1 | head -3
+cp /tmp/iface.bak app/Xizmatlar/XabarYuboruvchi.php</div>
+        <p class="expect">⚠️ <code>Fatal error: ...
+        contains 2 abstract methods ...</code>.
+        Bitta faylga ikki qator —
+        <b>uchala</b> sinf buzildi.</p>
+      </li>
+
+      <li>
+        <b>🔍 Konteyner cheklovini ko'ring.</b>
+        <div class="cmd" data-cmd="php artisan tinker --execute='
+try { app(App\Xizmatlar\SmsXabar::class); }
+catch (\Throwable $e) { echo get_class($e), PHP_EOL, &quot;  &quot;, substr($e->getMessage(), 0, 100), PHP_EOL; }'">php artisan tinker --execute='
+try { app(App\Xizmatlar\SmsXabar::class); }
+catch (\Throwable $e) { echo get_class($e), PHP_EOL, &quot;  &quot;, substr($e-&gt;getMessage(), 0, 100), PHP_EOL; }'</div>
+        <p class="expect"><code>Unresolvable dependency
+        ... string $kalit</code> — 62-darsdagi
+        qoida.</p>
+      </li>
+
+      <li>
+        <b>Tuzatishni tasdiqlang.</b>
+        <div class="cmd" data-cmd="php artisan tinker --execute='
+Illuminate\Support\Facades\Mail::fake();
+foreach ([new App\Xizmatlar\LogXabar, new App\Xizmatlar\SmsXabar(&quot;k&quot;), new App\Xizmatlar\EmailXabar] as $y) {
+    printf(&quot;  %-12s -> %s\n&quot;, class_basename($y), $y->yubor(&quot;a@b.uz&quot;, &quot;SALOM-MATNIM&quot;));
+}
+$x = Illuminate\Support\Facades\Mail::sent(App\Mail\XabarMaktubi::class);
+echo &quot;  yuborilgan xat: &quot;, $x->count(), &quot; ta&quot;, PHP_EOL;
+echo &quot;  matn saqlandimi? &quot;, str_contains((string) $x->first()->render(), &quot;SALOM-MATNIM&quot;) ? &quot;HA&quot; : &quot;YOQ&quot;, PHP_EOL;'">php artisan tinker --execute='
+Illuminate\Support\Facades\Mail::fake();
+foreach ([new App\Xizmatlar\LogXabar, new App\Xizmatlar\SmsXabar(&quot;k&quot;), new App\Xizmatlar\EmailXabar] as $y) {
+    printf(&quot;  %-12s -&gt; %s\n&quot;, class_basename($y), $y-&gt;yubor(&quot;a@b.uz&quot;, &quot;SALOM-MATNIM&quot;));
+}
+$x = Illuminate\Support\Facades\Mail::sent(App\Mail\XabarMaktubi::class);
+echo &quot;  yuborilgan xat: &quot;, $x-&gt;count(), &quot; ta&quot;, PHP_EOL;
+echo &quot;  matn saqlandimi? &quot;, str_contains((string) $x-&gt;first()-&gt;render(), &quot;SALOM-MATNIM&quot;) ? &quot;HA&quot; : &quot;YOQ&quot;, PHP_EOL;'</div>
+        <p class="expect">✅ <code>matn saqlandimi?
+        HA</code>.</p>
+      </li>
+
+      <li>
+        <b>To'liq to'plam.</b>
+        <div class="cmd" data-cmd="php artisan test 2>&amp;1 | tail -3">php artisan test 2&gt;&amp;1 | tail -3</div>
+        <p class="expect">Menda <b>100 passed (208
+        assertions)</b>.</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li>DIP: sozlama o'zgardi, sinf o'zgardi,
+      listener tegilmadi</li>
+      <li>OCP: interfeysda hamon bitta metod</li>
+      <li>⭐ LSP: matn yo'qolishini ko'rdim</li>
+      <li>⭐ LSP: bo'sh jadvalda
+      <code>TypeError</code> ni ko'rdim</li>
+      <li><code>XabarMaktubi</code> yaratildi</li>
+      <li><code>EmailXabar</code> shartnomaga
+      moslandi</li>
+      <li>Shartnoma testi — <b>7 passed</b></li>
+      <li>⚠️ ISP: interfeys kengayishi uchala sinfni
+      buzdi</li>
+      <li>🔍 <code>Unresolvable dependency</code> ni
+      ko'rdim</li>
+      <li>To'liq to'plam yashil</li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 12) SINAB KO'RAMIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Jamoa to'lov tizimi yozdi:</p>
+    <div class="natija">interface TolovTizimi
+{
+    public function tola(int $summa): string;   // tranzaksiya ID qaytaradi
+}
+
+class KartaTolov implements TolovTizimi
+{
+    public function tola(int $summa): string { return 'txn_'.uniqid(); }
+}
+
+class NaqdTolov implements TolovTizimi
+{
+    public function tola(int $summa): string { return ''; }   // naqd — ID yo'q
+}</div>
+    <p>Controller:</p>
+    <div class="natija">$id = $tolov->tola($summa);
+
+Buyurtma::create(['tolov_id' => $id, 'holat' => 'tolangan']);
+
+return ['tolov_id' => $id];</div>
+    <p>Testlar yashil: ikkala sinf ham
+    <code>string</code> qaytaradi, interfeys
+    bajarilgan.</p>
+    <p>Uch oydan keyin buxgalteriya so'radi:
+    <b>«naqd to'lovlarni qanday qilib
+    qaytaramiz?»</b> Nima muammo?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <p><code>NaqdTolov</code> bo'sh satr qaytaradi.
+        Tip to'g'ri — <code>string</code>. Interfeys
+        bajarilgan. Lekin <b>va'da</b>
+        buzilgan: «tranzaksiya ID qaytaradi».</p>
+        <p>Natijada bazada:</p>
+        <div class="natija">tolov_id = ''      →  qaysi to'lov ekanini BILIB BO'LMAYDI
+holat = 'tolangan' →  lekin izlash uchun hech narsa yo'q</div>
+        <p class="expect">⚠️ Va bu <b>uch oy</b> davomida
+        jimgina to'plandi. Xato yo'q, log toza,
+        testlar yashil.</p>
+        <p>🔑 Bu <b>aynan</b> bizning
+        <code>EmailXabar</code> holati: «shakl
+        to'g'ri, mazmun yo'q».</p>
+        <p>✅ Uchta mumkin yechim:</p>
+        <div class="natija">1) NaqdTolov ham HAQIQIY ID yaratsin (o'z formatida)
+   return 'naqd_'.Str::uuid();
+
+2) Interfeys ROSTNI aytsin — ID bo'lmasligi MUMKINligini
+   public function tola(int $summa): ?string;
+   ...va chaqiruvchi null ni ISHLASIN
+
+3) NaqdTolov bu interfeysga UMUMAN kirmasin
+   (agar u haqiqatan boshqa narsa bo'lsa)</div>
+        <p>⚠️ Eng yomon variant — hech narsa qilmaslik
+        va «keyin ko'ramiz» deyish. Chunki
+        ma'lumot <b>har kuni</b> yomonlashadi.</p>
+        <p>🔍 Va shartnoma testi buni <b>birinchi
+        kuni</b> tutgan bo'lar edi:</p>
+        <div class="natija">it('to\'lov ID qaytaradi', function (TolovTizimi $t) {
+    expect($t->tola(1000))->toBeString()->not->toBeEmpty();
+})->with('tizimlar');</div>
+        <p>🔑 <b>Umumiy saboq:</b> interfeys —
+        <b>tip</b> emas, <b>va'da</b>. PHP tipni
+        tekshiradi, va'dani esa faqat
+        <b>siz</b> tekshira olasiz.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span>
+    <code>EmailXabar::yubor($kimga, $matn)</code>
+    <code>$matn</code> ni ishlatmasa nima
+    bo'ladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Matn yo'qoladi va uning o'rniga oxirgi vakansiya nomi jo'natiladi</button></li>
+      <li><button class="quiz-option">Kod xato beradi va foydalanuvchi buni o'zi darrov ko'radi</button></li>
+      <li><button class="quiz-option">Hech qanday farq yo'q chunki uchalasi bir xil ishlaydi</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi: uchala
+    yuboruvchi ham «ishladi»
+    (<code>log</code>/<code>sms</code>/<code>email</code>),
+    lekin xat ichida <code>SALOM-MATNIM</code>
+    <b>yo'q</b> edi.
+    ⚠️ Bu LSP buzilishi: <b>va'da kuchsizlashdi</b>.
+    PHP tutmaydi — imzo to'g'ri, tip to'g'ri.
+    🔑 Ikkinchi buzilish ham bor edi: bo'sh bazada
+    <code>TypeError</code> — <b>shart
+    qattiqlashdi</b>.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span>
+    Mavjud interfeysga ikkita yangi metod
+    qo'shsangiz nima bo'ladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Barcha amalga oshirishlar buziladi va fatal xato beradi</button></li>
+      <li><button class="quiz-option">Faqat yangi sinflar uchun qo'shimcha metod talab etiladi</button></li>
+      <li><button class="quiz-option">Interfeys avtomatik ravishda eski usulda ishlashda davom etadi</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi:
+    <code>PHP Fatal error: Class App\Xizmatlar\LogXabar
+    contains 2 abstract methods and must therefore be
+    declared abstract or implement the remaining
+    methods</code>.
+    ⚠️ Bitta faylga ikki qator — <b>uchala</b> sinf
+    buzildi, ilova ishga tushmadi.
+    ✅ To'g'ri yechim — <b>ikkinchi interfeys</b>.
+    🔑 Agar biror amalga oshirish metodni
+    «qo'llab-quvvatlamaydi» desa, u metod noto'g'ri
+    interfeysda.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span>
+    DIP («bog'liqlikni ag'darish») nimani
+    anglatadi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Yuqori qatlam interfeysga tayanadi lekin aniq sinf nomiga tayanmaydi</button></li>
+      <li><button class="quiz-option">Yuqori qatlam har doim aniq sinf nomiga tayanishi kerak</button></li>
+      <li><button class="quiz-option">Interfeys kerak emas agar faqat bitta amalga oshirish bo'lsa</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi:
+    <code>config('ishtop.xabar_drayveri')</code>
+    <code>log</code> → <code>LogXabar</code>,
+    <code>email</code> → <code>EmailXabar</code> — va
+    <code>XabarYubor</code> listeneri
+    <b>bir harf ham</b> o'zgarmadi.
+    🔑 «Ag'darilgan», chunki interfeys
+    <code>App\Xizmatlar</code> da — <b>ilovaga</b>
+    tegishli, kutubxonaga emas.
+    ⚠️ Uchinchi variant butunlay noto'g'ri ham emas —
+    bitta amalga oshirish uchun interfeys ko'pincha
+    <b>keraksiz</b>. Lekin bu DIP ta'rifi emas.</div>
+  </div>
+
+  <!-- ═══════════════ 13) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+
+    <p>Javobni ovoz chiqarib ayting, keyin ochib
+    solishtiring.</p>
+
+    <details class="recall">
+      <summary>Beshta tamoyilni bitta savol bilan
+      ayting</summary>
+      <div class="answer"><b>S</b> — «bu faylni
+      o'zgartirishga nechta sabab bor?»
+      <b>O</b> — «yangi turini qo'shsam, nechta
+      faylni ochaman?»
+      <b>L</b> — «bu sinfni birodari bilan
+      almashtirsam, kim sezadi?»
+      <b>I</b> — «bu metod hamma amalga oshirishga
+      kerakmi?»
+      <b>D</b> — «buni testda almashtira olamanmi?»
+      🔑 Va oltinchi savol, eng muhimi: <b>«hozir bu
+      muammo bormi?»</b> Yo'q bo'lsa —
+      tegmang.</div>
+    </details>
+
+    <details class="recall">
+      <summary>⭐ LSP qanday buziladi va nega
+      xavfli?</summary>
+      <div class="answer">Ikki yo'l bilan:
+      <b>1) shart qattiqlashadi</b> — «menga
+      qo'shimcha narsa kerak»;
+      <b>2) va'da kuchsizlashadi</b> —
+      «so'raganingizni qilmadim».
+      🔍 O'z kodimizda ikkalasi ham bor edi:
+      <code>EmailXabar</code> <code>$matn</code> ni
+      <b>tashlab yubordi</b> (xatda
+      <code>SALOM-MATNIM</code> yo'q edi) va bo'sh
+      bazada <code>TypeError</code> berdi.
+      ⚠️ Xavfli, chunki <b>tip to'g'ri</b> — PHP
+      tutmaydi, imzo bajarilgan, testlar yashil.
+      ✅ Faqat <b>shartnoma testi</b> tutadi.</div>
+    </details>
+
+    <details class="recall">
+      <summary>Shartnoma testi nima va nega
+      qimmatli?</summary>
+      <div class="answer">Bitta test — <b>hamma</b>
+      amalga oshirishga qo'llanadi
+      (Pest'da <code>dataset</code> +
+      <code>-&gt;with(...)</code>).
+      🔍 O'lchandi: <b>7 passed (10 assertions)</b> —
+      «shartnomani bajaradi» va «bo'sh bazada xato
+      bermaydi» har biri <b>uch marta</b>
+      ishladi.
+      🔑 Ertaga <code>TelegramXabar</code> qo'shilsa,
+      <code>dataset</code> ga bir qator qo'shiladi —
+      ikkita test <b>darrov</b> uni tekshiradi.
+      ✅ Bu — interfeysning <b>bajarilishi mumkin
+      bo'lgan hujjati</b>.</div>
+    </details>
+
+    <details class="recall">
+      <summary>ISP buzilsa nima bo'ladi?</summary>
+      <div class="answer">🔍 O'lchandi: interfeysga ikki
+      metod qo'shdik →
+      <code>Fatal error: Class ... contains 2 abstract
+      methods and must therefore be declared abstract or
+      implement the remaining methods</code> —
+      <b>uchala</b> sinf buzildi.
+      ⚠️ Va odatiy «tuzatish»
+      (<code>throw new BadMethodCallException</code>)
+      <b>LSP ni buzadi</b> — tamoyillar
+      bir-biriga bog'liq.
+      ✅ To'g'ri yechim — ikkinchi interfeys
+      (<code>JadvalliYuboruvchi</code>): kerakli sinf
+      ikkalasini bajaradi, qolganlari
+      tegilmaydi.</div>
+    </details>
+
+    <details class="recall">
+      <summary>Qachon SOLID ga e'tibor
+      bermaslik kerak?</summary>
+      <div class="answer">Og'riq <b>hali
+      yo'q</b> bo'lganda.
+      ⚠️ Bitta amalga oshirish uchun interfeys —
+      foyda emas, <b>soliq</b>: har o'zgarishda
+      ikki fayl ochiladi.
+      ✅ Interfeys kerak: haqiqatan 2+ amalga oshirish
+      bor · testda o'rnini bosuvchi kerak · boshqa
+      jamoa bilan chegara.
+      ❌ Kerak emas: «kelajakda kerak bo'lar» ·
+      «SOLID shunday deydi».
+      🔍 Bizning ilovamizda <b>bitta</b> interfeys bor
+      — va bu to'g'ri.
+      🔑 SOLID ni oldindan emas, <b>og'riq paydo
+      bo'lganda</b> qo'llang.</div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 14) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Xulosa</span>
+    <ul>
+      <li>SOLID — qoida emas, <b>og'riqning
+      nomi</b>. Beshta savol bilan eslanadi.</li>
+      <li><b>S</b>: o'zgarishga <b>bitta sabab</b>.
+      62-darsdagi refaktor aynan shu edi.</li>
+      <li><b>O</b>: 🔍 uchta amalga oshirish qo'shildi,
+      interfeys hamon <b>bitta</b> metod.</li>
+      <li>⭐ <b>L</b>: o'z kodimizda buzilgan —
+      <code>EmailXabar</code> <code>$matn</code> ni
+      <b>tashlab yubordi</b>.</li>
+      <li>🔍 Uchalasi ham «ishladi», lekin xatda
+      <code>SALOM-MATNIM</code> <b>yo'q</b>
+      edi.</li>
+      <li>🔍 Ikkinchi buzilish: bo'sh bazada
+      <code>TypeError</code>, boshqalarda
+      <b>yo'q</b>.</li>
+      <li>LSP ikki yo'l bilan buziladi: <b>shart
+      qattiqlashadi</b> yoki <b>va'da
+      kuchsizlashadi</b>.</li>
+      <li><b>I</b>: 🔍 interfeysga ikki metod →
+      <code>Fatal error ... contains 2 abstract
+      methods</code>.</li>
+      <li><b>D</b>: 🔍 <code>config</code> o'zgardi
+      → sinf o'zgardi, listener
+      <b>tegilmadi</b>.</li>
+      <li>✅ <b>Shartnoma testi</b>
+      (<code>dataset</code>) — LSP ni mixlaydi:
+      <b>7 passed</b>.</li>
+      <li>🔍 <code>Mail::fake()</code>
+      <code>Mail::raw()</code> ni yozib olmaydi —
+      «testlash qiyin» = dizayn signali.</li>
+      <li>⚠️ Haddan oshirmang: bitta amalga oshirish
+      uchun interfeys — <b>soliq</b>.</li>
+      <li>🔑 Interfeys — <b>tip</b> emas,
+      <b>va'da</b>. PHP tipni tekshiradi, va'dani
+      siz tekshirasiz.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p>Bugun <code>yubor(string $kimga, string
+    $matn)</code> bilan ishladik — ikkita satr. Endi
+    tasavvur qiling: yettita parametr, ularning
+    beshtasi ixtiyoriy.</p>
+    <div class="natija">$yarat->bajar($nom, $shahar, $maosh, $faol, $kompaniyaId, $muddat, $egasi);
+//                                     ↑ qaysi biri qaysi?</div>
+    <p>Va massiv ham yechim emas: <code>array
+    $malumot</code> ichida <b>nima</b> borligini
+    faqat kodni o'qib bilasiz.</p>
+    <p>64-darsda <b>DTO</b> (Data Transfer Object)
+    ni o'rganamiz — ma'lumotni <b>nomlangan
+    va tipli</b> obyektga solamiz. PHP 8 ning
+    <code>readonly</code> va konstruktor
+    xossalari buni juda qulay qiladi.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Robert C. Martin — The Principles of OOD</b>:
+    <a href="http://butunclebob.com/ArticleS.UncleBob.PrinciplesOfOod">SOLID
+    ning asl ta'riflari</a>.<sup><a href="#fn1">1</a></sup><br>
+    <b>Laravel — Contracts</b>:
+    <a href="https://laravel.com/docs/13.x/contracts">freymvorkning
+    o'zi DIP ni qanday qo'llaydi</a>.<sup><a href="#fn2">2</a></sup><br>
+    <b>Pest — Datasets</b>:
+    <a href="https://pestphp.com/docs/datasets">bitta
+    testni bir necha holatga
+    qo'llash</a>.<sup><a href="#fn3">3</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b>
+    «har xizmatga interfeys yozaymi?», «LSP buzilishini
+    qanday topaman?», «SOLID ni intervyuda
+    so'rashadimi?» — har qanday savol yaxshi.
+    Birinchisiga qisqa javob: <b>yo'q</b> — faqat
+    haqiqatan ikki yoki undan ko'p amalga oshirish
+    bo'lsa yoki testda almashtirish kerak bo'lsa.
+    Uchinchisiga: ha, ko'p so'rashadi — va eng yaxshi
+    javob ta'rif emas, <b>bugungidek misol</b>:
+    «kodimizda shunday buzilish bor edi, shunday
+    topdim, shunday tuzatdim».
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0062-service-va-action.html">Oldingi: Service va Action</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Robert C. Martin — <a href="http://butunclebob.com/ArticleS.UncleBob.PrinciplesOfOod">The Principles of OOD</a>.</li>
+      <li id="fn2">Laravel 13 — <a href="https://laravel.com/docs/13.x/contracts">Contracts</a>.</li>
+      <li id="fn3">Pest — <a href="https://pestphp.com/docs/datasets">Datasets</a>.</li>
+      <li id="fn4">Barchasi jonli o'lchangan (PHP 8.3.32,
+      Laravel 13.26.1, Pest 4.7.8), o'z ilovamiz kodida:
+      <b>D</b> — <code>config('ishtop.xabar_drayveri')</code>
+      <code>'log'</code> →
+      <code>App\Xizmatlar\LogXabar</code>,
+      <code>'email'</code> →
+      <code>App\Xizmatlar\EmailXabar</code>, listener kodi
+      o'zgarmadi ·
+      <b>O</b> — <code>XabarYuboruvchi</code> interfeysida
+      <b>bitta</b> metod (<code>yubor</code>), uchala sinf
+      ham uni bajaradi ·
+      ⭐ <b>L</b> — <code>yubor('a@b.uz',
+      'SALOM-MATNIM')</code>: uchalasi
+      <code>log</code>/<code>sms</code>/<code>email</code>
+      qaytardi, <b>1 ta xat</b> yuborildi, lekin
+      «xat ichida SALOM-MATNIM bormi?» → <b>YO'Q</b>
+      («vakansiya nomi bormi?» → <b>HA</b>) ·
+      bo'sh jadvalda: <code>LogXabar</code> →
+      <code>log</code>, <code>EmailXabar</code> →
+      <code>TypeError: App\Mail\VakansiyaEloni::__construct():
+      Argument #1 ($vakansiya) must be of type
+      App\Models\Vakansiya, null given</code> ·
+      tuzatgandan keyin: «matn saqlandimi?» → <b>HA</b>,
+      bo'sh jadvalda ham <code>email</code> ·
+      <b>I</b> — interfeysga <code>jadvalga</code> va
+      <code>bekorQil</code> qo'shilgach:
+      <code>PHP Fatal error: Class App\Xizmatlar\LogXabar
+      contains 2 abstract methods and must therefore be
+      declared abstract or implement the remaining methods
+      (App\Xizmatlar\XabarYuboruvchi::jadvalga,
+      App\Xizmatlar\XabarYuboruvchi::bekorQil)</code> ·
+      🔍 <code>app(SmsXabar::class)</code> →
+      <code>BindingResolutionException: Unresolvable
+      dependency resolving [Parameter #0 [ &lt;required&gt;
+      string $kalit ]] in class App\Xizmatlar\SmsXabar</code> ·
+      🔍 <code>Mail::fake()</code> +
+      <code>Mail::raw()</code> → <code>MailFake</code> da
+      <code>mailables: 0 ta</code>,
+      <code>queuedMailables: 0 ta</code> ·
+      shartnoma testi (<code>dataset</code> bilan):
+      <b>7 passed (10 assertions)</b> ·
+      yakuniy to'plam: <b>100 passed (208 assertions),
+      0.84s</b>.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

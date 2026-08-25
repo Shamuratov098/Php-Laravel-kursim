@@ -18,7 +18,7 @@
   izoh esa o'zbekcha.</p>
 
   <p class="lesson-meta">
-    <span>Atamalar: <b>264 ta</b></span>
+    <span>Atamalar: <b>268 ta</b></span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>📱 O'qishga mos</span>
   </p>
@@ -26,7 +26,7 @@
   <div class="callout note">
     <span class="label">Bu hujjat o'sib boradi</span>
     <p>Atama faqat <b>o'z darsi yozilganda</b> qo'shiladi — oldindan emas. Hozir:
-    Modul A–I (1–62-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
+    Modul A–I (1–63-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
     bosqichida qat'iy belgilangan va 73 dars bo'ylab o'zgarmaydi).</p>
   </div>
 
@@ -2609,6 +2609,100 @@
       uchraydigan xato — <code>EXPLAIN</code> ni
       o'tkazib yuborish.
       <span class="eg">DB::select("EXPLAIN QUERY PLAN $sql", $bog)</span></dd>
+    </div>
+
+    <div class="term" id="solid">
+      <dt>SOLID <span class="uz">— beshta savol, beshta og'riq</span></dt>
+      <dd>Qoida emas — <b>oldin ko'p marta uchragan
+      og'riqning nomi</b>. Har biri bitta savol:
+      <b>S</b> «bu faylni o'zgartirishga nechta sabab
+      bor?» ·
+      <b>O</b> «yangi turini qo'shsam, nechta faylni
+      ochaman?» ·
+      <b>L</b> «bu sinfni birodari bilan almashtirsam,
+      kim sezadi?» ·
+      <b>I</b> «bu metod hamma amalga oshirishga
+      kerakmi?» ·
+      <b>D</b> «buni testda almashtira olamanmi?»
+      🔑 Va oltinchisi, eng muhimi: <b>«hozir bu muammo
+      bormi?»</b> Yo'q bo'lsa — tegmang.
+      ⚠️ Bitta amalga oshirish uchun interfeys — foyda
+      emas, <b>soliq</b>.
+      🔍 Laravel o'zi SOLID ni singdirgan:
+      <code>Illuminate\Contracts\*</code> (DIP),
+      kesh drayverlari (LSP),
+      <code>Mailable</code>/<code>Job</code> (OCP,
+      SRP).
+      <span class="eg">interface XabarYuboruvchi { public function yubor(...): string; }</span></dd>
+    </div>
+
+    <div class="term" id="lsp">
+      <dt>LSP — o'rnini bosish <span class="uz">— tip to'g'ri, va'da buzilgan</span></dt>
+      <dd>⭐ Interfeysni bajargan har sinf boshqasining
+      o'rnini bosa olishi kerak. Ikki yo'l bilan
+      buziladi:
+      <b>1) shart qattiqlashadi</b> («menga qo'shimcha
+      narsa kerak») ·
+      <b>2) va'da kuchsizlashadi</b>
+      («so'raganingizni qilmadim»).
+      🔍 O'z kodimizda ikkalasi ham topildi:
+      <code>EmailXabar</code> <code>$matn</code> ni
+      <b>ishlatmadi</b> — uchala yuboruvchi ham
+      «ishladi», lekin xat ichida
+      <code>SALOM-MATNIM</code> <b>yo'q</b> edi
+      (o'rniga oxirgi vakansiya nomi);
+      va bo'sh jadvalda
+      <code>TypeError: ... must be of type
+      App\Models\Vakansiya, null given</code>.
+      ⚠️ PHP buni tutmaydi — imzo va tip
+      <b>to'g'ri</b>. Testlar yashil qoladi.
+      🔑 <b>Interfeys — tip emas, va'da.</b> PHP tipni
+      tekshiradi, va'dani siz tekshirasiz.
+      <span class="eg">expect($t->tola(1000))->toBeString()->not->toBeEmpty();</span></dd>
+    </div>
+
+    <div class="term" id="shartnoma-testi">
+      <dt>shartnoma testi <span class="uz">— LSP ni mixlash</span></dt>
+      <dd>Bitta test — <b>hamma</b> amalga oshirishga
+      qo'llanadi. Pest'da <code>dataset</code> +
+      <code>-&gt;with('nomi')</code>.
+      🔍 O'lchandi: ikki test × uch yuboruvchi + bitta
+      maxsus = <b>7 passed (10 assertions)</b>.
+      ✅ Ertaga <code>TelegramXabar</code> qo'shilsa,
+      <code>dataset</code> ga bir qator qo'shiladi va
+      testlar <b>darrov</b> uni tekshiradi.
+      🔑 Bu — interfeysning <b>bajarilishi mumkin
+      bo'lgan hujjati</b>: kommentariya emas,
+      o'lchov.
+      ⚠️ ISP buzilishi ham shu yerda ko'rinadi: agar
+      biror sinf metodni
+      «qo'llab-quvvatlamaydi» desa
+      (<code>BadMethodCallException</code>) — u metod
+      noto'g'ri interfeysda.
+      <span class="eg">it('...', function (XabarYuboruvchi $y) { ... })->with('yuboruvchilar');</span></dd>
+    </div>
+
+    <div class="term" id="testlash-signali">
+      <dt>testlash qiyinligi <span class="uz">— dizayn signali</span></dt>
+      <dd>«Testlash qiyin» ko'pincha «dizayn
+      noto'g'ri» degani.
+      🔍 O'lchandi: <code>Mail::raw()</code> ishlatgan
+      kodni <code>Mail::fake()</code> <b>yozib
+      olmaydi</b> — <code>MailFake</code> da
+      <code>mailables: 0 ta</code>,
+      <code>queuedMailables: 0 ta</code>. Fake faqat
+      <b>Mailable obyektlarini</b> tutadi.
+      ✅ Yechim testni majburlash emas —
+      <b>to'g'ri obyekt yaratish</b>
+      (<code>XabarMaktubi</code>). Natijada kod ham
+      yaxshilandi: mavzu va ko'rinish bitta joyda.
+      🔑 Test yozolmayotgan bo'lsangiz, avval
+      <b>kodga</b> qarang, testga emas.
+      🔍 Shunga o'xshash signal:
+      <code>BindingResolutionException: Unresolvable
+      dependency ... string $kalit</code> — konstruktorda
+      oddiy qiymat bo'lsa, konteyner yasay olmaydi.
+      <span class="eg">Mail::to($kimga)->send(new XabarMaktubi($matn));</span></dd>
     </div>
 
     <div class="term" id="action-service-query">

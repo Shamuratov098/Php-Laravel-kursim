@@ -17,7 +17,7 @@
   muhit ma'lumotlari. Har dars yangi buyruq o'rgatilsa, shu yerga qo'shiladi.</p>
 
   <p class="lesson-meta">
-    <span>Qamrov: <b>1&ndash;62-darslar</b> — muhitdan API'gacha</span>
+    <span>Qamrov: <b>1&ndash;63-darslar</b> — muhitdan API'gacha</span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>💻 Amaliyotga mos</span>
   </p>
@@ -1826,6 +1826,52 @@
     <code>database</code> · <code>redis</code> (ishlab
     chiqarish, teglar bor).
     Redis nafaqat kesh: navbat, sessiya va cheklov ham.</p>
+  </div>
+
+  <h2>SOLID amalda (63-darsdan)</h2>
+  <table class="sheet">
+    <tr><th>Savol</th><th class="note-cell">Tamoyil va bizdagi misol</th></tr>
+    <tr><td>Bu faylni o'zgartirishga nechta sabab bor?</td><td class="note-cell"><b>S</b> — <code>index()</code> 28 → 6 (62-dars)</td></tr>
+    <tr><td>Yangi turini qo'shsam, nechta faylni ochaman?</td><td class="note-cell"><b>O</b> — <code>SmsXabar</code> qo'shildi, interfeys tegilmadi</td></tr>
+    <tr><td>Birodari bilan almashtirsam, kim sezadi?</td><td class="note-cell"><b>L</b> — ⭐ <code>EmailXabar</code> <b>buzgan edi</b></td></tr>
+    <tr><td>Bu metod hamma amalga oshirishga kerakmi?</td><td class="note-cell"><b>I</b> — kengaytirsak: <code>Fatal error</code></td></tr>
+    <tr><td>Buni testda almashtira olamanmi?</td><td class="note-cell"><b>D</b> — <code>config</code> o'zgardi, listener tegilmadi</td></tr>
+    <tr><td><b>Hozir bu muammo bormi?</b></td><td class="note-cell">🔑 Yo'q bo'lsa — <b>tegmang</b></td></tr>
+  </table>
+  <table class="sheet">
+    <tr><th>Kod</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>dataset('nomi', [...])</code> + <code>-&gt;with('nomi')</code></td><td class="note-cell">✅ Shartnoma testi — bitta test, hamma sinf</td></tr>
+    <tr><td><code>Mail::assertSent(X::class, fn (X $x) =&gt; ...)</code></td><td class="note-cell">Mailable ichidagi ma'lumotni tekshirish</td></tr>
+    <tr><td><code>final class</code></td><td class="note-cell">LSP buzilishining manbasini oldindan yopadi</td></tr>
+    <tr><td><code>readonly class</code></td><td class="note-cell">Holatsizlikni til darajasida majburlaydi</td></tr>
+    <tr><td><code>enum</code> + <code>match</code> (<code>default</code> siz)</td><td class="note-cell">Yangi holat qo'shilsa — <code>UnhandledMatchError</code></td></tr>
+  </table>
+  <div class="callout note">
+    <p>⭐ ⚠️ <b>LSP ikki yo'l bilan buziladi:</b>
+    <b>shart qattiqlashadi</b> («menga qo'shimcha narsa
+    kerak») yoki <b>va'da kuchsizlashadi</b>
+    («so'raganingizni qilmadim»).</p>
+    <p>🔍 O'z kodimizda: <code>EmailXabar</code>
+    <code>$matn</code> ni ishlatmadi — uchalasi ham
+    «ishladi», lekin xat ichida
+    <code>SALOM-MATNIM</code> <b>yo'q</b> edi;
+    bo'sh jadvalda esa <code>TypeError</code>.
+    <br>🔑 <b>Interfeys — tip emas, va'da.</b> PHP tipni
+    tekshiradi, va'dani siz tekshirasiz.</p>
+    <p>🔍 <b>ISP:</b> interfeysga ikki metod qo'shilgach
+    <code>Fatal error: Class ... contains 2 abstract
+    methods</code> — <b>uchala</b> sinf buzildi.
+    Odatiy «tuzatish»
+    (<code>throw new BadMethodCallException</code>)
+    esa <b>LSP ni buzadi</b>. To'g'ri yechim —
+    ikkinchi interfeys.</p>
+    <p>🔍 <b>Testlash qiyinligi = dizayn signali:</b>
+    <code>Mail::fake()</code> <code>Mail::raw()</code> ni
+    yozib olmaydi (<code>mailables: 0 ta</code>).
+    Test yozolmasangiz, avval <b>kodga</b> qarang.</p>
+    <p>⚠️ <b>Interfeys qachon KERAK EMAS:</b>
+    «kelajakda kerak bo'lar» · bitta amalga oshirish
+    bor · «SOLID shunday deydi».</p>
   </div>
 
   <h2>Service va Action (62-darsdan)</h2>
