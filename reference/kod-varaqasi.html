@@ -17,7 +17,7 @@
   muhit ma'lumotlari. Har dars yangi buyruq o'rgatilsa, shu yerga qo'shiladi.</p>
 
   <p class="lesson-meta">
-    <span>Qamrov: <b>1&ndash;50-darslar</b> — muhitdan API'gacha</span>
+    <span>Qamrov: <b>1&ndash;51-darslar</b> — muhitdan API'gacha</span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>💻 Amaliyotga mos</span>
   </p>
@@ -1405,6 +1405,58 @@
     <p>🔑 <code>boot()</code> <b>har</b> so'rovda ishlaydi —
     unda <b>sozlash</b> qiling, <b>ish</b> qilmang (baza
     so'rovi, HTTP chaqiruvi yo'q).</p>
+  </div>
+
+  <h2>Facade (51-darsdan)</h2>
+  <table class="sheet">
+    <tr><th>Kod</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>Log::getFacadeRoot()</code></td><td class="note-cell">Fasad ortidagi <b>haqiqiy obyekt</b> (= <code>app('log')</code>)</td></tr>
+    <tr><td><code>protected static function getFacadeAccessor()</code></td><td class="note-cell">Container kalitini qaytaradi — butun fasad shundan iborat</td></tr>
+    <tr><td><code>Log::spy()</code> + <code>Log::shouldHaveReceived('info')</code></td><td class="note-cell">Avval ishlaydi, keyin tekshirasiz — eng qulayi</td></tr>
+    <tr><td><code>Log::shouldReceive('info')-&gt;once()</code></td><td class="note-cell">Oldindan kutilganini aytasiz</td></tr>
+    <tr><td><code>Log::swap($obyekt)</code></td><td class="note-cell">Butunlay almashtirish (4 qator, ichida <code>app()-&gt;instance()</code>)</td></tr>
+    <tr><td><code>Mail::fake()</code> · <code>Queue::fake()</code> · <code>Storage::fake()</code></td><td class="note-cell">Maxsus soxta rejimlar</td></tr>
+    <tr><td><code>Facade::clearResolvedInstance('log')</code></td><td class="note-cell">Bitta fasad keshini tozalash</td></tr>
+    <tr><td><code>use Facades\App\Xizmatlar\X;</code></td><td class="note-cell">Real-time fasad — istalgan klass</td></tr>
+    <tr><td><code>config('app.aliases')</code></td><td class="note-cell">47 ta taxallus (Log, Route, Auth, Arr ...)</td></tr>
+    <tr><td><code>logger('x')</code> ≡ <code>Log::info('x')</code></td><td class="note-cell">Ko'p fasadning funksiya ko'rinishi ham bor</td></tr>
+  </table>
+  <div class="callout note">
+    <p>🔑 <b>Zanjir:</b> <code>Log::info('x')</code> →
+    PHP metodni topolmaydi → <code>Facade::__callStatic</code>
+    → <code>getFacadeRoot()</code> →
+    <code>static::$app['log']</code> (container) →
+    <code>$obyekt-&gt;info('x')</code>.
+    <br>🔍 O'lchandi: <code>Log</code> klassida
+    <code>info()</code> <b>YO'Q</b>; butun fayl 7 qator;
+    <code>Log::getFacadeRoot() === app('log')</code> —
+    <b>aynan bir obyekt</b>.</p>
+    <p>🔑 <b><code>use</code> nega kerak emas:</b>
+    <code>RegisterFacades</code> → <code>AliasLoader</code> →
+    <code>spl_autoload_register</code> →
+    <code>class_alias</code>. Yalqov:
+    <code>class_exists('Log', false)</code>
+    <b>false → true</b>.</p>
+    <p>⚠️ <b><code>A facade root has not been set.</code></b> —
+    ilova yuklanmagan joyda fasad ishlatilgan.
+    Uch holat: <code>tests/Unit</code> · oddiy
+    <code>php fayl.php</code> · provider'ning
+    <code>register()</code> i.
+    ✅ Testni <code>tests/Feature</code> ga o'tkazing.</p>
+    <p>🔑 <b>Fasad testlanadi, chunki u statik emas.</b>
+    Reflection bilan farqni aniqlash:
+    metod klassda bormi? · <code>get_parent_class()</code>
+    <code>Facade</code> mi? · <code>__callStatic</code> bormi?
+    <br>⚠️ <code>Maosh::format()</code> — haqiqiy statik:
+    ota-klass yo'q, <code>__callStatic</code> yo'q,
+    <b>almashtirib bo'lmaydi</b>.</p>
+    <p>🔑 <b>Fasad yoki injektsiya:</b> marshrut fayllari,
+    provider'lar, migratsiyalar → <b>fasad</b>;
+    controller, xizmat klasslari, job → <b>konstruktor
+    injektsiyasi</b> (bog'liqlik ko'rinib tursin).</p>
+    <p>⚠️ IDE fasad metodlarini bilmaydi (va haqli — metod
+    yo'q). <code>barryvdh/laravel-ide-helper</code> yoki
+    <code>@method static</code> izohlari.</p>
   </div>
 
   <h2>Xatoni o'qish</h2>

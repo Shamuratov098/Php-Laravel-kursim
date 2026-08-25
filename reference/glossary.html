@@ -18,7 +18,7 @@
   izoh esa o'zbekcha.</p>
 
   <p class="lesson-meta">
-    <span>Atamalar: <b>212 ta</b></span>
+    <span>Atamalar: <b>218 ta</b></span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>📱 O'qishga mos</span>
   </p>
@@ -26,7 +26,7 @@
   <div class="callout note">
     <span class="label">Bu hujjat o'sib boradi</span>
     <p>Atama faqat <b>o'z darsi yozilganda</b> qo'shiladi — oldindan emas. Hozir:
-    Modul A–G (1–50-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
+    Modul A–G (1–51-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
     bosqichida qat'iy belgilangan va 73 dars bo'ylab o'zgarmaydi).</p>
   </div>
 
@@ -1828,6 +1828,107 @@
       🔍 Tashxis: «bind yozganman, lekin topilmayapti» →
       birinchi navbatda <code>provides()</code> ga qarang.
       <span class="eg">foreach ($p-&gt;provides() as $nom) expect(app($nom))</span></dd>
+    </div>
+
+    <div class="term" id="facade">
+      <dt>facade (fasad) <span class="uz">— container ustidagi yupqa qatlam</span></dt>
+      <dd>🔍 O'lchandi: <code>Illuminate\Support\Facades\Log</code>
+      klassida <code>info()</code> metodi <b>YO'Q</b>
+      (<code>hasMethod('info')</code> → <code>false</code>).
+      Izohlarsiz butun fayl — <b>7 qator</b>, yagona metod
+      <code>getFacadeAccessor()</code> va u
+      <code>'log'</code> satrini qaytaradi — 49-darsdagi
+      container kaliti.
+      🔑 <code>Log::getFacadeRoot() === app('log')</code> —
+      <b>aynan bir obyekt</b> (o'lchandi;
+      <code>Route</code> uchun ham).
+      Ya'ni <code>Log::info(...)</code> —
+      <code>app('log')-&gt;info(...)</code> ning chiroyli
+      yozilishi.
+      <span class="eg">protected static function getFacadeAccessor()</span></dd>
+    </div>
+
+    <div class="term" id="callstatic">
+      <dt>__callStatic <span class="uz">— fasadning siri</span></dt>
+      <dd>PHP'ning sehrli metodi: mavjud bo'lmagan <b>statik</b>
+      metod chaqirilganda ishlaydi.
+      <code>Facade::__callStatic</code> — atigi 5 qator:
+      <code>getFacadeRoot()</code> → topilmasa
+      <code>RuntimeException</code> →
+      <code>$instance-&gt;$method(...$args)</code>.
+      🔑 Ya'ni statik chaqiruv <b>faqat yozilishida</b>; ish
+      oddiy obyekt metodida bajariladi.
+      Zanjir: <code>Log::info()</code> →
+      <code>__callStatic</code> → <code>app('log')</code> →
+      <code>$obyekt-&gt;info()</code>.
+      <span class="eg">return $instance-&gt;$method(...$args);</span></dd>
+    </div>
+
+    <div class="term" id="facade-root-xatosi">
+      <dt>A facade root has not been set. <span class="uz">— ilova yuklanmagan</span></dt>
+      <dd>⚠️ Fasad ishlatildi, lekin
+      <code>Facade::setFacadeApplication()</code>
+      chaqirilmagan → <code>static::$app</code>
+      <code>null</code> → <code>getFacadeRoot()</code>
+      <code>null</code> → <code>__callStatic</code> xato
+      tashlaydi.
+      🔍 Uch tipik holat: <code>tests/Unit</code> (40-darsda
+      uchragan) · oddiy <code>php fayl.php</code> skripti ·
+      provider'ning <code>register()</code> i (juda erta).
+      ✅ Testni <code>tests/Feature</code> ga o'tkazing yoki
+      <code>uses(Tests\TestCase::class)</code> yozing.
+      <span class="eg">tests/Unit da Log::info() → RuntimeException</span></dd>
+    </div>
+
+    <div class="term" id="aliasloader">
+      <dt>AliasLoader <span class="uz">— nega use kerak emas</span></dt>
+      <dd><code>RegisterFacades</code> uni ishga tushiradi, u esa
+      <code>spl_autoload_register</code> bilan PHP'ning
+      <b>avtoyuklash navbatiga</b> qo'shiladi. PHP
+      <code>Log</code> ni topa olmaganda uni chaqiradi va
+      <code>class_alias(...)</code> bajariladi.
+      🔍 O'lchandi: <b>47</b> ta taxallus
+      (<code>config('app.aliases')</code>), manbasi
+      framework'ning <code>config/app.php</code> idagi
+      <code>Facade::defaultAliases()</code>.
+      Yalqov: <code>class_exists('Log', false)</code>
+      <b>false → true → true</b>.
+      <span class="eg">spl_autoload_register($this-&gt;load(...))</span></dd>
+    </div>
+
+    <div class="term" id="facade-swap">
+      <dt>Facade::swap() va spy() <span class="uz">— fasadni testda ushlash</span></dt>
+      <dd><code>swap()</code> — atigi <b>4 qator</b>, va ichida
+      49-darsdagi <code>app()-&gt;instance()</code>
+      chaqiriladi. Shuning uchun fasad testlanadi:
+      u <b>statik emas</b>.
+      To'rt yo'l: <code>spy()</code> (avval ishlaydi, keyin
+      <code>shouldHaveReceived</code>) ·
+      <code>shouldReceive()</code> (oldindan kutilgan) ·
+      <code>swap()</code> · maxsus <code>fake()</code>
+      (<code>Mail</code>, <code>Queue</code>,
+      <code>Event</code>, <code>Storage</code>).
+      ⚠️ Haqiqiy statik metod (<code>Maosh::format()</code>)
+      uchun bunday joy <b>yo'q</b> — Reflection farqni
+      ko'rsatadi: ota-klass yo'q,
+      <code>__callStatic</code> yo'q.
+      <span class="eg">Log::spy(); ... Log::shouldHaveReceived('info');</span></dd>
+    </div>
+
+    <div class="term" id="real-time-facade">
+      <dt>real-time facade <span class="uz">— Facades\ prefiksi</span></dt>
+      <dd>Istalgan klassni fasadga aylantiradi:
+      <code>Facades\App\Xizmatlar\XabarYuboruvchi::yubor(...)</code>.
+      <code>AliasLoader::load()</code> prefiksni ko'rib
+      klassni <b>joyida</b> yasaydi.
+      🔍 O'lchandi: ildiz —
+      <code>app(XabarYuboruvchi::class)</code> ning o'zi.
+      ✅ Foydali holat: eski kodni testlanadigan qilish
+      (<code>new X()</code> → fasad → keyin konstruktor
+      injektsiyasi).
+      ⚠️ Bog'liqlikni <b>yashiradi</b> — yangi kodda
+      konstruktor injektsiyasi afzal.
+      <span class="eg">use Facades\App\Xizmatlar\XabarYuboruvchi;</span></dd>
     </div>
 
     <div class="term" id="sanctum">
