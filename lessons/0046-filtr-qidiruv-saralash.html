@@ -1,0 +1,1156 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 46 — Filtr, qidiruv va saralash</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 46 · MODUL F — API QATLAMI</p>
+  <h1>Filtr, qidiruv va saralash</h1>
+  <p class="lead">API to'liq, himoyalangan va shakli boshqariladi. Lekin
+  <code>index</code> hamon <b>hamma narsani</b> qaytaradi. Mijozga esa
+  «Toshkentdagi faol vakansiyalar, maosh bo'yicha, ikkinchi sahifa» kerak.
+  Bugun buni <b>query parametr</b> bilan beramiz — va yo'lda ikkita
+  <b>jimgina</b> xatoni tutamiz.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 17 daqiqa</span>
+    <span>💻 Amaliyot ≈ 28 daqiqa</span>
+    <span>Kerak: <a href="0045-apiresource-crud.html">Dars 45</a></span>
+  </p>
+
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b>Query parametr — API shartnomasi</b>
+        <span class="nima">Manzildagi <code>?shahar=Toshkent</code> —
+        ma'lumot emas, <b>so'rovning shakli</b>. Va u ham
+        tekshirilishi kerak.</span></li>
+      <li><b><code>paginate()</code> API'da: <code>data</code> +
+        <code>links</code> + <code>meta</code></b>
+        <span class="nima">Barcha kalitlar bittalab o'lchandi —
+        <code>meta.total</code>, <code>per_page</code>,
+        <code>last_page</code>, <code>from</code>/<code>to</code>.</span></li>
+      <li><b>⚠️ <code>when()</code> ning falsy tuzog'i</b>
+        <span class="nima">Darsning birinchi jimgina xatosi:
+        <code>?q=0</code> qidiruvni <b>butunlay o'chirib qo'yadi</b>.
+        29-darsdan beri kodimizda turgan edi. O'lchandi.</span></li>
+      <li><b><code>filled()</code> — tuzatish</b>
+        <span class="nima">Nega <code>input()</code> emas, aynan
+        <code>filled()</code>. Va bo'sh satr qayerda
+        <code>null</code> ga aylanadi.</span></li>
+      <li><b>⚠️ Saralash — oq ro'yxatsiz nima bo'ladi</b>
+        <span class="nima">Darsning ikkinchi jimgina xatosi:
+        <code>?sort=moash</code> (harf xato) → <b>200</b>, lekin tartib
+        yo'q. <code>?sort=kompaniyalar.nom</code> → <b>500</b>.</span></li>
+      <li><b>Nima uchun bu inyeksiya EMAS</b>
+        <span class="nima">O'lchandi: <code>orderBy</code> qo'shtirnoqni
+        ikkilantiradi. Xavf boshqa joyda — buni aniq
+        ajratamiz.</span></li>
+      <li><b>Oq ro'yxat naqshi</b>
+        <span class="nima">Ruxsat etilgan kalitlar → ustun va yo'nalish
+        juftligi. <code>-maosh</code> shakli qayerdan
+        keldi.</span></li>
+      <li><b><code>per_page</code> chegarasi</b>
+        <span class="nima">Chegarasiz <code>per_page</code> —
+        mijozning bir so'rovi bilan bazani cho'ktirish
+        imkoniyati.</span></li>
+      <li><b><code>withQueryString()</code></b>
+        <span class="nima">⚠️ Bo'lmasa: <code>links.next</code> filtrni
+        yo'qotadi va mijoz <b>boshqa</b> ma'lumot oladi.
+        A/B o'lchandi.</span></li>
+      <li><b>Scope API'da qayta ishlatiladi</b>
+        <span class="nima">29-darsdagi <code>#[Scope] faol()</code>
+        bitta qator o'zgartirmasdan ishlaydi.</span></li>
+      <li><b><code>paginate</code> va <code>simplePaginate</code></b>
+        <span class="nima">🔍 O'lchandi: 3 so'rov va 2 so'rov. Va
+        <code>meta</code> dagi farq — <code>total</code>
+        yo'qoladi.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima">Bo'sh natija · N+1 · katta-kichik harf ·
+        <code>meta.links</code> ichidagi HTML · <code>page=999</code> ·
+        offset sekinligi.</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Bitta uchiga chiqadigan ro'yxat</span>
+    <p>45-darsdan keyin <code>index</code> shunday:</p>
+    <div class="natija">public function index()
+{
+    return VakansiyaResource::collection(
+        Vakansiya::with('kompaniya')->paginate(5)
+    );
+}</div>
+    <p>Mijoz — mobil ilova — buni ochadi va oxirgi beshtasini oladi.
+    Foydalanuvchi esa <b>qidiryapti</b>. Uning savoli:</p>
+    <div class="natija">«Toshkentda, faol, maosh bo'yicha yuqoridan pastga»</div>
+    <p>Ikki yo'l bor. Birinchisi — har bir savol uchun yangi marshrut
+    yozish: <code>/vakansiyalar/toshkent</code>,
+    <code>/vakansiyalar/faol</code>… Bu yo'l tez tugaydi: savollar
+    <b>birikadi</b>, marshrutlar soni esa ko'payib ketadi.</p>
+    <p>Ikkinchisi — bitta marshrut, savolni <b>query parametr</b> bilan
+    aytish:</p>
+    <div class="natija">GET /api/vakansiyalar?shahar=Toshkent&amp;faqat_faol=1&amp;sort=-maosh&amp;page=2</div>
+    <p>Bu REST'ning odatiy yechimi.<sup><a href="#fn1">1</a></sup> Manzil
+    <b>resursni</b> ko'rsatadi, query esa <b>o'sha resursning qaysi
+    qismini</b> so'rayotganingizni.</p>
+    <p>Yaxshi xabar: <code>when()</code>, scope va <code>paginate()</code>
+    ni <a href="0029-sahifalash-filtr-va-scope.html">29-darsda</a> web
+    tomonda o'rgangansiz. Yomon xabar: o'sha darsda yozgan kodimizda
+    <b>bitta xato</b> bor edi va API uni ochib tashlaydi.</p>
+  </div>
+
+  <!-- ═══════════════ 2) PAGINATE JSON ═══════════════ -->
+  <h2><code>paginate()</code> API'da: uchta yuqori kalit</h2>
+
+  <p>43-darsda <code>data</code> o'ramini ko'rgandik. Paginator bilan
+  birga yana ikkitasi qo'shiladi. Mana <b>to'liq</b> javob (qisqartirilgan
+  <code>data</code> bilan):</p>
+
+  <div class="natija">GET /api/vakansiyalar
+
+{
+  "data": [ { "id": 1, "nom": "Backend dasturchi", ... }, ... ],
+
+  "links": {
+    "first": "http://127.0.0.1:8000/api/vakansiyalar?page=1",
+    "last":  "http://127.0.0.1:8000/api/vakansiyalar?page=2",
+    "prev":  null,
+    "next":  "http://127.0.0.1:8000/api/vakansiyalar?page=2"
+  },
+
+  "meta": {
+    "current_page": 1,
+    "from": 1,
+    "last_page": 2,
+    "links": [ ... ],
+    "path": "http://127.0.0.1:8000/api/vakansiyalar",
+    "per_page": 5,
+    "to": 5,
+    "total": 7
+  }
+}</div>
+
+  <p>Uchta kalitning vazifasi aniq ajratilgan:</p>
+  <div class="natija">data   →  so'ralgan narsa
+links  →  qayerga borish mumkin   (mijoz bosadigan havolalar)
+meta   →  qayerdasiz va jami qancha (mijoz ko'rsatadigan raqamlar)</div>
+
+  <p>Shu uchtasi bo'lgani uchun mobil ilova «<b>7 tadan 1–5</b>» deb
+  yoza oladi va «Keyingi» tugmasiga <code>links.next</code> ni bog'lay
+  oladi. <code>meta</code> bo'lmasa — jami sonni <b>bilib
+  bo'lmaydi</b>.</p>
+
+  <div class="callout tip">
+    <span class="label">🔍 Bu qayerdan keldi?</span>
+    <p>Siz hech narsa yozmadingiz. <code>VakansiyaResource::collection()</code>
+    ichiga <b>paginator</b> tushsa, Laravel javobni avtomatik
+    <code>ResourceCollection</code> ga o'raydi va
+    <code>links</code>/<code>meta</code> ni o'zi qo'shadi.<sup><a href="#fn2">2</a></sup>
+    Oddiy <code>get()</code> bersangiz — faqat <code>data</code> bo'ladi.
+    Ya'ni <b>sahifalash JSON shaklini o'zgartiradi</b>. Buni mijozga
+    aytmasangiz, uning kodi buziladi.</p>
+  </div>
+
+  <!-- ═══════════════ 3) WHEN VA FILLED ═══════════════ -->
+  <h2>Filtr: <code>when()</code> va uning tuzog'i</h2>
+
+  <p>29-darsda shunday yozgandik:</p>
+
+  <div class="codefile">
+    <div class="fname">29-darsdagi shakl</div>
+    <code class="cmd">Vakansiya::query()
+    -&gt;when($request-&gt;input('q'), fn ($so_rov, $matn) =&gt; $so_rov-&gt;whereLike('nom', &quot;%{$matn}%&quot;))
+    -&gt;when($request-&gt;input('shahar'), fn ($so_rov, $shahar) =&gt; $so_rov-&gt;where('shahar', $shahar))</code>
+  </div>
+
+  <p><code>when($shart, $closure)</code> — <code>$shart</code>
+  <b>rost</b> bo'lsa closure ishlaydi, aks holda zanjir o'zgarmaydi.
+  Shu bilan <code>if</code> larsiz shartli filtr yoziladi.</p>
+
+  <p>Endi bazaga bitta vakansiya qo'shamiz:
+  <b>«0 dan boshlovchi»</b>. Va uni qidiramiz:</p>
+
+  <div class="natija">GET /api/vakansiyalar?q=0
+
+meta.total:  8      ⚠️ HAMMASI qaytdi
+kutilgan:    1      («0 dan boshlovchi»)</div>
+
+  <p>Filtr <b>umuman qo'llanmadi</b>. Xato ham chiqmadi. Sabab PHP'da:</p>
+
+  <div class="natija">$request->input('q')   →  "0"        (satr)
+if ("0")               →  FALSE     ← PHP'da "0" yolg'on
+
+when(FALSE, ...)       →  closure ISHLAMAYDI</div>
+
+  <p>PHP'da yolg'on hisoblanadigan qiymatlar:
+  <code>false</code>, <code>0</code>, <code>"0"</code>,
+  <code>""</code>, <code>null</code>, <code>[]</code>.
+  <code>"0"</code> shular orasida — va aynan shu qidiruvni buzdi.</p>
+
+  <div class="callout warn">
+    <span class="label">⚠️ Bu xato 29-darsdan beri kodimizda edi</span>
+    <p>Web tomonda u <b>ko'rinmadi</b>, chunki hech kim
+    <code>0</code> deb qidirmaydi. API'da esa mijoz — dastur. U
+    foydalanuvchi yozgan <b>har qanday</b> satrni yuboradi:
+    <code>0</code>, <code>false</code>, bo'sh satr. Sizning
+    xatoyingiz mijoz uchun «qidiruv ba'zan ishlamaydi» bo'lib
+    ko'rinadi — va u buni <b>hech qachon</b> ayta olmaydi.</p>
+  </div>
+
+  <p>✅ Yechim — shartni qiymatdan <b>ajratish</b>:</p>
+
+  <div class="codefile">
+    <div class="fname">to'g'ri shakl</div>
+    <code class="cmd">-&gt;when($request-&gt;filled('q'), fn ($so_rov) =&gt; $so_rov-&gt;whereLike('nom', '%'.$request-&gt;input('q').'%'))
+-&gt;when($request-&gt;filled('shahar'), fn ($so_rov) =&gt; $so_rov-&gt;where('shahar', $request-&gt;input('shahar')))</code>
+  </div>
+
+  <p><code>filled('q')</code> — «<code>q</code> bor va bo'sh emas»
+  degani. U qiymatni <b>rostlik</b> bo'yicha emas, <b>mavjudlik</b>
+  bo'yicha tekshiradi. <code>"0"</code> uchun <code>filled()</code>
+  <b>rost</b> qaytaradi.</p>
+
+  <div class="natija">?q=0           →  filled: true    →  1 ta topildi     ✅
+?q=dasturchi   →  filled: true    →  4 ta topildi     ✅
+?q=            →  filled: false   →  filtr yo'q        ✅
+(q yo'q)       →  filled: false   →  filtr yo'q        ✅</div>
+
+  <p>E'tibor bering: closure endi <b>bir</b> argumentli. Chunki
+  <code>when()</code> closure'ga <code>$shart</code> ning o'zini
+  uzatadi — endi u <code>true</code>, matn emas. Qiymatni
+  <code>$request</code> dan olamiz.</p>
+
+  <div class="callout tip">
+    <span class="label">🔍 <code>?q=</code> nega <code>null</code>?</span>
+    <p>O'lchandi: <code>?q=</code> yuborilsa
+    <code>$request-&gt;input('q')</code> <b><code>NULL</code></b>
+    qaytaradi, bo'sh satr emas. Buni Laravel'ning
+    <code>ConvertEmptyStringsToNull</code> middleware'i qiladi — u
+    <b>har bir</b> so'rovda bo'sh satrlarni <code>null</code> ga
+    aylantiradi.<sup><a href="#fn3">3</a></sup></p>
+    <p>Shuning uchun <code>'nullable'</code> qoidasi bo'sh formalar
+    bilan ishlaydi. Bu 30-darsdagi <code>nullable</code> ning
+    <b>ichki sababi</b>.</p>
+  </div>
+
+  <!-- ═══════════════ 4) SARALASH ═══════════════ -->
+  <h2>Saralash: eng jimgina xato</h2>
+
+  <p>Eng oddiy yechim shunday ko'rinadi:</p>
+
+  <div class="codefile">
+    <div class="fname">❌ shunday YOZMANG</div>
+    <code class="cmd">-&gt;orderBy($request-&gt;input('sort', 'id'))</code>
+  </div>
+
+  <p>Uchta so'rov yuboramiz va natijani o'lchaymiz:</p>
+
+  <div class="natija">?sort=maosh              →  200  ✅ to'g'ri saralandi
+?sort=moash              →  200  ⚠️ SARALANMADI, lekin xato ham yo'q
+?sort=kompaniyalar.nom   →  500  ⚠️ mijoz ilovani yiqita oladi</div>
+
+  <p>Ikkinchi qator — darsning eng muhim joyi. Foydalanuvchi
+  «maosh bo'yicha» tugmasini bosdi, mijoz <code>?sort=moash</code>
+  yubordi (dasturchi harf xato yozgan), server <b>200 OK</b> qaytardi
+  va ro'yxat <b>tartibsiz</b> keldi. Hech kim hech narsani
+  sezmaydi.</p>
+
+  <h3>Nega 500 emas, 200?</h3>
+
+  <p>SQL'ga qaraymiz:</p>
+
+  <div class="natija">orderBy('moash')   →   order by "moash" asc</div>
+
+  <p>SQLite'da qo'shtirnoq ichidagi noma'lum nom <b>xato emas</b> —
+  u <b>satr</b> deb qabul qilinadi. O'lchandi:</p>
+
+  <div class="natija">select "moash" as x        →  'moash'              ← satr!
+select "nom" as x from ... →  'Backend dasturchi'   ← ustun</div>
+
+  <p>Ya'ni <code>order by 'moash'</code> — hamma qatorda bir xil
+  qiymat. Saralash <b>bo'sh ish</b> bo'lib qoladi.<sup><a href="#fn4">4</a></sup></p>
+
+  <div class="callout warn">
+    <span class="label">⚠️ Bazani almashtirsangiz — xato paydo bo'ladi</span>
+    <p>MySQL va PostgreSQL bu kelishuvni <b>qabul qilmaydi</b>: ular
+    yo'q ustun uchun xato beradi. Ya'ni bir xil kod SQLite'da
+    <b>200</b>, MySQL'da <b>500</b> qaytaradi.</p>
+    <p>🔑 Bu 22-darsdagi «SQLite tayyorlov uchun» degan gapning
+    narxi: u sizni ba'zi xatolardan <b>himoya qilmaydi</b>, faqat
+    <b>yashiradi</b>.</p>
+  </div>
+
+  <h3>Bu SQL inyeksiyami? — Yo'q</h3>
+
+  <p>Bu savol albatta tug'iladi, shuning uchun uni <b>o'lchadik</b>:</p>
+
+  <div class="natija">kiritilgan:  maosh", (select password from users) --
+
+hosil bo'lgan SQL:
+order by "maosh"", (select password from users) --" asc
+              ↑↑
+      qo'shtirnoq IKKILANTIRILDI  →  bittalik nom bo'lib qoldi</div>
+
+  <p><code>orderBy()</code> ustun nomini <b>o'raydi</b> va ichidagi
+  qo'shtirnoqni ikkilantiradi. Demak qo'shimcha SQL <b>ijro
+  etilmaydi</b> — bu inyeksiya emas.</p>
+
+  <p>Lekin xavf boshqa shaklda bor:</p>
+
+  <div class="natija">1) Jimgina noto'g'ri natija   →  200, tartib yo'q (yuqorida)
+2) Mijoz yiqitadigan 500      →  "kompaniyalar.nom" nuqta bo'yicha
+                                  bo'linadi va JOIN'siz ustun izlanadi
+3) Yashirin ustun bo'yicha tartib →  bazangizdagi HAR QANDAY ustun</div>
+
+  <p>Uchinchisi eng nozigi. Agar jadvalda <code>ichki_ball</code> yoki
+  <code>tekshiruv_izohi</code> kabi ustun bo'lsa, mijoz uni
+  <b>ko'ra olmaydi</b> (Resource yashirgan), lekin <b>o'sha bo'yicha
+  saralay oladi</b> — va tartibdan qiymatni taxmin qilishi mumkin.</p>
+
+  <h3>✅ Oq ro'yxat</h3>
+
+  <p>Qoida oddiy: <b>mijozning satri hech qachon to'g'ridan-to'g'ri
+  ustun nomi bo'lmasin</b>. U faqat <b>kalit</b> bo'lsin, ustunni siz
+  tanlang:</p>
+
+  <div class="codefile">
+    <div class="fname">app/Http/Controllers/Api/VakansiyaController.php</div>
+    <code class="cmd">$tartib = [
+    'nom'    =&gt; ['nom', 'asc'],
+    '-nom'   =&gt; ['nom', 'desc'],
+    'maosh'  =&gt; ['maosh', 'asc'],
+    '-maosh' =&gt; ['maosh', 'desc'],
+    'yangi'  =&gt; ['created_at', 'desc'],
+][$malumot['sort'] ?? 'yangi'];
+
+// ...
+-&gt;orderBy(...$tartib)</code>
+  </div>
+
+  <p>Endi <code>sort</code> — <b>ustun nomi emas</b>, sizning
+  API'ingizning <b>so'zi</b>. Bazadagi ustunlarni o'zgartirsangiz ham
+  mijozning kodi buzilmaydi — bu 43-darsdagi Resource g'oyasining
+  aynan o'zi, faqat kirish tomonida.</p>
+
+  <p><code>-maosh</code> shakli — REST olamidagi keng tarqalgan
+  kelishuv: minus «teskari tartib» degani.<sup><a href="#fn5">5</a></sup>
+  <code>?sort=maosh&amp;yonalish=desc</code> deb ikkita parametr
+  qilsangiz ham bo'ladi — muhimi, <b>bittasini tanlab</b> hujjatda
+  yozish.</p>
+
+  <p><code>...$tartib</code> — bu <b>yoyish</b> (spread): massiv
+  <code>['maosh', 'desc']</code> ikkita argumentga aylanadi, ya'ni
+  <code>orderBy('maosh', 'desc')</code>.</p>
+
+  <!-- ═══════════════ 5) VALIDATSIYA ═══════════════ -->
+  <h2>Query parametr ham tekshiriladi</h2>
+
+  <p>35-darsda «tekshirilmagan ma'lumot ichkariga kirmasin» degandik.
+  Query parametr ham <b>ma'lumot</b> — u ham tekshirilishi kerak. Va
+  <code>$request-&gt;validate()</code> GET so'rovda ham xuddi shunday
+  ishlaydi:</p>
+
+  <div class="codefile">
+    <div class="fname">app/Http/Controllers/Api/VakansiyaController.php</div>
+    <code class="cmd">$malumot = $request-&gt;validate([
+    'q'          =&gt; ['nullable', 'string', 'max:60'],
+    'shahar'     =&gt; ['nullable', 'string', 'max:60'],
+    'faqat_faol' =&gt; ['nullable', 'boolean'],
+    'sort'       =&gt; ['nullable', 'in:nom,-nom,maosh,-maosh,yangi'],
+    'per_page'   =&gt; ['nullable', 'integer', 'min:1', 'max:50'],
+]);</code>
+  </div>
+
+  <p>Endi noto'g'ri saralash <b>422</b> bilan qaytadi — jimgina
+  noto'g'ri javob emas:</p>
+
+  <div class="natija">?sort=moash
+
+422
+{
+  "message": "The selected sort is invalid.",
+  "errors": { "sort": ["The selected sort is invalid."] }
+}</div>
+
+  <p>Bu mijoz uchun <b>ancha yaxshi</b>: xato dasturchining ekranida
+  darrov ko'rinadi, foydalanuvchining ma'lumotida yashirinib
+  qolmaydi.</p>
+
+  <h3><code>per_page</code>: nega chegara kerak</h3>
+
+  <p><code>per_page</code> ni mijozga berish qulay — mobil ilovaga 10 ta,
+  veb panelga 50 ta kerak bo'lishi mumkin. Lekin chegarasiz:</p>
+
+  <div class="natija">?per_page=1000000
+
+→  bitta so'rov bilan butun jadval xotiraga o'qiladi
+→  har bir yozuv uchun Resource ishlaydi
+→  javob JSON o'nlab megabayt bo'ladi</div>
+
+  <p>Buni bir necha marta yuborish — bepul va oson. Shuning uchun
+  <code>max:50</code>:</p>
+
+  <div class="natija">?per_page=3      →  200,  meta.per_page: 3
+?per_page=9999   →  422,  "The per page field must not be greater than 50."</div>
+
+  <p>✅ Umumiy qoida: <b>mijoz boshqaradigan har bir raqamning yuqori
+  chegarasi bo'lsin.</b></p>
+
+  <!-- ═══════════════ 6) WITHQUERYSTRING ═══════════════ -->
+  <h2><code>withQueryString()</code> — API'da yanada muhim</h2>
+
+  <p>29-darsda buni «filtrlab, 2-sahifaga o'tsangiz filtr yo'qoladi»
+  deb ko'rgandik. API'da oqibati <b>og'irroq</b>. A/B o'lchov:</p>
+
+  <div class="natija">GET /api/vakansiyalar?shahar=Toshkent
+
+❌ withQueryString() YO'Q:
+   meta.total  :  4
+   links.next  :  .../api/vakansiyalar?page=2          ← shahar YO'Q
+
+✅ withQueryString() BOR:
+   links.next  :  .../api/vakansiyalar?shahar=Toshkent&amp;page=2</div>
+
+  <p>Endi mijozning ko'zi bilan qaraymiz. U <code>links.next</code> ni
+  <b>o'qimaydi</b> — shunchaki <b>ochadi</b>. Birinchi javobda
+  <code>meta.total: 4</code> yozilgan edi, ikkinchi sahifada esa:</p>
+
+  <div class="natija">GET .../api/vakansiyalar?page=2
+
+data       :  [DevOps muhandis (Samarqand), QA mutaxassis (Buxoro)]
+meta.total :  7      ⚠️ birinchi javobda 4 edi</div>
+
+  <p>Foydalanuvchi «Toshkent» filtri yoqilgan holda <b>Samarqand va
+  Buxoro</b> vakansiyalarini ko'radi. Jami son ham o'zgarib ketadi.
+  Va hech qayerda xato yo'q — status 200.</p>
+
+  <div class="callout warn">
+    <span class="label">⚠️ Web'da bu bug, API'da bu shartnoma buzilishi</span>
+    <p>Web'da foydalanuvchi filtr tushib qolganini <b>ko'radi</b> va
+    qaytadan bosadi. API'da mijoz-dastur hech narsani ko'rmaydi — u
+    o'sha ma'lumotni <b>to'g'ri deb</b> foydalanuvchisiga
+    chiqaradi.</p>
+    <p>🔑 Shuning uchun <code>withQueryString()</code> API'da
+    <b>tanlov emas</b>.</p>
+  </div>
+
+  <!-- ═══════════════ 7) YAKUNIY KOD ═══════════════ -->
+  <h2>Yakuniy <code>index()</code></h2>
+
+  <div class="codefile">
+    <div class="fname">app/Http/Controllers/Api/VakansiyaController.php</div>
+    <code class="cmd" data-cmd="public function index(Request $request)
+{
+    $malumot = $request-&gt;validate([
+        'q' =&gt; ['nullable', 'string', 'max:60'],
+        'shahar' =&gt; ['nullable', 'string', 'max:60'],
+        'faqat_faol' =&gt; ['nullable', 'boolean'],
+        'sort' =&gt; ['nullable', 'in:nom,-nom,maosh,-maosh,yangi'],
+        'per_page' =&gt; ['nullable', 'integer', 'min:1', 'max:50'],
+    ]);
+
+    $tartib = [
+        'nom' =&gt; ['nom', 'asc'],
+        '-nom' =&gt; ['nom', 'desc'],
+        'maosh' =&gt; ['maosh', 'asc'],
+        '-maosh' =&gt; ['maosh', 'desc'],
+        'yangi' =&gt; ['created_at', 'desc'],
+    ][$malumot['sort'] ?? 'yangi'];
+
+    $vakansiyalar = Vakansiya::with('kompaniya')
+        -&gt;when($request-&gt;filled('q'), fn ($so_rov) =&gt; $so_rov-&gt;whereLike('nom', '%'.$request-&gt;input('q').'%'))
+        -&gt;when($request-&gt;filled('shahar'), fn ($so_rov) =&gt; $so_rov-&gt;where('shahar', $request-&gt;input('shahar')))
+        -&gt;when($request-&gt;boolean('faqat_faol'), fn ($so_rov) =&gt; $so_rov-&gt;faol())
+        -&gt;orderBy(...$tartib)
+        -&gt;paginate($request-&gt;integer('per_page', 10))
+        -&gt;withQueryString();
+
+    return VakansiyaResource::collection($vakansiyalar);
+}">public function index(Request $request)
+{
+    $malumot = $request-&gt;validate([
+        'q' =&gt; ['nullable', 'string', 'max:60'],
+        'shahar' =&gt; ['nullable', 'string', 'max:60'],
+        'faqat_faol' =&gt; ['nullable', 'boolean'],
+        'sort' =&gt; ['nullable', 'in:nom,-nom,maosh,-maosh,yangi'],
+        'per_page' =&gt; ['nullable', 'integer', 'min:1', 'max:50'],
+    ]);
+
+    $tartib = [
+        'nom' =&gt; ['nom', 'asc'],
+        '-nom' =&gt; ['nom', 'desc'],
+        'maosh' =&gt; ['maosh', 'asc'],
+        '-maosh' =&gt; ['maosh', 'desc'],
+        'yangi' =&gt; ['created_at', 'desc'],
+    ][$malumot['sort'] ?? 'yangi'];
+
+    $vakansiyalar = Vakansiya::with('kompaniya')
+        -&gt;when($request-&gt;filled('q'), fn ($so_rov) =&gt; $so_rov-&gt;whereLike('nom', '%'.$request-&gt;input('q').'%'))
+        -&gt;when($request-&gt;filled('shahar'), fn ($so_rov) =&gt; $so_rov-&gt;where('shahar', $request-&gt;input('shahar')))
+        -&gt;when($request-&gt;boolean('faqat_faol'), fn ($so_rov) =&gt; $so_rov-&gt;faol())
+        -&gt;orderBy(...$tartib)
+        -&gt;paginate($request-&gt;integer('per_page', 10))
+        -&gt;withQueryString();
+
+    return VakansiyaResource::collection($vakansiyalar);
+}</code>
+  </div>
+
+  <p>Zanjirni yuqoridan pastga o'qing — u <b>gap</b> kabi:
+  kompaniyani birga yukla, agar qidiruv bo'lsa qidir, agar shahar
+  bo'lsa filtrla, agar faqat faol so'ralsa scope'ni qo'sh, saralab
+  ber, sahifala, filtrni havolalarga ko'chir.</p>
+
+  <div class="callout tip">
+    <span class="label">🔍 <code>faol()</code> — 29-darsdagi scope</span>
+    <p><code>-&gt;faol()</code> — modeldagi <code>#[Scope]</code>
+    metodi. Uni <b>bitta qator ham o'zgartirmadik</b>: web'da ham,
+    API'da ham bir xil ishlaydi.</p>
+    <p>🔑 Nima uchun bu muhim: agar ertaga «faol» ta'rifi o'zgarsa
+    (masalan «faol va muddati o'tmagan»), siz uni <b>bitta joyda</b>
+    tuzatasiz — web ham, API ham darrov to'g'ri bo'ladi. Shart
+    controllerlarga tarqalib ketganda bunday bo'lmaydi.</p>
+  </div>
+
+  <!-- ═══════════════ 8) TESTLAR ═══════════════ -->
+  <h2>Testlar</h2>
+
+  <p>Filtr va saralash — <b>aynan</b> test yozish kerak bo'lgan joy:
+  ular ko'p tarmoqli, jimgina buziladi va qo'lda tekshirish
+  zerikarli.</p>
+
+  <div class="codefile">
+    <div class="fname">tests/Feature/ApiFiltrTest.php</div>
+    <code class="cmd">use App\Models\Vakansiya;
+
+it('shahar bo\'yicha filtrlaydi', function () {
+    Vakansiya::factory()-&gt;create(['shahar' =&gt; 'Toshkent']);
+    Vakansiya::factory()-&gt;create(['shahar' =&gt; 'Buxoro']);
+
+    $javob = $this-&gt;getJson('/api/vakansiyalar?shahar=Toshkent');
+
+    $javob-&gt;assertOk()
+        -&gt;assertJsonCount(1, 'data')
+        -&gt;assertJsonPath('data.0.shahar', 'Toshkent')
+        -&gt;assertJsonPath('meta.total', 1);
+});
+
+it('maosh bo\'yicha kamayish tartibida saralaydi', function () {
+    Vakansiya::factory()-&gt;create(['maosh' =&gt; 800]);
+    Vakansiya::factory()-&gt;create(['maosh' =&gt; 3000]);
+    Vakansiya::factory()-&gt;create(['maosh' =&gt; 1500]);
+
+    $javob = $this-&gt;getJson('/api/vakansiyalar?sort=-maosh');
+
+    expect($javob-&gt;json('data.*.maosh'))-&gt;toBe([3000, 1500, 800]);
+});
+
+it('ro\'yxatdagi bo\'lmagan sort ni rad etadi', function () {
+    $this-&gt;getJson('/api/vakansiyalar?sort=kompaniyalar.nom')
+        -&gt;assertStatus(422)
+        -&gt;assertJsonValidationErrors('sort');
+});
+
+it('per_page chegarasini ushlab qoladi', function () {
+    $this-&gt;getJson('/api/vakansiyalar?per_page=9999')
+        -&gt;assertStatus(422)
+        -&gt;assertJsonValidationErrors('per_page');
+});
+
+it('sahifa havolalari filtrni saqlaydi', function () {
+    Vakansiya::factory()-&gt;count(4)-&gt;create(['shahar' =&gt; 'Toshkent']);
+
+    $javob = $this-&gt;getJson('/api/vakansiyalar?shahar=Toshkent&amp;per_page=2');
+
+    expect($javob-&gt;json('links.next'))-&gt;toContain('shahar=Toshkent');
+});
+
+it('hech narsa topilmasa ham 200 va bo\'sh ro\'yxat qaytaradi', function () {
+    $javob = $this-&gt;getJson('/api/vakansiyalar?q=yolgonsoz');
+
+    $javob-&gt;assertOk()
+        -&gt;assertJsonCount(0, 'data')
+        -&gt;assertJsonPath('meta.total', 0);
+});
+
+it('q=0 qidiruvini ham bajaradi', function () {
+    Vakansiya::factory()-&gt;create(['nom' =&gt; '0 dan boshlovchi']);
+    Vakansiya::factory()-&gt;create(['nom' =&gt; 'Backend dasturchi']);
+
+    $javob = $this-&gt;getJson('/api/vakansiyalar?q=0');
+
+    $javob-&gt;assertJsonCount(1, 'data')
+        -&gt;assertJsonPath('data.0.nom', '0 dan boshlovchi');
+});</code>
+  </div>
+
+  <div class="natija">Tests:  7 passed (17 assertions)
+Duration: 0.19s</div>
+
+  <p>Uchta yangi vosita ishlatildi:</p>
+  <div class="natija">assertJsonPath('meta.total', 1)     →  ichki kalitni nuqta bilan
+json('data.*.maosh')                →  yulduzcha = har bir element
+assertJsonValidationErrors('sort')  →  aynan shu maydonda xato bormi</div>
+
+  <p><code>data.*.maosh</code> — massivdagi <b>har bir</b> elementdan
+  <code>maosh</code> ni yig'ib beradi. Saralash testi uchun eng qulay
+  shakl: <code>[3000, 1500, 800]</code> tartibning <b>o'zi</b>.</p>
+
+  <p>Oxirgi test — <b>regressiya testi</b>: u bitta topilgan xatoni
+  qaytib kelmasligi uchun mixlab qo'yadi. 41-darsdagi
+  red → green → refactor ning «green» qismini saqlaydigan narsa aynan
+  shu.</p>
+
+  <!-- ═══════════════ 9) HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir bir marta
+  o'qib chiqing, keyin kerak bo'lganda qaytib qarang.</p>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 1</span>
+    <h4>Hech narsa topilmadi</h4>
+    <div class="natija">?q=yolgonsoz
+
+status     :  200      ← 404 EMAS
+data       :  []
+meta.total :  0
+meta.from  :  null
+links.next :  null</div>
+    <p>«Topilmadi» — <b>xato emas</b>. So'rov to'g'ri bajarildi,
+    javob esa bo'sh to'plam. 42-darsdagi qoida: <b>404 — resurs
+    yo'q</b>, ro'yxat esa <b>bor</b>, u shunchaki bo'sh.</p>
+    <p>⚠️ <code>meta.from</code> va <code>meta.to</code> bunday holatda
+    <code>null</code> bo'ladi. Mijoz «<code>from</code>–<code>to</code>
+    dan <code>total</code>» deb yozsa, ekranda
+    <code>null–null</code> chiqadi. Buni hujjatda aytib qo'ying.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 2</span>
+    <h4>Filtr qo'shildi — N+1 qaytib keldi</h4>
+    <div class="natija">with('kompaniya') BOR   →  3 so'rov
+   1) select count(*) from "vakansiyalar"
+   2) select * from "vakansiyalar" limit 2 offset 0
+   3) select * from "kompaniyalar" where id in (1)
+
+with('kompaniya') YO'Q  →  4 so'rov (sahifada 2 ta yozuv uchun)
+   3) select * from "kompaniyalar" where id = ? limit 1
+   4) select * from "kompaniyalar" where id = ? limit 1</div>
+    <p>Filtrlarni qo'shayotganda zanjirni qayta yozish oson — va
+    <code>with()</code> tushib qolishi ham oson. Sahifada 50 ta yozuv
+    bo'lsa, 3 emas <b>52</b> so'rov bo'ladi.</p>
+    <p>✅ 29-darsdagi <code>Model::preventLazyLoading()</code> buni
+    testda <b>xatoga</b> aylantiradi.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 3</span>
+    <h4>Katta-kichik harf</h4>
+    <div class="natija">?q=backend   →  1 ta  «Backend dasturchi»
+?q=BACKEND   →  1 ta  «Backend dasturchi»
+?q=bAcKeNd   →  1 ta  «Backend dasturchi»</div>
+    <p><code>whereLike()</code> standart holda katta-kichik harfga
+    <b>sezgir emas</b> — qidiruv uchun aynan shu kerak.</p>
+    <p>⚠️ Lekin bu <b>bazaga bog'liq</b>: PostgreSQL'da <code>LIKE</code>
+    sezgir. Laravel'ning <code>whereLike()</code> uchinchi argument
+    sifatida <code>caseSensitive</code> ni oladi — sezgirlik kerak
+    bo'lsa aniq yozing, taxmin qilmang.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 4</span>
+    <h4><code>meta.links</code> ichida HTML</h4>
+    <div class="natija">"meta": {
+  "links": [
+    { "url": null, "label": "&amp;laquo; Previous", "page": null, "active": false },
+    { "url": ".../?page=1", "label": "1", "page": 1, "active": true },
+    ...
+  ]
+}</div>
+    <p>Bu massiv Blade sahifalash tugmalari uchun yasalgan — shuning
+    uchun <code>label</code> ichida <b>HTML mohiyati</b>
+    (<code>&amp;laquo;</code>) turibdi. JSON API uchun bu g'alati:
+    mobil ilova buni ekranda «<code>&amp;laquo; Previous</code>» deb
+    ko'rsatib qo'yishi mumkin.</p>
+    <p>✅ Mijozga <code>links.prev</code> / <code>links.next</code> va
+    <code>meta.current_page</code> / <code>meta.last_page</code> ni
+    ishlatishni ayting — <code>meta.links</code> ni emas.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 5</span>
+    <h4><code>paginate</code> va <code>simplePaginate</code></h4>
+    <div class="natija">paginate(2)        →  3 so'rov  (COUNT bor)
+   meta: current_page, from, last_page, links, path, per_page, to, TOTAL
+
+simplePaginate(2)  →  2 so'rov  (limit 3 hiylasi — bittasini ortiq oladi)
+   meta: current_page, current_page_url, from, path, per_page, to
+   links.last: null       ⚠️ total va last_page YO'Q</div>
+    <p>Farq <b>bitta COUNT so'rovi</b>. Katta jadvalda COUNT qimmat
+    bo'lishi mumkin.</p>
+    <p>⚠️ Lekin narxi bor: mijoz «<b>40 tadan 5</b>» deb yoza
+    <b>olmaydi</b> va sahifa raqamlarini ko'rsata olmaydi — faqat
+    «Keyingi». Tanlov mijozning ekraniga bog'liq.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 6</span>
+    <h4>Mavjud bo'lmagan sahifa</h4>
+    <div class="natija">?page=999   →  200
+                data: []
+                meta.current_page: 999
+                meta.last_page: 1</div>
+    <p>Laravel oxirgi sahifaga <b>qaytarmaydi</b> va xato ham
+    bermaydi — bo'sh ro'yxat beradi.</p>
+    <p>✅ Mijoz uchun tekshiruv oddiy:
+    <code>meta.current_page &gt; meta.last_page</code> bo'lsa,
+    «bunday sahifa yo'q» deb ko'rsating.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>Chuqur sahifa sekin bo'ladi</h4>
+    <div class="natija">?page=2      →  limit 10 offset 10        tez
+?page=50000  →  limit 10 offset 499990    ⚠️ sekin</div>
+    <p><code>OFFSET</code> — baza 499990 qatorni <b>o'qib, tashlab
+    yuborishi</b> kerak degani. Yozuv soni o'sgan sari sekinlashadi.</p>
+    <p>🔍 Sanoat yechimi — <b>kursor bilan sahifalash</b>:
+    <code>cursorPaginate()</code>. U <code>offset</code> o'rniga
+    «oxirgi ko'rilgan yozuvdan keyin» deydi. Buni hozir
+    kiritmaymiz — bilib qo'yish yetarli, chunki u <code>page</code>
+    o'rniga <code>cursor</code> beradi va <b>sakrab</b> sahifaga
+    o'tishga imkon bermaydi.</p>
+  </div>
+
+  <!-- ═══════════════ 10) AMALIYOT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    💻 Quyida amaliyot bor. Hozir o'qish rejimidasiz — kompyuter
+    yoningizda bo'lganda <b>💻 Amaliyot</b> rejimiga o'ting va
+    shu bo'limdan davom eting.
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <b>Loyihaga kiring.</b>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+php artisan route:list --path=api/vakansiyalar">cd ~/Projects/Learn/ishtop
+php artisan route:list --path=api/vakansiyalar</div>
+        <p>Beshta marshrut ko'rinishi kerak. Ko'rinmasa — 45-darsga
+        qayting.</p>
+      </li>
+
+      <li>
+        <b>Avval xatoni o'z ko'zingiz bilan ko'ring.</b> Bazaga
+        <code>0</code> bilan boshlanadigan vakansiya qo'shing:
+        <div class="cmd" data-cmd="php artisan tinker --execute=&quot;App\Models\Vakansiya::factory()->create(['nom' => '0 dan boshlovchi']); echo App\Models\Vakansiya::count();&quot;">php artisan tinker --execute=&quot;App\Models\Vakansiya::factory()->create(['nom' => '0 dan boshlovchi']); echo App\Models\Vakansiya::count();&quot;</div>
+      </li>
+
+      <li>
+        <b>Eski filtrni qo'ying</b> — 29-darsdagi shakl bilan.
+        <code>index()</code> ni shunga almashtiring:
+        <div class="cmd" data-cmd="# app/Http/Controllers/Api/VakansiyaController.php
+# index() ni vaqtincha shunday qiling:
+
+public function index(Request $request)
+{
+    return VakansiyaResource::collection(
+        Vakansiya::with('kompaniya')
+            ->when($request->input('q'), fn ($so_rov, $matn) => $so_rov->whereLike('nom', &quot;%{$matn}%&quot;))
+            ->paginate(10)
+    );
+}"># app/Http/Controllers/Api/VakansiyaController.php
+# index() ni vaqtincha shunday qiling:
+
+public function index(Request $request)
+{
+    return VakansiyaResource::collection(
+        Vakansiya::with('kompaniya')
+            -&gt;when($request-&gt;input('q'), fn ($so_rov, $matn) =&gt; $so_rov-&gt;whereLike('nom', &quot;%{$matn}%&quot;))
+            -&gt;paginate(10)
+    );
+}</div>
+      </li>
+
+      <li>
+        <b>Tuzoqni o'lchang.</b> Serverni ishga tushiring va ikkita
+        so'rov yuboring:
+        <div class="cmd" data-cmd="php artisan serve">php artisan serve</div>
+        <p>Boshqa terminalda:</p>
+        <div class="cmd" data-cmd="curl -s &quot;http://127.0.0.1:8000/api/vakansiyalar?q=dasturchi&quot; -H &quot;Accept: application/json&quot; | head -c 120; echo
+curl -s &quot;http://127.0.0.1:8000/api/vakansiyalar?q=0&quot; -H &quot;Accept: application/json&quot; | head -c 120; echo">curl -s &quot;http://127.0.0.1:8000/api/vakansiyalar?q=dasturchi&quot; -H &quot;Accept: application/json&quot; | head -c 120; echo
+curl -s &quot;http://127.0.0.1:8000/api/vakansiyalar?q=0&quot; -H &quot;Accept: application/json&quot; | head -c 120; echo</div>
+        <p class="expect">⚠️ Ikkinchisi <b>hamma narsani</b>
+        qaytaradi. Xato yo'q, status 200 — lekin javob noto'g'ri.
+        Buni <b>o'z ko'zingiz</b> bilan ko'rish muhim.</p>
+      </li>
+
+      <li>
+        <b>Yakuniy <code>index()</code> ni yozing.</b> Yuqoridagi
+        «Yakuniy <code>index()</code>» bo'limidagi kodni to'liq
+        ko'chiring (nusxa tugmasi bor).
+        <div class="cmd" data-cmd="php -l app/Http/Controllers/Api/VakansiyaController.php">php -l app/Http/Controllers/Api/VakansiyaController.php</div>
+      </li>
+
+      <li>
+        <b>Filtr va saralashni tekshiring.</b>
+        <div class="cmd" data-cmd="for u in &quot;q=0&quot; &quot;q=dasturchi&quot; &quot;sort=-maosh&quot; &quot;sort=moash&quot; &quot;per_page=9999&quot; &quot;shahar=Toshkent&quot;; do
+  printf '%-18s ' &quot;$u&quot;
+  curl -s -o /dev/null -w 'status: %{http_code}\n' -H 'Accept: application/json' &quot;http://127.0.0.1:8000/api/vakansiyalar?$u&quot;
+done">for u in &quot;q=0&quot; &quot;q=dasturchi&quot; &quot;sort=-maosh&quot; &quot;sort=moash&quot; &quot;per_page=9999&quot; &quot;shahar=Toshkent&quot;; do
+  printf '%-18s ' &quot;$u&quot;
+  curl -s -o /dev/null -w 'status: %{http_code}\n' -H 'Accept: application/json' &quot;http://127.0.0.1:8000/api/vakansiyalar?$u&quot;
+done</div>
+        <p class="expect">Kutilgan: <code>sort=moash</code> va
+        <code>per_page=9999</code> — <b>422</b>, qolganlari
+        <b>200</b>.</p>
+      </li>
+
+      <li>
+        <b><code>withQueryString()</code> ni A/B qiling.</b> Avval uni
+        <b>o'chirib</b> ko'ring:
+        <div class="cmd" data-cmd="curl -s &quot;http://127.0.0.1:8000/api/vakansiyalar?shahar=Toshkent&amp;per_page=2&quot; -H &quot;Accept: application/json&quot; | python3 -c &quot;import json,sys; d=json.load(sys.stdin); print('next:', d['links']['next']); print('total:', d['meta']['total'])&quot;">curl -s &quot;http://127.0.0.1:8000/api/vakansiyalar?shahar=Toshkent&amp;per_page=2&quot; -H &quot;Accept: application/json&quot; | python3 -c &quot;import json,sys; d=json.load(sys.stdin); print('next:', d['links']['next']); print('total:', d['meta']['total'])&quot;</div>
+        <p class="expect">✅ <code>next</code> ichida
+        <code>shahar=Toshkent</code> bo'lishi kerak. Bo'lmasa —
+        <code>-&gt;withQueryString()</code> qatorini tekshiring.</p>
+      </li>
+
+      <li>
+        <b>Testlarni yozing.</b> Yuqoridagi
+        <code>tests/Feature/ApiFiltrTest.php</code> ni to'liq
+        ko'chiring:
+        <div class="cmd" data-cmd="php artisan test tests/Feature/ApiFiltrTest.php">php artisan test tests/Feature/ApiFiltrTest.php</div>
+        <p class="expect">Kutilgan: <b>7 passed</b>.</p>
+      </li>
+
+      <li>
+        <b>So'rovlar sonini o'lchang.</b>
+        <div class="cmd" data-cmd="php artisan tinker --execute=&quot;DB::enableQueryLog(); App\Models\Vakansiya::with('kompaniya')->paginate(2)->toArray(); echo count(DB::getQueryLog()), ' so\'rov';&quot;">php artisan tinker --execute=&quot;DB::enableQueryLog(); App\Models\Vakansiya::with('kompaniya')->paginate(2)->toArray(); echo count(DB::getQueryLog()), ' so\'rov';&quot;</div>
+        <p class="expect">Kutilgan: <b>3 so'rov</b>. <code>with</code> ni
+        olib tashlab qayta o'lchang — o'sishini ko'rasiz.</p>
+      </li>
+
+      <li>
+        <b>To'liq to'plamni ishga tushiring.</b> 45-darsdagi saboq —
+        filtr bilan emas, <b>hammasini</b>:
+        <div class="cmd" data-cmd="php artisan test">php artisan test</div>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><code>?q=0</code> endi bitta yozuv qaytaradi</li>
+      <li><code>?sort=moash</code> <b>422</b> beradi, 200 emas</li>
+      <li><code>?per_page=9999</code> <b>422</b> beradi</li>
+      <li><code>links.next</code> ichida filtr saqlanadi</li>
+      <li><code>ApiFiltrTest</code> — 7 test yashil</li>
+      <li>To'liq to'plam yashil</li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 11) SINAB KO'RAMIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Mobil ilova dasturchisi shikoyat qildi: «ro'yxat sahifasida
+    jami son <b>o'zgarib turadi</b>». U shunday ketma-ketlikni
+    ko'rsatdi:</p>
+    <div class="natija">1) GET /api/vakansiyalar?shahar=Toshkent
+   meta.total: 4        ✅ to'g'ri
+
+2) mijoz links.next ni ochadi
+   GET /api/vakansiyalar?page=2
+   meta.total: 7        ⚠️ endi 7</div>
+    <p>Serverda esa hech qanday xato yo'q — ikkala so'rov ham
+    <b>200</b>. Nima bo'ldi va nima uchun buni <b>testlar
+    tutmagan</b>?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <p><code>paginate()</code> dan keyin
+        <code>withQueryString()</code> yo'q. Shuning uchun havolalar
+        <b>faqat</b> <code>page</code> ni saqlaydi:</p>
+        <div class="natija">links.next  →  .../api/vakansiyalar?page=2      ← shahar YO'Q</div>
+        <p class="expect">⚠️ Mijoz o'sha havolani <b>ochadi</b> —
+        va endi filtrsiz so'rov yuborgan bo'ladi. Shuning uchun
+        <code>total</code> 4 dan 7 ga «o'zgardi»: bular
+        <b>ikki xil so'rov</b> edi.</p>
+        <p>Foydalanuvchi buni yanada g'alati ko'radi: «Toshkent»
+        filtri yoqilgan holda ikkinchi sahifada <b>Samarqand</b>
+        vakansiyalari chiqadi.</p>
+        <p>🔑 Nega testlar tutmadi? Chunki odatdagi filtr testi
+        <b>birinchi sahifani</b> tekshiradi:</p>
+        <div class="natija">$this->getJson('/api/vakansiyalar?shahar=Toshkent')
+     ->assertJsonPath('meta.total', 1);     ← YASHIL, muammo ko'rinmaydi</div>
+        <p>Muammo <b>havolada</b>, ma'lumotda emas. Shuning uchun
+        alohida test kerak:</p>
+        <div class="natija">expect($javob->json('links.next'))->toContain('shahar=Toshkent');</div>
+        <p>✅ Yechim bitta qator:</p>
+        <div class="natija">->paginate($request->integer('per_page', 10))
+->withQueryString();</div>
+        <p>🔍 <b>Umumiy saboq:</b> API'da javobning <b>ma'lumoti</b>
+        to'g'ri bo'lishi yetarli emas — <b>havolalari</b> ham to'g'ri
+        bo'lishi kerak. Mijoz ularni o'qimaydi, <b>ochadi</b>.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span>
+    <code>?q=0</code> yuborilsa, <code>when($request-&gt;input('q'), ...)</code>
+    nima qiladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Shartni o'tkazib yuboradi va hammasini qaytarib beradi</button></li>
+      <li><button class="quiz-option">Nol raqamini qidiradi va bittasini topib qaytaradi</button></li>
+      <li><button class="quiz-option">Xato beradi va butun so'rovni to'xtatib qo'yadi</button></li>
+    </ul>
+    <div class="quiz-explain">PHP'da <code>"0"</code> — <b>yolg'on</b>
+    qiymat, shuning uchun <code>when()</code> closure'ni umuman
+    ishlatmaydi. ⚠️ Xato chiqmaydi, status <b>200</b> —
+    faqat javob noto'g'ri.
+    ✅ Yechim: <code>$request-&gt;filled('q')</code>, u
+    mavjudlikni tekshiradi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span> Nima uchun
+    <code>sort</code> ni to'g'ridan-to'g'ri <code>orderBy</code> ga
+    berish yaramaydi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Oq ro'yxat kerak aks holda ustun ochiladi</button></li>
+      <li><button class="quiz-option">Laravel ustun nomini o'zi tekshirib himoya qiladi</button></li>
+      <li><button class="quiz-option">SQL inyeksiya bo'ladi va parol o'g'irlanib ketadi</button></li>
+    </ul>
+    <div class="quiz-explain">Inyeksiya <b>emas</b> — o'lchandi:
+    <code>orderBy</code> qo'shtirnoqni ikkilantiradi. Xavf boshqa:
+    harf xatosi <b>jimgina</b> 200 beradi (SQLite'da), nuqtali nom
+    <b>500</b> beradi, va mijoz Resource yashirgan ustun bo'yicha
+    ham saralay oladi.
+    ✅ Kalitdan ustunga o'zingiz o'giring.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span>
+    <code>withQueryString()</code> nima beradi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Sahifa havolalarida filtr saqlanadi ikkinchi sahifa to'g'ri</button></li>
+      <li><button class="quiz-option">Barcha yozuvlarni bitta sahifada birdaniga chiqarib beradi</button></li>
+      <li><button class="quiz-option">So'rovni tezlashtiradi va COUNT so'rovini olib tashlaydi</button></li>
+    </ul>
+    <div class="quiz-explain">U <code>links.first/last/prev/next</code>
+    ichiga joriy query parametrlarni ko'chiradi.
+    ⚠️ Bo'lmasa mijoz <code>links.next</code> ni ochib
+    <b>filtrsiz</b> ma'lumot oladi — va buni sezmaydi, chunki
+    status 200.
+    🔑 API'da bu tanlov emas.</div>
+  </div>
+
+  <!-- ═══════════════ 12) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+
+    <p>Javobni ovoz chiqarib ayting, keyin ochib solishtiring.</p>
+
+    <details class="recall">
+      <summary>Sahifalangan javobdagi uchta yuqori kalit qaysilar va
+      har biri nima uchun?</summary>
+      <div class="answer"><code>data</code> — so'ralgan narsa.
+      <code>links</code> — mijoz <b>ochadigan</b> havolalar
+      (<code>first</code>, <code>last</code>, <code>prev</code>,
+      <code>next</code>). <code>meta</code> — mijoz
+      <b>ko'rsatadigan</b> raqamlar (<code>current_page</code>,
+      <code>last_page</code>, <code>per_page</code>,
+      <code>from</code>, <code>to</code>, <code>total</code>).</div>
+    </details>
+
+    <details class="recall">
+      <summary><code>?q=0</code> nega qidiruvni buzadi va yechimi
+      nima?</summary>
+      <div class="answer">PHP'da <code>"0"</code> yolg'on qiymat,
+      shuning uchun <code>when($request-&gt;input('q'), ...)</code>
+      closure'ni <b>umuman</b> ishlatmaydi — filtr yo'qoladi, status
+      esa 200. Yechim: shartni <code>$request-&gt;filled('q')</code>
+      qilish va qiymatni closure ichida olish.</div>
+    </details>
+
+    <details class="recall">
+      <summary><code>?sort=moash</code> (harf xato) SQLite'da nega
+      500 emas, 200 qaytaradi?</summary>
+      <div class="answer">SQLite qo'shtirnoq ichidagi noma'lum nomni
+      <b>satr</b> deb qabul qiladi:
+      <code>order by "moash"</code> — hamma qatorda bir xil qiymat,
+      ya'ni saralash bo'sh ish. MySQL va PostgreSQL bunda
+      <b>xato</b> beradi. Shuning uchun SQLite bu xatoni
+      <b>yashiradi</b>.</div>
+    </details>
+
+    <details class="recall">
+      <summary>Oq ro'yxat naqshi nima va nega u Resource g'oyasiga
+      o'xshaydi?</summary>
+      <div class="answer">Mijozning satri ustun nomi emas,
+      <b>kalit</b> bo'ladi; kalitdan ustun va yo'nalishga o'girishni
+      siz qilasiz. Resource javobda bazani <b>yashirgani</b> kabi, oq
+      ro'yxat kirishda bazani yashiradi — ustun nomlarini
+      o'zgartirsangiz mijozning kodi buzilmaydi.</div>
+    </details>
+
+    <details class="recall">
+      <summary><code>paginate</code> va <code>simplePaginate</code>
+      farqi nimada — so'rovda ham, javobda ham?</summary>
+      <div class="answer">So'rovda: <b>3</b> va <b>2</b>
+      (<code>simplePaginate</code> da COUNT yo'q, o'rniga
+      <code>limit</code> bittaga ortiq olinadi). Javobda:
+      <code>simplePaginate</code> da <code>meta.total</code>,
+      <code>meta.last_page</code> va <code>links.last</code>
+      <b>yo'q</b> — mijoz «40 tadan 5» deb yoza olmaydi.</div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 13) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Xulosa</span>
+    <ul>
+      <li><b>Query parametr</b> — resursning <b>qaysi qismini</b>
+      so'rayotganingiz. Manzil resursni ko'rsatadi, query esa
+      savolni.</li>
+      <li>Sahifalangan javob uchta kalitli:
+      <code>data</code> · <code>links</code> · <code>meta</code>.
+      Ularni <code>paginate()</code> ning o'zi qo'shadi.</li>
+      <li>⚠️ <code>when($request-&gt;input('q'), ...)</code> —
+      <code>?q=0</code> da <b>jimgina</b> buziladi. Shart uchun
+      <code>filled()</code> ishlating.</li>
+      <li>⚠️ <code>orderBy($request-&gt;input('sort'))</code> — harf
+      xatosi 200 beradi (SQLite), nuqtali nom 500 beradi.
+      <b>Oq ro'yxat</b> — yagona to'g'ri yechim.</li>
+      <li>Bu <b>inyeksiya emas</b>: <code>orderBy</code> qo'shtirnoqni
+      ikkilantiradi. Xavf — noto'g'ri natija va yashirin ustun
+      bo'yicha tartib.</li>
+      <li>Query parametr ham <b>tekshiriladi</b>:
+      <code>in:</code> ro'yxati va <code>per_page</code> uchun
+      <code>max:</code>.</li>
+      <li>Mijoz boshqaradigan <b>har bir raqamning</b> yuqori
+      chegarasi bo'lsin.</li>
+      <li>⚠️ <code>withQueryString()</code> — API'da tanlov emas.
+      Mijoz <code>links.next</code> ni <b>ochadi</b>, o'qimaydi.</li>
+      <li>Scope (<code>faol()</code>) web va API'da <b>bir xil</b>
+      ishlaydi — shart bitta joyda turadi.</li>
+      <li>Filtr qo'shganda <code>with()</code> tushib qolmasin —
+      N+1 shu yerda qaytadi.</li>
+      <li>«Topilmadi» — <b>200</b> va bo'sh <code>data</code>,
+      404 emas.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p>API endi haqiqiy: to'liq CRUD, himoya, boshqariladigan javob,
+    filtr va saralash. Lekin bugun ikki marta <b>500</b> ko'rdik —
+    <code>?sort=kompaniyalar.nom</code> va binding buzilgan
+    <code>update</code>.</p>
+    <p>500 — mijoz uchun eng yomon javob: unda na sabab bor, na nima
+    qilish kerakligi. Yomoni shundaki, <code>APP_DEBUG=true</code>
+    bo'lsa u <b>butun stack trace'ni</b> qaytaradi — fayl yo'llari
+    bilan birga.</p>
+    <p>47-darsda <b>xatolarni to'g'ri qaytarish</b> bilan
+    shug'ullanamiz: <code>ModelNotFound</code> qayerda 404 ga
+    aylanadi, 403 va 422 javoblarining shaklini qanday bir xil
+    qilamiz, va kutilmagan xato mijozga <b>nima</b> ko'rsatishi
+    kerak.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel — Pagination</b>:
+    <a href="https://laravel.com/docs/13.x/pagination">paginate, simplePaginate,
+    appends, withQueryString</a>.<sup><a href="#fn2">2</a></sup><br>
+    <b>Laravel — Conditional Clauses</b>:
+    <a href="https://laravel.com/docs/13.x/queries#conditional-clauses">when()</a>.<sup><a href="#fn6">6</a></sup><br>
+    <b>Laravel — Request: filled, boolean, integer</b>:
+    <a href="https://laravel.com/docs/13.x/requests#retrieving-input">laravel.com/docs/13.x/requests</a>.<sup><a href="#fn3">3</a></sup><br>
+    <b>SQLite — qo'shtirnoq kelishuvi</b>:
+    <a href="https://www.sqlite.org/quirks.html#dblquote">sqlite.org/quirks.html</a>.<sup><a href="#fn4">4</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b> «bir nechta shahar
+    bo'yicha filtrlash qanday bo'ladi
+    (<code>?shahar[]=Toshkent&amp;shahar[]=Buxoro</code>)?»,
+    «maosh oralig'ini qanday beraman?», «kompaniya nomi bo'yicha
+    saralash mumkinmi?», «<code>cursorPaginate</code> qachon kerak?» —
+    har qanday savol yaxshi. Uchinchisiga qisqa javob: <b>ha, lekin
+    <code>join</code> kerak</b> — chunki tartib boshqa jadvaldagi
+    ustun bo'yicha bo'ladi, va oq ro'yxatingizga
+    <code>['kompaniyalar.nom', 'asc']</code> ni qo'shishdan oldin
+    so'rovga <code>join</code> ni ham qo'shishingiz kerak. Ikkinchisiga:
+    ikkita parametr (<code>maosh_dan</code>, <code>maosh_gacha</code>)
+    va <code>whereBetween</code> — 29-darsda ko'rgansiz.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0045-apiresource-crud.html">Oldingi: apiResource CRUD</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">MDN — <a href="https://developer.mozilla.org/en-US/docs/Web/URI/Reference/Query">URL query parametrlari</a>.</li>
+      <li id="fn2">Laravel 13 — <a href="https://laravel.com/docs/13.x/pagination">Pagination</a>.</li>
+      <li id="fn3">Laravel 13 — <a href="https://laravel.com/docs/13.x/requests#retrieving-input">Requests: Retrieving Input</a>.</li>
+      <li id="fn4">SQLite — <a href="https://www.sqlite.org/quirks.html#dblquote">Quirks: qo'shtirnoqli satrlar</a>.</li>
+      <li id="fn5">JSON:API — <a href="https://jsonapi.org/format/#fetching-sorting">Sorting</a> (minus prefiksi kelishuvi).</li>
+      <li id="fn6">Laravel 13 — <a href="https://laravel.com/docs/13.x/queries#conditional-clauses">Conditional Clauses</a>.</li>
+      <li id="fn7">Barchasi jonli o'lchangan (PHP 8.3.32, Laravel 13.26.1,
+      Pest 4.7.8, SQLite): sahifalangan javob kalitlari —
+      <code>data</code>, <code>links</code> (first/last/prev/next),
+      <code>meta</code> (current_page, from, last_page, links, path,
+      per_page, to, total) ·
+      ⚠️ <code>?q=0</code> bilan <code>when($request-&gt;input('q'))</code>
+      → <b>8 ta</b> (hammasi) qaytdi, kutilgan <b>1 ta</b>;
+      <code>filled()</code> dan keyin <b>1 ta</b> ·
+      <code>?q=</code> → <code>input('q')</code> <b>NULL</b>
+      (<code>ConvertEmptyStringsToNull</code>) ·
+      ⚠️ <code>?sort=moash</code> → <b>200</b>, saralanmadi;
+      <code>?sort=kompaniyalar.nom</code> → <b>500</b> ·
+      SQLite: <code>select "moash" as x</code> → satr
+      <code>'moash'</code> ·
+      <code>orderBy('maosh&quot;, (select password from users) --')</code>
+      → SQL: <code>order by "maosh"", ... --" asc</code>
+      (qo'shtirnoq ikkilantirildi, inyeksiya emas) ·
+      oq ro'yxatdan keyin: <code>?sort=moash</code> va
+      <code>?per_page=9999</code> → <b>422</b> ·
+      ⚠️ <code>withQueryString()</code> siz
+      <code>links.next</code> = <code>?page=2</code> (filtr yo'q),
+      2-sahifada <code>meta.total</code> <b>4 → 7</b>;
+      bilan — <code>?shahar=Toshkent&amp;page=2</code> ·
+      so'rovlar soni: <code>paginate</code>+<code>with</code> = <b>3</b>,
+      <code>simplePaginate</code>+<code>with</code> = <b>2</b>,
+      <code>with</code> siz = <b>4</b> (2 ta yozuv uchun) ·
+      <code>simplePaginate</code> javobida <code>meta.total</code>,
+      <code>meta.last_page</code>, <code>links.last</code> <b>yo'q</b> ·
+      <code>whereLike</code> katta-kichik harfga sezgir emas
+      (backend/BACKEND/bAcKeNd → bir xil natija) ·
+      bo'sh natija → <b>200</b>, <code>data: []</code>,
+      <code>meta.total: 0</code>, <code>from</code>/<code>to</code>
+      <code>null</code> ·
+      <code>ApiFiltrTest</code> — <b>7 passed (17 assertions), 0.19s</b>.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

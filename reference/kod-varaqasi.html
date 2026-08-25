@@ -17,7 +17,7 @@
   muhit ma'lumotlari. Har dars yangi buyruq o'rgatilsa, shu yerga qo'shiladi.</p>
 
   <p class="lesson-meta">
-    <span>Qamrov: <b>1&ndash;45-darslar</b> — muhitdan API'gacha</span>
+    <span>Qamrov: <b>1&ndash;46-darslar</b> — muhitdan API'gacha</span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>💻 Amaliyotga mos</span>
   </p>
@@ -1123,6 +1123,55 @@
     <b>404</b> yozuv → <b>422</b> ma'lumot.</p>
     <p>🔍 <b>Commit oldidan to'liq to'plam:</b> bu darsdagi nom to'qnashuvini
     <code>--filter=Api</code> <b>tutmadi</b> — uni web testlari tutdi.</p>
+  </div>
+
+  <h2>Filtr, qidiruv va saralash (46-darsdan)</h2>
+  <table class="sheet">
+    <tr><th>Kod</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>-&gt;when($shart, fn ($s) =&gt; ...)</code></td><td class="note-cell">Shartli filtr — shart yolg'on bo'lsa zanjir o'zgarmaydi</td></tr>
+    <tr><td><code>$request-&gt;filled('q')</code></td><td class="note-cell">⚠️ Shart uchun <b>shu</b>, <code>input()</code> emas — <code>"0"</code> tuzog'i</td></tr>
+    <tr><td><code>$request-&gt;boolean('faqat_faol')</code></td><td class="note-cell"><code>"1"</code>, <code>"true"</code>, <code>"on"</code> → <code>true</code></td></tr>
+    <tr><td><code>$request-&gt;integer('per_page', 10)</code></td><td class="note-cell">Butun songa o'giradi, yo'q bo'lsa standart qiymat</td></tr>
+    <tr><td><code>'sort' =&gt; ['nullable', 'in:...']</code></td><td class="note-cell">⚠️ Saralash uchun <b>oq ro'yxat</b> — majburiy</td></tr>
+    <tr><td><code>'per_page' =&gt; ['integer', 'max:50']</code></td><td class="note-cell">Mijoz boshqaradigan raqamning yuqori chegarasi</td></tr>
+    <tr><td><code>-&gt;orderBy(...$tartib)</code></td><td class="note-cell">Massivni ikkita argumentga yoyish (spread)</td></tr>
+    <tr><td><code>-&gt;paginate(10)-&gt;withQueryString()</code></td><td class="note-cell">⚠️ API'da <b>tanlov emas</b> — filtrni havolalarga ko'chiradi</td></tr>
+    <tr><td><code>-&gt;faol()</code></td><td class="note-cell">29-darsdagi <code>#[Scope]</code> — web va API'da bir xil</td></tr>
+    <tr><td><code>assertJsonPath('meta.total', 1)</code></td><td class="note-cell">Ichki kalitni nuqta bilan tekshirish</td></tr>
+    <tr><td><code>json('data.*.maosh')</code></td><td class="note-cell">Har bir elementdan maydonni yig'ish — tartib testi uchun</td></tr>
+    <tr><td><code>assertJsonValidationErrors('sort')</code></td><td class="note-cell">Aynan shu maydonda 422 xatosi bormi</td></tr>
+  </table>
+  <div class="callout note">
+    <p>⚠️ <b><code>when()</code> ning falsy tuzog'i.</b> PHP'da
+    <code>"0"</code> yolg'on qiymat, shuning uchun
+    <code>when($request-&gt;input('q'), ...)</code> da <code>?q=0</code>
+    filtrni <b>butunlay o'chirib qo'yadi</b> — status <b>200</b>, javob
+    noto'g'ri. ✅ Shart uchun <code>filled()</code>, qiymat uchun
+    <code>input()</code>.
+    <br>🔍 <code>?q=</code> (bo'sh) → <code>null</code>
+    (<code>ConvertEmptyStringsToNull</code>).</p>
+    <p>⚠️ <b>Oq ro'yxatsiz saralash.</b> O'lchandi:
+    <code>?sort=moash</code> → <b>200</b>, saralanmaydi (SQLite noma'lum
+    nomni <b>satr</b> deb qabul qiladi; MySQL/PostgreSQL'da bu
+    <b>xato</b>); <code>?sort=kompaniyalar.nom</code> → <b>500</b>.
+    <br>🔍 <b>Inyeksiya emas:</b> <code>orderBy</code> qo'shtirnoqni
+    ikkilantiradi. Xavf — jimgina noto'g'ri natija, mijoz yiqitadigan
+    500, va Resource yashirgan ustun bo'yicha tartib.</p>
+    <p>⚠️ <b><code>withQueryString()</code> siz.</b>
+    <code>links.next</code> = <code>?page=2</code> — filtr yo'qoladi.
+    Mijoz havolani <b>ochadi</b> (o'qimaydi) va boshqa ma'lumot oladi:
+    <code>meta.total</code> <b>4 → 7</b>. Web'da bu bug, API'da
+    <b>shartnoma buzilishi</b>.</p>
+    <p>🔑 <b>Sahifalangan javob:</b> <code>data</code> (so'ralgan narsa) ·
+    <code>links</code> (mijoz <b>ochadi</b>) · <code>meta</code> (mijoz
+    <b>ko'rsatadi</b>).
+    <br>🔍 So'rovlar: <code>paginate</code>+<code>with</code> = <b>3</b>,
+    <code>simplePaginate</code>+<code>with</code> = <b>2</b>,
+    <code>with</code> siz = N+1.
+    <code>simplePaginate</code> da <code>meta.total</code>,
+    <code>meta.last_page</code>, <code>links.last</code> <b>yo'q</b>.</p>
+    <p>🔑 «Topilmadi» → <b>200</b> va bo'sh <code>data</code>, 404 emas.
+    <code>meta.from</code>/<code>to</code> esa <code>null</code> bo'ladi.</p>
   </div>
 
   <h2>Xatoni o'qish</h2>

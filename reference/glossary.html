@@ -18,7 +18,7 @@
   izoh esa o'zbekcha.</p>
 
   <p class="lesson-meta">
-    <span>Atamalar: <b>180 ta</b></span>
+    <span>Atamalar: <b>185 ta</b></span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>📱 O'qishga mos</span>
   </p>
@@ -26,7 +26,7 @@
   <div class="callout note">
     <span class="label">Bu hujjat o'sib boradi</span>
     <p>Atama faqat <b>o'z darsi yozilganda</b> qo'shiladi — oldindan emas. Hozir:
-    Modul A–F (1–45-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
+    Modul A–F (1–46-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
     bosqichida qat'iy belgilangan va 73 dars bo'ylab o'zgarmaydi).</p>
   </div>
 
@@ -1343,6 +1343,81 @@
       🔍 Tashxis: <code>php artisan route:list --name=vakansiyalar</code>.
       🔑 Bu xatoni <b>web testlari</b> tutadi, API testlari emas.
       <span class="eg">route('api.vakansiyalar.index')  →  /api/vakansiyalar</span></dd>
+    </div>
+
+    <div class="term" id="query-parametr">
+      <dt>query parametr <span class="uz">— so'rovning shakli</span></dt>
+      <dd>Manzildagi <code>?</code> dan keyingi qism:
+      <code>?shahar=Toshkent&amp;sort=-maosh&amp;page=2</code>. Manzil
+      <b>resursni</b> ko'rsatadi, query esa uning <b>qaysi qismini</b>
+      so'rayotganingizni. ⚠️ Bu ham <b>ma'lumot</b> — GET so'rovda ham
+      <code>$request-&gt;validate([...])</code> ishlaydi va xato bo'lsa
+      <b>422</b> qaytadi.
+      🔑 Mijoz boshqaradigan har bir raqamning yuqori chegarasi bo'lsin
+      (<code>per_page</code> uchun <code>max:50</code>).
+      <span class="eg">?q=php&amp;faqat_faol=1&amp;per_page=20</span></dd>
+    </div>
+
+    <div class="term" id="filled-vs-input">
+      <dt>filled() <span class="uz">— «bor va bo'sh emas»</span></dt>
+      <dd>⚠️ <code>when($request-&gt;input('q'), ...)</code> —
+      <b>falsy tuzog'i</b>: PHP'da <code>"0"</code> yolg'on, shuning uchun
+      <code>?q=0</code> filtrni <b>butunlay o'chirib qo'yadi</b>. Xato
+      chiqmaydi, status <b>200</b> — faqat javob noto'g'ri.
+      ✅ Shart uchun <code>filled()</code>, qiymat uchun
+      <code>input()</code>: ular <b>ajratiladi</b>.
+      🔍 <code>?q=</code> (bo'sh) → <code>input('q')</code> <code>null</code>
+      qaytaradi, bo'sh satr emas —
+      <code>ConvertEmptyStringsToNull</code> middleware'i shunday qiladi.
+      <span class="eg">-&gt;when($request-&gt;filled('q'), fn ($s) =&gt; ...)</span></dd>
+    </div>
+
+    <div class="term" id="oq-royxat-saralash">
+      <dt>oq ro'yxat (saralash uchun) <span class="uz">— kalit, ustun emas</span></dt>
+      <dd>⚠️ <code>orderBy($request-&gt;input('sort'))</code> —
+      mijozning satri to'g'ridan-to'g'ri ustun nomi bo'lib qoladi.
+      Oqibatlari o'lchandi: <code>?sort=moash</code> (harf xato) →
+      <b>200</b>, lekin <b>saralanmaydi</b> (SQLite noma'lum nomni
+      <b>satr</b> deb qabul qiladi); <code>?sort=kompaniyalar.nom</code>
+      → <b>500</b>; Resource yashirgan ustun bo'yicha ham saralash
+      mumkin bo'lib qoladi.
+      🔍 <b>Bu inyeksiya emas</b>: <code>orderBy</code> qo'shtirnoqni
+      ikkilantiradi, qo'shimcha SQL ijro etilmaydi.
+      ✅ Kalit → <code>[ustun, yo'nalish]</code> massivi va
+      <code>in:</code> validatsiyasi. <code>-maosh</code> — «teskari
+      tartib» kelishuvi.
+      <span class="eg">'-maosh' =&gt; ['maosh', 'desc']</span></dd>
+    </div>
+
+    <div class="term" id="withquerystring">
+      <dt>withQueryString() <span class="uz">— filtrni havolalarga ko'chirish</span></dt>
+      <dd>Sahifalash havolalariga joriy query parametrlarni qo'shadi.
+      ⚠️ Bo'lmasa <code>links.next</code> = <code>?page=2</code> —
+      filtr <b>yo'qoladi</b>. Mijoz o'sha havolani <b>ochadi</b>
+      (o'qimaydi) va boshqa ma'lumot oladi:
+      o'lchandi — <code>meta.total</code> <b>4 → 7</b> bo'lib ketdi.
+      🔑 Web'da bu bug, API'da bu <b>shartnoma buzilishi</b> — shuning
+      uchun API'da tanlov emas.
+      🔍 Testi: <code>expect($javob-&gt;json('links.next'))-&gt;toContain('shahar=Toshkent')</code>.
+      <span class="eg">-&gt;paginate(10)-&gt;withQueryString()</span></dd>
+    </div>
+
+    <div class="term" id="links-meta">
+      <dt>links va meta <span class="uz">— sahifalangan javobning ikki kaliti</span></dt>
+      <dd><code>paginate()</code> Resource collection'ga tushsa, javobga
+      <code>data</code> yonida ikkitasi qo'shiladi:
+      <code>links</code> (<code>first</code>, <code>last</code>,
+      <code>prev</code>, <code>next</code> — mijoz <b>ochadi</b>) va
+      <code>meta</code> (<code>current_page</code>, <code>last_page</code>,
+      <code>per_page</code>, <code>from</code>, <code>to</code>,
+      <code>total</code> — mijoz <b>ko'rsatadi</b>).
+      ⚠️ <code>simplePaginate</code> da <code>total</code>,
+      <code>last_page</code> va <code>links.last</code> <b>yo'q</b>
+      (o'rniga bitta COUNT so'rovi tejaladi: 3 emas, <b>2</b> so'rov).
+      ⚠️ <code>meta.links</code> ichida Blade uchun yasalgan HTML bor
+      (<code>&amp;laquo; Previous</code>) — mijozga uni emas,
+      <code>links.prev/next</code> ni ishlatishni ayting.
+      <span class="eg">meta.total: 7  ·  links.next: ...?page=2</span></dd>
     </div>
 
     <div class="term" id="sanctum">
