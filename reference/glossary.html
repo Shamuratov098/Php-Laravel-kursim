@@ -18,7 +18,7 @@
   izoh esa o'zbekcha.</p>
 
   <p class="lesson-meta">
-    <span>Atamalar: <b>207 ta</b></span>
+    <span>Atamalar: <b>212 ta</b></span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>📱 O'qishga mos</span>
   </p>
@@ -26,7 +26,7 @@
   <div class="callout note">
     <span class="label">Bu hujjat o'sib boradi</span>
     <p>Atama faqat <b>o'z darsi yozilganda</b> qo'shiladi — oldindan emas. Hozir:
-    Modul A–G (1–49-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
+    Modul A–G (1–50-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
     bosqichida qat'iy belgilangan va 73 dars bo'ylab o'zgarmaydi).</p>
   </div>
 
@@ -1747,6 +1747,87 @@
       🔑 Shu sababdan tashqi xizmatlar (SMS, to'lov, email)
       interfeys ortida turadi.
       <span class="eg">app()-&gt;instance(XabarYuboruvchi::class, $soxta);</span></dd>
+    </div>
+
+    <div class="term" id="service-provider">
+      <dt>service provider <span class="uz">— container'ni to'ldiruvchi</span></dt>
+      <dd>Har bir Laravel qismi (router, log, baza, kesh) o'z
+      provider'iga ega va ishga tushganda o'zini container'ga
+      yozib qo'yadi. 49-darsdagi <b>217</b> ta bog'lanish
+      shundan.
+      🔍 O'lchandi: HTTP so'rovda <b>28</b> provider yuklanadi.
+      Ular uch manbadan: <b>yadro</b> (Application klassida
+      qattiq yozilgan) · <b>paketlar</b> (auto-discovery) ·
+      <code>bootstrap/providers.php</code>.
+      <span class="eg">php artisan make:provider XabarServiceProvider</span></dd>
+    </div>
+
+    <div class="term" id="register-boot">
+      <dt>register() va boot() <span class="uz">— ikki bosqich</span></dt>
+      <dd>🔍 O'lchandi (log fayl bilan): <b>hamma</b>
+      <code>register()</code> avval, keyin <b>hamma</b>
+      <code>boot()</code>.
+      ⚠️ <code>register()</code> ichida boshqa xizmatni
+      ishlatsangiz — <b>500</b>:
+      <code>Target [...] is not instantiable</code>. Bind
+      <b>bor</b>, lekin hali ishlamagan (provider tartibi).
+      ✅ Qoida: <code>register()</code> — faqat
+      <b>yozing</b> (bind, singleton, mergeConfigFrom);
+      <code>boot()</code> — <b>ishlating</b> (Route::,
+      Gate::, RateLimiter::for, Blade::directive,
+      loadRoutesFrom).
+      🔑 Oddiy tekshiruv: «bu qator boshqa xizmatga
+      tegadimi?» — tegsa <code>boot()</code>.
+      <span class="eg">$this-&gt;app-&gt;singleton(...)  →  register()</span></dd>
+    </div>
+
+    <div class="term" id="deferred-provider">
+      <dt>kechiktirilgan provider <span class="uz">— so'ralganda yuklanadi</span></dt>
+      <dd><code>implements DeferrableProvider</code> +
+      <code>provides()</code> metodi.
+      🔍 O'lchandi: ishlatilmagan so'rovda <b>28</b> provider va
+      bizniki <b>yo'q</b>; xizmat so'ralganda <b>28 → 29</b>.
+      Laravelning o'zida <b>18</b> eager va <b>161</b>
+      kechiktirilgan xizmat bor
+      (<code>bootstrap/cache/services.php</code>).
+      ⚠️ <b>Eng xavfli tomoni:</b> <code>boot()</code> ham
+      faqat o'shanda ishlaydi — marshrut, view, event
+      tinglovchi yoki Blade direktivasi jimgina
+      <b>yo'qoladi</b>.
+      ⚠️ Konsol/testda <b>hammasi</b> yuklanadi (45, 0) —
+      kechiktirishni test bilan tekshirib bo'lmaydi.
+      <span class="eg">public function provides(): array</span></dd>
+    </div>
+
+    <div class="term" id="package-discovery">
+      <dt>package auto-discovery <span class="uz">— paket o'zini tanitadi</span></dt>
+      <dd>Paketning <code>composer.json</code> idagi
+      <code>extra.laravel.providers</code> bo'limi
+      <code>bootstrap/cache/packages.php</code> ga yig'iladi.
+      Shuning uchun <code>composer require laravel/sanctum</code>
+      dan keyin Sanctum <b>o'zi</b> ishlay boshlaydi
+      (44-dars).
+      🔍 O'lchandi: <b>8</b> ta paket topilgan.
+      <code>php artisan package:discover</code> keshni qayta
+      yasaydi; <code>dont-discover</code> bilan
+      o'chiriladi.
+      <span class="eg">"dont-discover": ["laravel/telescope"]</span></dd>
+    </div>
+
+    <div class="term" id="provides-yolgon">
+      <dt>provides() va'dasi <span class="uz">— yolg'on gapirsa jimgina buziladi</span></dt>
+      <dd><code>provides()</code> — «men shu nomlarni bera
+      olaman» degan e'lon. Nomni o'zgartirib
+      <code>provides()</code> ni yangilashni unutsangiz,
+      provider <b>hech qachon</b> ro'yxatdan o'tmaydi va
+      xizmat topilmaydi:
+      <code>Target [...] is not instantiable</code>.
+      ✅ Test: <code>provides()</code> dagi <b>har bir</b>
+      nomni <code>app($nom)</code> bilan yasab ko'ring —
+      ro'yxat kengaysa test o'zi kengayadi.
+      🔍 Tashxis: «bind yozganman, lekin topilmayapti» →
+      birinchi navbatda <code>provides()</code> ga qarang.
+      <span class="eg">foreach ($p-&gt;provides() as $nom) expect(app($nom))</span></dd>
     </div>
 
     <div class="term" id="sanctum">

@@ -1,0 +1,1176 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 50 — Service Provider</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 50 · MODUL G — LARAVEL ICHKI MEXANIZMI</p>
+  <h1>Service Provider</h1>
+  <p class="lead">49-darsda container'da <b>217</b> ta bog'lanish
+  turganini ko'rdik. Bugungi savol oddiy: <b>ularni u yerga kim
+  qo'ydi?</b> Javob — service provider'lar. Va yo'lda
+  <code>register()</code> bilan <code>boot()</code> nega ikkiga
+  bo'linganini <b>buzib ko'rsatib</b> tushuntiramiz.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 17 daqiqa</span>
+    <span>💻 Amaliyot ≈ 28 daqiqa</span>
+    <span>Kerak: <a href="0049-service-container.html">Dars 49</a></span>
+  </p>
+
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b><code>bootstrap/providers.php</code></b>
+        <span class="nima">Laravel 11+ dagi ro'yxat. Unda atigi
+        <b>bitta</b> qator bor — qolgan 40+ provider qayerdan
+        keladi?</span></li>
+      <li><b>Provider'lar uch manbadan keladi</b>
+        <span class="nima">Yadro · paket avtomatik topilishi
+        (auto-discovery) · sizning ro'yxatingiz. 🔍 O'lchandi:
+        <b>8</b> ta paket topilgan.</span></li>
+      <li><b><code>register()</code> va <code>boot()</code>
+        tartibi</b>
+        <span class="nima">🔍 O'lchandi: <b>hamma</b>
+        <code>register()</code> avval, keyin <b>hamma</b>
+        <code>boot()</code>. Log fayl bilan
+        ko'rsatiladi.</span></li>
+      <li><b>⚠️ Tartibni buzib ko'ramiz</b>
+        <span class="nima"><code>register()</code> ichida boshqa
+        provider xizmatini ishlatsak — <b>500</b>. Va xato
+        xabari 49-darsdan <b>tanish</b>.</span></li>
+      <li><b><code>make:provider</code></b>
+        <span class="nima">🔍 U <code>bootstrap/providers.php</code>
+        ga <b>o'zi qo'shadi</b> — alifbo tartibida.</span></li>
+      <li><b>Kechiktirilgan (deferred) provider</b>
+        <span class="nima"><code>DeferrableProvider</code> +
+        <code>provides()</code>. Ishlatilmaguncha
+        <b>yuklanmaydi</b>.</span></li>
+      <li><b>🔍 Laravelning o'zi shunday ishlaydi</b>
+        <span class="nima">Manifestda <b>18</b> ta eager,
+        <b>161</b> ta kechiktirilgan xizmat. Ya'ni Laravelning
+        ko'p qismi <b>yuklanmaydi</b>.</span></li>
+      <li><b>HTTP va konsol farqi</b>
+        <span class="nima">⚠️ O'lchandi: so'rovda <b>28</b>
+        provider, konsolda <b>45</b>. Bu testda tuzoq
+        yasaydi.</span></li>
+      <li><b>Kechiktirish uyg'onishi</b>
+        <span class="nima">🔍 <b>28 → 29</b>: bitta xizmatni
+        so'rash provider'ni uyg'otadi.</span></li>
+      <li><b>⚠️ Kechiktirilgan provider'ning
+        <code>boot()</code> i</b>
+        <span class="nima">U ham <b>faqat</b> xizmat so'ralganda
+        ishlaydi. Jimgina buziladigan joy — o'lchandi.</span></li>
+      <li><b>Provider testlari</b>
+        <span class="nima"><code>provides()</code> ro'yxatidagi
+        har bir nom haqiqatan yasaladimi — buni test
+        tekshiradi.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima">Nima qaysi metodga · konfiguratsiya
+        birlashtirish · <code>booted()</code> ·
+        <code>optimize</code> · paketni o'chirish.</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">217 ta bog'lanish qayerdan keldi?</span>
+    <p>49-darsda sanadik:</p>
+    <div class="natija">bindings         217 ta
+instances        159 ta
+qisqa nomlar:    events, log, router, url, path, app, auth ...</div>
+    <p>Va o'z bog'lanishimizni
+    <code>AppServiceProvider::register()</code> ga yozdik.
+    Ya'ni <b>bitta</b> qatorni biz qo'shdik. Qolgan 216 tasini
+    kim qo'ydi?</p>
+    <p>Javob: <b>service provider'lar</b>. Har bir Laravel
+    qismi — router, log, baza, kesh, sessiya — o'z
+    provider'iga ega va ishga tushganda o'zini container'ga
+    <b>yozib qo'yadi</b>.</p>
+    <p>49-darsning HOLAT 5 ida <code>register()</code> bilan
+    <code>boot()</code> farqiga tegib o'tgandik, lekin
+    sababini aytmagandik. Bugun aytamiz — va aytish o'rniga
+    <b>buzib ko'rsatamiz</b>.</p>
+  </div>
+
+  <!-- ═══════════════ 2) RO'YXAT ═══════════════ -->
+  <h2>Ro'yxat qayerda?</h2>
+
+  <p>Laravel 11 dan boshlab provider ro'yxati alohida
+  faylda:</p>
+
+  <div class="codefile">
+    <div class="fname">bootstrap/providers.php</div>
+    <code class="cmd">&lt;?php
+
+return [
+    App\Providers\AppServiceProvider::class,
+];</code>
+  </div>
+
+  <p>Bitta qator. Lekin ilova ishga tushganda:</p>
+
+  <div class="natija">count(app()-&gt;getLoadedProviders())   →   28    (HTTP so'rovda)</div>
+
+  <p>28 ta provider yuklangan, ro'yxatda esa bittasi. Qolganlari
+  <b>uch manbadan</b> keladi:</p>
+
+  <div class="natija">1) YADRO       — Application klassining o'zida qattiq yozilgan
+                  (Events, Log, Routing — eng birinchi kerak bo'ladiganlar)
+
+2) PAKETLAR    — composer.json dagi "extra.laravel.providers"
+                  bootstrap/cache/packages.php ga yig'iladi
+
+3) SIZNIKI     — bootstrap/providers.php</div>
+
+  <p>Ikkinchisini ko'rish mumkin:</p>
+
+  <div class="natija">bootstrap/cache/packages.php  →  8 ta paket topildi:
+
+  laravel/pail          laravel/pao         laravel/sanctum
+  laravel/tinker        nesbot/carbon       nunomaduro/collision
+  nunomaduro/termwind   pestphp/pest-plugin-laravel</div>
+
+  <div class="callout tip">
+    <span class="label">🔑 Auto-discovery — «sehr» emas</span>
+    <p>44-darsda <code>composer require laravel/sanctum</code>
+    dedik va Sanctum <b>o'zi</b> ishlay boshladi. Sababi shu:
+    paketning <code>composer.json</code> ida
+    <code>extra.laravel.providers</code> bo'limi bor, Composer
+    o'rnatgandan keyin Laravel uni
+    <code>bootstrap/cache/packages.php</code> ga
+    yig'ib qo'yadi.</p>
+    <p>🔍 Bu fayl — <b>kesh</b>. Uni
+    <code>php artisan package:discover</code> qayta yasaydi
+    (<code>composer install</code> uni avtomatik
+    chaqiradi).</p>
+  </div>
+
+  <!-- ═══════════════ 3) TARTIB ═══════════════ -->
+  <h2>Tartib: hamma <code>register</code>, keyin hamma <code>boot</code></h2>
+
+  <p>Buni aytish oson, ko'rish esa foydaliroq. Ikkita provider
+  yasaymiz va har bir metodda fayl ga yozamiz:</p>
+
+  <div class="codefile">
+    <div class="fname">app/Providers/XabarServiceProvider.php (vaqtinchalik)</div>
+    <code class="cmd">public function register(): void
+{
+    file_put_contents(storage_path('tartib.log'), &quot;XABAR register\n&quot;, FILE_APPEND);
+}
+
+public function boot(): void
+{
+    file_put_contents(storage_path('tartib.log'), &quot;XABAR boot\n&quot;, FILE_APPEND);
+}</code>
+  </div>
+
+  <p>Bitta so'rov yuborib, faylni o'qiymiz:</p>
+
+  <div class="natija">APP   register
+SINOV register
+XABAR register     ← hamma register TUGADI
+APP   boot
+SINOV boot
+XABAR boot</div>
+
+  <p>Qoida aniq: <b>barcha</b> provider'lar avval
+  <code>register()</code> dan o'tadi, keyin <b>barcha</b>si
+  <code>boot()</code> dan.</p>
+
+  <p>Ro'yxat tartibi esa <code>bootstrap/providers.php</code>
+  dagi tartib — va <code>make:provider</code> yangi
+  provider'ni <b>alifbo bo'yicha</b> qo'yadi.</p>
+
+  <!-- ═══════════════ 4) BUZIB KO'RAMIZ ═══════════════ -->
+  <h2>⚠️ Tartibni buzib ko'ramiz</h2>
+
+  <p>Endi eng muhim qismi. Bog'lanishni
+  <code>XabarServiceProvider::register()</code> ga
+  ko'chiramiz:</p>
+
+  <div class="natija">// XabarServiceProvider
+public function register(): void
+{
+    $this-&gt;app-&gt;singleton(XabarYuboruvchi::class, LogXabar::class);
+}</div>
+
+  <p>Va <code>SinovServiceProvider::register()</code> ichida uni
+  <b>ishlatib</b> ko'ramiz:</p>
+
+  <div class="natija">// SinovServiceProvider
+public function register(): void
+{
+    $x = $this-&gt;app-&gt;make(XabarYuboruvchi::class);      ❌
+}</div>
+
+  <p>Natija:</p>
+
+  <div class="natija">GET /api/v1/vakansiyalar   →   500
+
+// logda:
+"sabab":"Target [App\\Xizmatlar\\XabarYuboruvchi] is not instantiable."
+
+// tartib.log da:
+APP   register
+SINOV register        ← shu yerda o'ldi</div>
+
+  <div class="callout warn">
+    <span class="label">⚠️ Tanish xato, yangi sabab</span>
+    <p><code>Target [...] is not instantiable</code> —
+    49-darsdan tanish. U yerda sabab <b>bind yozilmagan</b>
+    edi. Bu yerda bind <b>bor</b>, lekin u <b>hali
+    ishlamagan</b>: <code>Sinov</code> alifboda
+    <code>Xabar</code> dan oldin, demak uning
+    <code>register()</code> i ham oldin ishlaydi.</p>
+    <p>🔑 Ya'ni bir xil xato ikki xil sababdan chiqadi:
+    <b>bind yo'q</b> yoki <b>bind hali ishlamagan</b>.
+    Ikkinchisi yomonroq: u <b>provider tartibi</b>ga bog'liq
+    bo'lib qoladi va ertaga yangi provider qo'shsangiz
+    o'zgarishi mumkin.</p>
+  </div>
+
+  <p>Yechim — <code>boot()</code> ga ko'chirish:</p>
+
+  <div class="natija">// SinovServiceProvider
+public function boot(): void
+{
+    $x = $this-&gt;app-&gt;make(XabarYuboruvchi::class);      ✅
+}</div>
+
+  <div class="natija">GET /api/v1/vakansiyalar   →   200
+
+APP   register
+SINOV register
+XABAR register
+APP   boot
+SINOV boot
+SINOV oldi: App\Xizmatlar\LogXabar     ← ishladi
+XABAR boot</div>
+
+  <p>E'tibor bering: <code>SINOV boot</code> hamon
+  <code>XABAR boot</code> dan <b>oldin</b>. Lekin endi
+  ishlaydi — chunki <b>hamma <code>register()</code> tugagan</b>.
+  Aynan shu narsa uchun ikki bosqich bor.</p>
+
+  <div class="callout tip">
+    <span class="label">🔑 Qoida bir jumlada</span>
+    <div class="natija">register()  →  faqat container'ga YOZING. Hech narsani O'QIMANG.
+boot()      →  o'qish, ishlatish, sozlash — bu yerda.</div>
+    <p>«O'qish» deganda <code>make()</code>, fasadlar
+    (<code>Route::</code>, <code>Log::</code>,
+    <code>Config::</code>), event tinglovchilari — hammasi
+    kiradi.</p>
+  </div>
+
+  <!-- ═══════════════ 5) O'Z PROVIDERIMIZ ═══════════════ -->
+  <h2>O'z provider'imiz</h2>
+
+  <p>49-darsda <code>XabarYuboruvchi</code> bog'lanishini
+  <code>AppServiceProvider</code> ga yozgandik. Bu vaqtinchalik
+  yechim edi: <code>AppServiceProvider</code> tez orada
+  «hamma narsa aralashgan» faylga aylanadi.</p>
+
+  <div class="natija">php artisan make:provider XabarServiceProvider
+
+INFO  Provider [app/Providers/XabarServiceProvider.php] created successfully.</div>
+
+  <p>Va <code>bootstrap/providers.php</code> ni ochib
+  ko'ramiz:</p>
+
+  <div class="natija">return [
+    App\Providers\AppServiceProvider::class,
+    App\Providers\XabarServiceProvider::class,      ← O'ZI qo'shildi
+];</div>
+
+  <p>Laravel 11+ da <code>make:provider</code> ro'yxatga
+  <b>o'zi</b> yozadi — qo'lda qo'shish kerak emas.</p>
+
+  <!-- ═══════════════ 6) DEFERRED ═══════════════ -->
+  <h2>Kechiktirilgan provider</h2>
+
+  <p>Bir savol tug'iladi: <code>XabarYuboruvchi</code> faqat
+  vakansiya <b>yaratilganda</b> kerak. Nega u <b>har</b> so'rovda
+  ro'yxatdan o'tsin?</p>
+
+  <p>Laravelning javobi — <code>DeferrableProvider</code>:</p>
+
+  <div class="codefile">
+    <div class="fname">app/Providers/XabarServiceProvider.php</div>
+    <code class="cmd" data-cmd="&lt;?php
+
+namespace App\Providers;
+
+use App\Xizmatlar\LogXabar;
+use App\Xizmatlar\XabarYuboruvchi;
+use Illuminate\Contracts\Support\DeferrableProvider;
+use Illuminate\Support\ServiceProvider;
+
+class XabarServiceProvider extends ServiceProvider implements DeferrableProvider
+{
+    public function register(): void
+    {
+        $this-&gt;app-&gt;singleton(
+            XabarYuboruvchi::class,
+            LogXabar::class
+        );
+    }
+
+    /**
+     * @return array&lt;int, string&gt;
+     */
+    public function provides(): array
+    {
+        return [XabarYuboruvchi::class];
+    }
+}">&lt;?php
+
+namespace App\Providers;
+
+use App\Xizmatlar\LogXabar;
+use App\Xizmatlar\XabarYuboruvchi;
+use Illuminate\Contracts\Support\DeferrableProvider;
+use Illuminate\Support\ServiceProvider;
+
+class XabarServiceProvider extends ServiceProvider implements DeferrableProvider
+{
+    public function register(): void
+    {
+        $this-&gt;app-&gt;singleton(
+            XabarYuboruvchi::class,
+            LogXabar::class
+        );
+    }
+
+    /**
+     * @return array&lt;int, string&gt;
+     */
+    public function provides(): array
+    {
+        return [XabarYuboruvchi::class];
+    }
+}</code>
+  </div>
+
+  <p>Ikki narsa qo'shildi: <code>implements DeferrableProvider</code>
+  va <code>provides()</code> metodi. <code>provides()</code> —
+  «men <b>shu</b> nomlarni bera olaman» degan e'lon.</p>
+
+  <p>Endi o'lchaymiz. Xizmatni <b>ishlatmaydigan</b> so'rov:</p>
+
+  <div class="natija">GET /api/x/deferred
+
+{
+  "yuklangan_oldin": 28,
+  "XabarServiceProvider yuklanganmi": false,      ← YUKLANMAGAN
+  "kechiktirilganlar_ichida": true                ← navbatda turibdi
+}</div>
+
+  <p>Endi xizmatni <b>so'raydigan</b> so'rov:</p>
+
+  <div class="natija">GET /api/x/deferred-keyin
+
+{
+  "oldin": 28,
+  "keyin": 29,                    ← +1
+  "endi_yuklanganmi": true
+}</div>
+
+  <p>Mexanizm shunday: Laravel <code>provides()</code>
+  ro'yxatini eslab qoladi va <code>XabarYuboruvchi</code>
+  <b>birinchi marta</b> so'ralganda provider'ni o'sha payt
+  ro'yxatdan o'tkazadi.</p>
+
+  <div class="callout warn">
+    <span class="label">⚠️ Kechiktirilgan provider'ning <code>boot()</code> i</span>
+    <p>Bu jimgina buziladigan joy. Sinab ko'rdik:
+    <code>boot()</code> ga log yozuvi qo'shdik.</p>
+    <div class="natija">xizmat ishlatilmagan so'rov   →  log BO'SH      ⚠️
+xizmat ishlatilgan so'rov     →  "XABAR boot"</div>
+    <p>Ya'ni <code>boot()</code> ham <b>faqat</b> xizmat
+    so'ralganda ishlaydi.</p>
+    <p>🔑 Shuning uchun <code>boot()</code> da <b>har doim</b>
+    bajarilishi kerak bo'lgan narsa bo'lsa (marshrutlar,
+    view'lar, event tinglovchilari, validatsiya qoidalari) —
+    provider'ni <b>kechiktirmang</b>. Xato chiqmaydi, narsa
+    shunchaki <b>ishlamay qoladi</b>.</p>
+  </div>
+
+  <!-- ═══════════════ 7) LARAVELNING O'ZI ═══════════════ -->
+  <h2>Laravelning o'zi ham shunday qiladi</h2>
+
+  <p><code>bootstrap/cache/services.php</code> — provider
+  manifesti. Ichida:</p>
+
+  <div class="natija">providers:   33 ta
+eager:       18 ta      ← har so'rovda yuklanadi
+deferred:   161 ta      ← so'ralganda yuklanadi
+
+deferred namunalari:
+  Illuminate\Bus\Dispatcher              -> BusServiceProvider
+  Illuminate\Broadcasting\BroadcastManager -> BroadcastServiceProvider
+  Illuminate\Contracts\Bus\Dispatcher    -> BusServiceProvider</div>
+
+  <p>Ya'ni Laravelning <b>ko'p qismi</b> odatiy so'rovda
+  yuklanmaydi. Navbatlar, translyatsiya, pochta — hammasi
+  navbatda turadi.</p>
+
+  <p>Buni HTTP so'rovda ham ko'rish mumkin:</p>
+
+  <div class="natija">yuklangan:       28 ta provider
+kechiktirilgan: 159 ta xizmat navbatda</div>
+
+  <p>Bittasini so'rasak — bittasi uyg'onadi:</p>
+
+  <div class="natija">app(\Illuminate\Bus\Dispatcher::class);
+
+yuklangan:        28  →  29
+kechiktirilgan:  159  →  158</div>
+
+  <div class="callout warn">
+    <span class="label">⚠️ Konsolda boshqacha</span>
+    <p>O'lchandi:</p>
+    <div class="natija">HTTP so'rovda:  yuklangan 28,  kechiktirilgan 159
+konsolda:       yuklangan 45,  kechiktirilgan 0     ⚠️</div>
+    <p>Konsol (va test) <b>hamma narsani</b> yuklaydi —
+    komanda qaysi xizmatni so'rashini oldindan bilib
+    bo'lmaydi.</p>
+    <p>🔑 Amaliy oqibati: <b>kechiktirishni test bilan
+    tekshirib bo'lmaydi.</b> Testda hamma provider yuklangan
+    bo'ladi va <code>getDeferredServices()</code>
+    <b>bo'sh</b> qaytaradi. Buni brauzer yoki
+    <code>curl</code> bilan tekshiring.</p>
+  </div>
+
+  <!-- ═══════════════ 8) TESTLAR ═══════════════ -->
+  <h2>Testlar</h2>
+
+  <p>Yuqoridagi cheklovni bilgan holda, provider'ni <b>nimasini</b>
+  test qilish mumkin? Uch narsani: bog'lanish ishlashini,
+  ro'yxatda borligini, va <code>provides()</code>
+  <b>rost gapirayotganini</b>.</p>
+
+  <div class="codefile">
+    <div class="fname">tests/Feature/ProvayderTest.php</div>
+    <code class="cmd">use App\Providers\XabarServiceProvider;
+use App\Xizmatlar\LogXabar;
+use App\Xizmatlar\XabarYuboruvchi;
+use Illuminate\Contracts\Support\DeferrableProvider;
+
+it('provayder bog\'lanishni ro\'yxatdan o\'tkazadi', function () {
+    expect(app(XabarYuboruvchi::class))-&gt;toBeInstanceOf(LogXabar::class);
+});
+
+it('provayder bootstrap/providers.php ro\'yxatida bor', function () {
+    $royxat = require base_path('bootstrap/providers.php');
+
+    expect($royxat)-&gt;toContain(XabarServiceProvider::class);
+});
+
+it('provayder kechiktirilgan deb belgilangan', function () {
+    $provayder = new XabarServiceProvider(app());
+
+    expect($provayder)-&gt;toBeInstanceOf(DeferrableProvider::class);
+    expect($provayder-&gt;provides())-&gt;toBe([XabarYuboruvchi::class]);
+});
+
+it('provides ro\'yxatidagi har bir nom haqiqatan yasaladi', function () {
+    $provayder = new XabarServiceProvider(app());
+
+    foreach ($provayder-&gt;provides() as $nom) {
+        expect(app($nom))-&gt;toBeObject();
+    }
+});
+
+it('singleton sifatida bog\'langan', function () {
+    expect(app(XabarYuboruvchi::class))-&gt;toBe(app(XabarYuboruvchi::class));
+});</code>
+  </div>
+
+  <div class="natija">Tests:  5 passed (6 assertions)</div>
+
+  <p>To'rtinchisi eng foydalisi.
+  <code>provides()</code> — bu <b>va'da</b>: «men shu nomlarni
+  bera olaman». Agar u yolg'on gapirsa (masalan nomni
+  o'zgartirib, <code>provides()</code> ni yangilashni unutsangiz),
+  xizmat <b>hech qachon</b> yuklanmaydi va xato faqat ishlab
+  chiqarishda chiqadi.</p>
+
+  <p>Bu test o'sha va'dani <b>har bir nom bo'yicha</b>
+  tekshiradi — va yangi nom qo'shsangiz o'zi kengayadi.</p>
+
+  <div class="natija">To'liq to'plam:  31 passed (68 assertions)</div>
+
+  <!-- ═══════════════ 9) HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir bir
+  marta o'qib chiqing, keyin kerak bo'lganda qaytib
+  qarang.</p>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 1</span>
+    <h4>Nima qaysi metodga</h4>
+    <div class="natija">register()                       boot()
+──────────────────────────────   ──────────────────────────────
+bind, singleton, scoped          Route::, View::, Gate::
+instance                         RateLimiter::for()   (48-dars)
+mergeConfigFrom()                Model::observe()
+                                 Blade::directive()
+                                 loadRoutesFrom(), loadViewsFrom()
+                                 event tinglovchilari</div>
+    <p>Oddiy tekshiruv: <b>«bu qator boshqa xizmatga
+    tegadimi?»</b> Tegsa — <code>boot()</code>.</p>
+    <p>🔑 48-darsdagi <code>RateLimiter::for()</code>
+    <code>boot()</code> da edi — endi sababi ma'lum:
+    <code>RateLimiter</code> fasadi container'dan xizmat
+    oladi.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 2</span>
+    <h4>Konfiguratsiyani birlashtirish</h4>
+    <div class="natija">public function register(): void
+{
+    $this-&gt;mergeConfigFrom(__DIR__.'/../../config/xabar.php', 'xabar');
+}
+
+// endi: config('xabar.drayver')</div>
+    <p><code>mergeConfigFrom</code> — <code>register()</code> da
+    ruxsat etilgan kam sonli «o'qish» amallaridan biri:
+    konfiguratsiya juda erta yuklanadi.</p>
+    <p>🔑 Foydasi: foydalanuvchi <code>config/xabar.php</code> ni
+    o'zi yozsa, sizning standart qiymatlaringiz bilan
+    <b>birlashadi</b> — u faqat kerakli kalitni yozadi.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 3</span>
+    <h4><code>booting()</code> va <code>booted()</code></h4>
+    <div class="natija">$this-&gt;app-&gt;booting(fn () =&gt; ...);   // hamma boot() dan OLDIN
+$this-&gt;app-&gt;booted(fn () =&gt; ...);    // hamma boot() dan KEYIN</div>
+    <p><code>booted()</code> kerak bo'ladigan holat: sizga
+    <b>boshqa provider'ning <code>boot()</code> i tugagan</b>
+    bo'lishi kerak.</p>
+    <p>⚠️ Ilova <b>allaqachon</b> yuklangan bo'lsa (masalan
+    testda), <code>booting()</code> ga bergan callback
+    <b>umuman ishlamaydi</b> — bu payt allaqachon o'tib
+    ketgan.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 4</span>
+    <h4><code>provides()</code> yolg'on gapirsa</h4>
+    <div class="natija">public function provides(): array
+{
+    return [EskiNom::class];      ⚠️ bind YangiNom::class ga o'zgargan
+}</div>
+    <p>Xato chiqmaydi. Provider ro'yxatdan <b>o'tmaydi</b>,
+    chunki hech kim <code>EskiNom</code> ni so'ramaydi. Va
+    <code>YangiNom</code> ham topilmaydi — natijada
+    <code>Target [...] is not instantiable</code>.</p>
+    <p>✅ Yuqoridagi to'rtinchi test aynan shuni tutadi:
+    <code>provides()</code> dagi har bir nomni yasab
+    ko'radi.</p>
+    <p>🔍 Tashxis: «bind yozganman, lekin topilmayapti» degan
+    holatda birinchi navbatda <code>provides()</code> ga
+    qarang.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 5</span>
+    <h4>Kesh va <code>optimize</code></h4>
+    <div class="natija">php artisan optimize          →  config, routes, events keshlanadi
+php artisan optimize:clear    →  hammasini tozalaydi
+php artisan package:discover  →  packages.php ni qayta yasaydi</div>
+    <p>⚠️ <code>bootstrap/cache/services.php</code> —
+    <b>provider manifesti</b>. Yangi provider qo'shsangiz u
+    o'zi yangilanadi, lekin g'alati xatti-harakat ko'rsangiz
+    <code>optimize:clear</code> birinchi urinish
+    bo'lsin.</p>
+    <p>🔑 Ishlab chiqarishda <code>optimize</code> ishlating —
+    provider ro'yxatini har so'rovda qayta hisoblash
+    kerak emas.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 6</span>
+    <h4>Paket provider'ini o'chirish</h4>
+    <div class="natija">// composer.json
+"extra": {
+    "laravel": {
+        "dont-discover": ["laravel/telescope"]
+    }
+}</div>
+    <p>Paket avtomatik topilishini <b>o'chirib</b>, provider'ni
+    <code>bootstrap/providers.php</code> ga o'zingiz
+    qo'shasiz — masalan faqat <code>local</code> muhitda.</p>
+    <p>🔍 Bu kamdan-kam kerak bo'ladi, lekin
+    <code>packages.php</code> nima ekanini bilsangiz,
+    sozlash oson.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>Provider'da og'ir ish</h4>
+    <div class="natija">public function boot(): void
+{
+    $sozlamalar = Sozlama::all();     ⚠️ HAR so'rovda baza so'rovi
+}</div>
+    <p><code>boot()</code> <b>har</b> so'rovda ishlaydi
+    (kechiktirilmagan bo'lsa). Undagi baza so'rovi yoki HTTP
+    chaqiruvi — butun ilovaning sekinlashuvi.</p>
+    <p>✅ Yechimlar: provider'ni <b>kechiktirish</b>,
+    <code>singleton</code> ichida <b>yalqov</b>
+    (<code>fn () =&gt; ...</code>) yasash, yoki keshlash.</p>
+    <p>🔑 Qoida: <code>boot()</code> da <b>sozlash</b> qiling,
+    <b>ish</b> qilmang.</p>
+  </div>
+
+  <!-- ═══════════════ 10) AMALIYOT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    💻 Quyida amaliyot bor. Hozir o'qish rejimidasiz — kompyuter
+    yoningizda bo'lganda <b>💻 Amaliyot</b> rejimiga o'ting va
+    shu bo'limdan davom eting.
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <b>Ro'yxatni va sonlarni ko'ring.</b>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+cat bootstrap/providers.php">cd ~/Projects/Learn/ishtop
+cat bootstrap/providers.php</div>
+        <div class="cmd" data-cmd="php artisan tinker --execute='echo count(app()->getLoadedProviders()), &quot; ta provayder yuklangan&quot;, PHP_EOL;'">php artisan tinker --execute='echo count(app()-&gt;getLoadedProviders()), &quot; ta provayder yuklangan&quot;, PHP_EOL;'</div>
+      </li>
+
+      <li>
+        <b>Paket avtomatik topilishini ko'ring.</b>
+        <div class="cmd" data-cmd="php -r '$p = require &quot;bootstrap/cache/packages.php&quot;; echo count($p), &quot; ta paket:&quot;, PHP_EOL; foreach (array_keys($p) as $n) { echo &quot;  &quot;, $n, PHP_EOL; }'">php -r '$p = require &quot;bootstrap/cache/packages.php&quot;; echo count($p), &quot; ta paket:&quot;, PHP_EOL; foreach (array_keys($p) as $n) { echo &quot;  &quot;, $n, PHP_EOL; }'</div>
+      </li>
+
+      <li>
+        <b>Manifestdagi eager/deferred nisbatini ko'ring.</b>
+        <div class="cmd" data-cmd="php -r '$m = require &quot;bootstrap/cache/services.php&quot;; echo &quot;eager:    &quot;, count($m[&quot;eager&quot;]), PHP_EOL, &quot;deferred: &quot;, count($m[&quot;deferred&quot;]), PHP_EOL;'">php -r '$m = require &quot;bootstrap/cache/services.php&quot;; echo &quot;eager:    &quot;, count($m[&quot;eager&quot;]), PHP_EOL, &quot;deferred: &quot;, count($m[&quot;deferred&quot;]), PHP_EOL;'</div>
+        <p class="expect">Menda <b>18</b> va <b>161</b>. Sizda
+        paketlarga qarab boshqacha bo'lishi mumkin.</p>
+      </li>
+
+      <li>
+        <b>Provider yarating.</b>
+        <div class="cmd" data-cmd="php artisan make:provider XabarServiceProvider
+cat bootstrap/providers.php">php artisan make:provider XabarServiceProvider
+cat bootstrap/providers.php</div>
+        <p class="expect">Ro'yxatga <b>o'zi</b> qo'shilgan
+        bo'lishi kerak.</p>
+      </li>
+
+      <li>
+        <b>Tartibni o'z ko'zingiz bilan ko'ring.</b> Ikkala
+        metodga log yozuvini qo'ying:
+        <div class="cmd" data-cmd="# XabarServiceProvider ichida:
+public function register(): void
+{
+    file_put_contents(storage_path('tartib.log'), &quot;XABAR register\n&quot;, FILE_APPEND);
+}
+
+public function boot(): void
+{
+    file_put_contents(storage_path('tartib.log'), &quot;XABAR boot\n&quot;, FILE_APPEND);
+}"># XabarServiceProvider ichida:
+public function register(): void
+{
+    file_put_contents(storage_path('tartib.log'), &quot;XABAR register\n&quot;, FILE_APPEND);
+}
+
+public function boot(): void
+{
+    file_put_contents(storage_path('tartib.log'), &quot;XABAR boot\n&quot;, FILE_APPEND);
+}</div>
+        <p><code>AppServiceProvider</code> ga ham xuddi shunday
+        (<code>APP</code> deb) qo'ying, so'ng:</p>
+        <div class="cmd" data-cmd="php artisan serve">php artisan serve</div>
+        <div class="cmd" data-cmd="rm -f storage/tartib.log
+curl -s -o /dev/null -H 'Accept: application/json' http://127.0.0.1:8000/api/v1/vakansiyalar
+cat storage/tartib.log">rm -f storage/tartib.log
+curl -s -o /dev/null -H 'Accept: application/json' http://127.0.0.1:8000/api/v1/vakansiyalar
+cat storage/tartib.log</div>
+        <p class="expect">Hamma <code>register</code> avval,
+        keyin hamma <code>boot</code>.</p>
+      </li>
+
+      <li>
+        <b>Tartibni buzib ko'ring.</b> Bog'lanishni
+        <code>XabarServiceProvider::register()</code> ga
+        ko'chiring, so'ng <code>AppServiceProvider::register()</code>
+        ichiga qo'shing:
+        <div class="cmd" data-cmd="# ❌ AppServiceProvider::register() ichiga:
+$this->app->make(\App\Xizmatlar\XabarYuboruvchi::class);"># ❌ AppServiceProvider::register() ichiga:
+$this-&gt;app-&gt;make(\App\Xizmatlar\XabarYuboruvchi::class);</div>
+        <div class="cmd" data-cmd="curl -s -o /dev/null -w 'status: %{http_code}\n' -H 'Accept: application/json' http://127.0.0.1:8000/api/v1/vakansiyalar
+grep -o 'sabab&quot;:&quot;[^&quot;]*' storage/logs/laravel.log | tail -1">curl -s -o /dev/null -w 'status: %{http_code}\n' -H 'Accept: application/json' http://127.0.0.1:8000/api/v1/vakansiyalar
+grep -o 'sabab&quot;:&quot;[^&quot;]*' storage/logs/laravel.log | tail -1</div>
+        <p class="expect">⚠️ <b>500</b> va
+        <code>Target [...] is not instantiable</code> —
+        49-darsdan tanish xato, yangi sabab.</p>
+      </li>
+
+      <li>
+        <b><code>boot()</code> ga ko'chirib tuzating.</b> O'sha
+        qatorni <code>AppServiceProvider::boot()</code> ga
+        oling:
+        <div class="cmd" data-cmd="curl -s -o /dev/null -w 'status: %{http_code}\n' -H 'Accept: application/json' http://127.0.0.1:8000/api/v1/vakansiyalar">curl -s -o /dev/null -w 'status: %{http_code}\n' -H 'Accept: application/json' http://127.0.0.1:8000/api/v1/vakansiyalar</div>
+        <p class="expect"><b>200</b>. So'ng o'sha vaqtinchalik
+        qatorni va log yozuvlarini <b>o'chiring</b>.</p>
+      </li>
+
+      <li>
+        <b>Provider'ni kechiktirilgan qiling.</b> Yuqoridagi
+        yakuniy <code>XabarServiceProvider</code> kodini
+        ko'chiring (nusxa tugmasi bor).
+        <div class="cmd" data-cmd="php -l app/Providers/XabarServiceProvider.php">php -l app/Providers/XabarServiceProvider.php</div>
+        <p>Endi 3-qadamdagi buyruqni <b>qayta</b> ishlating:</p>
+        <div class="cmd" data-cmd="php -r '$m = require &quot;bootstrap/cache/services.php&quot;; echo &quot;deferred: &quot;, count($m[&quot;deferred&quot;]), PHP_EOL;'">php -r '$m = require &quot;bootstrap/cache/services.php&quot;; echo &quot;deferred: &quot;, count($m[&quot;deferred&quot;]), PHP_EOL;'</div>
+        <p class="expect">Menda <b>161 → 162</b>: sizning
+        xizmatingiz ham navbatga qo'shildi. Bu — provider
+        haqiqatan kechiktirilganining eng qisqa
+        tasdig'i.</p>
+      </li>
+
+      <li>
+        <b>Kechiktirishni o'lchang.</b> Sinov marshrutlarini
+        qo'shing:
+        <div class="cmd" data-cmd="# routes/api.php oxiriga:
+Route::get('/x/deferred', fn () => [
+    'yuklangan' => count(app()->getLoadedProviders()),
+    'xabar_yuklanganmi' => array_key_exists(
+        \App\Providers\XabarServiceProvider::class,
+        app()->getLoadedProviders()
+    ),
+]);
+
+Route::get('/x/deferred-keyin', function () {
+    $oldin = count(app()->getLoadedProviders());
+    app(\App\Xizmatlar\XabarYuboruvchi::class);
+
+    return ['oldin' => $oldin, 'keyin' => count(app()->getLoadedProviders())];
+});"># routes/api.php oxiriga:
+Route::get('/x/deferred', fn () =&gt; [
+    'yuklangan' =&gt; count(app()-&gt;getLoadedProviders()),
+    'xabar_yuklanganmi' =&gt; array_key_exists(
+        \App\Providers\XabarServiceProvider::class,
+        app()-&gt;getLoadedProviders()
+    ),
+]);
+
+Route::get('/x/deferred-keyin', function () {
+    $oldin = count(app()-&gt;getLoadedProviders());
+    app(\App\Xizmatlar\XabarYuboruvchi::class);
+
+    return ['oldin' =&gt; $oldin, 'keyin' =&gt; count(app()-&gt;getLoadedProviders())];
+});</div>
+        <div class="cmd" data-cmd="curl -s -H 'Accept: application/json' http://127.0.0.1:8000/api/x/deferred; echo
+curl -s -H 'Accept: application/json' http://127.0.0.1:8000/api/x/deferred-keyin; echo">curl -s -H 'Accept: application/json' http://127.0.0.1:8000/api/x/deferred; echo
+curl -s -H 'Accept: application/json' http://127.0.0.1:8000/api/x/deferred-keyin; echo</div>
+        <p class="expect">Birinchisida
+        <code>xabar_yuklanganmi: false</code>, ikkinchisida
+        son <b>bittaga oshadi</b>.</p>
+      </li>
+
+      <li>
+        <b>Konsol farqini ko'ring.</b>
+        <div class="cmd" data-cmd="php artisan tinker --execute='echo &quot;yuklangan: &quot;, count(app()->getLoadedProviders()), &quot;  kechiktirilgan: &quot;, count(app()->getDeferredServices()), PHP_EOL;'">php artisan tinker --execute='echo &quot;yuklangan: &quot;, count(app()-&gt;getLoadedProviders()), &quot;  kechiktirilgan: &quot;, count(app()-&gt;getDeferredServices()), PHP_EOL;'</div>
+        <p class="expect">⚠️ Konsolda <b>hammasi</b> yuklangan
+        va kechiktirilgan <b>0</b> — HTTP so'rovdan
+        farqli.</p>
+      </li>
+
+      <li>
+        <b>Testlarni yozing va sinov marshrutlarini
+        o'chiring.</b>
+        <div class="cmd" data-cmd="php artisan test tests/Feature/ProvayderTest.php">php artisan test tests/Feature/ProvayderTest.php</div>
+        <p class="expect">Kutilgan: <b>5 passed</b>.</p>
+      </li>
+
+      <li>
+        <b>To'liq to'plamni ishga tushiring.</b>
+        <div class="cmd" data-cmd="php artisan test">php artisan test</div>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><code>bootstrap/providers.php</code> ni ko'rdim</li>
+      <li>Paketlar <code>packages.php</code> dan kelishini
+      bildim</li>
+      <li>Hamma <code>register</code> hamma <code>boot</code> dan
+      oldin — o'z ko'zim bilan</li>
+      <li><code>register()</code> ichida ishlatib <b>500</b>
+      oldim</li>
+      <li><code>boot()</code> ga ko'chirib tuzatdim</li>
+      <li>Provider kechiktirilgan va ishlatilmaguncha
+      yuklanmaydi</li>
+      <li>Konsolda hamma provider yuklanishini ko'rdim</li>
+      <li>Vaqtinchalik marshrut va loglar o'chirilgan</li>
+      <li><code>ProvayderTest</code> — 5 test yashil</li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 11) SINAB KO'RAMIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Dasturchi <code>XabarServiceProvider</code> ni
+    kechiktirilgan qildi — «har so'rovda kerak emas-ku»
+    deb:</p>
+    <div class="codefile">
+      <div class="fname">app/Providers/XabarServiceProvider.php</div>
+      <code class="cmd" data-cmd="class XabarServiceProvider extends ServiceProvider implements DeferrableProvider
+{
+    public function register(): void
+    {
+        $this-&gt;app-&gt;singleton(XabarYuboruvchi::class, LogXabar::class);
+    }
+
+    public function boot(): void
+    {
+        Route::prefix('xabar')-&gt;group(base_path('routes/xabar.php'));
+    }
+
+    public function provides(): array
+    {
+        return [XabarYuboruvchi::class];
+    }
+}">class XabarServiceProvider extends ServiceProvider implements DeferrableProvider
+{
+    public function register(): void
+    {
+        $this-&gt;app-&gt;singleton(XabarYuboruvchi::class, LogXabar::class);
+    }
+
+    public function boot(): void
+    {
+        Route::prefix('xabar')-&gt;group(base_path('routes/xabar.php'));
+    }
+
+    public function provides(): array
+    {
+        return [XabarYuboruvchi::class];
+    }
+}</code>
+    </div>
+    <p>Testlar <b>yashil</b>. Vakansiya yaratish ishlaydi,
+    xabar yuboriladi. U commit qildi.</p>
+    <p>Ertasi kuni: «<code>/xabar/tarix</code> sahifasi
+    <b>404</b> beryapti». Lekin ba'zan <b>ishlaydi</b>. Nima
+    bo'lyapti?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <p>Kechiktirilgan provider'ning <code>boot()</code> i ham
+        <b>faqat</b> <code>provides()</code> dagi xizmat
+        so'ralganda ishlaydi.</p>
+        <div class="natija">GET /xabar/tarix          →  XabarYuboruvchi so'ralmagan
+                          →  provider yuklanmagan
+                          →  boot() ishlamagan
+                          →  marshrut RO'YXATDAN O'TMAGAN  →  404</div>
+        <p class="expect">⚠️ «Ba'zan ishlaydi» qismi eng
+        chalg'ituvchisi: agar o'sha so'rovda boshqa sabab
+        bilan <code>XabarYuboruvchi</code> so'ralib qolsa,
+        marshrut <b>ro'yxatdan o'tadi</b> va sahifa
+        ochiladi.</p>
+        <p>🔍 Testlar nega tutmadi? Chunki <b>konsolda hamma
+        provider yuklanadi</b> — o'lchandi: HTTP so'rovda 28,
+        konsolda 45, kechiktirilgan 0. Test muhitida
+        kechiktirish <b>umuman yo'q</b>.</p>
+        <div class="natija">test:  boot() ishlaydi  →  marshrut bor    →  YASHIL  ⚠️
+HTTP:  boot() ishlamaydi →  marshrut yo'q   →  404</div>
+        <p>✅ Yechim: marshrut ro'yxatdan o'tkazadigan
+        provider'ni <b>kechiktirmang</b>. Kechiktirish faqat
+        «so'ralganda kerak bo'ladigan» <b>xizmatlar</b>
+        uchun.</p>
+        <p>🔑 <b>Umumiy qoida:</b> <code>boot()</code> da
+        <b>har doim</b> bajarilishi kerak bo'lgan narsa bo'lsa
+        (marshrut, view, event tinglovchi, Blade direktivasi,
+        validatsiya qoidasi) — <code>DeferrableProvider</code>
+        yozmang.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span>
+    Provider'lar qanday tartibda ishlaydi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Hamma register keyin hamma boot ishlaydi</button></li>
+      <li><button class="quiz-option">Har provider register keyin boot qiladi</button></li>
+      <li><button class="quiz-option">Avval boot keyin register chaqirib chiqiladi</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 Log fayl bilan o'lchandi:
+    <code>APP register → SINOV register → XABAR register →
+    APP boot → SINOV boot → XABAR boot</code>.
+    🔑 Aynan shuning uchun <code>boot()</code> da <b>istalgan</b>
+    provider'ning bog'lanishini ishlatsa bo'ladi —
+    <code>register()</code> da esa yo'q.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span>
+    <code>register()</code> ichida <code>make()</code> qilsak
+    nima bo'ladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Keyingi provider bog'lanishi hali yozilmagan bo'lishi ham mumkin</button></li>
+      <li><button class="quiz-option">Laravel buni avtomatik sezib boot ga ko'chirib qo'yadi</button></li>
+      <li><button class="quiz-option">Hech qanday farqi yo'q ikkalasi bir xil ishlaydi</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi: <b>500</b> va
+    <code>Target [App\Xizmatlar\XabarYuboruvchi] is not
+    instantiable</code> — bind <b>bor</b>, lekin hali
+    ishlamagan.
+    ⚠️ Yomoni: bu <b>provider tartibi</b>ga bog'liq va yangi
+    provider qo'shsangiz o'zgarishi mumkin.
+    ✅ <code>boot()</code> ga ko'chiring.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span>
+    Kechiktirilgan provider qachon yuklanadi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">provides ro'yxatidagi xizmat birinchi marta so'ralgan paytda</button></li>
+      <li><button class="quiz-option">Har so'rovda lekin boshqalardan biroz keyinroq yuklanadi</button></li>
+      <li><button class="quiz-option">Faqat ishlab chiqarish muhitida optimize buyrug'idan keyin</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi: ishlatilmagan
+    so'rovda <b>28</b> provider va
+    <code>xabar_yuklanganmi: false</code>; xizmat
+    so'ralganda <b>28 → 29</b>.
+    ⚠️ Uning <code>boot()</code> i ham faqat o'shanda
+    ishlaydi — shuning uchun marshrut yoki view
+    ro'yxatdan o'tkazadigan provider'ni
+    kechiktirmang.</div>
+  </div>
+
+  <!-- ═══════════════ 12) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+
+    <p>Javobni ovoz chiqarib ayting, keyin ochib
+    solishtiring.</p>
+
+    <details class="recall">
+      <summary>Provider'lar qaysi uch manbadan keladi?</summary>
+      <div class="answer">1) <b>Yadro</b> —
+      <code>Application</code> klassida qattiq yozilgan
+      (Events, Log, Routing).
+      2) <b>Paketlar</b> — <code>composer.json</code> dagi
+      <code>extra.laravel.providers</code>,
+      <code>bootstrap/cache/packages.php</code> ga yig'iladi
+      (o'lchandi: <b>8</b> ta paket).
+      3) <b>Sizniki</b> — <code>bootstrap/providers.php</code>.
+      🔍 Natijada HTTP so'rovda <b>28</b> provider
+      yuklanadi.</div>
+    </details>
+
+    <details class="recall">
+      <summary><code>register()</code> ichida boshqa xizmatni
+      ishlatsak nega xato bo'ladi?</summary>
+      <div class="answer">Chunki o'sha xizmatning bog'lanishi
+      <b>keyingi</b> provider'da yozilgan bo'lishi mumkin —
+      va u hali ishlamagan.
+      🔍 O'lchandi: <b>500</b>,
+      <code>Target [...] is not instantiable</code>.
+      🔑 Xato xabari 49-darsdagi bilan bir xil, lekin sabab
+      boshqa: u yerda <b>bind yo'q</b> edi, bu yerda
+      <b>bind hali ishlamagan</b>.
+      Qoida: <code>register()</code> da faqat <b>yozing</b>,
+      <code>boot()</code> da <b>ishlating</b>.</div>
+    </details>
+
+    <details class="recall">
+      <summary>Kechiktirilgan provider nima va u nimani
+      talab qiladi?</summary>
+      <div class="answer">Ishlatilmaguncha ro'yxatdan
+      <b>o'tmaydigan</b> provider. Ikki narsa kerak:
+      <code>implements DeferrableProvider</code> va
+      <code>provides()</code> metodi — «men shu nomlarni bera
+      olaman» degan ro'yxat.
+      🔍 O'lchandi: ishlatilmagan so'rovda <b>28</b> provider,
+      xizmat so'ralganda <b>29</b>.
+      Laravelning o'zida <b>161</b> ta kechiktirilgan
+      xizmat bor.</div>
+    </details>
+
+    <details class="recall">
+      <summary>Kechiktirishning eng xavfli tomoni nima?</summary>
+      <div class="answer"><code>boot()</code> ham <b>faqat</b>
+      xizmat so'ralganda ishlaydi. Agar unda marshrut, view,
+      event tinglovchi yoki Blade direktivasi ro'yxatdan
+      o'tayotgan bo'lsa — ular <b>jimgina yo'qoladi</b>.
+      ⚠️ Va testlar buni <b>tutmaydi</b>: konsolda hamma
+      provider yuklanadi (o'lchandi: HTTP 28, konsol 45,
+      kechiktirilgan 0).</div>
+    </details>
+
+    <details class="recall">
+      <summary><code>provides()</code> yolg'on gapirsa nima
+      bo'ladi va buni qanday tutasiz?</summary>
+      <div class="answer">Provider hech qachon ro'yxatdan
+      o'tmaydi (hech kim eski nomni so'ramaydi), va yangi nom
+      ham topilmaydi →
+      <code>Target [...] is not instantiable</code>.
+      ✅ Test: <code>provides()</code> dagi <b>har bir</b>
+      nomni <code>app($nom)</code> bilan yasab ko'ring —
+      ro'yxat kengaysa test o'zi kengayadi.</div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 13) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Xulosa</span>
+    <ul>
+      <li>Container'dagi 217 ta bog'lanishni <b>provider'lar</b>
+      qo'yadi.</li>
+      <li>Ular uch manbadan: <b>yadro</b> · <b>paketlar</b>
+      (auto-discovery) · <b><code>bootstrap/providers.php</code></b>.</li>
+      <li>🔍 HTTP so'rovda <b>28</b> provider yuklanadi,
+      <b>159</b> xizmat navbatda turadi.</li>
+      <li><b>Hamma <code>register()</code> avval, keyin hamma
+      <code>boot()</code>.</b> Log fayl bilan
+      o'lchandi.</li>
+      <li>⚠️ <code>register()</code> ichida
+      <code>make()</code> → <b>500</b>. Bind bor, lekin hali
+      ishlamagan.</li>
+      <li>Qoida: <code>register()</code> — faqat
+      <b>yozing</b>; <code>boot()</code> — <b>ishlating</b>.
+      Istisno: <code>mergeConfigFrom</code>.</li>
+      <li><code>make:provider</code> ro'yxatga <b>o'zi</b>
+      qo'shadi (alifbo tartibida).</li>
+      <li><code>DeferrableProvider</code> +
+      <code>provides()</code> — ishlatilmaguncha
+      yuklanmaydi. 🔍 O'lchandi: <b>28 → 29</b>.</li>
+      <li>Laravelning o'zi ham shunday: <b>18</b> eager,
+      <b>161</b> kechiktirilgan xizmat.</li>
+      <li>⚠️ Kechiktirilgan provider'ning <code>boot()</code> i
+      ham faqat o'shanda ishlaydi — marshrut/view
+      ro'yxatdan o'tkazadigan provider'ni
+      kechiktirmang.</li>
+      <li>⚠️ Konsolda <b>hammasi</b> yuklanadi (45, 0) —
+      kechiktirishni <b>test bilan tekshirib
+      bo'lmaydi</b>.</li>
+      <li>⚠️ <code>provides()</code> yolg'on gapirsa xizmat
+      jimgina yo'qoladi — har bir nomni test bilan
+      yasab ko'ring.</li>
+      <li><code>boot()</code> da <b>sozlash</b> qiling,
+      <b>ish</b> qilmang — u har so'rovda ishlaydi.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p>Ikkita «sehr» ochildi: obyektlar container'dan keladi,
+    container'ni esa provider'lar to'ldiradi. Uchinchisi
+    hamon ochiq.</p>
+    <p>Bugungi kodda <code>Route::prefix(...)</code>,
+    <code>RateLimiter::for(...)</code>,
+    <code>Log::info(...)</code> yozdik. Bular statik metodlarga
+    <b>o'xshaydi</b> — lekin <code>Log</code> degan klass
+    <b>yo'q</b>. Uni <code>app/</code> ichida ham,
+    <code>Illuminate/Log/</code> ichida ham topa
+    olmaysiz.</p>
+    <p>51-darsda <b>fasadlar</b>ni ochamiz. Javob esa bugungi
+    va kechagi darsda tayyor turibdi:
+    <code>app('log')</code>. Qolgani —
+    <code>__callStatic</code>.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel — Service Providers</b>:
+    <a href="https://laravel.com/docs/13.x/providers">register, boot,
+    deferred providers</a>.<sup><a href="#fn1">1</a></sup><br>
+    <b>Laravel — Package Discovery</b>:
+    <a href="https://laravel.com/docs/13.x/packages#package-discovery">extra.laravel,
+    dont-discover</a>.<sup><a href="#fn2">2</a></sup><br>
+    <b>Laravel — Deferred Providers</b>:
+    <a href="https://laravel.com/docs/13.x/providers#deferred-providers">DeferrableProvider,
+    provides()</a>.<sup><a href="#fn1">1</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b> «provider
+    tartibini o'zim boshqara olamanmi?», «bir provider
+    ichida nechta bog'lanish bo'lishi normal?», «paket yozsam
+    provider'ni qanday chiqaraman?»,
+    «<code>$this-&gt;app</code> va <code>app()</code> farqi
+    bormi?» — har qanday savol yaxshi. Oxirgisiga qisqa javob:
+    <b>farqi yo'q</b>, ikkalasi ham o'sha bitta obyekt —
+    lekin provider ichida <code>$this-&gt;app</code> aniqroq
+    (u qayerdan kelgani ko'rinib turadi). Birinchisiga:
+    <b>ha</b> — <code>bootstrap/providers.php</code> dagi
+    tartib aynan ijro tartibi, uni qo'lda
+    o'zgartirsangiz bo'ladi. Lekin tartibga <b>tayanish</b>
+    o'zi muammo belgisi: <code>boot()</code> dan
+    foydalaning.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0049-service-container.html">Oldingi: Service Container</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel 13 — <a href="https://laravel.com/docs/13.x/providers">Service Providers</a>.</li>
+      <li id="fn2">Laravel 13 — <a href="https://laravel.com/docs/13.x/packages#package-discovery">Package Discovery</a>.</li>
+      <li id="fn3">Barchasi jonli o'lchangan (PHP 8.3.32, Laravel 13.26.1,
+      Pest 4.7.8, SQLite):
+      <code>bootstrap/providers.php</code> da <b>1</b> qator,
+      lekin HTTP so'rovda <b>28</b> provider yuklanadi ·
+      <code>bootstrap/cache/packages.php</code> — <b>8</b> ta
+      paket (pail, pao, sanctum, tinker, carbon, collision,
+      termwind, pest-plugin-laravel) ·
+      <code>bootstrap/cache/services.php</code> — <b>33</b>
+      providers, <b>18</b> eager, <b>161</b> deferred ·
+      tartib log fayl bilan o'lchandi:
+      <code>APP register → SINOV register → XABAR register →
+      APP boot → SINOV boot → XABAR boot</code> ·
+      ⚠️ <code>register()</code> ichida
+      <code>make(XabarYuboruvchi::class)</code> → <b>500</b>,
+      log'da <code>Target [App\Xizmatlar\XabarYuboruvchi] is
+      not instantiable.</code>; <code>boot()</code> ga
+      ko'chirilgach <b>200</b> va
+      <code>SINOV oldi: App\Xizmatlar\LogXabar</code> ·
+      <code>make:provider</code> <code>bootstrap/providers.php</code>
+      ga <b>o'zi</b> qo'shdi (alifbo tartibida) ·
+      kechiktirilgan provider: ishlatilmagan so'rovda
+      <b>28</b> yuklangan va
+      <code>XabarServiceProvider</code> <b>yo'q</b>, xizmat
+      so'ralganda <b>28 → 29</b> ·
+      <code>Illuminate\Bus\Dispatcher</code> so'ralganda ham
+      <b>28 → 29</b>, kechiktirilganlar <b>159 → 158</b> ·
+      ⚠️ kechiktirilgan provider'ning <code>boot()</code> i
+      ishlatilmagan so'rovda <b>umuman ishlamadi</b> (log
+      bo'sh), ishlatilganda <code>XABAR boot</code> ·
+      ⚠️ konsol/test muhitida: <b>45</b> provider yuklangan,
+      kechiktirilgan <b>0</b> ·
+      <code>ProvayderTest</code> — <b>5 passed (6
+      assertions)</b>, to'liq to'plam <b>31 passed (68
+      assertions), 0.37s</b>.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

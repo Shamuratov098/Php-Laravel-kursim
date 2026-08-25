@@ -17,7 +17,7 @@
   muhit ma'lumotlari. Har dars yangi buyruq o'rgatilsa, shu yerga qo'shiladi.</p>
 
   <p class="lesson-meta">
-    <span>Qamrov: <b>1&ndash;49-darslar</b> — muhitdan API'gacha</span>
+    <span>Qamrov: <b>1&ndash;50-darslar</b> — muhitdan API'gacha</span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>💻 Amaliyotga mos</span>
   </p>
@@ -1355,6 +1355,56 @@
     oshiruvchi + almashtirish rejasi yo'q bo'lsa. Container
     konkret klassni ham yasaydi va testda uni ham almashtirsa
     bo'ladi.</p>
+  </div>
+
+  <h2>Service Provider (50-darsdan)</h2>
+  <table class="sheet">
+    <tr><th>Kod</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>php artisan make:provider XProvider</code></td><td class="note-cell">Provider yasaydi va <code>bootstrap/providers.php</code> ga <b>o'zi</b> qo'shadi</td></tr>
+    <tr><td><code>bootstrap/providers.php</code></td><td class="note-cell">Sizning provider'laringiz ro'yxati (Laravel 11+)</td></tr>
+    <tr><td><code>bootstrap/cache/packages.php</code></td><td class="note-cell">Auto-discovery keshi — paket provider'lari</td></tr>
+    <tr><td><code>bootstrap/cache/services.php</code></td><td class="note-cell">Provider manifesti: eager va deferred</td></tr>
+    <tr><td><code>app()-&gt;getLoadedProviders()</code></td><td class="note-cell">Hozir yuklanganlar (HTTP: 28, konsol: 45)</td></tr>
+    <tr><td><code>app()-&gt;getDeferredServices()</code></td><td class="note-cell">Navbatda turgan xizmatlar (HTTP: 159, konsol: 0)</td></tr>
+    <tr><td><code>implements DeferrableProvider</code></td><td class="note-cell">Ishlatilmaguncha yuklanmaydigan provider</td></tr>
+    <tr><td><code>public function provides(): array</code></td><td class="note-cell">«Men shu nomlarni bera olaman» — majburiy</td></tr>
+    <tr><td><code>$this-&gt;mergeConfigFrom($yol, 'nom')</code></td><td class="note-cell"><code>register()</code> da ruxsat etilgan kam amallardan</td></tr>
+    <tr><td><code>$this-&gt;app-&gt;booted(fn () =&gt; ...)</code></td><td class="note-cell">Hamma <code>boot()</code> tugagandan keyin</td></tr>
+    <tr><td><code>php artisan package:discover</code></td><td class="note-cell"><code>packages.php</code> ni qayta yasaydi</td></tr>
+    <tr><td><code>php artisan optimize</code> · <code>optimize:clear</code></td><td class="note-cell">Kesh yasash / tozalash</td></tr>
+  </table>
+  <div class="callout note">
+    <p>🔑 <b>Tartib (log fayl bilan o'lchandi):</b>
+    <code>APP register → SINOV register → XABAR register →
+    APP boot → SINOV boot → XABAR boot</code>.
+    <b>Hamma <code>register()</code> avval, keyin hamma
+    <code>boot()</code>.</b></p>
+    <p>⚠️ <b><code>register()</code> ichida <code>make()</code>
+    qilmang.</b> O'lchandi: <b>500</b> va
+    <code>Target [...] is not instantiable</code> — bind
+    <b>bor</b>, lekin hali ishlamagan. Xato 49-darsdagi bilan
+    bir xil, sabab boshqa.
+    <br>✅ <code>register()</code> — faqat <b>yozing</b>
+    (bind, singleton, scoped, instance, mergeConfigFrom).
+    <code>boot()</code> — <b>ishlating</b> (Route::, Gate::,
+    RateLimiter::for, Blade::directive, Model::observe,
+    loadRoutesFrom).</p>
+    <p>⚠️ <b>Kechiktirilgan provider'ning <code>boot()</code> i
+    ham</b> faqat <code>provides()</code> dagi xizmat
+    so'ralganda ishlaydi. Marshrut, view, event tinglovchi
+    yoki Blade direktivasi ro'yxatdan o'tkazadigan
+    provider'ni <b>kechiktirmang</b> — xato chiqmaydi,
+    narsa jimgina yo'qoladi.</p>
+    <p>⚠️ <b>Konsol/testda hamma provider yuklanadi</b>
+    (45 va 0). Ya'ni kechiktirishni <b>test bilan tekshirib
+    bo'lmaydi</b> — <code>curl</code> ishlating.</p>
+    <p>⚠️ <b><code>provides()</code> yolg'on gapirsa</b>
+    provider hech qachon ro'yxatdan o'tmaydi.
+    ✅ Test: har bir nomni <code>app($nom)</code> bilan yasab
+    ko'ring.</p>
+    <p>🔑 <code>boot()</code> <b>har</b> so'rovda ishlaydi —
+    unda <b>sozlash</b> qiling, <b>ish</b> qilmang (baza
+    so'rovi, HTTP chaqiruvi yo'q).</p>
   </div>
 
   <h2>Xatoni o'qish</h2>
