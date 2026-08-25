@@ -1,0 +1,1114 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 55 — Queue va Job</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 55 · MODUL H — FON ISHLAR VA TEZLIK</p>
+  <h1>Queue va Job</h1>
+  <p class="lead">53-darsda <code>ShouldQueue</code> ni ishlatdik
+  va ish <code>jobs</code> jadvaliga tushganini ko'rdik —
+  lekin navbatning o'zini ochmadik. Bugun ochamiz. Va
+  boshida bitta o'lchov turadi: bir xil ish
+  <b>648 ms</b> va <b>17 ms</b>.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 17 daqiqa</span>
+    <span>💻 Amaliyot ≈ 28 daqiqa</span>
+    <span>Kerak: <a href="0054-config-env-va-cache.html">Dars 54</a></span>
+  </p>
+
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b>🔍 648 ms va 17 ms</b>
+        <span class="nima">Bir xil eksport ishi: sinxron va
+        navbatda. Foydalanuvchi ko'radigan farq
+        o'lchandi.</span></li>
+      <li><b><code>make:job</code> va <code>Queueable</code></b>
+        <span class="nima">Ish — konstruktorda
+        <b>ma'lumot</b>, <code>handle()</code> da
+        <b>bajarish</b>.</span></li>
+      <li><b><code>jobs</code> jadvali ichida nima bor</b>
+        <span class="nima">7 ta ustun va <code>payload</code>
+        ichidagi <code>displayName</code>,
+        <code>maxTries</code>, <code>timeout</code> —
+        ochib ko'rsatiladi.</span></li>
+      <li><b><code>$tries</code>, <code>$backoff</code>,
+        <code>$timeout</code></b>
+        <span class="nima">Uchtasi ham <code>payload</code> ga
+        yoziladi — ya'ni <b>ish qo'yilgan paytdagi</b>
+        qiymat ishlaydi.</span></li>
+      <li><b>Qayta urinish siklini o'z ko'zingiz bilan</b>
+        <span class="nima">🔍 O'lchandi: <b>3</b> urinish
+        (~3 soniyada bir marta), keyin
+        <code>failed_jobs</code>.</span></li>
+      <li><b><code>failed()</code> metodi</b>
+        <span class="nima">Ish butunlay yiqilganda
+        <b>bir marta</b> chaqiriladi.</span></li>
+      <li><b>⚠️ <code>SerializesModels</code> tuzog'i</b>
+        <span class="nima">🔍 Model o'chirilsa ishchi
+        <code>ModelNotFoundException</code> beradi —
+        45-darsdagi xatoning yangi joyda
+        paydo bo'lishi.</span></li>
+      <li><b><code>queue:failed</code>, <code>retry</code>,
+        <code>flush</code></b>
+        <span class="nima">Muvaffaqiyatsiz ish bilan nima
+        qilinadi — uchala buyruq ishlatib
+        ko'riladi.</span></li>
+      <li><b><code>Queue::fake()</code></b>
+        <span class="nima"><code>assertPushed</code> ·
+        <code>assertNothingPushed</code> · closure bilan
+        shart.</span></li>
+      <li><b>Ishning <b>o'zini</b> test qilish</b>
+        <span class="nima">Navbatsiz:
+        <code>(new Ish(...))-&gt;handle()</code> +
+        <code>Storage::fake()</code>.</span></li>
+      <li><b><code>queue:work</code> va
+        <code>queue:listen</code></b>
+        <span class="nima">Farqi va nega ishlab chiqarishda
+        <code>queue:restart</code> kerak.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima">Navbat drayverlari · bir necha
+        navbat · <code>delay</code> ·
+        <code>ShouldBeUnique</code> · idempotentlik ·
+        xotira.</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Foydalanuvchi kutadigan vaqt</span>
+    <p>IshTop'ga yangi talab keldi: ish beruvchi barcha
+    vakansiyalarni CSV qilib yuklab olsin.</p>
+    <p>Eng oddiy yechim — controllerda hisoblab, faylni
+    qaytarish. 30 000 yozuvda o'lchaymiz:</p>
+    <div class="natija">GET /api/x/eksport-sinxron
+
+{"usul":"sinxron","ms":648,"fayl":"eksport/vakansiyalar-1.csv"}
+                                              (jami: 0.819s)</div>
+    <p>Endi xuddi shu ishni <b>navbatga</b> qo'yamiz:</p>
+    <div class="natija">GET /api/x/eksport-navbat
+
+{"usul":"navbat","ms":17}                     (jami: 0.026s)</div>
+    <div class="natija">sinxron:  648 ms      foydalanuvchi KUTADI
+navbat:    17 ms      foydalanuvchi darrov javob oladi
+                      ish esa fonda bajariladi</div>
+    <p>Farq — <b>38 barobar</b>. Va bu 30 000 yozuvda.
+    300 000 bo'lsa sinxron variant <b>timeout</b> bilan
+    tugaydi.</p>
+    <p>Muhimi tezlik emas — <b>kim kutadi</b>. Navbatda ham
+    ish 683 ms davom etadi, faqat uni foydalanuvchi emas,
+    <b>ishchi jarayon</b> kutadi.</p>
+  </div>
+
+  <!-- ═══════════════ 2) ISH YOZISH ═══════════════ -->
+  <h2>Ish yozish</h2>
+
+  <div class="natija">php artisan make:job VakansiyalarniEksport</div>
+
+  <div class="codefile">
+    <div class="fname">app/Jobs/VakansiyalarniEksport.php</div>
+    <code class="cmd" data-cmd="&lt;?php
+
+namespace App\Jobs;
+
+use App\Models\User;
+use App\Models\Vakansiya;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+
+class VakansiyalarniEksport implements ShouldQueue
+{
+    use Queueable;
+
+    public int $tries = 3;
+
+    public int $backoff = 5;
+
+    public int $timeout = 60;
+
+    public function __construct(public User $user) {}
+
+    public function handle(): string
+    {
+        $qatorlar = ['nom;shahar;maosh'];
+
+        foreach (Vakansiya::cursor() as $vakansiya) {
+            $qatorlar[] = &quot;{$vakansiya-&gt;nom};{$vakansiya-&gt;shahar};{$vakansiya-&gt;maosh}&quot;;
+        }
+
+        $yol = &quot;eksport/vakansiyalar-{$this-&gt;user-&gt;id}.csv&quot;;
+        Storage::put($yol, implode(&quot;\n&quot;, $qatorlar));
+
+        return $yol;
+    }
+
+    public function failed(\Throwable $e): void
+    {
+        Log::error('Eksport yiqildi', [
+            'user_id' =&gt; $this-&gt;user-&gt;id,
+            'sabab' =&gt; $e-&gt;getMessage(),
+        ]);
+    }
+}">&lt;?php
+
+namespace App\Jobs;
+
+use App\Models\User;
+use App\Models\Vakansiya;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+
+class VakansiyalarniEksport implements ShouldQueue
+{
+    use Queueable;
+
+    public int $tries = 3;
+
+    public int $backoff = 5;
+
+    public int $timeout = 60;
+
+    public function __construct(public User $user) {}
+
+    public function handle(): string
+    {
+        $qatorlar = ['nom;shahar;maosh'];
+
+        foreach (Vakansiya::cursor() as $vakansiya) {
+            $qatorlar[] = &quot;{$vakansiya-&gt;nom};{$vakansiya-&gt;shahar};{$vakansiya-&gt;maosh}&quot;;
+        }
+
+        $yol = &quot;eksport/vakansiyalar-{$this-&gt;user-&gt;id}.csv&quot;;
+        Storage::put($yol, implode(&quot;\n&quot;, $qatorlar));
+
+        return $yol;
+    }
+
+    public function failed(\Throwable $e): void
+    {
+        Log::error('Eksport yiqildi', [
+            'user_id' =&gt; $this-&gt;user-&gt;id,
+            'sabab' =&gt; $e-&gt;getMessage(),
+        ]);
+    }
+}</code>
+  </div>
+
+  <p>Uch qism bor:</p>
+
+  <div class="natija">__construct()  →  ishga kerak MA'LUMOT (navbatga saqlanadi)
+handle()       →  ishning O'ZI (ishchi jarayonda bajariladi)
+failed()       →  butunlay yiqilganda BIR MARTA chaqiriladi</div>
+
+  <p><code>cursor()</code> — 52-darsdan: 30 000 yozuvni
+  xotiraga olmasdan bittalab o'qiydi. Fon ishida bu
+  <b>ayniqsa</b> muhim: ishchi jarayon uzoq yashaydi va
+  xotirani asrash kerak.</p>
+
+  <p>Chaqirish bir qator:</p>
+
+  <div class="natija">VakansiyalarniEksport::dispatch($request-&gt;user());</div>
+
+  <!-- ═══════════════ 3) JOBS JADVALI ═══════════════ -->
+  <h2><code>jobs</code> jadvalida nima yotadi?</h2>
+
+  <div class="natija">jobs:         id · queue · payload · attempts · reserved_at · available_at · created_at
+failed_jobs:  id · uuid · connection · queue · payload · exception · failed_at</div>
+
+  <p>Eng qiziq ustun — <code>payload</code>. Uni ochib
+  ko'ramiz:</p>
+
+  <div class="natija">payload hajmi:  664 bayt
+
+displayName:  App\Jobs\VakansiyalarniEksport
+maxTries:     3
+timeout:      60
+backoff:      '5'
+data.command: serialize qilingan obyekt
+
+unserialize dan keyin:
+   user obyekti: App\Models\User  id=1</div>
+
+  <div class="callout tip">
+    <span class="label">🔑 Uchta muhim xulosa</span>
+    <p><b>1.</b> <code>$tries</code>, <code>$timeout</code>,
+    <code>$backoff</code> <b>payload'ga yoziladi</b>. Ya'ni
+    ish qo'yilgan paytdagi qiymat ishlaydi — kodni
+    o'zgartirsangiz, <b>navbatda turgan</b> eski ishlar
+    eski sozlama bilan bajariladi.</p>
+    <p><b>2.</b> Obyekt <code>serialize</code>
+    qilinadi — demak ishga <b>seriyalash mumkin bo'lgan</b>
+    narsani bering. Closure, ochilgan fayl yoki ulanish
+    bermang.</p>
+    <p><b>3.</b> <code>user</code> obyekti to'liq emas —
+    faqat <b>id</b> saqlanadi (<code>Queueable</code>
+    ichidagi <code>SerializesModels</code> tufayli).
+    Ishchi uni bazadan <b>qayta oladi</b>.</p>
+  </div>
+
+  <!-- ═══════════════ 4) SERIALIZES TUZOG'I ═══════════════ -->
+  <h2>⚠️ Model o'chirilsa nima bo'ladi?</h2>
+
+  <p>Uchinchi xulosaning teskari tomoni bor. Sinab
+  ko'ramiz: ishni qo'yamiz, keyin foydalanuvchini
+  <b>o'chiramiz</b>:</p>
+
+  <div class="natija">$u = User::create([...]);
+VakansiyalarniEksport::dispatch($u);
+$u-&gt;delete();
+
+php artisan queue:work --stop-when-empty --tries=1
+
+App\Jobs\VakansiyalarniEksport ...... RUNNING
+App\Jobs\VakansiyalarniEksport ...... 9.34ms FAIL</div>
+
+  <div class="natija">failed_jobs dagi xato:
+
+Illuminate\Database\Eloquent\ModelNotFoundException:
+No query results for model [App\Models\User].</div>
+
+  <p>Bu xato sizga <b>tanish</b> — 45 va 47-darslarda
+  ko'rgandik. Endi u <b>uchinchi joyda</b> paydo
+  bo'ldi.</p>
+
+  <div class="callout warn">
+    <span class="label">⚠️ Nega bu amalda tez-tez uchraydi</span>
+    <p>Ish navbatda <b>kutadi</b> — bir necha soniya yoki
+    daqiqa. O'sha vaqt ichida:</p>
+    <div class="natija">foydalanuvchi hisobini o'chirdi
+vakansiya o'chirildi
+admin yozuvni tozaladi</div>
+    <p>✅ Ikkita yechim bor:</p>
+    <div class="natija">1) Modelni emas, ID ni bering:
+   public function __construct(public int $userId) {}
+   → handle() ichida User::find($this->userId) va null tekshiruvi
+
+2) Yo'qolganini normal deb qabul qiling:
+   use Illuminate\Queue\Middleware\...  yoki handle() boshida
+   if (! $this->user) { return; }</div>
+    <p>🔑 Qaysi biri — <b>ma'noga bog'liq</b>: yozuv
+    o'chirilgan bo'lsa ish <b>kerak emasmi</b> yoki bu
+    haqiqiy xatomi?</p>
+  </div>
+
+  <!-- ═══════════════ 5) QAYTA URINISH ═══════════════ -->
+  <h2>Qayta urinish sikli</h2>
+
+  <p>Ataylab yiqiladigan ish yozamiz
+  (<code>$tries = 3</code>, <code>$backoff = 1</code>) va
+  ishchini 12 soniya ishlatamiz:</p>
+
+  <div class="natija">18:39:29  App\Jobs\BuzuqIsh ...... RUNNING
+18:39:29  App\Jobs\BuzuqIsh ...... 6.96ms FAIL
+18:39:32  App\Jobs\BuzuqIsh ...... RUNNING
+18:39:32  App\Jobs\BuzuqIsh ...... 6.98ms FAIL
+18:39:35  App\Jobs\BuzuqIsh ...... RUNNING
+18:39:35  App\Jobs\BuzuqIsh ...... 6.71ms FAIL
+
+logdagi urinishlar:  3
+failed_jobs:         1 ta</div>
+
+  <p>Uch urinish, orasida ~3 soniya, keyin
+  <code>failed_jobs</code>. <code>failed()</code> metodi
+  esa <b>bir marta</b> — oxirida.</p>
+
+  <div class="callout warn">
+    <span class="label">⚠️ <code>--stop-when-empty</code> bilan chalg'imang</span>
+    <p>Birinchi urinishimizda
+    <code>queue:work --stop-when-empty</code> yozgan edik va
+    atigi <b>2</b> urinish ko'rindi,
+    <code>failed_jobs</code> esa <b>bo'sh</b> edi.</p>
+    <p>Sabab: ish xato bergach <code>backoff</code> vaqtiga
+    <b>qo'yib yuboriladi</b>, va o'sha lahzada navbat
+    «bo'sh» ko'rinadi — ishchi to'xtaydi.</p>
+    <p>🔑 Ya'ni <code>--stop-when-empty</code>
+    <b>qayta urinishlarni kutmaydi</b>. Sikl to'liq
+    ko'rinishi uchun oddiy <code>queue:work</code>
+    ishlating.</p>
+  </div>
+
+  <h3>Muvaffaqiyatsiz ish bilan ishlash</h3>
+
+  <div class="natija">php artisan queue:failed
+
+2026-08-25 18:39:35  894647c5-2c6a-...  database@default  App\Jobs\BuzuqIsh</div>
+
+  <div class="natija">php artisan queue:retry all       →  894647c5-... 5.51ms DONE
+                                     jobs: 1   failed: 0
+
+php artisan queue:retry 894647c5  →  bittasini qaytarish
+php artisan queue:flush           →  All failed jobs deleted successfully.</div>
+
+  <p><code>queue:retry</code> ishni <b>bajarmaydi</b> —
+  uni navbatga <b>qaytaradi</b>. Bajarilishi uchun ishchi
+  kerak.</p>
+
+  <!-- ═══════════════ 6) ISHCHI ═══════════════ -->
+  <h2>Ishchi: <code>work</code> va <code>listen</code></h2>
+
+  <div class="natija">php artisan queue:work        →  ilovani BIR MARTA yuklaydi, so'ng ishlarni oladi
+php artisan queue:listen      →  har ish uchun ilovani QAYTA yuklaydi</div>
+
+  <div class="natija">                 queue:work        queue:listen
+tezlik           tez               sekin
+kod o'zgarsa     ESKI kod          yangi kod
+qayerda          ishlab chiqarish  mahalliy ish</div>
+
+  <div class="callout warn">
+    <span class="label">⚠️ Eng ko'p uchraydigan chalkashlik</span>
+    <p><code>queue:work</code> ilovani <b>bir marta</b>
+    yuklaydi. Ya'ni kodni o'zgartirsangiz, ishchi
+    <b>eski kodni</b> ishlatishda davom etadi.</p>
+    <p>«Men tuzatdim, lekin ish hamon yiqilyapti» —
+    javob shu.</p>
+    <p>✅ Har deploydan keyin:</p>
+    <div class="natija">php artisan queue:restart</div>
+    <p>Bu ishchilarni <b>to'xtatadi</b> (joriy ishni
+    tugatib), keyin supervisor ularni yangi kod bilan
+    qayta ishga tushiradi — Modul J'da
+    sozlaymiz.</p>
+  </div>
+
+  <!-- ═══════════════ 7) TESTLAR ═══════════════ -->
+  <h2>Testlar</h2>
+
+  <p>Navbatni testda ikki xil tekshirish kerak:
+  <b>ish qo'yildimi</b> va <b>ishning o'zi to'g'ri
+  ishlaydimi</b>. Bular alohida narsa.</p>
+
+  <div class="codefile">
+    <div class="fname">tests/Feature/NavbatTest.php</div>
+    <code class="cmd">use App\Jobs\VakansiyalarniEksport;
+use App\Models\User;
+use App\Models\Vakansiya;
+use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
+
+it('ish navbatga qo\'yiladi', function () {
+    Queue::fake();
+
+    $user = User::factory()-&gt;create();
+    VakansiyalarniEksport::dispatch($user);
+
+    Queue::assertPushed(VakansiyalarniEksport::class);
+});
+
+it('ish to\'g\'ri foydalanuvchi bilan qo\'yiladi', function () {
+    Queue::fake();
+
+    $user = User::factory()-&gt;create();
+    VakansiyalarniEksport::dispatch($user);
+
+    Queue::assertPushed(
+        VakansiyalarniEksport::class,
+        fn (VakansiyalarniEksport $ish) =&gt; $ish-&gt;user-&gt;is($user)
+    );
+});
+
+it('navbatga qo\'yilmasa ham tekshirsa bo\'ladi', function () {
+    Queue::fake();
+
+    Queue::assertNothingPushed();
+});
+
+it('ishning o\'zi haqiqatan fayl yasaydi', function () {
+    Storage::fake('local');
+
+    $user = User::factory()-&gt;create();
+    Vakansiya::factory()-&gt;count(3)-&gt;create();
+
+    $yol = (new VakansiyalarniEksport($user))-&gt;handle();
+
+    Storage::assertExists($yol);
+    expect(Storage::get($yol))-&gt;toStartWith('nom;shahar;maosh');
+    expect(explode(&quot;\n&quot;, Storage::get($yol)))-&gt;toHaveCount(4);
+});
+
+it('ish sozlamalari to\'g\'ri', function () {
+    $ish = new VakansiyalarniEksport(User::factory()-&gt;create());
+
+    expect($ish-&gt;tries)-&gt;toBe(3);
+    expect($ish-&gt;backoff)-&gt;toBe(5);
+    expect($ish-&gt;timeout)-&gt;toBe(60);
+});</code>
+  </div>
+
+  <div class="natija">Tests:  5 passed (9 assertions)</div>
+
+  <p>To'rtinchi test eng qimmatlisi.
+  <code>Queue::fake()</code> <b>yo'q</b> — ish
+  <code>handle()</code> orqali <b>to'g'ridan-to'g'ri</b>
+  chaqiriladi. <code>Storage::fake('local')</code> esa
+  haqiqiy diskka tegmaydi.</p>
+
+  <p>Ya'ni: navbatni ham, ishning mantiqini ham
+  <b>alohida</b> tekshirdik. Bu 53-darsdagi hodisa
+  testlaridan farq qiladi — u yerda tinglovchining
+  <b>ichi</b> tekshirilmagandi.</p>
+
+  <p>Oxirgi test sozlamalarni mixlaydi: kimdir
+  <code>$tries</code> ni o'zgartirsa, sabab
+  <b>ko'rinadi</b>.</p>
+
+  <div class="natija">To'liq to'plam:  55 passed (119 assertions)</div>
+
+  <!-- ═══════════════ 8) HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir bir
+  marta o'qib chiqing, keyin kerak bo'lganda qaytib
+  qarang.</p>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 1</span>
+    <h4>Navbat drayverlari</h4>
+    <div class="natija">sync       →  navbat YO'Q, darrov bajariladi (test muhitida shu)
+database   →  jobs jadvali (bizda shu) — sozlash oson, sekinroq
+redis      →  tez, ishlab chiqarish uchun eng ko'p ishlatiladigan
+sqs        →  Amazon SQS — server boshqarish kerak emas</div>
+    <p><code>database</code> kichik loyihalar uchun
+    yetarli. Kuniga minglab ish bo'lsa —
+    <code>redis</code> (Modul H'ning keyingi darslarida o'rnatamiz).</p>
+    <p>⚠️ <code>sync</code> ni ishlab chiqarishda
+    ishlatmang: unda <code>ShouldQueue</code> hech nima
+    qilmaydi va 53-darsdagi 500 muammosi
+    qaytadi.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 2</span>
+    <h4>Bir necha navbat va ustuvorlik</h4>
+    <div class="natija">EmailYubor::dispatch($u)-&gt;onQueue('tez');
+HisobotYasa::dispatch()-&gt;onQueue('sekin');
+
+php artisan queue:work --queue=tez,sekin</div>
+    <p>Ishchi <code>tez</code> navbatini <b>oldin</b>
+    bo'shatadi, keyin <code>sekin</code> ga o'tadi.</p>
+    <p>🔑 Foydasi: bitta katta hisobot 200 ta emailni
+    <b>ushlab qolmaydi</b>.</p>
+    <p>🔍 <code>--queue</code> siz ishchi faqat
+    <code>default</code> navbatini oladi — boshqa
+    navbatdagi ishlar <b>abadiy kutadi</b>.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 3</span>
+    <h4>Kechiktirish va rejalashtirish</h4>
+    <div class="natija">EslatmaYubor::dispatch($ariza)-&gt;delay(now()-&gt;addHours(24));
+EksportIsh::dispatch($u)-&gt;afterCommit();
+EksportIsh::dispatch($u)-&gt;onConnection('redis')-&gt;onQueue('tez');</div>
+    <p><code>delay()</code> — <code>available_at</code>
+    ustuniga yoziladi, ishchi vaqti kelmagan ishni
+    <b>olmaydi</b>.</p>
+    <p><code>afterCommit()</code> — 53-darsdagi tranzaksiya
+    muammosining ish uchun yechimi.</p>
+    <p>⚠️ <code>delay()</code> — <b>kafolat emas</b>:
+    ishchi band bo'lsa kechroq bajariladi.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 4</span>
+    <h4>Ish ikki marta bajarilishi</h4>
+    <div class="natija">⚠️ ishchi o'ldi → ish qayta olinadi → email IKKI marta ketdi</div>
+    <p>Navbat «kamida bir marta» kafolatlaydi, «aynan bir
+    marta» emas. Ishchi ish o'rtasida
+    o'chsa, ish qayta bajariladi.</p>
+    <p>✅ Ishlaringiz <b>idempotent</b> bo'lsin —
+    ikki marta bajarilsa ham natija bir xil:</p>
+    <div class="natija">❌ $user-&gt;balans += 100;
+✅ $tolov-&gt;update(['holat' =&gt; 'tolangan']);   // ikki marta ham bir xil</div>
+    <p>🔍 <code>ShouldBeUnique</code> interfeysi bir vaqtda
+    bir xil ishning <b>ikki nusxasini</b> oldini
+    oladi — lekin qayta urinishdan himoya
+    qilmaydi.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 5</span>
+    <h4>Ishchining xotirasi</h4>
+    <div class="natija">queue:work --memory=256 --max-jobs=1000 --max-time=3600</div>
+    <p>Ishchi <b>uzoq yashaydi</b>, ya'ni PHP'ning har
+    so'rovda tozalanish afzalligi yo'q. Xotira
+    asta-sekin to'ladi.</p>
+    <p>✅ Chegara qo'ying — ishchi o'zi
+    o'chadi, supervisor qayta ishga tushiradi.</p>
+    <p>🔑 Shuning uchun ishda <code>cursor()</code> va
+    <code>chunk()</code> (52-dars) ayniqsa
+    muhim.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 6</span>
+    <h4><code>timeout</code> va <code>retry_after</code></h4>
+    <div class="natija">$timeout = 60          →  ishchi ishni 60 soniyadan keyin uzadi
+config/queue.php:
+'retry_after' =&gt; 90    →  navbat ishni 90 soniyadan keyin QAYTA beradi</div>
+    <p>⚠️ <code>retry_after</code> har doim
+    <code>timeout</code> dan <b>katta</b> bo'lishi kerak.
+    Aks holda ish hali bajarilayotganda ikkinchi ishchi
+    uni olib qo'yadi — va u <b>ikki marta</b>
+    bajariladi.</p>
+    <p>🔍 Bu HOLAT 4 ning eng ko'p uchraydigan
+    sababi.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>Ishni kuzatish</h4>
+    <div class="natija">php artisan queue:monitor default,tez --max=100   →  navbat uzun bo'lsa hodisa
+php artisan queue:failed                          →  yiqilganlar ro'yxati
+DB::table('jobs')-&gt;count()                        →  navbat uzunligi</div>
+    <p>Navbat uzunligi — muhim ko'rsatkich. U o'sib
+    borsa, ishchilar <b>yetishmayapti</b>.</p>
+    <p>🔍 Modul H oxirida Telescope bilan buni ko'rish
+    qulayroq bo'ladi; Modul J'da esa supervisor
+    bilan bir necha ishchi ishga tushiramiz.</p>
+  </div>
+
+  <!-- ═══════════════ 9) AMALIYOT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    💻 Quyida amaliyot bor. Hozir o'qish rejimidasiz — kompyuter
+    yoningizda bo'lganda <b>💻 Amaliyot</b> rejimiga o'ting va
+    shu bo'limdan davom eting.
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <b>Navbat jadvallarini tekshiring.</b>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+grep QUEUE_CONNECTION .env
+php artisan tinker --execute='echo Schema::hasTable(&quot;jobs&quot;) ? &quot;jobs BOR&quot; : &quot;jobs YO\047Q&quot;, PHP_EOL;'">cd ~/Projects/Learn/ishtop
+grep QUEUE_CONNECTION .env
+php artisan tinker --execute='echo Schema::hasTable(&quot;jobs&quot;) ? &quot;jobs BOR&quot; : &quot;jobs YO\047Q&quot;, PHP_EOL;'</div>
+        <p>Bo'lmasa:
+        <code>php artisan queue:table &amp;&amp; php artisan migrate</code>.</p>
+      </li>
+
+      <li>
+        <b>Ishni yarating.</b> Yuqoridagi
+        <code>VakansiyalarniEksport</code> kodini
+        ko'chiring (nusxa tugmasi bor).
+        <div class="cmd" data-cmd="php artisan make:job VakansiyalarniEksport
+php -l app/Jobs/VakansiyalarniEksport.php">php artisan make:job VakansiyalarniEksport
+php -l app/Jobs/VakansiyalarniEksport.php</div>
+      </li>
+
+      <li>
+        <b>Ko'p yozuv qo'shing.</b>
+        <div class="cmd" data-cmd="php artisan tinker --execute='$k = App\Models\Kompaniya::first()->id; $q = []; for ($i = 0; $i < 30000; $i++) { $q[] = [&quot;nom&quot; => &quot;Vakansiya {$i}&quot;, &quot;shahar&quot; => &quot;Shahar&quot;.($i % 7), &quot;maosh&quot; => 500 + ($i % 3000), &quot;faol&quot; => true, &quot;kompaniya_id&quot; => $k, &quot;created_at&quot; => now(), &quot;updated_at&quot; => now()]; if (count($q) === 3000) { DB::table(&quot;vakansiyalar&quot;)->insert($q); $q = []; } } if ($q) { DB::table(&quot;vakansiyalar&quot;)->insert($q); } echo App\Models\Vakansiya::count(), PHP_EOL;'">php artisan tinker --execute='$k = App\Models\Kompaniya::first()-&gt;id; $q = []; for ($i = 0; $i &lt; 30000; $i++) { $q[] = [&quot;nom&quot; =&gt; &quot;Vakansiya {$i}&quot;, &quot;shahar&quot; =&gt; &quot;Shahar&quot;.($i % 7), &quot;maosh&quot; =&gt; 500 + ($i % 3000), &quot;faol&quot; =&gt; true, &quot;kompaniya_id&quot; =&gt; $k, &quot;created_at&quot; =&gt; now(), &quot;updated_at&quot; =&gt; now()]; if (count($q) === 3000) { DB::table(&quot;vakansiyalar&quot;)-&gt;insert($q); $q = []; } } if ($q) { DB::table(&quot;vakansiyalar&quot;)-&gt;insert($q); } echo App\Models\Vakansiya::count(), PHP_EOL;'</div>
+      </li>
+
+      <li>
+        <b>Sinov marshrutlarini qo'shing.</b>
+        <div class="cmd" data-cmd="# routes/api.php oxiriga:
+Route::get('/x/eksport-sinxron', function () {
+    $b = microtime(true);
+    $yol = (new \App\Jobs\VakansiyalarniEksport(\App\Models\User::first()))->handle();
+
+    return ['usul' => 'sinxron', 'ms' => round((microtime(true) - $b) * 1000), 'fayl' => $yol];
+});
+
+Route::get('/x/eksport-navbat', function () {
+    $b = microtime(true);
+    \App\Jobs\VakansiyalarniEksport::dispatch(\App\Models\User::first());
+
+    return ['usul' => 'navbat', 'ms' => round((microtime(true) - $b) * 1000)];
+});"># routes/api.php oxiriga:
+Route::get('/x/eksport-sinxron', function () {
+    $b = microtime(true);
+    $yol = (new \App\Jobs\VakansiyalarniEksport(\App\Models\User::first()))-&gt;handle();
+
+    return ['usul' =&gt; 'sinxron', 'ms' =&gt; round((microtime(true) - $b) * 1000), 'fayl' =&gt; $yol];
+});
+
+Route::get('/x/eksport-navbat', function () {
+    $b = microtime(true);
+    \App\Jobs\VakansiyalarniEksport::dispatch(\App\Models\User::first());
+
+    return ['usul' =&gt; 'navbat', 'ms' =&gt; round((microtime(true) - $b) * 1000)];
+});</div>
+      </li>
+
+      <li>
+        <b>Farqni o'lchang.</b>
+        <div class="cmd" data-cmd="php artisan serve">php artisan serve</div>
+        <p>Boshqa terminalda:</p>
+        <div class="cmd" data-cmd="curl -s -w '  (jami: %{time_total}s)\n' -H 'Accept: application/json' http://127.0.0.1:8000/api/x/eksport-sinxron
+curl -s -w '  (jami: %{time_total}s)\n' -H 'Accept: application/json' http://127.0.0.1:8000/api/x/eksport-navbat">curl -s -w '  (jami: %{time_total}s)\n' -H 'Accept: application/json' http://127.0.0.1:8000/api/x/eksport-sinxron
+curl -s -w '  (jami: %{time_total}s)\n' -H 'Accept: application/json' http://127.0.0.1:8000/api/x/eksport-navbat</div>
+        <p class="expect">Menda: <b>648 ms</b> va
+        <b>17 ms</b>.</p>
+      </li>
+
+      <li>
+        <b><code>payload</code> ichiga qarang.</b>
+        <div class="cmd" data-cmd="php artisan tinker --execute='$p = json_decode(DB::table(&quot;jobs&quot;)->first()->payload, true); echo &quot;displayName: &quot;, $p[&quot;displayName&quot;], PHP_EOL, &quot;maxTries: &quot;, var_export($p[&quot;maxTries&quot;], true), PHP_EOL, &quot;timeout: &quot;, var_export($p[&quot;timeout&quot;], true), PHP_EOL, &quot;backoff: &quot;, var_export($p[&quot;backoff&quot;], true), PHP_EOL;'">php artisan tinker --execute='$p = json_decode(DB::table(&quot;jobs&quot;)-&gt;first()-&gt;payload, true); echo &quot;displayName: &quot;, $p[&quot;displayName&quot;], PHP_EOL, &quot;maxTries: &quot;, var_export($p[&quot;maxTries&quot;], true), PHP_EOL, &quot;timeout: &quot;, var_export($p[&quot;timeout&quot;], true), PHP_EOL, &quot;backoff: &quot;, var_export($p[&quot;backoff&quot;], true), PHP_EOL;'</div>
+      </li>
+
+      <li>
+        <b>Ishchini ishlatib ko'ring.</b>
+        <div class="cmd" data-cmd="php artisan queue:work --stop-when-empty">php artisan queue:work --stop-when-empty</div>
+        <p class="expect"><code>RUNNING</code> keyin
+        <code>DONE</code> va vaqti.</p>
+      </li>
+
+      <li>
+        <b>⚠️ Model o'chirilsa nima bo'lishini
+        ko'ring.</b>
+        <div class="cmd" data-cmd="php artisan tinker --execute='$u = App\Models\User::create([&quot;name&quot;=>&quot;Vaqtinchalik&quot;,&quot;email&quot;=>&quot;vaqt@b.uz&quot;,&quot;password&quot;=>bcrypt(&quot;x&quot;),&quot;rol&quot;=>&quot;nomzod&quot;]); App\Jobs\VakansiyalarniEksport::dispatch($u); $u->delete(); echo &quot;ish navbatda, foydalanuvchi o\047chirildi&quot;, PHP_EOL;'
+php artisan queue:work --stop-when-empty --tries=1
+php artisan tinker --execute='$f = DB::table(&quot;failed_jobs&quot;)->latest(&quot;id&quot;)->first(); echo $f ? substr($f->exception, 0, 120) : &quot;yo\047q&quot;, PHP_EOL;'">php artisan tinker --execute='$u = App\Models\User::create([&quot;name&quot;=&gt;&quot;Vaqtinchalik&quot;,&quot;email&quot;=&gt;&quot;vaqt@b.uz&quot;,&quot;password&quot;=&gt;bcrypt(&quot;x&quot;),&quot;rol&quot;=&gt;&quot;nomzod&quot;]); App\Jobs\VakansiyalarniEksport::dispatch($u); $u-&gt;delete(); echo &quot;ish navbatda, foydalanuvchi o\047chirildi&quot;, PHP_EOL;'
+php artisan queue:work --stop-when-empty --tries=1
+php artisan tinker --execute='$f = DB::table(&quot;failed_jobs&quot;)-&gt;latest(&quot;id&quot;)-&gt;first(); echo $f ? substr($f-&gt;exception, 0, 120) : &quot;yo\047q&quot;, PHP_EOL;'</div>
+        <p class="expect">⚠️ <code>ModelNotFoundException</code>
+        — 45-darsdagi xatoning uchinchi ko'rinishi.</p>
+      </li>
+
+      <li>
+        <b>Qayta urinish siklini ko'ring.</b> Buzuq ish
+        yozing:
+        <div class="cmd" data-cmd="# app/Jobs/BuzuqIsh.php — make:job bilan yasang va handle() ichiga:
+public int $tries = 3;
+public int $backoff = 1;
+
+public function handle(): void
+{
+    \Illuminate\Support\Facades\Log::info('BuzuqIsh urinish');
+    throw new \RuntimeException('ataylab yiqildi');
+}"># app/Jobs/BuzuqIsh.php — make:job bilan yasang va handle() ichiga:
+public int $tries = 3;
+public int $backoff = 1;
+
+public function handle(): void
+{
+    \Illuminate\Support\Facades\Log::info('BuzuqIsh urinish');
+    throw new \RuntimeException('ataylab yiqildi');
+}</div>
+        <div class="cmd" data-cmd="rm -f storage/logs/laravel.log
+php artisan tinker --execute='DB::table(&quot;failed_jobs&quot;)->delete(); DB::table(&quot;jobs&quot;)->delete(); App\Jobs\BuzuqIsh::dispatch(); echo &quot;1 ta ish&quot;, PHP_EOL;'
+timeout 12 php artisan queue:work
+grep -c 'BuzuqIsh urinish' storage/logs/laravel.log
+php artisan tinker --execute='echo DB::table(&quot;failed_jobs&quot;)->count(), &quot; ta muvaffaqiyatsiz&quot;, PHP_EOL;'">rm -f storage/logs/laravel.log
+php artisan tinker --execute='DB::table(&quot;failed_jobs&quot;)-&gt;delete(); DB::table(&quot;jobs&quot;)-&gt;delete(); App\Jobs\BuzuqIsh::dispatch(); echo &quot;1 ta ish&quot;, PHP_EOL;'
+timeout 12 php artisan queue:work
+grep -c 'BuzuqIsh urinish' storage/logs/laravel.log
+php artisan tinker --execute='echo DB::table(&quot;failed_jobs&quot;)-&gt;count(), &quot; ta muvaffaqiyatsiz&quot;, PHP_EOL;'</div>
+        <p class="expect"><b>3</b> urinish, keyin
+        <code>failed_jobs</code> da <b>1</b> ta.</p>
+      </li>
+
+      <li>
+        <b>Muvaffaqiyatsiz ish bilan ishlang.</b>
+        <div class="cmd" data-cmd="php artisan queue:failed
+php artisan queue:retry all
+php artisan tinker --execute='echo &quot;jobs: &quot;, DB::table(&quot;jobs&quot;)->count(), &quot;  failed: &quot;, DB::table(&quot;failed_jobs&quot;)->count(), PHP_EOL;'">php artisan queue:failed
+php artisan queue:retry all
+php artisan tinker --execute='echo &quot;jobs: &quot;, DB::table(&quot;jobs&quot;)-&gt;count(), &quot;  failed: &quot;, DB::table(&quot;failed_jobs&quot;)-&gt;count(), PHP_EOL;'</div>
+      </li>
+
+      <li>
+        <b>Tozalang va testlarni yozing.</b>
+        <div class="cmd" data-cmd="rm -f app/Jobs/BuzuqIsh.php
+php artisan queue:flush
+php artisan tinker --execute='DB::table(&quot;jobs&quot;)->delete(); App\Models\Vakansiya::where(&quot;nom&quot;,&quot;like&quot;,&quot;Vakansiya %&quot;)->delete(); echo App\Models\Vakansiya::count(), &quot; ta qoldi&quot;, PHP_EOL;'">rm -f app/Jobs/BuzuqIsh.php
+php artisan queue:flush
+php artisan tinker --execute='DB::table(&quot;jobs&quot;)-&gt;delete(); App\Models\Vakansiya::where(&quot;nom&quot;,&quot;like&quot;,&quot;Vakansiya %&quot;)-&gt;delete(); echo App\Models\Vakansiya::count(), &quot; ta qoldi&quot;, PHP_EOL;'</div>
+        <p>Sinov marshrutlarini ham o'chiring, so'ng
+        <code>tests/Feature/NavbatTest.php</code> ni
+        yozing:</p>
+        <div class="cmd" data-cmd="php artisan test tests/Feature/NavbatTest.php">php artisan test tests/Feature/NavbatTest.php</div>
+        <p class="expect">Kutilgan: <b>5 passed</b>.</p>
+      </li>
+
+      <li>
+        <b>To'liq to'plamni ishga tushiring.</b>
+        <div class="cmd" data-cmd="php artisan test">php artisan test</div>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li>Sinxron va navbat farqini o'lchadim</li>
+      <li><code>payload</code> ichini ko'rdim</li>
+      <li>Ishchi ishni bajardi</li>
+      <li>⚠️ Model o'chirilganda
+      <code>ModelNotFoundException</code> ni ko'rdim</li>
+      <li><b>3</b> urinish va <code>failed_jobs</code> ni
+      ko'rdim</li>
+      <li><code>queue:failed</code>, <code>retry</code>,
+      <code>flush</code> ni ishlatdim</li>
+      <li>Sinov marshrutlari va buzuq ish o'chirilgan</li>
+      <li>Ortiqcha yozuvlar tozalangan</li>
+      <li><code>NavbatTest</code> — 5 test yashil</li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 10) SINAB KO'RAMIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Dasturchi to'lov ishini yozdi:</p>
+    <div class="codefile">
+      <div class="fname">app/Jobs/TolovniQayta.php</div>
+      <code class="cmd" data-cmd="class TolovniQayta implements ShouldQueue
+{
+    use Queueable;
+
+    public int $tries = 3;
+
+    public function __construct(public User $user, public int $summa) {}
+
+    public function handle(): void
+    {
+        $this-&gt;user-&gt;increment('balans', $this-&gt;summa);
+
+        Http::post('https://tolov.uz/api/tasdiqla', [
+            'user' =&gt; $this-&gt;user-&gt;id,
+            'summa' =&gt; $this-&gt;summa,
+        ]);
+    }
+}">class TolovniQayta implements ShouldQueue
+{
+    use Queueable;
+
+    public int $tries = 3;
+
+    public function __construct(public User $user, public int $summa) {}
+
+    public function handle(): void
+    {
+        $this-&gt;user-&gt;increment('balans', $this-&gt;summa);
+
+        Http::post('https://tolov.uz/api/tasdiqla', [
+            'user' =&gt; $this-&gt;user-&gt;id,
+            'summa' =&gt; $this-&gt;summa,
+        ]);
+    }
+}</code>
+    </div>
+    <p>Testlar yashil. Bir hafta ishladi. Keyin to'lov
+    xizmati 30 daqiqaga <b>o'chdi</b>.</p>
+    <p>Xizmat qaytgach ma'lum bo'ldi: ba'zi
+    foydalanuvchilarning balansi <b>uch barobar</b>
+    ko'paygan. Nima bo'ldi?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <p><code>handle()</code> da <b>ikki</b> amal bor va
+        ular <b>bir butun emas</b>:</p>
+        <div class="natija">1) increment('balans', ...)     ← BAJARILDI
+2) Http::post(...)              ← YIQILDI (xizmat o'chiq)
+
+→ ish xato bilan tugadi → QAYTA urinildi
+→ increment YANA bajarildi</div>
+        <p class="expect">⚠️ <code>$tries = 3</code> —
+        demak balans <b>uch marta</b> oshdi, tasdiqlash esa
+        hech qachon ketmadi.</p>
+        <p>🔑 Muammoning nomi bor: ish <b>idempotent
+        emas</b>. Navbat «kamida bir marta» kafolatlaydi,
+        ya'ni qayta bajarilish <b>normal holat</b>, xato
+        emas.</p>
+        <p>✅ Uch yechim:</p>
+        <div class="natija">1) Tartibni almashtiring — avval tashqi chaqiruv, keyin yozish
+
+2) Holatni tekshiring:
+   if ($tolov->holat === 'tolangan') { return; }
+   $tolov->update(['holat' => 'tolangan']);
+
+3) Ishni BO'LING: har biri bitta ish qilsin
+   (bittasi yiqilsa, ikkinchisi qayta bajarilmaydi)</div>
+        <p>🔍 Nega testlar tutmadi? Chunki testda ish
+        <b>bir marta</b> chaqiriladi. Qayta urinish —
+        <b>ishchi</b> xatti-harakati, va uni
+        <code>Queue::fake()</code> ham,
+        <code>sync</code> drayveri ham
+        ko'rsatmaydi.</p>
+        <p>🔑 <b>Umumiy saboq:</b> har bir ish uchun savol
+        bering — «bu ish <b>ikki marta</b> bajarilsa nima
+        bo'ladi?» Javob «yomon narsa» bo'lsa, ish
+        noto'g'ri yozilgan.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span> Ish
+    navbatga qo'yilganda <code>payload</code> ga nima
+    yoziladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Klass nomi sozlamalar va modelning faqat identifikatori</button></li>
+      <li><button class="quiz-option">Modelning barcha maydonlari va ularning hozirgi qiymatlari</button></li>
+      <li><button class="quiz-option">Faqat klass nomi qolganlari qaytadan o'zi yasaladi</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi: <code>payload</code>
+    <b>664 bayt</b>, ichida <code>displayName</code>,
+    <code>maxTries: 3</code>, <code>timeout: 60</code>,
+    <code>backoff: '5'</code> va seriyalangan obyekt.
+    Model <code>SerializesModels</code> tufayli faqat
+    <b>id</b> bilan saqlanadi.
+    🔑 Sozlamalar payload'da — navbatdagi eski ishlar
+    <b>eski</b> sozlama bilan bajariladi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span> Ish
+    qo'yilgandan keyin model o'chirilsa nima
+    bo'ladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Ishchi ModelNotFoundException beradi va butun ish yiqiladi</button></li>
+      <li><button class="quiz-option">Ish avtomatik bekor qilinadi va olib tashlanadi</button></li>
+      <li><button class="quiz-option">Model payload ichidan tiklanadi va davom etadi</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi:
+    <code>ModelNotFoundException: No query results for model
+    [App\Models\User]</code> — 45 va 47-darsdagi xatoning
+    uchinchi joyda paydo bo'lishi.
+    ✅ Yechim: modelni emas <b>ID</b> ni bering va
+    <code>null</code> ni tekshiring, yoki yo'qolishni
+    normal deb qabul qiling.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span> Kodni
+    tuzatdingiz, lekin ishchi hamon eski xatoni beryapti.
+    Nega?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">queue:work ilovani bir marta yuklaydi eski kod qoladi</button></li>
+      <li><button class="quiz-option">Navbatdagi payload ichida eski kod saqlanib qolib ketgan</button></li>
+      <li><button class="quiz-option">Opcache yoqilgan va yangi faylni umuman ko'ra olmayapti</button></li>
+    </ul>
+    <div class="quiz-explain"><code>queue:work</code> ilovani
+    <b>bir marta</b> yuklaydi va uzoq yashaydi.
+    ✅ <code>php artisan queue:restart</code> — har
+    deploydan keyin majburiy.
+    🔍 Mahalliy ishda <code>queue:listen</code> qulayroq:
+    u har ish uchun ilovani qayta yuklaydi
+    (sekinroq, lekin kod har doim yangi).</div>
+  </div>
+
+  <!-- ═══════════════ 11) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+
+    <p>Javobni ovoz chiqarib ayting, keyin ochib
+    solishtiring.</p>
+
+    <details class="recall">
+      <summary>Navbatning asosiy foydasi nima — tezlikmi?</summary>
+      <div class="answer"><b>Yo'q.</b> Ish baribir o'sha
+      vaqtni oladi. Foyda — <b>kim kutadi</b>:
+      foydalanuvchi emas, ishchi jarayon.
+      🔍 O'lchandi: bir xil eksport sinxron <b>648 ms</b>,
+      navbatga qo'yish esa <b>17 ms</b>. Ishning o'zi
+      ishchida <b>683 ms</b> davom etdi.</div>
+    </details>
+
+    <details class="recall">
+      <summary>Ishning uch qismi nima uchun?</summary>
+      <div class="answer"><code>__construct()</code> —
+      ma'lumot, u <b>navbatga saqlanadi</b> (seriyalanadi).
+      <code>handle()</code> — ishning o'zi, ishchi
+      jarayonda bajariladi.
+      <code>failed()</code> — butunlay yiqilganda
+      <b>bir marta</b>.
+      ⚠️ Konstruktorga seriyalanmaydigan narsa (closure,
+      ochilgan fayl, ulanish) bermang.</div>
+    </details>
+
+    <details class="recall">
+      <summary>Qayta urinish sikli qanday kechadi?</summary>
+      <div class="answer"><code>$tries</code> marta uriniladi,
+      orasida <code>$backoff</code> soniya kutiladi, oxirida
+      <code>failed_jobs</code> ga tushadi va
+      <code>failed()</code> chaqiriladi.
+      🔍 O'lchandi: <b>3</b> urinish, ~3 soniyada bir marta,
+      keyin 1 ta yozuv.
+      ⚠️ <code>--stop-when-empty</code> siklni
+      <b>kutmaydi</b> — backoff paytida navbat «bo'sh»
+      ko'rinadi.</div>
+    </details>
+
+    <details class="recall">
+      <summary>Ish ikki marta bajarilishi mumkinmi?</summary>
+      <div class="answer"><b>Ha.</b> Navbat «kamida bir
+      marta» kafolatlaydi. Ishchi ish o'rtasida
+      o'chsa yoki <code>retry_after</code>
+      <code>timeout</code> dan kichik bo'lsa — ish
+      qayta olinadi.
+      ✅ Ishlar <b>idempotent</b> bo'lsin.
+      🔑 Har ish uchun savol: «bu ikki marta bajarilsa nima
+      bo'ladi?»</div>
+    </details>
+
+    <details class="recall">
+      <summary>Navbatni testda qanday tekshirasiz?</summary>
+      <div class="answer">Ikki narsa <b>alohida</b>:
+      1) ish <b>qo'yildimi</b> —
+      <code>Queue::fake()</code> +
+      <code>assertPushed(...)</code> (closure bilan shart
+      ham).
+      2) ishning <b>o'zi</b> to'g'ri ishlaydimi —
+      <code>Queue::fake()</code> <b>siz</b>,
+      <code>(new Ish(...))-&gt;handle()</code> va
+      <code>Storage::fake()</code>.
+      ⚠️ Qayta urinishni test <b>ko'rsatmaydi</b> — u
+      ishchi xatti-harakati.</div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 12) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Xulosa</span>
+    <ul>
+      <li>🔍 Bir xil ish: sinxron <b>648 ms</b>, navbatga
+      qo'yish <b>17 ms</b>. Foyda tezlikda emas —
+      <b>kim kutishida</b>.</li>
+      <li>Ishning uch qismi:
+      <code>__construct</code> (ma'lumot) ·
+      <code>handle</code> (bajarish) ·
+      <code>failed</code> (yiqilganda).</li>
+      <li><code>payload</code> ichida
+      <code>displayName</code>, <code>maxTries</code>,
+      <code>timeout</code>, <code>backoff</code> va
+      seriyalangan obyekt.</li>
+      <li>🔑 Sozlamalar payload'ga yoziladi — navbatdagi
+      eski ishlar <b>eski</b> sozlama bilan.</li>
+      <li>⚠️ <code>SerializesModels</code>: model
+      o'chirilsa <code>ModelNotFoundException</code>.
+      Model o'rniga <b>ID</b> bering.</li>
+      <li>Qayta urinish: <b>3</b> urinish,
+      <code>backoff</code> oralig'i, keyin
+      <code>failed_jobs</code>.</li>
+      <li>⚠️ <code>--stop-when-empty</code> qayta
+      urinishlarni kutmaydi.</li>
+      <li><code>queue:failed</code> · <code>queue:retry</code>
+      (bajarmaydi — <b>qaytaradi</b>) ·
+      <code>queue:flush</code>.</li>
+      <li>⚠️ <code>queue:work</code> ilovani bir marta
+      yuklaydi → <code>queue:restart</code> majburiy.</li>
+      <li>⚠️ Ish <b>ikki marta</b> bajarilishi mumkin —
+      idempotent yozing.</li>
+      <li>⚠️ <code>retry_after</code> &gt;
+      <code>timeout</code> bo'lsin.</li>
+      <li>Testda ikki narsa alohida: <b>qo'yildimi</b>
+      (<code>Queue::fake</code>) va <b>ishlaydimi</b>
+      (<code>handle()</code> to'g'ridan-to'g'ri).</li>
+      <li>Ishchi uzoq yashaydi — <code>cursor()</code>,
+      <code>--memory</code>, <code>--max-jobs</code>.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p>Navbat tayyor. Endi unga <b>haqiqiy ish</b>
+    beramiz.</p>
+    <p>49-darsdan beri <code>XabarYuboruvchi</code>
+    interfeysimiz bor, lekin uning yagona amalga
+    oshiruvchisi logga yozadi. Ish beruvchi esa
+    <b>email</b> kutadi: «vakansiyangizga yangi ariza
+    keldi».</p>
+    <p>56-darsda <b>Mail</b> bilan ishlaymiz:
+    <code>make:mail</code>, Markdown shablonlar,
+    <code>log</code> drayveri bilan xavfsiz sinash — va
+    email jo'natishni <b>navbatga</b> qo'yish. Bugungi
+    <code>ShouldQueue</code> darrov ish beradi.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel — Queues</b>:
+    <a href="https://laravel.com/docs/13.x/queues">job, dispatch,
+    tries, backoff, failed</a>.<sup><a href="#fn1">1</a></sup><br>
+    <b>Laravel — Queues: Running the Worker</b>:
+    <a href="https://laravel.com/docs/13.x/queues#running-the-queue-worker">queue:work,
+    queue:restart</a>.<sup><a href="#fn1">1</a></sup><br>
+    <b>Laravel — Queues: Testing</b>:
+    <a href="https://laravel.com/docs/13.x/queues#testing">Queue::fake,
+    assertPushed</a>.<sup><a href="#fn2">2</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b>
+    «bir necha ishni ketma-ket bajartirsa bo'ladimi?»,
+    «ishning natijasini foydalanuvchiga qanday
+    ko'rsataman?», «<code>ShouldBeUnique</code> qanday
+    ishlaydi?», «nechta ishchi kerak?» — har qanday savol
+    yaxshi. Birinchisiga qisqa javob: <b>ha</b> —
+    <code>Bus::chain([...])</code> ketma-ket,
+    <code>Bus::batch([...])</code> esa parallel va
+    tugaganini kuzatish bilan. Ikkinchisiga: ish natijasini
+    bazaga yozing (masalan <code>eksportlar</code>
+    jadvali), mijoz esa holatni so'rab tursin — yoki
+    tayyor bo'lganda bildirishnoma yuboring
+    (bildirishnomalar darsida).
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0054-config-env-va-cache.html">Oldingi: Config va .env</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel 13 — <a href="https://laravel.com/docs/13.x/queues">Queues</a>.</li>
+      <li id="fn2">Laravel 13 — <a href="https://laravel.com/docs/13.x/queues#testing">Queues: Testing</a>.</li>
+      <li id="fn3">Barchasi jonli o'lchangan (PHP 8.3.32, Laravel 13.26.1,
+      Pest 4.7.8, SQLite, 30 006 vakansiya):
+      sinxron eksport <b>648 ms</b> (jami 0.819 s), navbatga
+      qo'yish <b>17 ms</b> (jami 0.026 s) ·
+      <code>jobs</code>: id, queue, payload, attempts,
+      reserved_at, available_at, created_at;
+      <code>failed_jobs</code>: id, uuid, connection, queue,
+      payload, exception, failed_at ·
+      <code>payload</code> <b>664 bayt</b>:
+      <code>displayName</code>
+      <code>App\Jobs\VakansiyalarniEksport</code>,
+      <code>maxTries</code> <b>3</b>, <code>timeout</code>
+      <b>60</b>, <code>backoff</code> <b>'5'</b>;
+      <code>unserialize</code> dan keyin
+      <code>App\Models\User id=1</code> ·
+      ishchi ishni bajardi: <b>683.19ms DONE</b> ·
+      ⚠️ model o'chirilgach:
+      <code>ModelNotFoundException: No query results for
+      model [App\Models\User]</code> ·
+      qayta urinish (<code>$tries=3</code>,
+      <code>$backoff=1</code>): 18:39:29 / :32 / :35 —
+      <b>3</b> urinish (logda ham 3), keyin
+      <code>failed_jobs</code> <b>1</b> ta ·
+      ⚠️ <code>--stop-when-empty</code> bilan atigi
+      <b>2</b> urinish ko'rindi va
+      <code>failed_jobs</code> <b>bo'sh</b> qoldi ·
+      <code>queue:failed</code> uuid va
+      <code>database@default</code> ni ko'rsatdi;
+      <code>queue:retry all</code> → <b>DONE</b>,
+      <code>jobs: 1  failed: 0</code>;
+      <code>queue:flush</code> →
+      <code>All failed jobs deleted successfully.</code> ·
+      <code>NavbatTest</code> — <b>5 passed (9
+      assertions)</b>, to'liq to'plam <b>55 passed (119
+      assertions), 0.50s</b>.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

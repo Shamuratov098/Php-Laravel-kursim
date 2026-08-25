@@ -17,7 +17,7 @@
   muhit ma'lumotlari. Har dars yangi buyruq o'rgatilsa, shu yerga qo'shiladi.</p>
 
   <p class="lesson-meta">
-    <span>Qamrov: <b>1&ndash;54-darslar</b> — muhitdan API'gacha</span>
+    <span>Qamrov: <b>1&ndash;55-darslar</b> — muhitdan API'gacha</span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>💻 Amaliyotga mos</span>
   </p>
@@ -1608,6 +1608,53 @@
     ⚠️ <code>APP_KEY</code> ni almashtirmang — sessiya va
     shifrlangan ma'lumot o'qib bo'lmas holga
     keladi.</p>
+  </div>
+
+  <h2>Queue va Job (55-darsdan)</h2>
+  <table class="sheet">
+    <tr><th>Kod / buyruq</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>php artisan make:job X</code></td><td class="note-cell">Ish skeleti (<code>Queueable</code> trait bilan)</td></tr>
+    <tr><td><code>X::dispatch($model)</code></td><td class="note-cell">Navbatga qo'yish</td></tr>
+    <tr><td><code>-&gt;delay(now()-&gt;addHours(24))</code></td><td class="note-cell">Kechiktirish (<code>available_at</code> ustuni)</td></tr>
+    <tr><td><code>-&gt;onQueue('tez')</code> · <code>-&gt;afterCommit()</code></td><td class="note-cell">Navbat tanlash · tranzaksiyadan keyin</td></tr>
+    <tr><td><code>public int $tries = 3;</code></td><td class="note-cell">Nechta urinish (payload'ga yoziladi)</td></tr>
+    <tr><td><code>public int $backoff = 5;</code></td><td class="note-cell">Urinishlar orasidagi soniya</td></tr>
+    <tr><td><code>public int $timeout = 60;</code></td><td class="note-cell">Ishchi ishni uzadigan vaqt</td></tr>
+    <tr><td><code>public function failed(\Throwable $e)</code></td><td class="note-cell">Butunlay yiqilganda <b>bir marta</b></td></tr>
+    <tr><td><code>php artisan queue:work</code></td><td class="note-cell">Ishchi (ilovani <b>bir marta</b> yuklaydi)</td></tr>
+    <tr><td><code>php artisan queue:listen</code></td><td class="note-cell">Har ish uchun qayta yuklaydi — mahalliy ish</td></tr>
+    <tr><td><code>php artisan queue:restart</code></td><td class="note-cell">⚠️ Har deploydan keyin <b>majburiy</b></td></tr>
+    <tr><td><code>queue:failed</code> · <code>queue:retry all</code> · <code>queue:flush</code></td><td class="note-cell">Yiqilganlar ro'yxati · qaytarish · tozalash</td></tr>
+    <tr><td><code>Queue::fake()</code> + <code>assertPushed()</code></td><td class="note-cell">Ish <b>qo'yildimi</b></td></tr>
+    <tr><td><code>(new X(...))-&gt;handle()</code></td><td class="note-cell">Ishning <b>o'zi</b> ishlaydimi (fake'siz)</td></tr>
+  </table>
+  <div class="callout note">
+    <p>🔑 <b>Navbatning foydasi tezlikda emas — kim
+    kutishida.</b> O'lchandi: bir xil eksport sinxron
+    <b>648 ms</b>, navbatga qo'yish <b>17 ms</b>; ishning
+    o'zi ishchida <b>683 ms</b>.</p>
+    <p>⚠️ <b><code>SerializesModels</code>:</b> model
+    <b>id</b> bilan saqlanadi. Ish kutayotganda model
+    o'chirilsa →
+    <code>ModelNotFoundException</code>.
+    ✅ Model o'rniga <b>ID</b> bering.</p>
+    <p>🔑 <b>Qayta urinish:</b> <code>$tries</code> marta,
+    orasida <code>$backoff</code>, keyin
+    <code>failed_jobs</code> va <code>failed()</code>.
+    ⚠️ <code>--stop-when-empty</code> siklni
+    <b>kutmaydi</b> (backoff paytida navbat bo'sh
+    ko'rinadi).</p>
+    <p>⚠️ <b>Ish ikki marta bajarilishi mumkin.</b> Navbat
+    «kamida bir marta» kafolatlaydi.
+    <code>increment()</code> kabi amallar xavfli — ishlar
+    <b>idempotent</b> bo'lsin.
+    ⚠️ <code>retry_after</code> &gt; <code>timeout</code>.</p>
+    <p>⚠️ <b><code>queue:work</code> eski kodni
+    ishlatadi</b> — ilovani bir marta yuklaydi.
+    ✅ <code>queue:restart</code>.</p>
+    <p>🔑 Ishchi uzoq yashaydi: ish ichida
+    <code>cursor()</code>, ishchida
+    <code>--memory=256 --max-jobs=1000 --max-time=3600</code>.</p>
   </div>
 
   <h2>Xatoni o'qish</h2>

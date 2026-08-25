@@ -18,7 +18,7 @@
   izoh esa o'zbekcha.</p>
 
   <p class="lesson-meta">
-    <span>Atamalar: <b>232 ta</b></span>
+    <span>Atamalar: <b>237 ta</b></span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>📱 O'qishga mos</span>
   </p>
@@ -26,7 +26,7 @@
   <div class="callout note">
     <span class="label">Bu hujjat o'sib boradi</span>
     <p>Atama faqat <b>o'z darsi yozilganda</b> qo'shiladi — oldindan emas. Hozir:
-    Modul A–G (1–54-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
+    Modul A–H (1–55-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
     bosqichida qat'iy belgilangan va 73 dars bo'ylab o'zgarmaydi).</p>
   </div>
 
@@ -2176,6 +2176,92 @@
       Muhim sozlamalarni <code>phpunit.xml</code> ga
       (u <code>.env</code> dan ustun).
       <span class="eg">app()-&gt;isProduction()</span></dd>
+    </div>
+
+    <div class="term" id="queue-job">
+      <dt>Queue va Job <span class="uz">— kim kutadi</span></dt>
+      <dd>🔍 O'lchandi: bir xil eksport sinxron
+      <b>648 ms</b>, navbatga qo'yish <b>17 ms</b>.
+      Ish baribir 683 ms davom etadi — faqat uni
+      foydalanuvchi emas, <b>ishchi jarayon</b> kutadi.
+      Uch qism: <code>__construct()</code> (ma'lumot,
+      seriyalanadi) · <code>handle()</code> (ishning o'zi) ·
+      <code>failed()</code> (butunlay yiqilganda bir marta).
+      🔍 <code>payload</code> <b>664 bayt</b>:
+      <code>displayName</code>, <code>maxTries</code>,
+      <code>timeout</code>, <code>backoff</code> va
+      seriyalangan obyekt.
+      🔑 Sozlamalar payload'ga yoziladi — navbatdagi eski
+      ishlar <b>eski</b> sozlama bilan bajariladi.
+      <span class="eg">VakansiyalarniEksport::dispatch($user);</span></dd>
+    </div>
+
+    <div class="term" id="serializes-models-tuzogi">
+      <dt>SerializesModels tuzog'i <span class="uz">— model o'chirilsa</span></dt>
+      <dd>Model to'liq emas, faqat <b>id</b> saqlanadi;
+      ishchi uni bazadan qayta oladi.
+      ⚠️ Ish navbatda kutayotganda model o'chirilsa —
+      🔍 <code>ModelNotFoundException: No query results for
+      model [App\Models\User]</code> (45 va 47-darsdagi
+      xatoning uchinchi joyda paydo bo'lishi).
+      ✅ Modelni emas <b>ID</b> ni bering va
+      <code>null</code> ni tekshiring, yoki
+      yo'qolishni normal deb qabul qiling.
+      <span class="eg">public function __construct(public int $userId) {}</span></dd>
+    </div>
+
+    <div class="term" id="qayta-urinish">
+      <dt>tries, backoff, failed_jobs <span class="uz">— qayta urinish sikli</span></dt>
+      <dd>🔍 O'lchandi (<code>$tries=3</code>,
+      <code>$backoff=1</code>): <b>3</b> urinish, ~3
+      soniyada bir marta, keyin <code>failed_jobs</code> da
+      1 ta yozuv va <code>failed()</code> <b>bir
+      marta</b>.
+      ⚠️ <code>--stop-when-empty</code> siklni
+      <b>kutmaydi</b>: backoff paytida navbat «bo'sh»
+      ko'rinadi — o'lchovda atigi 2 urinish chiqdi.
+      <code>queue:failed</code> · <code>queue:retry all</code>
+      (bajarmaydi — <b>qaytaradi</b>) ·
+      <code>queue:flush</code>.
+      ⚠️ <code>retry_after</code> &gt; <code>timeout</code>
+      bo'lsin, aks holda ish ikki marta bajariladi.
+      <span class="eg">public int $tries = 3;</span></dd>
+    </div>
+
+    <div class="term" id="idempotent-ish">
+      <dt>idempotent ish <span class="uz">— ikki marta bajarilsa ham</span></dt>
+      <dd>Navbat «<b>kamida bir marta</b>» kafolatlaydi,
+      «aynan bir marta» emas. Ishchi o'lsa yoki
+      <code>retry_after</code> kichik bo'lsa ish qayta
+      olinadi.
+      ⚠️ <code>$user-&gt;increment('balans', 100)</code> —
+      uch urinishda balans <b>uch marta</b> oshadi.
+      ✅ Holatni tekshiring
+      (<code>if ($tolov-&gt;holat === 'tolangan') return;</code>),
+      tartibni almashtiring, yoki ishni bo'ling.
+      🔑 Har ish uchun savol: «bu <b>ikki marta</b>
+      bajarilsa nima bo'ladi?»
+      ⚠️ Testlar buni <b>ko'rsatmaydi</b> — qayta urinish
+      ishchi xatti-harakati.
+      <span class="eg">$tolov-&gt;update(['holat' =&gt; 'tolangan']);</span></dd>
+    </div>
+
+    <div class="term" id="queue-work">
+      <dt>queue:work va queue:restart <span class="uz">— eski kod tuzog'i</span></dt>
+      <dd>⚠️ <code>queue:work</code> ilovani <b>bir
+      marta</b> yuklaydi va uzoq yashaydi — kodni
+      tuzatsangiz ham ishchi <b>eski kodni</b> ishlatadi.
+      «Men tuzatdim, lekin ish hamon yiqilyapti» — javob
+      shu.
+      ✅ Har deploydan keyin
+      <code>php artisan queue:restart</code>.
+      <code>queue:listen</code> — har ish uchun ilovani
+      qayta yuklaydi (sekin, lekin kod yangi) — mahalliy
+      ish uchun.
+      🔑 Ishchi uzoq yashaydi: <code>--memory=256</code>,
+      <code>--max-jobs</code>, <code>--max-time</code> va
+      ish ichida <code>cursor()</code>.
+      <span class="eg">queue:work --queue=tez,sekin</span></dd>
     </div>
 
     <div class="term" id="sanctum">
