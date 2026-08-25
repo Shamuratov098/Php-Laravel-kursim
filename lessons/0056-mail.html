@@ -1,0 +1,1125 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 56 — Mail</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 56 · MODUL H — FON ISHLAR VA TEZLIK</p>
+  <h1>Mail</h1>
+  <p class="lead">49-darsda <code>XabarYuboruvchi</code> interfeysini
+  yozib, va'da bergandik: «ertaga boshqa amalga oshiruvchi
+  yozsangiz, controller <b>o'zgarmaydi</b>». Bugun o'sha
+  va'dani <b>bajaramiz</b> — haqiqiy email bilan. Va yo'lda
+  bitta test <b>ikki marta</b> qizaradi.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 16 daqiqa</span>
+    <span>💻 Amaliyot ≈ 26 daqiqa</span>
+    <span>Kerak: <a href="0055-queue-va-job.html">Dars 55</a></span>
+  </p>
+
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b><code>log</code> drayveri — xavfsiz sinash</b>
+        <span class="nima">Email hech kimga ketmaydi,
+        <code>laravel.log</code> ga yoziladi.
+        🔍 Sarlavhalari bilan birga
+        ko'rsatiladi.</span></li>
+      <li><b><code>make:mail --markdown</code></b>
+        <span class="nima">Mailable klass + Blade shablon.
+        Uch metod: <code>envelope</code>,
+        <code>content</code>,
+        <code>attachments</code>.</span></li>
+      <li><b>Markdown komponentlari</b>
+        <span class="nima"><code>x-mail::message</code> ·
+        <code>panel</code> · <code>button</code> — tayyor
+        dizayn, HTML yozish kerak emas.</span></li>
+      <li><b><code>with:</code> — shablonga ma'lumot</b>
+        <span class="nima">Model avtomatik uzatiladi,
+        hisoblangan qiymat esa
+        <code>with</code> orqali.</span></li>
+      <li><b>⚠️ <code>ShouldQueue</code> xatda</b>
+        <span class="nima">🔍 O'lchandi:
+        <code>send()</code> yozdik, lekin email
+        <b>ketmadi</b> — navbatga tushdi.</span></li>
+      <li><b>⚠️ <code>assertSent</code> topa olmadi</b>
+        <span class="nima">Test ikki marta qizardi. Laravel
+        o'zi maslahat berdi: «<i>Did you mean to use
+        assertQueued() instead?</i>»</span></li>
+      <li><b>49-darsdagi va'da bajarildi</b>
+        <span class="nima"><code>EmailXabar</code> yozildi
+        va <code>.env</code> dagi <b>bitta qiymat</b>
+        bilan almashtirildi. Controller ham,
+        tinglovchi ham tegilmadi.</span></li>
+      <li><b>Config bilan drayver tanlash</b>
+        <span class="nima"><code>match</code> bilan
+        container'da: 49 + 50 + 54-darslar bir joyda
+        ishlaydi.</span></li>
+      <li><b><code>Mail::fake()</code></b>
+        <span class="nima"><code>assertQueued</code> ·
+        <code>assertNotSent</code> ·
+        <code>assertNothingSent</code> · <code>hasTo</code>
+        bilan shart.</span></li>
+      <li><b>Shablonni <b>alohida</b> tekshirish</b>
+        <span class="nima"><code>render()</code> — HTML
+        satrini qaytaradi, hech narsa
+        yuborilmaydi.</span></li>
+      <li><b>Ishlab chiqarishga chiqish</b>
+        <span class="nima"><code>MAIL_MAILER</code>
+        drayverlari va nima uchun
+        <code>from</code> manzil muhim.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima">Ilova · nusxa · lokalizatsiya ·
+        spam · <code>Mail::raw</code> ·
+        <code>Mailtrap</code>.</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Va'da qarzi</span>
+    <p>49-darsda shunday yozgandik:</p>
+    <div class="natija">interface XabarYuboruvchi
+{
+    public function yubor(string $kimga, string $matn): string;
+}</div>
+    <p>Va sabab keltirgandik: «ertaga <code>SmsXabar</code>
+    yozsangiz — controller <b>o'zgarmaydi</b>».</p>
+    <p>Bu <b>va'da</b> edi. Bugun uni tekshiramiz: haqiqiy
+    email yuboruvchi yozamiz va ko'ramizki, controller,
+    hodisa, tinglovchi — <b>hech biri</b> tegilmaydi.</p>
+    <p>Boshlashdan oldin bitta xavotir: sinab ko'rayotganda
+    haqiqiy odamlarga email ketib qolmasinmi?</p>
+    <p>Laravel buni hal qilgan. <code>.env</code> ga
+    qarang:</p>
+    <div class="natija">MAIL_MAILER=log</div>
+    <p>Bu — <b>standart</b> qiymat. Email hech qayerga
+    ketmaydi, u <code>storage/logs/laravel.log</code> ga
+    yoziladi. Ya'ni xatolar bilan sinash <b>xavfsiz</b>.</p>
+  </div>
+
+  <!-- ═══════════════ 2) MAILABLE ═══════════════ -->
+  <h2>Mailable yozish</h2>
+
+  <div class="natija">php artisan make:mail VakansiyaEloni --markdown=mail.vakansiya-eloni
+
+INFO  Markdown view [resources/views/mail/vakansiya-eloni.blade.php] created successfully.</div>
+
+  <p>Ikki fayl yaratildi: <b>klass</b> (nima yuborilishi) va
+  <b>shablon</b> (qanday ko'rinishi).</p>
+
+  <div class="codefile">
+    <div class="fname">app/Mail/VakansiyaEloni.php</div>
+    <code class="cmd" data-cmd="&lt;?php
+
+namespace App\Mail;
+
+use App\Models\Vakansiya;
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Mail\Mailable;
+use Illuminate\Mail\Mailables\Content;
+use Illuminate\Mail\Mailables\Envelope;
+use Illuminate\Queue\SerializesModels;
+
+class VakansiyaEloni extends Mailable implements ShouldQueue
+{
+    use Queueable, SerializesModels;
+
+    public function __construct(public Vakansiya $vakansiya) {}
+
+    public function envelope(): Envelope
+    {
+        return new Envelope(
+            subject: &quot;Yangi vakansiya: {$this-&gt;vakansiya-&gt;nom}&quot;,
+        );
+    }
+
+    public function content(): Content
+    {
+        return new Content(
+            markdown: 'mail.vakansiya-eloni',
+            with: ['maoshMatni' =&gt; $this-&gt;vakansiya-&gt;maoshFormat()],
+        );
+    }
+}">&lt;?php
+
+namespace App\Mail;
+
+use App\Models\Vakansiya;
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Mail\Mailable;
+use Illuminate\Mail\Mailables\Content;
+use Illuminate\Mail\Mailables\Envelope;
+use Illuminate\Queue\SerializesModels;
+
+class VakansiyaEloni extends Mailable implements ShouldQueue
+{
+    use Queueable, SerializesModels;
+
+    public function __construct(public Vakansiya $vakansiya) {}
+
+    public function envelope(): Envelope
+    {
+        return new Envelope(
+            subject: &quot;Yangi vakansiya: {$this-&gt;vakansiya-&gt;nom}&quot;,
+        );
+    }
+
+    public function content(): Content
+    {
+        return new Content(
+            markdown: 'mail.vakansiya-eloni',
+            with: ['maoshMatni' =&gt; $this-&gt;vakansiya-&gt;maoshFormat()],
+        );
+    }
+}</code>
+  </div>
+
+  <div class="natija">envelope()     →  konvert: mavzu, kimdan, javob manzili
+content()      →  ichi: qaysi shablon va unga qanday ma'lumot
+attachments()  →  ilovalar (bizda yo'q)</div>
+
+  <p><code>public Vakansiya $vakansiya</code> —
+  <b>ommaviy</b> xossa shablonga <b>avtomatik</b>
+  uzatiladi. Hisoblangan qiymat esa
+  (<code>maoshFormat()</code>) <code>with:</code>
+  orqali.</p>
+
+  <p><code>ShouldQueue</code> va
+  <code>SerializesModels</code> — 55-darsdan tanish.
+  Xat ham <b>ish</b>, va uning ham navbatda joyi
+  bor.</p>
+
+  <!-- ═══════════════ 3) SHABLON ═══════════════ -->
+  <h2>Markdown shabloni</h2>
+
+  <div class="codefile">
+    <div class="fname">resources/views/mail/vakansiya-eloni.blade.php</div>
+    <code class="cmd" data-cmd="&lt;x-mail::message&gt;
+# Vakansiya e'lon qilindi
+
+Sizning **{{ $vakansiya-&gt;nom }}** vakansiyangiz saytda paydo bo'ldi.
+
+&lt;x-mail::panel&gt;
+**Shahar:** {{ $vakansiya-&gt;shahar }}
+**Maosh:** {{ $maoshMatni }}
+&lt;/x-mail::panel&gt;
+
+&lt;x-mail::button :url=&quot;url('/vakansiyalar/'.$vakansiya-&gt;id)&quot;&gt;
+Vakansiyani ko'rish
+&lt;/x-mail::button&gt;
+
+Rahmat,&lt;br&gt;
+{{ config('app.name') }}
+&lt;/x-mail::message&gt;">&lt;x-mail::message&gt;
+# Vakansiya e'lon qilindi
+
+Sizning **{{ $vakansiya-&gt;nom }}** vakansiyangiz saytda paydo bo'ldi.
+
+&lt;x-mail::panel&gt;
+**Shahar:** {{ $vakansiya-&gt;shahar }}
+**Maosh:** {{ $maoshMatni }}
+&lt;/x-mail::panel&gt;
+
+&lt;x-mail::button :url=&quot;url('/vakansiyalar/'.$vakansiya-&gt;id)&quot;&gt;
+Vakansiyani ko'rish
+&lt;/x-mail::button&gt;
+
+Rahmat,&lt;br&gt;
+{{ config('app.name') }}
+&lt;/x-mail::message&gt;</code>
+  </div>
+
+  <p>Bu 19-darsdagi Blade komponentlarining o'zi —
+  faqat Laravel ularni <b>tayyor</b> beradi:</p>
+
+  <div class="natija">x-mail::message  →  butun xat ramkasi (sarlavha, footer, uslub)
+x-mail::panel    →  ajratilgan quti
+x-mail::button   →  tugma (email mijozlarida ishlaydigan HTML)
+x-mail::table    →  jadval</div>
+
+  <div class="callout tip">
+    <span class="label">🔑 Nega Markdown, oddiy HTML emas?</span>
+    <p>Email HTML'i — alohida dunyo. Gmail, Outlook va
+    telefon ilovalari <b>har xil</b> qoidalarga ega:
+    CSS'ning yarmi ishlamaydi, tugma uchun jadval
+    kerak bo'ladi.</p>
+    <p>Markdown komponentlari <b>sinovdan o'tgan</b>
+    HTML beradi. Va Laravel avtomatik
+    <b>matnli</b> nusxa ham yasaydi — email mijozi HTML'ni
+    ko'rsata olmasa, matn ko'rinadi.</p>
+    <p>🔍 Uslubni o'zgartirmoqchi bo'lsangiz:
+    <code>php artisan vendor:publish --tag=laravel-mail</code>.</p>
+  </div>
+
+  <!-- ═══════════════ 4) SHOULDQUEUE TUZOG'I ═══════════════ -->
+  <h2>⚠️ <code>send()</code> yozdik, email ketmadi</h2>
+
+  <p>Xatni yuboramiz:</p>
+
+  <div class="natija">Mail::to('ali@example.uz')-&gt;send(new VakansiyaEloni($vakansiya));
+
+echo "yuborildi";     →   yuborildi</div>
+
+  <p>Logga qaraymiz — <b>bo'sh</b>. Xat qayerda?</p>
+
+  <div class="natija">DB::table('jobs')-&gt;count()   →   1 ta navbatdagi ish</div>
+
+  <div class="callout warn">
+    <span class="label">⚠️ <code>ShouldQueue</code> <code>send()</code> ni ham ushlaydi</span>
+    <p>Mailable <code>ShouldQueue</code> ni amalga
+    oshirsa, <code>send()</code> ham
+    <code>queue()</code> kabi ishlaydi: xat
+    <b>navbatga</b> tushadi.</p>
+    <p>Bu <b>foydali</b> — xat yuborish sekin amal
+    (SMTP serveriga ulanish), va u foydalanuvchini
+    kutdirmasligi kerak.</p>
+    <p>⚠️ Lekin kutilmagan bo'lsa chalg'itadi: «men
+    <code>send()</code> yozdim, nega
+    ketmadi?»</p>
+  </div>
+
+  <p>Ishchini ishga tushiramiz:</p>
+
+  <div class="natija">php artisan queue:work --stop-when-empty
+
+App\Mail\VakansiyaEloni ...... RUNNING
+App\Mail\VakansiyaEloni ...... 75.63ms DONE</div>
+
+  <p>Endi logda xat bor — <b>146 qator</b>:</p>
+
+  <div class="natija">To: ali@example.uz
+Subject: Yangi vakansiya: Backend dasturchi
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary=UM6GjY4w
+Content-Type: text/plain; charset=utf-8
+Content-Type: text/html; charset=utf-8
+
+... Vakansiya e'lon qilindi ...
+... Backend dasturchi ...
+... 2 500 so'm ...</div>
+
+  <p><code>multipart/alternative</code> — ikkita nusxa:
+  matn va HTML. Va <code>2 500 so'm</code> —
+  <code>with:</code> orqali uzatgan qiymatimiz
+  (41-darsdagi <code>Maosh::format</code>).</p>
+
+  <!-- ═══════════════ 5) VA'DA BAJARILDI ═══════════════ -->
+  <h2>49-darsdagi va'da</h2>
+
+  <p>Endi <code>XabarYuboruvchi</code> ning ikkinchi amalga
+  oshiruvchisini yozamiz:</p>
+
+  <div class="codefile">
+    <div class="fname">app/Xizmatlar/EmailXabar.php</div>
+    <code class="cmd" data-cmd="&lt;?php
+
+namespace App\Xizmatlar;
+
+use App\Mail\VakansiyaEloni;
+use App\Models\Vakansiya;
+use Illuminate\Support\Facades\Mail;
+
+class EmailXabar implements XabarYuboruvchi
+{
+    public function yubor(string $kimga, string $matn): string
+    {
+        $vakansiya = Vakansiya::latest('id')-&gt;first();
+
+        Mail::to($kimga)-&gt;send(new VakansiyaEloni($vakansiya));
+
+        return 'email';
+    }
+}">&lt;?php
+
+namespace App\Xizmatlar;
+
+use App\Mail\VakansiyaEloni;
+use App\Models\Vakansiya;
+use Illuminate\Support\Facades\Mail;
+
+class EmailXabar implements XabarYuboruvchi
+{
+    public function yubor(string $kimga, string $matn): string
+    {
+        $vakansiya = Vakansiya::latest('id')-&gt;first();
+
+        Mail::to($kimga)-&gt;send(new VakansiyaEloni($vakansiya));
+
+        return 'email';
+    }
+}</code>
+  </div>
+
+  <p>Container'dagi bog'lanishni <b>sozlamaga</b>
+  bog'laymiz — 54-darsdagi config bilan:</p>
+
+  <div class="codefile">
+    <div class="fname">app/Providers/XabarServiceProvider.php</div>
+    <code class="cmd">$this-&gt;app-&gt;singleton(
+    XabarYuboruvchi::class,
+    fn () =&gt; match (config('ishtop.xabar_drayveri')) {
+        'email' =&gt; new EmailXabar(),
+        default =&gt; new LogXabar(),
+    }
+);</code>
+  </div>
+
+  <p>Va endi eng muhim o'lchov:</p>
+
+  <div class="natija">.env da ISHTOP_XABAR yo'q:
+   config: log     →   App\Xizmatlar\LogXabar
+
+ISHTOP_XABAR=email:
+   config: email   →   App\Xizmatlar\EmailXabar
+
+qatorni o'chirdik:
+   config: log     →   App\Xizmatlar\LogXabar</div>
+
+  <div class="callout tip">
+    <span class="label">🔑 Nima o'zgardi?</span>
+    <div class="natija">VakansiyaController   →  tegilmadi
+VakansiyaYaratildi    →  tegilmadi
+XabarYubor tinglovchi →  tegilmadi
+testlar               →  tegilmadi
+
+.env dagi bitta qiymat  →  o'zgardi</div>
+    <p>49-darsdagi va'da <b>bajarildi</b>. Va e'tibor
+    bering — bunga uchta dars birga ishladi:</p>
+    <div class="natija">49-dars  →  interfeys va container
+50-dars  →  provider ichida bog'lash
+54-dars  →  qiymat config'dan, env() dan emas</div>
+  </div>
+
+  <!-- ═══════════════ 6) TESTLAR ═══════════════ -->
+  <h2>Testlar — va ikki marta qizargan test</h2>
+
+  <p>Birinchi urinishda shunday yozdim:</p>
+
+  <div class="natija">Mail::fake();
+Mail::to('ali@example.uz')-&gt;send(new VakansiyaEloni($vakansiya));
+Mail::assertSent(VakansiyaEloni::class);
+
+→  Tests:  2 failed, 4 passed</div>
+
+  <p>Xato xabari <b>javobni ham aytdi</b>:</p>
+
+  <div class="natija">The expected [App\Mail\VakansiyaEloni] mailable was not sent.
+Did you mean to use assertQueued() instead?</div>
+
+  <p>Sabab tanish: xat <code>ShouldQueue</code> — demak u
+  <b>yuborilmadi</b>, <b>navbatga qo'yildi</b>.
+  <code>Mail::fake()</code> ikkalasini
+  <b>alohida</b> yozib boradi.</p>
+
+  <div class="codefile">
+    <div class="fname">tests/Feature/EmailTest.php</div>
+    <code class="cmd">use App\Mail\VakansiyaEloni;
+use App\Models\Vakansiya;
+use App\Xizmatlar\EmailXabar;
+use App\Xizmatlar\LogXabar;
+use App\Xizmatlar\XabarYuboruvchi;
+use Illuminate\Support\Facades\Mail;
+
+it('ShouldQueue xat assertSent bilan topilmaydi', function () {
+    Mail::fake();
+
+    $vakansiya = Vakansiya::factory()-&gt;create();
+
+    Mail::to('ali@example.uz')-&gt;send(new VakansiyaEloni($vakansiya));
+
+    Mail::assertNotSent(VakansiyaEloni::class);
+    Mail::assertQueued(VakansiyaEloni::class);
+});
+
+it('email to\'g\'ri manzilga va to\'g\'ri mavzu bilan ketadi', function () {
+    Mail::fake();
+
+    $vakansiya = Vakansiya::factory()-&gt;create(['nom' =&gt; 'Backend dasturchi']);
+
+    Mail::to('ali@example.uz')-&gt;send(new VakansiyaEloni($vakansiya));
+
+    Mail::assertQueued(
+        VakansiyaEloni::class,
+        fn (VakansiyaEloni $xat) =&gt; $xat-&gt;hasTo('ali@example.uz')
+            &amp;&amp; $xat-&gt;envelope()-&gt;subject === 'Yangi vakansiya: Backend dasturchi'
+    );
+});
+
+it('email yuborilmasa ham tekshirsa bo\'ladi', function () {
+    Mail::fake();
+
+    Mail::assertNothingSent();
+});
+
+it('shablon vakansiya ma\'lumotini ko\'rsatadi', function () {
+    $vakansiya = Vakansiya::factory()-&gt;create([
+        'nom' =&gt; 'Backend dasturchi',
+        'shahar' =&gt; 'Toshkent',
+        'maosh' =&gt; 2500,
+    ]);
+
+    $html = (new VakansiyaEloni($vakansiya))-&gt;render();
+
+    expect($html)-&gt;toContain('Backend dasturchi')
+        -&gt;toContain('Toshkent')
+        -&gt;toContain(&quot;2 500 so'm&quot;);
+});
+
+it('config drayveri amalga oshiruvchini tanlaydi', function () {
+    config(['ishtop.xabar_drayveri' =&gt; 'log']);
+    app()-&gt;forgetInstance(XabarYuboruvchi::class);
+    expect(app(XabarYuboruvchi::class))-&gt;toBeInstanceOf(LogXabar::class);
+
+    config(['ishtop.xabar_drayveri' =&gt; 'email']);
+    app()-&gt;forgetInstance(XabarYuboruvchi::class);
+    expect(app(XabarYuboruvchi::class))-&gt;toBeInstanceOf(EmailXabar::class);
+});</code>
+  </div>
+
+  <div class="natija">Tests:  6 passed (10 assertions)</div>
+
+  <p>To'rtinchi test — <code>render()</code> — eng
+  qulayi: hech narsa yubormasdan <b>HTML satrini</b>
+  qaytaradi. Shablon buzilgan bo'lsa test darrov
+  aytadi.</p>
+
+  <p>Oxirgisi 54-darsdagi <code>config([...])</code> ni
+  ishlatadi. <code>forgetInstance()</code> kerak, chunki
+  bog'lanish <code>singleton</code> — birinchi
+  yasalgandan keyin keshlanadi (49-dars).</p>
+
+  <div class="natija">To'liq to'plam:  61 passed (129 assertions)</div>
+
+  <!-- ═══════════════ 7) ISHLAB CHIQARISH ═══════════════ -->
+  <h2>Ishlab chiqarishga chiqish</h2>
+
+  <div class="natija">MAIL_MAILER=log       →  logga yoziladi (mahalliy ish)
+MAIL_MAILER=array     →  xotirada saqlanadi (testlar)
+MAIL_MAILER=smtp      →  haqiqiy SMTP server
+MAIL_MAILER=ses       →  Amazon SES
+MAIL_MAILER=postmark  →  Postmark
+MAIL_MAILER=failover  →  biri ishlamasa ikkinchisi</div>
+
+  <div class="natija"># .env (ishlab chiqarish)
+MAIL_MAILER=smtp
+MAIL_HOST=smtp.pochta.uz
+MAIL_PORT=587
+MAIL_USERNAME=ishtop@pochta.uz
+MAIL_PASSWORD=...
+MAIL_FROM_ADDRESS="bildirishnoma@ishtop.uz"
+MAIL_FROM_NAME="IshTop"</div>
+
+  <div class="callout warn">
+    <span class="label">⚠️ Email spam'ga tushmasligi uchun</span>
+    <p>Kod to'g'ri bo'lsa ham xat <b>yetib
+    bormasligi</b> mumkin. Uch narsa kerak:</p>
+    <div class="natija">SPF    →  DNS'da: kim sizning nomingizdan yuborishi mumkin
+DKIM   →  xatlarga raqamli imzo
+DMARC  →  SPF/DKIM buzilsa nima qilish kerakligi</div>
+    <p>⚠️ <code>MAIL_FROM_ADDRESS</code> <b>sizniki
+    bo'lgan</b> domenda bo'lsin.
+    <code>gmail.com</code> dan yuborayotgandek
+    ko'rsatish — spam'ga to'g'ri yo'l.</p>
+    <p>🔑 Amalda ko'pchilik o'z SMTP'sini emas,
+    <b>xizmat</b> ishlatadi (Postmark, SES, Mailgun) — ular
+    bu ishni o'z zimmasiga oladi va yetkazilganini
+    ko'rsatadi.</p>
+  </div>
+
+  <!-- ═══════════════ 8) HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir bir
+  marta o'qib chiqing, keyin kerak bo'lganda qaytib
+  qarang.</p>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 1</span>
+    <h4>Bir necha qabul qiluvchi</h4>
+    <div class="natija">Mail::to($user)
+    -&gt;cc('rahbar@ishtop.uz')
+    -&gt;bcc('arxiv@ishtop.uz')
+    -&gt;send(new VakansiyaEloni($v));</div>
+    <p><code>to()</code> ga model ham berish mumkin —
+    Laravel undagi <code>email</code> va
+    <code>name</code> maydonlarini o'zi oladi.</p>
+    <p>⚠️ <code>Mail::to([$u1, $u2])</code> —
+    <b>bitta</b> xat, ikkala manzil ko'rinadi.
+    Alohida yuborish uchun siklda
+    <code>Mail::to($u)-&gt;send(...)</code>.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 2</span>
+    <h4>Ilova qo'shish</h4>
+    <div class="natija">public function attachments(): array
+{
+    return [
+        Attachment::fromStorage("eksport/vakansiyalar-{$this-&gt;user-&gt;id}.csv")
+            -&gt;as('vakansiyalar.csv')
+            -&gt;withMime('text/csv'),
+    ];
+}</div>
+    <p>55-darsdagi eksport ishi bilan bog'lansa yaxshi
+    ish chiqadi: ish faylni yasaydi, keyin xat uni
+    yuboradi.</p>
+    <p>⚠️ Katta fayllarni <b>ilova qilmang</b> (10 MB dan
+    yuqori) — ko'p pochta serveri rad etadi. O'rniga
+    <b>havola</b> yuboring.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 3</span>
+    <h4>Tez xat: <code>Mail::raw</code></h4>
+    <div class="natija">Mail::raw('Tizimda xatolik: baza javob bermayapti', function ($xat) {
+    $xat-&gt;to('admin@ishtop.uz')-&gt;subject('Ogohlantirish');
+});</div>
+    <p>Klass yozish shart bo'lmagan holatlar uchun:
+    ichki ogohlantirish, tezkor xabar.</p>
+    <p>⚠️ Lekin bu <b>navbatga tushmaydi</b> va
+    testda alohida tekshirish qiyin. Foydalanuvchiga
+    ketadigan xatlar uchun <b>har doim</b> Mailable
+    klassi.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 4</span>
+    <h4>Xatni brauzerda ko'rish</h4>
+    <div class="natija">// routes/web.php (faqat mahalliy ish uchun)
+Route::get('/xat-korish', function () {
+    return new App\Mail\VakansiyaEloni(App\Models\Vakansiya::first());
+});</div>
+    <p>Mailable'ni <b>qaytarsangiz</b>, Laravel uni
+    brauzerda ko'rsatadi. Shablon ustida ishlashda eng
+    tez usul: o'zgartirdingiz — sahifani
+    yangiladingiz.</p>
+    <p>⚠️ Bunday marshrutni ishlab chiqarishga
+    <b>chiqarmang</b>: har kim boshqalarning
+    ma'lumotini ko'rib qolishi mumkin.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 5</span>
+    <h4>Xat tilini tanlash</h4>
+    <div class="natija">Mail::to($user)-&gt;locale($user-&gt;til)-&gt;send(new VakansiyaEloni($v));</div>
+    <p>Xat <b>navbatda</b> yuboriladi — ya'ni o'sha
+    paytdagi ilova tili emas, <b>foydalanuvchining</b>
+    tili kerak. <code>locale()</code> uni xat bilan
+    birga saqlaydi.</p>
+    <p>🔍 Shablonda esa <code>__('xabar.salom')</code> —
+    tarjima fayllari <code>lang/uz/</code> da.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 6</span>
+    <h4>Testda haqiqiy xat ketib qolishi</h4>
+    <div class="natija">⚠️ Mail::fake() YOZILMAGAN test  →  MAIL_MAILER qiymatiga qarab
+                                   haqiqiy xat ketishi mumkin</div>
+    <p>✅ Ikki qatlamli himoya:</p>
+    <div class="natija">1) phpunit.xml da:
+   &lt;env name="MAIL_MAILER" value="array"/&gt;
+
+2) har testda: Mail::fake();</div>
+    <p>🔑 Birinchisi — <b>to'r</b>: kimdir
+    <code>fake()</code> ni unutsa ham xat ketmaydi.
+    54-darsdagi qoida: muhim sozlamalar
+    <code>phpunit.xml</code> da.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>Sinov uchun pochta qutisi</h4>
+    <div class="natija">log       →  eng oddiy, lekin ko'rinishini bilib bo'lmaydi
+Mailtrap  →  soxta pochta qutisi, xat brauzerda ko'rinadi
+Mailpit   →  o'z kompyuteringizda ishlaydi (Docker)</div>
+    <p><code>log</code> — kod to'g'riligini tekshirish
+    uchun yetarli. <b>Dizaynni</b> ko'rish uchun esa
+    Mailtrap yoki Mailpit qulayroq: xat haqiqiy pochta
+    mijozidagidek ko'rinadi.</p>
+    <p>🔍 Mailpit'ni Modul J'dagi Docker bilan bir
+    qatorda qo'shsa bo'ladi.</p>
+  </div>
+
+  <!-- ═══════════════ 9) AMALIYOT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    💻 Quyida amaliyot bor. Hozir o'qish rejimidasiz — kompyuter
+    yoningizda bo'lganda <b>💻 Amaliyot</b> rejimiga o'ting va
+    shu bo'limdan davom eting.
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <b>Pochta sozlamasini tekshiring.</b>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+grep MAIL_ .env">cd ~/Projects/Learn/ishtop
+grep MAIL_ .env</div>
+        <p class="expect"><code>MAIL_MAILER=log</code> —
+        xatlar hech kimga ketmaydi.</p>
+      </li>
+
+      <li>
+        <b>Mailable yarating.</b>
+        <div class="cmd" data-cmd="php artisan make:mail VakansiyaEloni --markdown=mail.vakansiya-eloni">php artisan make:mail VakansiyaEloni --markdown=mail.vakansiya-eloni</div>
+        <p>Yuqoridagi klass va shablon kodlarini
+        ko'chiring (nusxa tugmalari bor).</p>
+        <div class="cmd" data-cmd="php -l app/Mail/VakansiyaEloni.php">php -l app/Mail/VakansiyaEloni.php</div>
+      </li>
+
+      <li>
+        <b>Xat yuboring va logga qarang.</b>
+        <div class="cmd" data-cmd="rm -f storage/logs/laravel.log
+php artisan tinker --execute='Mail::to(&quot;ali@example.uz&quot;)->send(new App\Mail\VakansiyaEloni(App\Models\Vakansiya::first())); echo &quot;yuborildi&quot;, PHP_EOL;'
+ls storage/logs/ | grep laravel.log || echo &quot;log yaratilmadi — xat qayerda?&quot;">rm -f storage/logs/laravel.log
+php artisan tinker --execute='Mail::to(&quot;ali@example.uz&quot;)-&gt;send(new App\Mail\VakansiyaEloni(App\Models\Vakansiya::first())); echo &quot;yuborildi&quot;, PHP_EOL;'
+ls storage/logs/ | grep laravel.log || echo &quot;log yaratilmadi — xat qayerda?&quot;</div>
+        <p class="expect">⚠️ Log <b>bo'sh</b>. Xat
+        navbatda:</p>
+        <div class="cmd" data-cmd="php artisan tinker --execute='echo DB::table(&quot;jobs&quot;)->count(), &quot; ta navbatdagi ish&quot;, PHP_EOL;'">php artisan tinker --execute='echo DB::table(&quot;jobs&quot;)-&gt;count(), &quot; ta navbatdagi ish&quot;, PHP_EOL;'</div>
+      </li>
+
+      <li>
+        <b>Ishchini ishlating va xatni o'qing.</b>
+        <div class="cmd" data-cmd="php artisan queue:work --stop-when-empty
+wc -l storage/logs/laravel.log
+grep -E '^(To|Subject|Content-Type)' storage/logs/laravel.log | head -6">php artisan queue:work --stop-when-empty
+wc -l storage/logs/laravel.log
+grep -E '^(To|Subject|Content-Type)' storage/logs/laravel.log | head -6</div>
+        <p class="expect"><code>To:</code>,
+        <code>Subject:</code> va
+        <code>multipart/alternative</code>.</p>
+      </li>
+
+      <li>
+        <b>Xat mazmunini tekshiring.</b>
+        <div class="cmd" data-cmd="grep -oE &quot;Vakansiya e'lon qilindi|Backend dasturchi|2 500 so&quot; storage/logs/laravel.log | sort -u">grep -oE &quot;Vakansiya e'lon qilindi|Backend dasturchi|2 500 so&quot; storage/logs/laravel.log | sort -u</div>
+      </li>
+
+      <li>
+        <b>Xatni brauzerda ko'ring.</b>
+        <div class="cmd" data-cmd="# routes/web.php oxiriga (vaqtincha):
+Route::get('/xat-korish', fn () => new App\Mail\VakansiyaEloni(App\Models\Vakansiya::first()));"># routes/web.php oxiriga (vaqtincha):
+Route::get('/xat-korish', fn () =&gt; new App\Mail\VakansiyaEloni(App\Models\Vakansiya::first()));</div>
+        <div class="cmd" data-cmd="php artisan serve">php artisan serve</div>
+        <p>Brauzerda <code>http://127.0.0.1:8000/xat-korish</code>
+        ni oching — xat qanday ko'rinishini
+        ko'rasiz.</p>
+      </li>
+
+      <li>
+        <b><code>EmailXabar</code> ni yozing.</b>
+        Yuqoridagi kodni ko'chiring.
+        <div class="cmd" data-cmd="php -l app/Xizmatlar/EmailXabar.php">php -l app/Xizmatlar/EmailXabar.php</div>
+      </li>
+
+      <li>
+        <b>Config bilan drayver tanlashni yozing.</b>
+        <code>XabarServiceProvider</code> dagi
+        <code>singleton</code> ni <code>match</code> li
+        variantga almashtiring.
+        <div class="cmd" data-cmd="php -l app/Providers/XabarServiceProvider.php
+php artisan config:clear
+php artisan tinker --execute='echo config(&quot;ishtop.xabar_drayveri&quot;), &quot; -> &quot;, get_class(app(App\Xizmatlar\XabarYuboruvchi::class)), PHP_EOL;'">php -l app/Providers/XabarServiceProvider.php
+php artisan config:clear
+php artisan tinker --execute='echo config(&quot;ishtop.xabar_drayveri&quot;), &quot; -&gt; &quot;, get_class(app(App\Xizmatlar\XabarYuboruvchi::class)), PHP_EOL;'</div>
+      </li>
+
+      <li>
+        <b>49-darsdagi va'dani tekshiring.</b>
+        <div class="cmd" data-cmd="echo 'ISHTOP_XABAR=email' >> .env
+php artisan tinker --execute='echo config(&quot;ishtop.xabar_drayveri&quot;), &quot; -> &quot;, get_class(app(App\Xizmatlar\XabarYuboruvchi::class)), PHP_EOL;'
+sed -i '/^ISHTOP_XABAR=email$/d' .env
+php artisan tinker --execute='echo config(&quot;ishtop.xabar_drayveri&quot;), &quot; -> &quot;, get_class(app(App\Xizmatlar\XabarYuboruvchi::class)), PHP_EOL;'">echo 'ISHTOP_XABAR=email' &gt;&gt; .env
+php artisan tinker --execute='echo config(&quot;ishtop.xabar_drayveri&quot;), &quot; -&gt; &quot;, get_class(app(App\Xizmatlar\XabarYuboruvchi::class)), PHP_EOL;'
+sed -i '/^ISHTOP_XABAR=email$/d' .env
+php artisan tinker --execute='echo config(&quot;ishtop.xabar_drayveri&quot;), &quot; -&gt; &quot;, get_class(app(App\Xizmatlar\XabarYuboruvchi::class)), PHP_EOL;'</div>
+        <p class="expect"><code>log → LogXabar</code> va
+        <code>email → EmailXabar</code>. Controller
+        <b>tegilmadi</b>.</p>
+      </li>
+
+      <li>
+        <b>⚠️ <code>assertSent</code> ni sinab ko'ring.</b>
+        Testda ataylab <code>assertSent</code> yozing:
+        <div class="cmd" data-cmd="# tests/Feature/EmailTest.php da vaqtincha:
+Mail::assertSent(VakansiyaEloni::class);"># tests/Feature/EmailTest.php da vaqtincha:
+Mail::assertSent(VakansiyaEloni::class);</div>
+        <p class="expect">⚠️ Test qizaradi va Laravel
+        <b>javobni ham beradi</b>: «<i>Did you mean to use
+        assertQueued() instead?</i>»</p>
+      </li>
+
+      <li>
+        <b>Testlarni to'g'ri yozing.</b> Yuqoridagi
+        <code>tests/Feature/EmailTest.php</code> ni
+        ko'chiring, sinov marshrutini
+        o'chiring.
+        <div class="cmd" data-cmd="php artisan test tests/Feature/EmailTest.php">php artisan test tests/Feature/EmailTest.php</div>
+        <p class="expect">Kutilgan: <b>6 passed</b>.</p>
+      </li>
+
+      <li>
+        <b>Tozalang va to'liq to'plamni ishga
+        tushiring.</b>
+        <div class="cmd" data-cmd="php artisan tinker --execute='DB::table(&quot;jobs&quot;)->delete(); echo &quot;tozalandi&quot;, PHP_EOL;'
+php artisan test">php artisan tinker --execute='DB::table(&quot;jobs&quot;)-&gt;delete(); echo &quot;tozalandi&quot;, PHP_EOL;'
+php artisan test</div>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><code>MAIL_MAILER=log</code> — xat xavfsiz</li>
+      <li>Mailable va Markdown shabloni yozildi</li>
+      <li>⚠️ <code>send()</code> yozib, xat navbatga
+      tushganini ko'rdim</li>
+      <li>Logda <code>To:</code>, <code>Subject:</code> va
+      mazmunni ko'rdim</li>
+      <li>Xatni brauzerda ko'rdim</li>
+      <li><code>EmailXabar</code> yozildi</li>
+      <li>Drayver <code>.env</code> dagi bitta qiymat bilan
+      almashdi</li>
+      <li>⚠️ <code>assertSent</code> qizarishini
+      ko'rdim</li>
+      <li>Sinov marshruti o'chirilgan</li>
+      <li><code>EmailTest</code> — 6 test yashil</li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 10) SINAB KO'RAMIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Dasturchi ariza kelganda ish beruvchiga xat yuborishni
+    yozdi:</p>
+    <div class="codefile">
+      <div class="fname">app/Listeners/ArizaXabari.php</div>
+      <code class="cmd" data-cmd="public function handle(ArizaKeldi $event): void
+{
+    foreach ($event-&gt;vakansiya-&gt;kompaniya-&gt;xodimlar as $xodim) {
+        Mail::to($xodim)-&gt;send(new ArizaEloni($event-&gt;ariza));
+    }
+}">public function handle(ArizaKeldi $event): void
+{
+    foreach ($event-&gt;vakansiya-&gt;kompaniya-&gt;xodimlar as $xodim) {
+        Mail::to($xodim)-&gt;send(new ArizaEloni($event-&gt;ariza));
+    }
+}</code>
+    </div>
+    <p>Testda tekshirdi — <b>ishladi</b>. Ishlab
+    chiqarishga chiqardi.</p>
+    <p>Bir hafta o'tib katta kompaniya (200 xodim)
+    ro'yxatdan o'tdi. Endi har ariza kelganda sayt
+    <b>bir necha soniya qotib qoladi</b>, ba'zan esa
+    <b>502</b> beradi. Nima bo'lyapti?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <p>Ikki narsa <b>birga</b> yiqilyapti.</p>
+        <p><b>1. Tinglovchida <code>ShouldQueue</code>
+        yo'q</b> (53-dars). Demak sikl foydalanuvchining
+        so'rovi <b>ichida</b> aylanadi.</p>
+        <p><b>2. <code>Mail::to()-&gt;send()</code> 200
+        marta.</b> Agar <code>ArizaEloni</code> da
+        <code>ShouldQueue</code> bo'lsa — bu 200 ta
+        <b>navbat yozuvi</b>, ya'ni 200 ta INSERT.
+        Bo'lmasa — 200 ta <b>SMTP ulanishi</b>.</p>
+        <div class="natija">200 × SMTP ulanish × ~200 ms  ≈  40 soniya
+→  nginx/php-fpm timeout  →  502</div>
+        <p class="expect">⚠️ Va foydalanuvchi 502 ko'rgani
+        bilan <b>ariza saqlangan</b> — 53-darsdagi
+        «500, lekin yozuv bazada» holatining
+        o'zi.</p>
+        <p>🔍 Nega testda ko'rinmadi? Uch sabab:</p>
+        <div class="natija">1) testda 1-2 xodim bor edi, 200 emas
+2) Mail::fake() haqiqiy SMTP'ga bormaydi — tez
+3) QUEUE_CONNECTION=sync — navbat foydasi ko'rinmaydi</div>
+        <p>✅ Yechim ikki bosqichli:</p>
+        <div class="natija">1) Tinglovchiga ShouldQueue  →  so'rov darrov tugaydi
+
+2) Siklni ham navbatga bo'ling:
+   foreach ($xodimlar as $xodim) {
+       ArizaXatiIsh::dispatch($ariza, $xodim);   // har biri alohida ish
+   }
+   → bittasi yiqilsa qolganlari ketaveradi</div>
+        <p>🔑 <b>Umumiy saboq:</b> siklda tashqi xizmatga
+        murojaat — <b>doim</b> shubhali. Savol bering:
+        «bu sikl <b>1000</b> marta aylansa nima
+        bo'ladi?»</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span>
+    <code>MAIL_MAILER=log</code> nima qiladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Xatni yubormaydi va laravel log fayliga to'liq yozadi</button></li>
+      <li><button class="quiz-option">Xatni yuboradi va yuborilganini logga qayd qilib qo'yadi</button></li>
+      <li><button class="quiz-option">Faqat xato bo'lgan xatlarni logga yozib olib qo'yadi</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi: logda
+    <code>To:</code>, <code>Subject:</code>,
+    <code>multipart/alternative</code> va HTML mazmuni —
+    jami <b>146 qator</b>. Xat hech kimga ketmaydi.
+    🔑 Bu Laravel'ning <b>standart</b> qiymati, shuning
+    uchun sinash xavfsiz.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span>
+    <code>ShouldQueue</code> li xatda <code>send()</code>
+    nima qiladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Xatni darrov yubormaydi balki navbatga qo'yib qo'yadi</button></li>
+      <li><button class="quiz-option">Xatni darrov yuboradi navbat esa e'tiborsiz qoldiriladi</button></li>
+      <li><button class="quiz-option">Xato beradi chunki queue metodini ishlatish kerak</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi:
+    <code>send()</code> dan keyin log <b>bo'sh</b>,
+    <code>jobs</code> jadvalida esa <b>1</b> ta ish.
+    Ishchi ishlagach xat logga tushdi
+    (<b>75.63ms DONE</b>).
+    🔑 Bu foydali: SMTP sekin amal va foydalanuvchi uni
+    kutmasligi kerak.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span>
+    Testda <code>assertSent</code> nega topa
+    olmaydi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Xat navbatga tushgan shuning uchun assertQueued kerak bo'ladi</button></li>
+      <li><button class="quiz-option">Mail fake chaqirilmagan shuning uchun hech narsa yozilmaydi</button></li>
+      <li><button class="quiz-option">Markdown shablonli xatlar umuman tekshirilmaydi va shunday topilmaydi</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi: test <b>2 marta</b>
+    qizardi, xato xabari esa javobni ham berdi:
+    «<i>Did you mean to use assertQueued() instead?</i>»
+    <code>Mail::fake()</code> yuborilgan va navbatga
+    qo'yilgan xatlarni <b>alohida</b> yozib
+    boradi.</div>
+  </div>
+
+  <!-- ═══════════════ 11) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+
+    <p>Javobni ovoz chiqarib ayting, keyin ochib
+    solishtiring.</p>
+
+    <details class="recall">
+      <summary>Mailable'ning uch metodi nima uchun?</summary>
+      <div class="answer"><code>envelope()</code> —
+      <b>konvert</b>: mavzu, kimdan, javob manzili.
+      <code>content()</code> — <b>ichi</b>: qaysi shablon va
+      unga qanday ma'lumot (<code>with:</code>).
+      <code>attachments()</code> — <b>ilovalar</b>.
+      🔑 Ommaviy xossalar shablonga <b>avtomatik</b>
+      uzatiladi; hisoblangan qiymat esa
+      <code>with:</code> orqali.</div>
+    </details>
+
+    <details class="recall">
+      <summary><code>ShouldQueue</code> li xatda
+      <code>send()</code> nima qiladi?</summary>
+      <div class="answer">Xatni <b>navbatga qo'yadi</b>,
+      darrov yubormaydi.
+      🔍 O'lchandi: log bo'sh, <code>jobs</code> da 1 ta ish;
+      ishchi ishlagach <b>75.63ms DONE</b> va xat logda.
+      ⚠️ Testda esa <code>assertSent</code> emas,
+      <code>assertQueued</code> kerak — Laravel xato
+      xabarida buni <b>o'zi aytadi</b>.</div>
+    </details>
+
+    <details class="recall">
+      <summary>49-darsdagi va'da qanday bajarildi?</summary>
+      <div class="answer"><code>EmailXabar</code> yozildi va
+      container'dagi bog'lanish
+      <code>config('ishtop.xabar_drayveri')</code> ga
+      bog'landi.
+      🔍 O'lchandi: <code>log → LogXabar</code>,
+      <code>email → EmailXabar</code>.
+      <b>Controller, hodisa, tinglovchi va testlar —
+      hech biri tegilmadi.</b>
+      🔑 Uch dars birga ishladi: 49 (interfeys+container),
+      50 (provider), 54 (config).</div>
+    </details>
+
+    <details class="recall">
+      <summary>Nega Markdown shablon, oddiy HTML emas?</summary>
+      <div class="answer">Email HTML'i alohida dunyo —
+      Gmail, Outlook va telefon ilovalari har xil
+      qoidalarga ega, CSS'ning yarmi ishlamaydi.
+      <code>x-mail::message</code>, <code>panel</code>,
+      <code>button</code> — <b>sinovdan o'tgan</b> HTML
+      beradi va Laravel avtomatik <b>matnli</b> nusxa ham
+      yasaydi (<code>multipart/alternative</code>).</div>
+    </details>
+
+    <details class="recall">
+      <summary>Testda haqiqiy xat ketib qolmasligi uchun
+      nima qilasiz?</summary>
+      <div class="answer">Ikki qatlam:
+      <b>1)</b> <code>phpunit.xml</code> da
+      <code>&lt;env name="MAIL_MAILER" value="array"/&gt;</code>
+      — <b>to'r</b>: kimdir <code>fake()</code> ni unutsa
+      ham xat ketmaydi.
+      <b>2)</b> Har testda <code>Mail::fake()</code>.
+      🔑 54-darsdagi qoida: muhim sozlamalar
+      <code>phpunit.xml</code> da, chunki u
+      <code>.env</code> dan <b>ustun</b>.</div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 12) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Xulosa</span>
+    <ul>
+      <li><code>MAIL_MAILER=log</code> — standart qiymat,
+      xat logga yoziladi. Sinash <b>xavfsiz</b>.</li>
+      <li>Mailable: <code>envelope</code> (konvert) ·
+      <code>content</code> (ichi) ·
+      <code>attachments</code>.</li>
+      <li>Ommaviy xossalar shablonga avtomatik,
+      hisoblangan qiymat <code>with:</code>
+      orqali.</li>
+      <li>Markdown komponentlari (<code>message</code>,
+      <code>panel</code>, <code>button</code>) —
+      sinovdan o'tgan email HTML'i +
+      matnli nusxa.</li>
+      <li>⚠️ <code>ShouldQueue</code> li xatda
+      <code>send()</code> ham <b>navbatga</b>
+      qo'yadi.</li>
+      <li>⚠️ Testda <code>assertQueued</code>, aks holda
+      «<i>Did you mean to use assertQueued()
+      instead?</i>»</li>
+      <li><code>render()</code> — hech narsa yubormasdan
+      shablonni tekshirish.</li>
+      <li>🔑 49-darsdagi va'da bajarildi:
+      <code>.env</code> dagi bitta qiymat drayverni
+      almashtirdi, kod <b>tegilmadi</b>.</li>
+      <li>Container + provider + config uchtasi birga
+      ishladi (49 + 50 + 54).</li>
+      <li>⚠️ Testda ikki qatlam:
+      <code>phpunit.xml</code> da <code>array</code> +
+      <code>Mail::fake()</code>.</li>
+      <li>Ishlab chiqarishda SPF/DKIM/DMARC va o'z
+      domeningizdagi <code>from</code>.</li>
+      <li>⚠️ Siklda <code>Mail::send()</code> — har bir
+      xatni <b>alohida ish</b> qiling.</li>
+      <li>Dizaynni ko'rish: marshrutdan Mailable
+      qaytaring yoki Mailtrap/Mailpit.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p>Email tayyor. Lekin ish beruvchi saytga kirganda
+    ham bildirishnomani <b>ko'rishi</b> kerak — qo'ng'iroq
+    belgisi va o'qilmagan xabarlar ro'yxati.</p>
+    <p>Buni yozish uchun email kodini nusxalash kerakmi?
+    Yo'q. Laravel'da <b>bitta</b> xabarni <b>bir necha
+    kanalga</b> yuborish uchun alohida qatlam
+    bor.</p>
+    <p>57-darsda <b>Notifications</b>: bitta klass,
+    <code>via()</code> metodida kanallar ro'yxati —
+    <code>toMail()</code> email uchun,
+    <code>toDatabase()</code> saytdagi qo'ng'iroq
+    uchun.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel — Mail</b>:
+    <a href="https://laravel.com/docs/13.x/mail">Mailable, envelope,
+    content, markdown</a>.<sup><a href="#fn1">1</a></sup><br>
+    <b>Laravel — Mail: Testing</b>:
+    <a href="https://laravel.com/docs/13.x/mail#testing-mailables">Mail::fake,
+    assertQueued, render</a>.<sup><a href="#fn1">1</a></sup><br>
+    <b>Laravel — Markdown Mailables</b>:
+    <a href="https://laravel.com/docs/13.x/mail#markdown-mailables">komponentlar
+    va uslub</a>.<sup><a href="#fn2">2</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b>
+    «xat yetib borganini qanday bilaman?», «bir vaqtda
+    1000 ta xat yuborsam bo'ladimi?», «xatga rasm
+    qo'ysam bo'ladimi?», «xat shablonini
+    o'zgartirsam?» — har qanday savol yaxshi.
+    Birinchisiga qisqa javob: <b>SMTP bilan bilib
+    bo'lmaydi</b> — Postmark yoki SES kabi xizmatlar
+    webhook orqali «yetkazildi / ochildi / rad etildi»
+    deb xabar beradi. Ikkinchisiga: <b>ha</b>, lekin har
+    bir xatni <b>alohida ish</b> qiling va navbatni
+    ustuvorlikka bo'ling (55-dars) — aks holda bitta
+    ro'yxat butun navbatni ushlab
+    qoladi.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0055-queue-va-job.html">Oldingi: Queue va Job</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel 13 — <a href="https://laravel.com/docs/13.x/mail">Mail</a>.</li>
+      <li id="fn2">Laravel 13 — <a href="https://laravel.com/docs/13.x/mail#markdown-mailables">Markdown Mailables</a>.</li>
+      <li id="fn3">Barchasi jonli o'lchangan (PHP 8.3.32, Laravel 13.26.1,
+      Pest 4.7.8, SQLite):
+      <code>.env</code> da standart
+      <code>MAIL_MAILER=log</code> ·
+      <code>make:mail --markdown</code> ikki fayl yaratdi
+      (klass + Blade shablon) ·
+      ⚠️ <code>ShouldQueue</code> li xatda
+      <code>Mail::to(...)-&gt;send(...)</code> dan keyin
+      <code>laravel.log</code> <b>yaratilmadi</b>,
+      <code>jobs</code> jadvalida <b>1</b> ta ish ·
+      <code>queue:work --stop-when-empty</code> →
+      <code>App\Mail\VakansiyaEloni ... 75.63ms DONE</code>,
+      keyin log <b>146 qator</b> ·
+      logdagi sarlavhalar: <code>To: ali@example.uz</code>,
+      <code>Subject: Yangi vakansiya: Backend dasturchi</code>,
+      <code>multipart/alternative</code>,
+      <code>text/plain</code> + <code>text/html</code>;
+      mazmunida <code>Vakansiya e'lon qilindi</code>,
+      <code>Backend dasturchi</code>,
+      <code>2 500 so'm</code> ·
+      🔑 49-darsdagi va'da: <code>ISHTOP_XABAR</code> yo'q →
+      <code>log → App\Xizmatlar\LogXabar</code>;
+      <code>ISHTOP_XABAR=email</code> →
+      <code>email → App\Xizmatlar\EmailXabar</code>;
+      qator o'chirilgach yana <code>LogXabar</code> —
+      controller, hodisa, tinglovchi <b>tegilmadi</b> ·
+      ⚠️ <code>Mail::assertSent</code> bilan test
+      <b>2 failed, 4 passed</b>; xato xabari:
+      <code>The expected [App\Mail\VakansiyaEloni] mailable
+      was not sent. Did you mean to use assertQueued()
+      instead?</code> ·
+      <code>EmailTest</code> — <b>6 passed (10
+      assertions)</b>, to'liq to'plam <b>61 passed (129
+      assertions), 0.54s</b>.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

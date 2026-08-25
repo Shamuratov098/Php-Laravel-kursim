@@ -18,7 +18,7 @@
   izoh esa o'zbekcha.</p>
 
   <p class="lesson-meta">
-    <span>Atamalar: <b>237 ta</b></span>
+    <span>Atamalar: <b>240 ta</b></span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>📱 O'qishga mos</span>
   </p>
@@ -26,7 +26,7 @@
   <div class="callout note">
     <span class="label">Bu hujjat o'sib boradi</span>
     <p>Atama faqat <b>o'z darsi yozilganda</b> qo'shiladi — oldindan emas. Hozir:
-    Modul A–H (1–55-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
+    Modul A–H (1–56-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
     bosqichida qat'iy belgilangan va 73 dars bo'ylab o'zgarmaydi).</p>
   </div>
 
@@ -2262,6 +2262,63 @@
       <code>--max-jobs</code>, <code>--max-time</code> va
       ish ichida <code>cursor()</code>.
       <span class="eg">queue:work --queue=tez,sekin</span></dd>
+    </div>
+
+    <div class="term" id="mailable">
+      <dt>Mailable <span class="uz">— xat klassi</span></dt>
+      <dd>Uch metod: <code>envelope()</code> (konvert: mavzu,
+      kimdan) · <code>content()</code> (shablon va unga
+      ma'lumot) · <code>attachments()</code> (ilovalar).
+      Ommaviy xossalar shablonga <b>avtomatik</b> uzatiladi,
+      hisoblangan qiymat <code>with:</code> orqali.
+      🔍 <code>MAIL_MAILER=log</code> — Laravel'ning
+      <b>standart</b> qiymati: xat hech kimga ketmaydi,
+      <code>laravel.log</code> ga to'liq yoziladi
+      (o'lchandi: <b>146 qator</b>, <code>To:</code>,
+      <code>Subject:</code>,
+      <code>multipart/alternative</code>).
+      <code>render()</code> — hech narsa yubormasdan HTML
+      satrini olish.
+      <span class="eg">Mail::to($u)-&gt;send(new VakansiyaEloni($v));</span></dd>
+    </div>
+
+    <div class="term" id="shouldqueue-xat">
+      <dt>ShouldQueue li xat <span class="uz">— send() ham navbatga qo'yadi</span></dt>
+      <dd>⚠️ Mailable <code>ShouldQueue</code> ni amalga
+      oshirsa, <code>send()</code> ham <code>queue()</code>
+      kabi ishlaydi.
+      🔍 O'lchandi: <code>send()</code> dan keyin log
+      <b>bo'sh</b>, <code>jobs</code> da <b>1</b> ta ish;
+      ishchi ishlagach <b>75.63ms DONE</b>.
+      ⚠️ Testda <code>assertSent</code> <b>topa
+      olmaydi</b> — Laravel xato xabarida o'zi aytadi:
+      «<i>Did you mean to use assertQueued()
+      instead?</i>».
+      ✅ <code>Mail::assertQueued</code> ·
+      <code>assertNotSent</code> ·
+      <code>assertNothingSent</code> ·
+      <code>hasTo()</code> bilan shart.
+      🔑 Testda ikki qatlam: <code>phpunit.xml</code> da
+      <code>MAIL_MAILER=array</code> +
+      <code>Mail::fake()</code>.
+      <span class="eg">Mail::assertQueued(X::class, fn ($x) =&gt; $x-&gt;hasTo('a@b.uz'))</span></dd>
+    </div>
+
+    <div class="term" id="markdown-mail">
+      <dt>Markdown mail <span class="uz">— sinovdan o'tgan HTML</span></dt>
+      <dd><code>x-mail::message</code> ·
+      <code>panel</code> · <code>button</code> ·
+      <code>table</code> — tayyor komponentlar.
+      Email HTML'i alohida dunyo: Gmail, Outlook va
+      telefon ilovalari har xil qoidalarga ega,
+      CSS'ning yarmi ishlamaydi.
+      🔑 Laravel avtomatik <b>matnli</b> nusxa ham
+      yasaydi (<code>multipart/alternative</code>).
+      Uslubni o'zgartirish:
+      <code>vendor:publish --tag=laravel-mail</code>.
+      ⚠️ Siklda <code>Mail::send()</code> yozmang — har
+      xatni <b>alohida ish</b> qiling.
+      <span class="eg">&lt;x-mail::button :url="..."&gt;</span></dd>
     </div>
 
     <div class="term" id="sanctum">

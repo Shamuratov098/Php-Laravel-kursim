@@ -17,7 +17,7 @@
   muhit ma'lumotlari. Har dars yangi buyruq o'rgatilsa, shu yerga qo'shiladi.</p>
 
   <p class="lesson-meta">
-    <span>Qamrov: <b>1&ndash;55-darslar</b> — muhitdan API'gacha</span>
+    <span>Qamrov: <b>1&ndash;56-darslar</b> — muhitdan API'gacha</span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>💻 Amaliyotga mos</span>
   </p>
@@ -1655,6 +1655,51 @@
     <p>🔑 Ishchi uzoq yashaydi: ish ichida
     <code>cursor()</code>, ishchida
     <code>--memory=256 --max-jobs=1000 --max-time=3600</code>.</p>
+  </div>
+
+  <h2>Mail (56-darsdan)</h2>
+  <table class="sheet">
+    <tr><th>Kod / buyruq</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>make:mail X --markdown=mail.x</code></td><td class="note-cell">Klass + Blade shablon</td></tr>
+    <tr><td><code>envelope()</code> · <code>content()</code> · <code>attachments()</code></td><td class="note-cell">Konvert · ichi · ilovalar</td></tr>
+    <tr><td><code>with: ['kalit' =&gt; ...]</code></td><td class="note-cell">Shablonga hisoblangan qiymat</td></tr>
+    <tr><td><code>Mail::to($u)-&gt;cc(...)-&gt;bcc(...)-&gt;send($xat)</code></td><td class="note-cell">Yuborish (modelni ham berish mumkin)</td></tr>
+    <tr><td><code>-&gt;locale($user-&gt;til)</code></td><td class="note-cell">Xat tilini foydalanuvchiga moslash</td></tr>
+    <tr><td><code>Attachment::fromStorage(...)-&gt;as(...)</code></td><td class="note-cell">Ilova qo'shish</td></tr>
+    <tr><td><code>Mail::raw('matn', fn ($x) =&gt; ...)</code></td><td class="note-cell">Klasssiz tez xat (ichki ogohlantirish)</td></tr>
+    <tr><td><code>(new X($v))-&gt;render()</code></td><td class="note-cell">Yubormasdan HTML olish — shablon testi</td></tr>
+    <tr><td><code>Route::get('/x', fn () =&gt; new X($v))</code></td><td class="note-cell">Xatni brauzerda ko'rish (mahalliy ish)</td></tr>
+    <tr><td><code>Mail::fake()</code> + <code>assertQueued()</code></td><td class="note-cell">⚠️ <code>ShouldQueue</code> da <code>assertSent</code> <b>emas</b></td></tr>
+    <tr><td><code>vendor:publish --tag=laravel-mail</code></td><td class="note-cell">Shablon uslubini o'zgartirish</td></tr>
+  </table>
+  <div class="callout note">
+    <p>🔑 <code>MAIL_MAILER=log</code> — <b>standart</b>
+    qiymat, xat hech kimga ketmaydi. O'lchandi:
+    <code>laravel.log</code> da <b>146 qator</b>,
+    <code>To:</code>, <code>Subject:</code>,
+    <code>multipart/alternative</code> (matn + HTML).</p>
+    <p>⚠️ <b><code>ShouldQueue</code> li xatda
+    <code>send()</code> ham navbatga qo'yadi.</b>
+    O'lchandi: log bo'sh, <code>jobs</code> da 1 ta ish;
+    ishchi ishlagach <b>75.63ms DONE</b>.
+    <br>Testda: <code>assertQueued</code>. Laravel xato
+    xabarida o'zi aytadi — «<i>Did you mean to use
+    assertQueued() instead?</i>»</p>
+    <p>🔑 <b>49-darsdagi va'da bajarildi:</b> container
+    bog'lanishi <code>config('ishtop.xabar_drayveri')</code>
+    ga bog'landi —
+    <code>log → LogXabar</code>,
+    <code>email → EmailXabar</code>. Controller, hodisa,
+    tinglovchi va testlar <b>tegilmadi</b>.</p>
+    <p>⚠️ Testda ikki qatlam: <code>phpunit.xml</code> da
+    <code>MAIL_MAILER=array</code> (to'r) +
+    <code>Mail::fake()</code>.</p>
+    <p>⚠️ Siklda <code>Mail::send()</code> — 200 xodim =
+    200 SMTP ulanish = timeout. Har xatni
+    <b>alohida ish</b> qiling.</p>
+    <p>🔑 Ishlab chiqarishda SPF/DKIM/DMARC va
+    <code>MAIL_FROM_ADDRESS</code> <b>o'z</b>
+    domeningizda bo'lsin.</p>
   </div>
 
   <h2>Xatoni o'qish</h2>
