@@ -18,7 +18,7 @@
   izoh esa o'zbekcha.</p>
 
   <p class="lesson-meta">
-    <span>Atamalar: <b>193 ta</b></span>
+    <span>Atamalar: <b>200 ta</b></span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>📱 O'qishga mos</span>
   </p>
@@ -26,7 +26,7 @@
   <div class="callout note">
     <span class="label">Bu hujjat o'sib boradi</span>
     <p>Atama faqat <b>o'z darsi yozilganda</b> qo'shiladi — oldindan emas. Hozir:
-    Modul A–F (1–47-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
+    Modul A–F (1–48-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
     bosqichida qat'iy belgilangan va 73 dars bo'ylab o'zgarmaydi).</p>
   </div>
 
@@ -1532,6 +1532,116 @@
       ✅ Test: <code>assertJsonStructure(['message', 'xato_id'])</code>
       va <code>assertJsonMissing(['trace'])</code>.
       <span class="eg">'xato_id' =&gt; (string) Str::uuid()</span></dd>
+    </div>
+
+    <div class="term" id="rate-limiting">
+      <dt>rate limiting <span class="uz">— so'rovlar sonini cheklash</span></dt>
+      <dd>⚠️ Laravel 13'da <b>standart holda YO'Q</b> — o'lchandi:
+      <code>api</code> guruhida atigi
+      <code>SubstituteBindings</code> bor (Laravel 10'gacha
+      <code>throttle:api</code> ham bor edi).
+      ✅ <code>$middleware-&gt;throttleApi()</code> bilan
+      qaytariladi.
+      Ikki maqsadi bor: parol taxmin qilishga qarshi
+      (<code>/token</code> ga qattiqroq cheklov) va serverni
+      band qilishga qarshi.
+      <span class="eg">-&gt;middleware('throttle:60,1')</span></dd>
+    </div>
+
+    <div class="term" id="status-429">
+      <dt>429 Too Many Requests <span class="uz">— «hozircha yo'q»</span></dt>
+      <dd>403 dan farqi: 403 doimiy («senga ruxsat yo'q»), 429
+      vaqtinchalik. Shuning uchun unda <code>Retry-After</code>
+      bo'lishi shart.
+      🔍 O'lchangan sarlavhalar:
+      <code>X-RateLimit-Limit</code> ·
+      <code>X-RateLimit-Remaining</code> ·
+      <code>Retry-After</code> (soniya) ·
+      <code>X-RateLimit-Reset</code> (unix vaqti).
+      Tana: <code>{"message": "Too Many Attempts."}</code>.
+      ⚠️ <b>503</b> bilan aralashtirmang: 429 mijozning,
+      503 serverning holati.
+      <span class="eg">Retry-After: 60</span></dd>
+    </div>
+
+    <div class="term" id="throttle-kaliti">
+      <dt>throttle kaliti <span class="uz">— marshrut hisobga olinmaydi</span></dt>
+      <dd>⚠️ <code>throttle:2,1</code> ikki xil marshrutda
+      <b>bitta</b> hisobni bo'lishadi. Sabab manbada:
+      <code>resolveRequestSignature()</code> → autentifikatsiya
+      bo'lsa <b>foydalanuvchi id</b>, bo'lmasa
+      <b><code>domen|IP</code></b> — <b>marshrut kalitda
+      yo'q</b>.
+      🔍 A/B o'lchandi: <code>/x/c</code> ikkitani yegach,
+      <code>/x/d</code> <b>birinchi</b> murojaatda 429.
+      ✅ Uchinchi argument prefiks beradi:
+      <code>throttle:2,1,kalit</code>, yoki nomlangan cheklov
+      yozib <code>by()</code> ni o'zingiz belgilang.
+      <span class="eg">throttle:2,1,vakansiya-qidiruv</span></dd>
+    </div>
+
+    <div class="term" id="ratelimiter-for">
+      <dt>RateLimiter::for() <span class="uz">— nomlangan cheklov</span></dt>
+      <dd><code>AppServiceProvider::boot()</code> da ta'riflanadi.
+      Uch qism: <code>Limit::perMinute(60)</code> (qancha) ·
+      <code>-&gt;by(...)</code> (kim uchun) ·
+      <code>-&gt;response(...)</code> (rad etilganda nima).
+      Massiv qaytarsa bir nechta cheklov birga ishlaydi
+      (<code>perMinute</code> + <code>perDay</code>).
+      <code>Limit::none()</code> — cheklovsiz.
+      ⚠️ <code>response()</code> callback'i <b>ikkinchi
+      argument</b> sifatida sarlavhalarni oladi — uni javobga
+      uzatmasangiz <code>Retry-After</code> yo'qoladi va
+      qo'shni cheklovning yolg'on sonlari qolib ketadi
+      (o'lchandi: «54 ta qoldi» deb turib rad etdi).
+      <span class="eg">Limit::perMinute(5)-&gt;by($request-&gt;ip())</span></dd>
+    </div>
+
+    <div class="term" id="user-guard-tuzogi">
+      <dt>$request-&gt;user('sanctum') <span class="uz">— guard nomini yozish</span></dt>
+      <dd>⚠️ <code>$request-&gt;user()</code> <b>standart</b>
+      guard'ni so'raydi — <code>config/auth.php</code> bo'yicha
+      <code>web</code>, ya'ni <b>sessiya</b>. Token so'rovida
+      sessiya yo'q, demak <code>null</code>.
+      🔍 O'lchandi: cheklov jimgina <b>IP bo'yicha</b> ishlab
+      qoldi — mehmon hisobni tugatgach, token egasi ham
+      birinchi so'rovdayoq 429 oldi.
+      Amalda: bitta NAT ortidagi minglab foydalanuvchi
+      <b>bitta odam</b> bo'lib ko'rinadi.
+      ✅ Token API'da guard nomini <b>har doim</b> yozing.
+      <span class="eg">-&gt;by($request-&gt;user('sanctum')?-&gt;id ?: $request-&gt;ip())</span></dd>
+    </div>
+
+    <div class="term" id="api-versiyalash">
+      <dt>API versiyalash <span class="uz">— /api/v1</span></dt>
+      <dd><code>Route::prefix('v1')-&gt;name('api.v1.')-&gt;group(...)</code>.
+      🔍 O'lchandi: prefiks qo'shilishi bilan to'liq to'plamdan
+      <b>11 ta test</b> qizardi — ya'ni har bir mavjud mijoz
+      buziladi.
+      🔑 Shuning uchun versiyani <b>mijoz paydo bo'lishidan
+      oldin</b> qo'ying: hozir «mijozimiz» testlar va tuzatish
+      bitta <code>sed</code>; mobil ilova chiqqandan keyin esa
+      imkonsiz.
+      Muqobillari: <code>Accept: application/vnd.x.v1+json</code>
+      sarlavhasi yoki <code>?version=1</code>.
+      <span class="eg">api.v1.vakansiyalar.index</span></dd>
+    </div>
+
+    <div class="term" id="deprecation-sunset">
+      <dt>Deprecation va Sunset <span class="uz">— eski manzilni belgilash</span></dt>
+      <dd>Mijozlar allaqachon bo'lsa, eski manzillarni birdaniga
+      o'chirib bo'lmaydi. Uchta standart sarlavha bilan o'tish
+      davri beriladi: <code>Deprecation: true</code> ·
+      <code>Sunset: &lt;sana&gt;</code> (qachon o'chadi) ·
+      <code>Link: &lt;yangi&gt;; rel="successor-version"</code>.
+      ⚠️ Eski guruhga <b>boshqa nom</b> bering
+      (<code>api.eski.</code>) — aks holda 45-darsdagi nom
+      to'qnashuvi qaytadi.
+      ⚠️ Marshrut guruhida middleware <b>klass</b> bo'lishi
+      kerak: closure bersangiz
+      <code>Object of class Closure could not be converted to
+      string</code>.
+      <span class="eg">$javob-&gt;headers-&gt;set('Sunset', '...');</span></dd>
     </div>
 
     <div class="term" id="sanctum">

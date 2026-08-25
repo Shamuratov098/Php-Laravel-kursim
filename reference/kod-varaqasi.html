@@ -17,7 +17,7 @@
   muhit ma'lumotlari. Har dars yangi buyruq o'rgatilsa, shu yerga qo'shiladi.</p>
 
   <p class="lesson-meta">
-    <span>Qamrov: <b>1&ndash;47-darslar</b> — muhitdan API'gacha</span>
+    <span>Qamrov: <b>1&ndash;48-darslar</b> — muhitdan API'gacha</span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>💻 Amaliyotga mos</span>
   </p>
@@ -1235,6 +1235,71 @@
     o'tgan emaillarni aniqlaydi.</p>
     <p>⚠️ <code>assertNotFound()</code> — <b>zaif</b> tekshiruv.
     «Status to'g'rimi?» degan savol «javob to'g'rimi?» degani emas.</p>
+  </div>
+
+  <h2>Rate limiting va versiyalash (48-darsdan)</h2>
+  <table class="sheet">
+    <tr><th>Kod</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>-&gt;middleware('throttle:60,1')</code></td><td class="note-cell">Daqiqasiga 60 ta so'rov</td></tr>
+    <tr><td><code>-&gt;middleware('throttle:2,1,kalit')</code></td><td class="note-cell">⚠️ Uchinchi argument — <b>alohida hisob</b> uchun prefiks</td></tr>
+    <tr><td><code>$middleware-&gt;throttleApi()</code></td><td class="note-cell">Butun <code>api</code> guruhiga <code>throttle:api</code></td></tr>
+    <tr><td><code>RateLimiter::for('api', fn ($r) =&gt; ...)</code></td><td class="note-cell">Nomlangan cheklov (<code>AppServiceProvider::boot</code>)</td></tr>
+    <tr><td><code>Limit::perMinute(60)</code> · <code>perDay(1000)</code></td><td class="note-cell">Qancha. Massiv qaytarsangiz ikkalasi ham ishlaydi</td></tr>
+    <tr><td><code>-&gt;by($request-&gt;user('sanctum')?-&gt;id ?: $request-&gt;ip())</code></td><td class="note-cell">⚠️ <b>Kim uchun</b> — guard nomi majburiy</td></tr>
+    <tr><td><code>-&gt;response(fn ($r, array $h) =&gt; ...)</code></td><td class="note-cell">⚠️ Ikkinchi argument — <b>sarlavhalar</b>, ularni uzating</td></tr>
+    <tr><td><code>Limit::none()</code></td><td class="note-cell">Cheklovsiz (masalan admin uchun)</td></tr>
+    <tr><td><code>$middleware-&gt;throttleWithRedis()</code></td><td class="note-cell">Ko'p serverli ilovada umumiy hisob</td></tr>
+    <tr><td><code>$middleware-&gt;trustProxies(at: '*')</code></td><td class="note-cell">Proksi ortida haqiqiy IP (ehtiyot bilan)</td></tr>
+    <tr><td><code>Route::prefix('v1')-&gt;name('api.v1.')-&gt;group(...)</code></td><td class="note-cell">API versiyalash</td></tr>
+    <tr><td><code>RateLimiter::clear($kalit)</code></td><td class="note-cell">Testda hisobni tozalash</td></tr>
+  </table>
+  <div class="callout note">
+    <p>⚠️ <b>Laravel 13'da cheklov YO'Q.</b> O'lchandi:
+    <code>api</code> guruhida atigi
+    <code>SubstituteBindings</code> bor. Laravel 10'gacha
+    <code>throttle:api</code> ham bor edi.
+    🔍 Tashxis: <code>route:list</code> guruh <b>nomini</b>
+    ko'rsatadi, ichidagini emas — tinker bilan
+    <code>app('router')-&gt;getMiddlewareGroups()['api']</code>.</p>
+    <p>⚠️ <b>throttle kaliti marshrutni bilmaydi.</b>
+    <code>resolveRequestSignature()</code> → foydalanuvchi id
+    yoki <code>domen|IP</code>. Ikki marshrutdagi
+    <code>throttle:2,1</code> <b>bitta</b> hisobni bo'lishadi
+    (o'lchandi: ikkinchi marshrut birinchi murojaatdayoq 429).
+    ✅ Uchinchi argument — prefiks.</p>
+    <p>⚠️ <b><code>$request-&gt;user()</code> token API'da
+    <code>null</code>.</b> <code>config/auth.php</code> da
+    standart guard — <code>web</code> (sessiya). Natijada
+    cheklov <b>jimgina IP bo'yicha</b> ishlaydi va bitta NAT
+    ortidagi hamma bitta hisobga tushadi.
+    ✅ <code>user('sanctum')</code>.</p>
+    <p>⚠️ <b>O'z <code>response()</code>ingiz sarlavhalarni
+    yo'qotadi.</b> O'lchandi: <code>Retry-After</code> yo'q,
+    va <code>x-ratelimit-remaining: 54</code> (qo'shni
+    cheklovniki) — javob <b>yolg'on gapiradi</b>.
+    ✅ <code>fn ($request, array $sarlavhalar)</code> va
+    <code>response()-&gt;json([...], 429, $sarlavhalar)</code>.</p>
+    <p>🔑 <b>429 sarlavhalari:</b> <code>X-RateLimit-Limit</code> ·
+    <code>X-RateLimit-Remaining</code> ·
+    <code>Retry-After</code> (soniya) ·
+    <code>X-RateLimit-Reset</code> (unix vaqti).
+    <br>429 — «hozircha yo'q» (mijozniki), 503 — «server hozir
+    xizmat qila olmaydi» (sizniki).</p>
+    <p>🔑 <b>Versiyani mijoz paydo bo'lishidan oldin qo'ying.</b>
+    O'lchandi: <code>/v1</code> prefiksi 15 testdan 11 tasini
+    buzdi. Mijozlar bor bo'lsa —
+    <code>Deprecation</code>, <code>Sunset</code>,
+    <code>Link</code> bilan o'tish davri bering (eski guruhga
+    <b>boshqa nom</b>!).
+    <br>⚠️ Marshrut guruhida middleware <b>klass</b> bo'lsin —
+    closure bersangiz <code>Object of class Closure could not
+    be converted to string</code>.</p>
+    <p>🔍 Cheklov hisoblari <b>keshda</b>:
+    <code>CACHE_STORE=file</code> → har bir serverda alohida
+    (cheklov ikki barobar bo'ladi); <code>database</code> yoki
+    <code>redis</code> → umumiy.
+    Testda <code>CACHE_STORE=array</code> — shuning uchun har
+    bir test <b>toza hisob</b> bilan boshlanadi.</p>
   </div>
 
   <h2>Xatoni o'qish</h2>

@@ -1,0 +1,1228 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 48 — Rate limiting va versiyalash</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 48 · MODUL F — API QATLAMI</p>
+  <h1>Rate limiting va versiyalash</h1>
+  <p class="lead">API to'liq, himoyalangan, qidiriladigan va xatolari
+  tartibli. Lekin hozir <b>istalgan kishi</b> <code>/api/token</code> ga
+  soniyasiga ming marta so'rov yubora oladi — parolni taxmin qilish
+  uchun ham, serverni band qilish uchun ham. Bugun <b>429</b> bilan
+  tanishamiz — va yo'lda ikkita <b>jimgina yolg'on</b>ni
+  tutamiz.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 18 daqiqa</span>
+    <span>💻 Amaliyot ≈ 30 daqiqa</span>
+    <span>Kerak: <a href="0047-xatoni-togri-qaytarish.html">Dars 47</a></span>
+  </p>
+
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b>⚠️ Laravel 13'da cheklov <b>YO'Q</b></b>
+        <span class="nima">🔍 O'lchandi: <code>api</code> middleware
+        guruhida atigi bitta narsa bor —
+        <code>SubstituteBindings</code>. Rate limiting <b>o'zi
+        kelmaydi</b>.</span></li>
+      <li><b><code>throttle:3,1</code> va <b>429</b></b>
+        <span class="nima">Uchta 200, keyin 429. Javob shakli va
+        <code>X-RateLimit-*</code> sarlavhalari bittalab
+        o'lchandi.</span></li>
+      <li><b><code>Retry-After</code> — mijozga ko'rsatma</b>
+        <span class="nima">429 «yo'q» degani emas, «hozircha yo'q»
+        degani. Mijoz qachon qayta urinishini <b>bilishi</b>
+        kerak.</span></li>
+      <li><b>⚠️ Birinchi jimgina yolg'on: umumiy hisob</b>
+        <span class="nima"><code>throttle:2,1</code> ikki xil
+        marshrutda — ular <b>bitta</b> hisobni bo'lishadi.
+        Sabab framework manbasida topildi. A/B
+        o'lchandi.</span></li>
+      <li><b>Uchinchi argument — prefiks</b>
+        <span class="nima"><code>throttle:2,1,kalit</code> —
+        hisoblarni ajratadigan bir so'z.</span></li>
+      <li><b><code>RateLimiter::for()</code> — nomlangan cheklov</b>
+        <span class="nima">Cheklovni <b>bir joyda</b> ta'riflash:
+        <code>Limit::perMinute()</code>, <code>by()</code>,
+        <code>response()</code>.</span></li>
+      <li><b><code>throttleApi()</code></b>
+        <span class="nima">Butun <code>api</code> guruhiga bir
+        qatorda. O'lchandi: aynan <b>60</b> ta 200, keyin
+        429.</span></li>
+      <li><b>⚠️ Ikkinchi jimgina yolg'on: <code>$request-&gt;user()</code></b>
+        <span class="nima">Rasmiy hujjatdagi shakl token API'da
+        <code>null</code> qaytaradi va cheklov <b>jimgina</b> IP
+        bo'yicha ishlab qoladi. Sabab —
+        <code>config/auth.php</code>.</span></li>
+      <li><b>⚠️ Uchinchi tuzoq: yolg'on sarlavhalar</b>
+        <span class="nima">O'z 429 javobingiz standart
+        sarlavhalarni <b>yo'qotadi</b> — va qo'shnisinikini
+        ko'rsatib qo'yadi: «54 ta so'rov qoldi» deb yozib turib
+        rad etadi.</span></li>
+      <li><b>Versiyalash: <code>/api/v1</code></b>
+        <span class="nima">🔍 O'lchandi: prefiks qo'shilishi bilan
+        <b>15 testdan 11 tasi</b> qizardi. Nega buni
+        <b>hozir</b> qilish kerak.</span></li>
+      <li><b>Cheklov testlari</b>
+        <span class="nima">429 ni testda tekshirish, va nega
+        har bir test <b>toza hisob</b> bilan boshlanadi.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima">Eski manzillarni tirik qoldirish
+        (<code>Deprecation</code>/<code>Sunset</code>) · kesh
+        drayveri · bir nechta server · <code>429</code> va
+        <code>503</code> farqi.</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Ochiq eshik</span>
+    <p>44-darsda <code>/api/token</code> ni yozgandik. U email va
+    parolni oladi, to'g'ri bo'lsa token beradi, xato bo'lsa
+    <b>422</b>. Endi hujumchi nuqtai nazaridan qaraymiz:</p>
+    <div class="natija">while (true) {
+    POST /api/token  { email: "ali@example.uz", parol: keyingi_taxmin() }
+    if (status === 201) break;
+}</div>
+    <p>Hech narsa uni to'xtatmaydi. Sekundiga yuzlab urinish —
+    va ko'p ishlatiladigan parollar ro'yxati unchalik uzun
+    emas.</p>
+    <p>Ikkinchi tomoni — pul. Har bir so'rov bazaga boradi, PHP
+    jarayonini band qiladi. Bitta skript butun serveringizni
+    sekinlashtira oladi. Bu hatto <b>hujum</b> ham bo'lmasligi
+    mumkin: mijoz dasturchisi tsiklda xato qilsa ham natija
+    bir xil.</p>
+    <p>Yechim — <b>rate limiting</b>: «bir daqiqada shuncha,
+    ko'pi yo'q». Va u uchun alohida status kodi bor —
+    <b>429 Too Many Requests</b>.<sup><a href="#fn1">1</a></sup></p>
+  </div>
+
+  <!-- ═══════════════ 2) CHEKLOV YO'Q ═══════════════ -->
+  <h2>Avval: bizda cheklov bormi?</h2>
+
+  <p>Ko'p qo'llanmada «Laravel API'ni o'zi cheklaydi» deyiladi.
+  Tekshiramiz — <code>api</code> guruhida nima borligini
+  ko'ramiz:</p>
+
+  <div class="natija">web:
+   Illuminate\Cookie\Middleware\EncryptCookies
+   Illuminate\Session\Middleware\StartSession
+   Illuminate\Foundation\Http\Middleware\PreventRequestForgery
+   ...
+api:
+   Illuminate\Routing\Middleware\SubstituteBindings      ← BITTA</div>
+
+  <p><b>Cheklov yo'q.</b> Laravel 10'gacha <code>api</code> guruhida
+  <code>throttle:api</code> bor edi; Laravel 11'dan boshlab
+  skelet soddalashtirildi va u <b>olib tashlandi</b>.</p>
+
+  <div class="callout warn">
+    <span class="label">⚠️ «Standart holda xavfsiz» degan taxmin</span>
+    <p>Bu darsning birinchi saboqi: <b>framework nimani o'zi
+    qilishini taxmin qilmang — qarab tekshiring.</b></p>
+    <p><code>SubstituteBindings</code> — bu 45-darsdagi route model
+    binding. Ya'ni <code>api</code> guruhida faqat <b>qulaylik</b>
+    bor, <b>himoya</b> yo'q.</p>
+    <p>🔍 Tashxis: <code>php artisan route:list</code> guruh
+    <b>nomini</b> ko'rsatadi (<code>api</code>), ichidagini emas.
+    Ichini ko'rish uchun tinker kerak — amaliyotda
+    yozamiz.</p>
+  </div>
+
+  <!-- ═══════════════ 3) THROTTLE ═══════════════ -->
+  <h2><code>throttle</code> va 429</h2>
+
+  <p>Eng oddiy shakl — marshrutga to'g'ridan-to'g'ri:</p>
+
+  <div class="codefile">
+    <div class="fname">routes/api.php</div>
+    <code class="cmd">Route::get('/x/tez', fn () =&gt; ['ok' =&gt; true])-&gt;middleware('throttle:3,1');</code>
+  </div>
+
+  <p>«Daqiqasiga 3 ta». Beshta so'rov yuboramiz:</p>
+
+  <div class="natija">urinish 1: 200   X-RateLimit-Limit: 3   X-RateLimit-Remaining: 2
+urinish 2: 200   X-RateLimit-Limit: 3   X-RateLimit-Remaining: 1
+urinish 3: 200   X-RateLimit-Limit: 3   X-RateLimit-Remaining: 0
+urinish 4: 429   X-RateLimit-Limit: 3   X-RateLimit-Remaining: 0
+                 Retry-After: 60   X-RateLimit-Reset: 1787644549
+urinish 5: 429   ...</div>
+
+  <p>Javob tanasi:</p>
+
+  <div class="natija">{ "message": "Too Many Attempts." }</div>
+
+  <p>Uchta sarlavhaga alohida e'tibor bering — ular mijoz uchun
+  yozilgan:</p>
+
+  <div class="natija">X-RateLimit-Limit      →  jami nechta mumkin
+X-RateLimit-Remaining  →  yana nechta qoldi
+Retry-After            →  necha soniyadan keyin qayta urinish mumkin
+X-RateLimit-Reset      →  hisob qachon nolga tushadi (unix vaqti)</div>
+
+  <div class="callout tip">
+    <span class="label">🔑 429 — «yo'q» emas, «hozircha yo'q»</span>
+    <p>403 «senga ruxsat yo'q» degani va qayta urinish
+    <b>befoyda</b>. 429 esa vaqtinchalik — shuning uchun unda
+    <code>Retry-After</code> bor.</p>
+    <p>Yaxshi mijoz buni o'qiydi va kutadi. Yomon mijoz darrov
+    qayta uradi va cheklovni yanada uzaytiradi. Shuning uchun
+    <b>siz</b> mijoz bo'lganingizda ham <code>Retry-After</code> ni
+    hurmat qiling.</p>
+  </div>
+
+  <!-- ═══════════════ 4) UMUMIY HISOB ═══════════════ -->
+  <h2>Birinchi jimgina yolg'on: umumiy hisob</h2>
+
+  <p>Ikkita marshrutga alohida cheklov qo'yamiz — mantiqan
+  ikkalasi ham o'zining 2 tasiga ega bo'lishi kerak:</p>
+
+  <div class="codefile">
+    <div class="fname">routes/api.php</div>
+    <code class="cmd">Route::get('/x/c', fn () =&gt; ['ok' =&gt; 'c'])-&gt;middleware('throttle:2,1');
+Route::get('/x/d', fn () =&gt; ['ok' =&gt; 'd'])-&gt;middleware('throttle:2,1');</code>
+  </div>
+
+  <div class="natija">/x/c: 200
+/x/c: 200
+/x/d: 429        ⚠️ /x/d ga BIRINCHI marta murojaat qilyapmiz
+/x/d: 429</div>
+
+  <p><code>/x/d</code> ga hech qachon bormagan edik — lekin u
+  darrov rad etdi. Sababi framework kodida:</p>
+
+  <div class="natija">// ThrottleRequests::resolveRequestSignature()
+
+if ($user = $request-&gt;user()) {
+    return $this-&gt;formatIdentifier($user-&gt;getAuthIdentifier());   ← foydalanuvchi id
+} elseif ($route = $request-&gt;route()) {
+    return $this-&gt;formatIdentifier($route-&gt;getDomain().'|'.$request-&gt;ip());   ← domen|IP
+}</div>
+
+  <p>Kalitda <b>marshrut yo'q</b>. Faqat foydalanuvchi (yoki IP).
+  Ya'ni <code>throttle:2,1</code> qaysi marshrutda bo'lmasin,
+  <b>bitta</b> hisobga yozadi.</p>
+
+  <p>✅ Yechim — uchinchi argument, <b>prefiks</b>:</p>
+
+  <div class="codefile">
+    <div class="fname">routes/api.php</div>
+    <code class="cmd">Route::get('/x/a', fn () =&gt; ['ok' =&gt; 'a'])-&gt;middleware('throttle:2,1,aaa');
+Route::get('/x/b', fn () =&gt; ['ok' =&gt; 'b'])-&gt;middleware('throttle:2,1,bbb');</code>
+  </div>
+
+  <div class="natija">/x/a: 200   /x/a: 200   /x/a: 429      ✅ o'z hisobi
+/x/b: 200   /x/b: 200   /x/b: 429      ✅ o'z hisobi</div>
+
+  <div class="callout warn">
+    <span class="label">⚠️ Nega bu «yolg'on»?</span>
+    <p>Chunki kod <b>o'qiganda to'g'ri ko'rinadi</b>: har
+    marshrutda o'z cheklovi yozilgan. Xato ham chiqmaydi. Faqat
+    xatti-harakat boshqacha.</p>
+    <p>Amalda bu shunday ko'rinadi: qidiruvni ko'p ishlatgan
+    foydalanuvchi <b>login qila olmay qoladi</b> — chunki ikkala
+    marshrut bitta hisobni yeb bo'lgan.</p>
+    <p>🔑 Naqsh tanish: 46-darsdagi <code>?sort=moash</code>,
+    47-darsdagi o'lik handler — <b>xato chiqmaydi, natija
+    noto'g'ri</b>.</p>
+  </div>
+
+  <!-- ═══════════════ 5) NOMLANGAN CHEKLOV ═══════════════ -->
+  <h2>Nomlangan cheklov: <code>RateLimiter::for()</code></h2>
+
+  <p>Marshrutlarga raqam yozib yurish tez chalkashadi. Yaxshiroq
+  yo'l — cheklovni <b>bir joyda</b> ta'riflab, unga <b>nom</b>
+  berish:</p>
+
+  <div class="codefile">
+    <div class="fname">app/Providers/AppServiceProvider.php</div>
+    <code class="cmd" data-cmd="use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
+
+public function boot(): void
+{
+    RateLimiter::for('api', fn (Request $request) =&gt; Limit::perMinute(60)
+        -&gt;by($request-&gt;user('sanctum')?-&gt;id ?: $request-&gt;ip()));
+
+    RateLimiter::for('kirish', fn (Request $request) =&gt; Limit::perMinute(5)
+        -&gt;by($request-&gt;ip())
+        -&gt;response(fn (Request $request, array $sarlavhalar) =&gt; response()-&gt;json([
+            'message' =&gt; 'Juda ko\'p urinish. Bir daqiqadan keyin qayta urinib ko\'ring.',
+            'kod' =&gt; 'juda_kop_urinish',
+        ], 429, $sarlavhalar)));
+}">use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
+
+public function boot(): void
+{
+    RateLimiter::for('api', fn (Request $request) =&gt; Limit::perMinute(60)
+        -&gt;by($request-&gt;user('sanctum')?-&gt;id ?: $request-&gt;ip()));
+
+    RateLimiter::for('kirish', fn (Request $request) =&gt; Limit::perMinute(5)
+        -&gt;by($request-&gt;ip())
+        -&gt;response(fn (Request $request, array $sarlavhalar) =&gt; response()-&gt;json([
+            'message' =&gt; 'Juda ko\'p urinish. Bir daqiqadan keyin qayta urinib ko\'ring.',
+            'kod' =&gt; 'juda_kop_urinish',
+        ], 429, $sarlavhalar)));
+}</code>
+  </div>
+
+  <p>Uchta qism bor:</p>
+
+  <div class="natija">Limit::perMinute(60)  →  qancha
+->by(...)             →  KIM uchun hisoblanadi  ← kalit shu yerda
+->response(...)       →  rad etilganda nima qaytadi</div>
+
+  <p><code>by()</code> — bu avvalgi bo'limdagi «kalit» muammosining
+  <b>to'g'ri</b> yechimi: siz uni <b>o'zingiz</b> tanlaysiz,
+  taxmin qilmaysiz.</p>
+
+  <p><code>api</code> nomini butun guruhga ulash bir qator:</p>
+
+  <div class="codefile">
+    <div class="fname">bootstrap/app.php</div>
+    <code class="cmd">-&gt;withMiddleware(function (Middleware $middleware): void {
+    $middleware-&gt;throttleApi();
+
+    $middleware-&gt;alias([...]);
+})</code>
+  </div>
+
+  <div class="natija">// endi api guruhi:
+   throttle:api                                     ← qo'shildi
+   Illuminate\Routing\Middleware\SubstituteBindings
+
+// 62 ta so'rov yubordik:
+   200: 60   429: 2      ✅ aniq 60 tada to'xtadi</div>
+
+  <p><code>kirish</code> ni esa faqat token marshrutiga
+  ulaymiz:</p>
+
+  <div class="codefile">
+    <div class="fname">routes/api.php</div>
+    <code class="cmd">Route::post('/token', [TokenController::class, 'yarat'])
+    -&gt;middleware('throttle:kirish');</code>
+  </div>
+
+  <div class="natija">urinish 1..5:  422   { "message": "Email yoki parol xato." }
+urinish 6:     429   { "message": "Juda ko'p urinish...", "kod": "juda_kop_urinish" }</div>
+
+  <p>Endi parolni taxmin qilish daqiqasiga <b>5 ta</b> urinishga
+  tushdi. Va javob 47-darsdagi shaklda — o'z <code>kod</code>
+  maydonimiz bilan.</p>
+
+  <!-- ═══════════════ 6) USER() TUZOG'I ═══════════════ -->
+  <h2>Ikkinchi jimgina yolg'on: <code>$request-&gt;user()</code></h2>
+
+  <p>Yuqoridagi kodda <code>$request-&gt;user('sanctum')</code> deb
+  yozilgan. Rasmiy hujjatlarda esa odatda shunday:</p>
+
+  <div class="codefile">
+    <div class="fname">❌ token API'da ishlamaydi</div>
+    <code class="cmd">-&gt;by($request-&gt;user()?-&gt;id ?: $request-&gt;ip())</code>
+  </div>
+
+  <p>Sinaymiz. Cheklovni vaqtincha 3 ga tushiramiz, avval
+  <b>mehmon</b> sifatida hisobni tugatamiz, keyin <b>token
+  bilan</b> murojaat qilamiz — token egasining o'z hisobi
+  bo'lishi kerak:</p>
+
+  <div class="natija">mehmon:   200  200  200  429      ← kutilgan
+token bilan:  429  429  429  429      ⚠️ birinchi so'rovdan!</div>
+
+  <p>Token egasi mehmonning hisobiga tushib qoldi. Sabab
+  <code>config/auth.php</code> da:</p>
+
+  <div class="natija">'defaults' =&gt; [
+    'guard' =&gt; env('AUTH_GUARD', 'web'),      ← standart guard: web
+],</div>
+
+  <p><code>$request-&gt;user()</code> — <b>standart</b> guard'ni
+  so'raydi, ya'ni <code>web</code>, ya'ni <b>sessiya</b>. Bizda
+  esa sessiya yo'q — bizda <b>token</b> bor. Shuning uchun u
+  <code>null</code> qaytaradi va <code>?:</code> bizni IP'ga
+  tushirib yuboradi.</p>
+
+  <p>✅ Guard'ni <b>aniq</b> aytish kerak:</p>
+
+  <div class="natija">-&gt;by($request-&gt;user('sanctum')?-&gt;id ?: $request-&gt;ip())
+
+mehmon:       200  200  200  429
+token bilan:  200  200  200  429      ✅ alohida hisob</div>
+
+  <div class="callout warn">
+    <span class="label">⚠️ Bu qanday zarar keltiradi</span>
+    <p>Cheklov <b>ishlaydi</b> — shuning uchun hech kim shubha
+    qilmaydi. Lekin u <b>IP bo'yicha</b> ishlaydi.</p>
+    <p>Bitta ofisdagi 50 ta xodim bitta tashqi IP orqali chiqadi.
+    Mobil operator NAT'i ostida esa <b>minglab</b> foydalanuvchi
+    bitta IP'da bo'lishi mumkin. Ular sizning API'ingizda
+    <b>bitta odam</b> bo'lib ko'rinadi va bir-birining
+    cheklovini yeb qo'yadi.</p>
+    <p>🔍 Tashxis: cheklovni vaqtincha kichik qiling
+    (<code>perMinute(3)</code>) va ikki xil token bilan sinang.
+    Agar ikkinchisi darrov 429 olsa — guard muammosi.</p>
+  </div>
+
+  <div class="callout tip">
+    <span class="label">🔑 44-darsga bog'lanish</span>
+    <p>44-darsda <code>auth:sanctum</code> deb yozgan edik — u
+    yerda ham guard <b>aniq</b> ko'rsatilgan.
+    <code>auth</code> deb yozganimizda ham xuddi shunday
+    bo'lardi: web guard, sessiya, va token e'tiborsiz.</p>
+    <p>Qoida: <b>token API'da guard nomini har doim
+    yozing.</b></p>
+  </div>
+
+  <!-- ═══════════════ 7) YOLG'ON SARLAVHALAR ═══════════════ -->
+  <h2>Uchinchi tuzoq: yolg'on sarlavhalar</h2>
+
+  <p><code>-&gt;response(...)</code> yozganimizda birinchi
+  variantim shunday edi — argumentsiz:</p>
+
+  <div class="codefile">
+    <div class="fname">❌ sarlavhalarni yo'qotadi</div>
+    <code class="cmd">-&gt;response(fn () =&gt; response()-&gt;json([
+    'message' =&gt; 'Juda ko\'p urinish...',
+    'kod' =&gt; 'juda_kop_urinish',
+], 429))</code>
+  </div>
+
+  <p>Javob to'g'ri keldi — <b>429</b> va bizning matn. Lekin
+  sarlavhalarga qarasak:</p>
+
+  <div class="natija">status: 429
+x-ratelimit-limit: 60         ⚠️ bizniki 5 edi
+x-ratelimit-remaining: 54     ⚠️ «54 ta qoldi» deb turib RAD ETDI
+(retry-after yo'q)            ⚠️ mijoz qachon urinishini bilmaydi</div>
+
+  <p>Ikkita muammo birdan. <code>Retry-After</code>
+  <b>yo'qoldi</b> — mijoz endi ko'r-ko'rona qayta uradi. Va
+  qolgan sarlavhalar <b>qo'shnisiniki</b>: ular tashqi
+  <code>api</code> cheklovidan qolgan, ya'ni javob
+  <b>yolg'on gapiryapti</b>.</p>
+
+  <p>Sabab: <code>response()</code> callback'i sarlavhalarni
+  <b>ikkinchi argument</b> sifatida oladi, biz esa uni
+  olmagan edik:</p>
+
+  <div class="natija">// ThrottleRequests::buildException()
+$responseCallback($request, $headers)      ← ikkinchi argument</div>
+
+  <p>✅ Uni qabul qilib, javobga uzatamiz:</p>
+
+  <div class="natija">-&gt;response(fn (Request $request, array $sarlavhalar) =&gt; response()-&gt;json([
+    ...
+], 429, $sarlavhalar))
+
+// natija:
+x-ratelimit-limit: 5          ✅
+x-ratelimit-remaining: 0      ✅
+retry-after: 60               ✅
+x-ratelimit-reset: 1787644916 ✅</div>
+
+  <!-- ═══════════════ 8) VERSIYALASH ═══════════════ -->
+  <h2>Versiyalash: <code>/api/v1</code></h2>
+
+  <p>Endi boshqa mavzu — lekin u ham «mijoz bilan kelishuv»
+  haqida.</p>
+
+  <p>Tasavvur qiling: API ishlayapti, mobil ilova chiqdi. Olti
+  oydan keyin <code>maosh</code> maydonini
+  <code>maosh_dan</code> va <code>maosh_gacha</code> ga
+  bo'lish kerak bo'lib qoldi. Siz o'zgartirasiz — va
+  <b>telefonlardagi</b> ilova buziladi. Foydalanuvchilar esa
+  ilovani yangilamaydi.</p>
+
+  <p>Yechim — manzilga <b>versiya</b> qo'yish:</p>
+
+  <div class="natija">/api/v1/vakansiyalar    ←  eski mijozlar shu yerda qoladi
+/api/v2/vakansiyalar    ←  yangi shakl</div>
+
+  <div class="codefile">
+    <div class="fname">routes/api.php</div>
+    <code class="cmd" data-cmd="Route::prefix('v1')-&gt;name('api.v1.')-&gt;group(function () {
+    Route::post('/token', [TokenController::class, 'yarat'])
+        -&gt;middleware('throttle:kirish')
+        -&gt;name('token.yarat');
+
+    Route::apiResource('vakansiyalar', VakansiyaController::class)
+        -&gt;parameters(['vakansiyalar' =&gt; 'vakansiya'])
+        -&gt;names('vakansiyalar')
+        -&gt;only(['index', 'show']);
+
+    Route::middleware('auth:sanctum')-&gt;group(function () {
+        Route::apiResource('vakansiyalar', VakansiyaController::class)
+            -&gt;parameters(['vakansiyalar' =&gt; 'vakansiya'])
+            -&gt;names('vakansiyalar')
+            -&gt;only(['store', 'update', 'destroy'])
+            -&gt;middleware('abilities:vakansiya:yozish');
+
+        Route::delete('/token', [TokenController::class, 'ochir'])-&gt;name('token.ochir');
+        Route::get('/user', fn (Request $request) =&gt; $request-&gt;user())-&gt;name('user');
+    });
+});">Route::prefix('v1')-&gt;name('api.v1.')-&gt;group(function () {
+    Route::post('/token', [TokenController::class, 'yarat'])
+        -&gt;middleware('throttle:kirish')
+        -&gt;name('token.yarat');
+
+    Route::apiResource('vakansiyalar', VakansiyaController::class)
+        -&gt;parameters(['vakansiyalar' =&gt; 'vakansiya'])
+        -&gt;names('vakansiyalar')
+        -&gt;only(['index', 'show']);
+
+    Route::middleware('auth:sanctum')-&gt;group(function () {
+        Route::apiResource('vakansiyalar', VakansiyaController::class)
+            -&gt;parameters(['vakansiyalar' =&gt; 'vakansiya'])
+            -&gt;names('vakansiyalar')
+            -&gt;only(['store', 'update', 'destroy'])
+            -&gt;middleware('abilities:vakansiya:yozish');
+
+        Route::delete('/token', [TokenController::class, 'ochir'])-&gt;name('token.ochir');
+        Route::get('/user', fn (Request $request) =&gt; $request-&gt;user())-&gt;name('user');
+    });
+});</code>
+  </div>
+
+  <p>E'tibor bering: <code>names('vakansiyalar')</code> —
+  <code>api.vakansiyalar</code> emas. Chunki guruh
+  <code>-&gt;name('api.v1.')</code> prefiksini <b>o'zi</b>
+  qo'shadi:</p>
+
+  <div class="natija">GET|HEAD   api/v1/vakansiyalar               api.v1.vakansiyalar.index
+POST       api/v1/vakansiyalar               api.v1.vakansiyalar.store
+GET|HEAD   api/v1/vakansiyalar/{vakansiya}   api.v1.vakansiyalar.show
+PUT|PATCH  api/v1/vakansiyalar/{vakansiya}   api.v1.vakansiyalar.update
+DELETE     api/v1/vakansiyalar/{vakansiya}   api.v1.vakansiyalar.destroy
+POST       api/v1/token                      api.v1.token.yarat</div>
+
+  <h3>Va endi — testlar</h3>
+
+  <p>Bu o'zgarishdan keyin to'liq to'plamni ishga tushiramiz:</p>
+
+  <div class="natija">Tests:  11 failed, 4 passed
+
+Expected response status code [200] but received 404.
+   at tests/Feature/XatoTest.php:38</div>
+
+  <p><b>15 testdan 11 tasi</b> qizardi. Va bu — <b>yaxshi
+  xabar</b>.</p>
+
+  <div class="callout tip">
+    <span class="label">🔑 Testlar mijozning ovozi</span>
+    <p>Bu naqsh Modul F'da <b>to'rtinchi marta</b> takrorlanmoqda:
+    43-darsda <code>data</code> o'rami, 44-darsda auth, 45-darsda
+    marshrut nomlari, endi versiya. Har safar testlar
+    <b>mijoz nomidan</b> e'tiroz bildirdi.</p>
+    <p>Bu safar e'tiroz ayniqsa qimmatli, chunki u savolni
+    aniq qo'yadi: <b>bu o'zgarish mijozni buzadimi?</b> Javob —
+    ha, 11 joyda.</p>
+    <p>🔑 Xulosa: <b>versiyani mijoz paydo bo'lishidan oldin
+    qo'shing.</b> Hozir bizning yagona «mijozimiz» — testlar,
+    va ularni tuzatish bir <code>sed</code> buyrug'i. Mobil
+    ilova chiqqandan keyin esa bu imkonsiz bo'ladi.</p>
+  </div>
+
+  <p>Testlarni yangilaymiz va hammasi yashil:</p>
+
+  <div class="natija">sed -i 's|/api/vakansiyalar|/api/v1/vakansiyalar|g' tests/Feature/*.php
+
+Tests:  15 passed (37 assertions)</div>
+
+  <!-- ═══════════════ 9) TESTLAR ═══════════════ -->
+  <h2>Cheklov testlari</h2>
+
+  <div class="codefile">
+    <div class="fname">tests/Feature/CheklovTest.php</div>
+    <code class="cmd">use App\Models\Vakansiya;
+
+it('javobda cheklov sarlavhalari bo\'ladi', function () {
+    Vakansiya::factory()-&gt;create();
+
+    $javob = $this-&gt;getJson('/api/v1/vakansiyalar');
+
+    $javob-&gt;assertOk();
+    expect($javob-&gt;headers-&gt;get('X-RateLimit-Limit'))-&gt;toBe('60');
+    expect($javob-&gt;headers-&gt;get('X-RateLimit-Remaining'))-&gt;toBe('59');
+});
+
+it('kirishda beshtadan keyin 429 beradi', function () {
+    $malumot = ['email' =&gt; 'yolgon@b.uz', 'parol' =&gt; 'xato', 'qurilma' =&gt; 'sinov'];
+
+    foreach (range(1, 5) as $urinish) {
+        $this-&gt;postJson('/api/v1/token', $malumot)-&gt;assertStatus(422);
+    }
+
+    $this-&gt;postJson('/api/v1/token', $malumot)
+        -&gt;assertStatus(429)
+        -&gt;assertJsonPath('kod', 'juda_kop_urinish');
+});
+
+it('429 javobida Retry-After sarlavhasi bo\'ladi', function () {
+    $malumot = ['email' =&gt; 'yolgon@b.uz', 'parol' =&gt; 'xato', 'qurilma' =&gt; 'sinov'];
+
+    foreach (range(1, 5) as $urinish) {
+        $this-&gt;postJson('/api/v1/token', $malumot);
+    }
+
+    $javob = $this-&gt;postJson('/api/v1/token', $malumot);
+
+    $javob-&gt;assertStatus(429);
+    expect((int) $javob-&gt;headers-&gt;get('Retry-After'))-&gt;toBeGreaterThan(0);
+    expect($javob-&gt;headers-&gt;get('X-RateLimit-Limit'))-&gt;toBe('5');
+    expect($javob-&gt;headers-&gt;get('X-RateLimit-Remaining'))-&gt;toBe('0');
+});
+
+it('har bir test yangi hisob bilan boshlanadi', function () {
+    $malumot = ['email' =&gt; 'yolgon@b.uz', 'parol' =&gt; 'xato', 'qurilma' =&gt; 'sinov'];
+
+    $this-&gt;postJson('/api/v1/token', $malumot)-&gt;assertStatus(422);
+});</code>
+  </div>
+
+  <div class="natija">Tests:  19 passed (52 assertions)</div>
+
+  <p>Oxirgi test qiziq savolga javob beradi: <b>oldingi test 6 ta
+  urinish qilgan edi — bu test nega 429 olmaydi?</b></p>
+
+  <p>Chunki cheklov hisoblari <b>keshda</b> yashaydi, test
+  muhitida esa <code>phpunit.xml</code> da shunday yozilgan:</p>
+
+  <div class="natija">&lt;env name="CACHE_STORE" value="array"/&gt;</div>
+
+  <p><code>array</code> keshi — xotirada, va u <b>har bir
+  test uchun yangi</b>. Ya'ni testlar bir-birining cheklovini
+  merosga olmaydi.</p>
+
+  <p>Uchinchi test <code>Retry-After</code> ni <b>aniq songa</b>
+  emas, <code>toBeGreaterThan(0)</code> ga solishtiradi — chunki
+  u soniyalarda va sekundma-sekund o'zgaradi. <code>Limit</code>
+  va <code>Remaining</code> esa barqaror, ularni aniq
+  tekshirsa bo'ladi.</p>
+
+  <!-- ═══════════════ 10) HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir bir
+  marta o'qib chiqing, keyin kerak bo'lganda qaytib
+  qarang.</p>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 1</span>
+    <h4>Eski manzillarni tirik qoldirish</h4>
+    <p>Mijozlaringiz allaqachon bor bo'lsa, versiyani
+    <b>birdaniga</b> qo'yib bo'lmaydi. Eski manzillarni bir
+    muddat saqlab, ularni <b>belgilab</b> qo'yish kerak:</p>
+    <div class="natija">// app/Http/Middleware/EskiVersiya.php
+$javob-&gt;headers-&gt;set('Deprecation', 'true');
+$javob-&gt;headers-&gt;set('Sunset', 'Wed, 31 Dec 2026 23:59:59 GMT');
+$javob-&gt;headers-&gt;set('Link', '&lt;/api/v1/vakansiyalar&gt;; rel="successor-version"');
+
+// routes/api.php
+Route::name('api.eski.')
+    -&gt;middleware(\App\Http\Middleware\EskiVersiya::class)
+    -&gt;group(function () { ... });</div>
+    <p><code>Deprecation</code> — «bu manzil eskirgan».
+    <code>Sunset</code> — «shu sanadan keyin o'chadi».
+    <code>Link</code> — «o'rniga buni ishlating». Uchalasi ham
+    standart.<sup><a href="#fn2">2</a></sup></p>
+    <p>⚠️ Nomlar <b>boshqacha</b> bo'lishi shart
+    (<code>api.eski.</code>) — aks holda 45-darsdagi
+    to'qnashuv qaytadi.</p>
+    <p>⚠️ Bu guruhga <code>-&gt;middleware(function (...) {...})</code>
+    deb <b>closure</b> berib bo'lmaydi:
+    <code>Object of class Closure could not be converted to
+    string</code>. Marshrut guruhida middleware <b>klass nomi</b>
+    bo'lishi kerak — 32-darsdagidek.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 2</span>
+    <h4>Kesh drayveri va bir nechta server</h4>
+    <div class="natija">CACHE_STORE=file      →  hisob HAR BIR serverda alohida  ⚠️
+CACHE_STORE=database  →  umumiy (bizda shunday)
+CACHE_STORE=redis     →  umumiy va tez  ✅</div>
+    <p>Cheklov hisoblari <b>keshda</b> yashaydi. Ikkita server
+    orqasida <code>file</code> keshi bo'lsa, cheklov amalda
+    <b>ikki barobar</b> bo'ladi — har bir server o'zicha
+    sanaydi.</p>
+    <p>🔍 Bizning bazamizda ko'rish mumkin:
+    <code>DB::table('cache')-&gt;get()</code> — ichida
+    <code>laravel-cache-&lt;hash&gt;</code> va
+    <code>...:timer</code> juftliklari turadi.</p>
+    <p>✅ Ko'p serverli ilovada <code>redis</code> va
+    <code>$middleware-&gt;throttleWithRedis()</code>.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 3</span>
+    <h4>Har xil foydalanuvchiga har xil cheklov</h4>
+    <div class="natija">RateLimiter::for('api', function (Request $request) {
+    $user = $request-&gt;user('sanctum');
+
+    return $user?-&gt;rol === Rol::Admin
+        ? Limit::none()
+        : Limit::perMinute($user ? 60 : 20)-&gt;by($user?-&gt;id ?: $request-&gt;ip());
+});</div>
+    <p><code>Limit::none()</code> — cheklovsiz. Mehmonga
+    kamroq, ro'yxatdan o'tganga ko'proq — bu keng tarqalgan
+    naqsh.</p>
+    <p>🔑 34-darsdagi <code>Rol</code> enum shu yerda ham
+    ishlatiladi — bitta manba, ko'p joyda.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 4</span>
+    <h4>Bir vaqtda ikkita cheklov</h4>
+    <div class="natija">RateLimiter::for('api', fn (Request $request) =&gt; [
+    Limit::perMinute(60)-&gt;by($request-&gt;ip()),
+    Limit::perDay(1000)-&gt;by($request-&gt;ip()),
+]);</div>
+    <p>Massiv qaytarsangiz, <b>hammasi</b> tekshiriladi —
+    birinchi oshgani rad etadi. «Daqiqasiga 60, kuniga 1000»
+    kabi qoidalar shunday yoziladi.</p>
+    <p>⚠️ Sarlavhalar <b>oxirgi</b> cheklovniki bo'lib
+    qoladi — mijozga qaysi biri ishlaganini aytish uchun
+    <code>response()</code> yozing.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 5</span>
+    <h4>429 va 503 farqi</h4>
+    <div class="natija">429  →  SIZ juda ko'p so'radingiz          (mijozning aybi, 4xx)
+503  →  SERVER hozir xizmat qila olmaydi (bizning holat, 5xx)</div>
+    <p>Ikkalasida ham <code>Retry-After</code> bo'lishi mumkin,
+    lekin ma'nosi boshqa. <code>php artisan down</code> —
+    <b>503</b> beradi.</p>
+    <p>🔑 47-darsdagi chegara shu yerda ham: <b>4xx —
+    mijozniki, 5xx — sizniki</b>.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 6</span>
+    <h4>Cheklov proksi orqasida</h4>
+    <div class="natija">$request-&gt;ip()  →  proksi/CDN manzili   ⚠️ HAMMA uchun bir xil</div>
+    <p>Nginx, Cloudflare yoki load balancer orqasida ishlasangiz,
+    <code>ip()</code> haqiqiy mijozni emas, <b>proksini</b>
+    ko'rsatishi mumkin. U holda butun dunyo <b>bitta hisobga</b>
+    tushadi.</p>
+    <p>✅ <code>bootstrap/app.php</code> da
+    <code>$middleware-&gt;trustProxies(at: '*')</code> (yoki aniq
+    IP ro'yxati) — shundan keyin Laravel
+    <code>X-Forwarded-For</code> ni o'qiydi.</p>
+    <p>⚠️ <code>at: '*'</code> ni faqat proksi <b>haqiqatan
+    ham</b> oldinda bo'lganda yozing — aks holda mijoz
+    sarlavhani o'zi yasab, IP'sini <b>o'zgartirib</b>
+    yuboradi.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>Versiyani boshqa joyga qo'yish</h4>
+    <div class="natija">/api/v1/vakansiyalar                       ← manzilda (biz shuni tanladik)
+Accept: application/vnd.ishtop.v1+json     ← sarlavhada
+?version=1                                 ← query parametrda</div>
+    <p>Uchalasi ham amalda uchraydi. Manzildagi variant
+    <b>eng ko'rinadigan</b>: brauzerda ochib ko'rish mumkin,
+    logda ko'rinadi, <code>curl</code> da yozish oson.</p>
+    <p>Sarlavhali variant «toza» hisoblanadi (manzil resursni
+    ko'rsatadi, versiya esa shakl haqida), lekin
+    <b>tekshirish qiyin</b> va keshlash bilan muammo
+    tug'diradi.</p>
+    <p>🔑 Tanlov texnik emas, <b>amaliy</b>: qaysi birini
+    mijozlaringiz osonroq ishlatadi.</p>
+  </div>
+
+  <!-- ═══════════════ 11) AMALIYOT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    💻 Quyida amaliyot bor. Hozir o'qish rejimidasiz — kompyuter
+    yoningizda bo'lganda <b>💻 Amaliyot</b> rejimiga o'ting va
+    shu bo'limdan davom eting.
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <b>Cheklov yo'qligini o'z ko'zingiz bilan ko'ring.</b>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+php artisan tinker --execute=&quot;print_r(app('router')->getMiddlewareGroups()['api']);&quot;">cd ~/Projects/Learn/ishtop
+php artisan tinker --execute=&quot;print_r(app('router')-&gt;getMiddlewareGroups()['api']);&quot;</div>
+        <p class="expect">⚠️ Faqat <code>SubstituteBindings</code>
+        chiqadi. <code>throttle</code> yo'q.</p>
+      </li>
+
+      <li>
+        <b>Umumiy hisob tuzog'ini o'lchang.</b> Ikkita sinov
+        marshruti qo'shing:
+        <div class="cmd" data-cmd="# routes/api.php oxiriga:
+Route::get('/x/c', fn () => ['ok' => 'c'])->middleware('throttle:2,1');
+Route::get('/x/d', fn () => ['ok' => 'd'])->middleware('throttle:2,1');"># routes/api.php oxiriga:
+Route::get('/x/c', fn () =&gt; ['ok' =&gt; 'c'])-&gt;middleware('throttle:2,1');
+Route::get('/x/d', fn () =&gt; ['ok' =&gt; 'd'])-&gt;middleware('throttle:2,1');</div>
+        <div class="cmd" data-cmd="php artisan serve">php artisan serve</div>
+        <p>Boshqa terminalda:</p>
+        <div class="cmd" data-cmd="php artisan cache:clear
+for u in c c d d; do printf '/x/%s: ' $u; curl -s -o /dev/null -w '%{http_code}\n' -H 'Accept: application/json' &quot;http://127.0.0.1:8000/api/x/$u&quot;; done">php artisan cache:clear
+for u in c c d d; do printf '/x/%s: ' $u; curl -s -o /dev/null -w '%{http_code}\n' -H 'Accept: application/json' &quot;http://127.0.0.1:8000/api/x/$u&quot;; done</div>
+        <p class="expect">⚠️ <code>/x/d</code> birinchi
+        murojaatdayoq <b>429</b>.</p>
+      </li>
+
+      <li>
+        <b>Prefiks bilan tuzating.</b>
+        <div class="cmd" data-cmd="# throttle:2,1 o'rniga throttle:2,1,ccc va throttle:2,1,ddd yozing"># throttle:2,1 o'rniga throttle:2,1,ccc va throttle:2,1,ddd yozing</div>
+        <div class="cmd" data-cmd="php artisan cache:clear
+for u in c c d d; do printf '/x/%s: ' $u; curl -s -o /dev/null -w '%{http_code}\n' -H 'Accept: application/json' &quot;http://127.0.0.1:8000/api/x/$u&quot;; done">php artisan cache:clear
+for u in c c d d; do printf '/x/%s: ' $u; curl -s -o /dev/null -w '%{http_code}\n' -H 'Accept: application/json' &quot;http://127.0.0.1:8000/api/x/$u&quot;; done</div>
+        <p class="expect">✅ To'rttasi ham <b>200</b>.</p>
+      </li>
+
+      <li>
+        <b>429 sarlavhalarini ko'ring.</b>
+        <div class="cmd" data-cmd="for i in 1 2 3; do curl -s -o /dev/null -w 'status %{http_code}\n' -H 'Accept: application/json' http://127.0.0.1:8000/api/x/c; done
+curl -s -D - -o /dev/null -H 'Accept: application/json' http://127.0.0.1:8000/api/x/c | grep -iE 'HTTP/|ratelimit|retry-after'">for i in 1 2 3; do curl -s -o /dev/null -w 'status %{http_code}\n' -H 'Accept: application/json' http://127.0.0.1:8000/api/x/c; done
+curl -s -D - -o /dev/null -H 'Accept: application/json' http://127.0.0.1:8000/api/x/c | grep -iE 'HTTP/|ratelimit|retry-after'</div>
+        <p class="expect"><code>Retry-After</code> va
+        <code>X-RateLimit-Reset</code> aynan <b>429</b> da
+        paydo bo'ladi.</p>
+      </li>
+
+      <li>
+        <b>Nomlangan cheklovlarni yozing.</b> Yuqoridagi
+        <code>AppServiceProvider</code> kodini ko'chiring
+        (nusxa tugmasi bor).
+        <div class="cmd" data-cmd="php -l app/Providers/AppServiceProvider.php">php -l app/Providers/AppServiceProvider.php</div>
+      </li>
+
+      <li>
+        <b><code>throttleApi()</code> ni ulang.</b>
+        <code>bootstrap/app.php</code> dagi
+        <code>withMiddleware</code> ichiga
+        <code>$middleware-&gt;throttleApi();</code> qo'shing.
+        <div class="cmd" data-cmd="php artisan tinker --execute=&quot;print_r(app('router')->getMiddlewareGroups()['api']);&quot;">php artisan tinker --execute=&quot;print_r(app('router')-&gt;getMiddlewareGroups()['api']);&quot;</div>
+        <p class="expect">Endi <code>throttle:api</code> ham
+        ko'rinadi.</p>
+      </li>
+
+      <li>
+        <b>Guard tuzog'ini o'lchang.</b> Cheklovni vaqtincha
+        kichraytiring:
+        <div class="cmd" data-cmd="# AppServiceProvider da: perMinute(60) -> perMinute(3)
+# va vaqtincha: user('sanctum') -> user()"># AppServiceProvider da: perMinute(60) -&gt; perMinute(3)
+# va vaqtincha: user('sanctum') -&gt; user()</div>
+        <div class="cmd" data-cmd="php artisan cache:clear
+TOKEN=$(php artisan tinker --execute=&quot;echo App\Models\User::first()->createToken('sinov')->plainTextToken;&quot; | tail -1)
+echo &quot;--- mehmon ---&quot;
+for i in 1 2 3 4; do curl -s -o /dev/null -w '%{http_code}\n' -H 'Accept: application/json' http://127.0.0.1:8000/api/vakansiyalar; done
+echo &quot;--- token bilan ---&quot;
+for i in 1 2 3 4; do curl -s -o /dev/null -w '%{http_code}\n' -H 'Accept: application/json' -H &quot;Authorization: Bearer $TOKEN&quot; http://127.0.0.1:8000/api/vakansiyalar; done">php artisan cache:clear
+TOKEN=$(php artisan tinker --execute=&quot;echo App\Models\User::first()-&gt;createToken('sinov')-&gt;plainTextToken;&quot; | tail -1)
+echo &quot;--- mehmon ---&quot;
+for i in 1 2 3 4; do curl -s -o /dev/null -w '%{http_code}\n' -H 'Accept: application/json' http://127.0.0.1:8000/api/vakansiyalar; done
+echo &quot;--- token bilan ---&quot;
+for i in 1 2 3 4; do curl -s -o /dev/null -w '%{http_code}\n' -H 'Accept: application/json' -H &quot;Authorization: Bearer $TOKEN&quot; http://127.0.0.1:8000/api/vakansiyalar; done</div>
+        <p class="expect">⚠️ Token bilan ham <b>429</b>.
+        Endi <code>user('sanctum')</code> ga qaytaring,
+        <code>cache:clear</code> qiling va qayta o'lchang —
+        token egasi o'z hisobiga ega bo'ladi.</p>
+      </li>
+
+      <li>
+        <b>Kirish cheklovini sinang.</b>
+        <code>perMinute(3)</code> ni <code>60</code> ga
+        qaytaring va token marshrutiga
+        <code>-&gt;middleware('throttle:kirish')</code> qo'shing.
+        <div class="cmd" data-cmd="php artisan cache:clear
+for i in 1 2 3 4 5 6; do printf 'urinish %d: ' $i; curl -s -w ' (%{http_code})\n' -X POST -H 'Accept: application/json' -d 'email=yolgon@b.uz&amp;parol=xato&amp;qurilma=sinov' http://127.0.0.1:8000/api/token; done">php artisan cache:clear
+for i in 1 2 3 4 5 6; do printf 'urinish %d: ' $i; curl -s -w ' (%{http_code})\n' -X POST -H 'Accept: application/json' -d 'email=yolgon@b.uz&amp;parol=xato&amp;qurilma=sinov' http://127.0.0.1:8000/api/token; done</div>
+        <p class="expect">1–5: <b>422</b>, 6-si: <b>429</b> va
+        bizning <code>kod</code>.</p>
+      </li>
+
+      <li>
+        <b>Versiya qo'shing va testlar qizarishini ko'ring.</b>
+        Yuqoridagi <code>routes/api.php</code> ni ko'chiring
+        (sinov marshrutlarini o'chiring), so'ng:
+        <div class="cmd" data-cmd="php artisan route:list --path=api">php artisan route:list --path=api</div>
+        <div class="cmd" data-cmd="php artisan test">php artisan test</div>
+        <p class="expect">⚠️ Ko'p test qizaradi — bu
+        <b>kutilgan</b>. Menda <b>11 failed, 4 passed</b>.</p>
+      </li>
+
+      <li>
+        <b>Testlarni yangilang.</b>
+        <div class="cmd" data-cmd="sed -i 's|/api/vakansiyalar|/api/v1/vakansiyalar|g; s|/api/yolgon-manzil|/api/v1/yolgon-manzil|g; s|/api/sinov-500|/api/v1/sinov-500|g' tests/Feature/*.php
+php artisan test">sed -i 's|/api/vakansiyalar|/api/v1/vakansiyalar|g; s|/api/yolgon-manzil|/api/v1/yolgon-manzil|g; s|/api/sinov-500|/api/v1/sinov-500|g' tests/Feature/*.php
+php artisan test</div>
+        <p class="expect">Hammasi yashil.</p>
+      </li>
+
+      <li>
+        <b>Cheklov testlarini yozing.</b> Yuqoridagi
+        <code>tests/Feature/CheklovTest.php</code> ni
+        ko'chiring:
+        <div class="cmd" data-cmd="php artisan test tests/Feature/CheklovTest.php">php artisan test tests/Feature/CheklovTest.php</div>
+        <p class="expect">Kutilgan: <b>4 passed</b>.</p>
+      </li>
+
+      <li>
+        <b>To'liq to'plamni ishga tushiring.</b>
+        <div class="cmd" data-cmd="php artisan test">php artisan test</div>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><code>api</code> guruhida <code>throttle:api</code> bor</li>
+      <li>Ikkita marshrut <b>alohida</b> hisobga ega</li>
+      <li>429 javobida <code>Retry-After</code> bor</li>
+      <li>Token egasi mehmondan <b>alohida</b> hisobda</li>
+      <li>Kirish daqiqasiga <b>5</b> ta urinish</li>
+      <li>429 sarlavhalari <b>o'z</b> cheklovini ko'rsatadi</li>
+      <li>Barcha manzillar <code>/api/v1/</code> ostida</li>
+      <li>Sinov marshrutlari o'chirilgan</li>
+      <li><code>CheklovTest</code> — 4 test yashil</li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 12) SINAB KO'RAMIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Dasturchi rasmiy hujjatdan ko'chirib, cheklov yozdi:</p>
+    <div class="codefile">
+      <div class="fname">app/Providers/AppServiceProvider.php</div>
+      <code class="cmd" data-cmd="RateLimiter::for('api', fn (Request $request) =&gt; Limit::perMinute(60)
+    -&gt;by($request-&gt;user()?-&gt;id ?: $request-&gt;ip()));">RateLimiter::for('api', fn (Request $request) =&gt; Limit::perMinute(60)
+    -&gt;by($request-&gt;user()?-&gt;id ?: $request-&gt;ip()));</code>
+    </div>
+    <p>Sinab ko'rdi: 60 ta so'rov o'tdi, 61-si <b>429</b>.
+    Sarlavhalar joyida. Testlar yashil. Ishga
+    tushirdi.</p>
+    <p>Bir oydan keyin bitta korxona shikoyat qildi: «bizning
+    xodimlarimiz API'dan foydalana olmayapti, ba'zilari ishlaydi,
+    ba'zilari yo'q». Boshqa mijozlarda muammo yo'q. Nima
+    bo'lyapti?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <p><code>$request-&gt;user()</code> <b>standart guard'ni</b>
+        so'raydi. <code>config/auth.php</code> da esa:</p>
+        <div class="natija">'guard' =&gt; env('AUTH_GUARD', 'web'),      ← web = sessiya</div>
+        <p class="expect">⚠️ Token bilan kelgan so'rovda sessiya
+        yo'q → <code>user()</code> <b>null</b> →
+        <code>?:</code> ishlaydi → cheklov <b>IP bo'yicha</b>.</p>
+        <p>Korxonaning 50 ta xodimi bitta tashqi IP orqali
+        chiqadi. Ular sizning API'ingizda <b>bitta odam</b>
+        bo'lib ko'rinadi va daqiqasiga 60 tani <b>bo'lishib</b>
+        oladi. Kim birinchi ulgursa — o'shanikiga ishlaydi.</p>
+        <p>🔑 Nega dasturchining sinovi buni ko'rsatmadi? Chunki
+        u <b>bitta</b> token bilan sinadi. Muammo faqat
+        <b>ikkita har xil</b> token bir IP'dan kelganda
+        ko'rinadi.</p>
+        <div class="natija">bitta token bilan sinov   →  60 ta o'tdi, 61-si 429    ✅ «ishlayapti»
+ikkita token bir IP'dan  →  ikkalasi 60 tani BO'LISHADI  ⚠️</div>
+        <p>✅ Yechim bir so'z:</p>
+        <div class="natija">-&gt;by($request-&gt;user('sanctum')?-&gt;id ?: $request-&gt;ip())</div>
+        <p>🔍 <b>Umumiy saboq:</b> token API'da guard nomini
+        <b>har doim</b> yozing —
+        <code>auth:sanctum</code> da ham, <code>user()</code> da
+        ham. «Standart» degani «siznikiga mos» degani
+        emas.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span> Laravel 13
+    API'ni standart holda cheklaydimi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Yo'q hech qanday cheklov standart holda yo'q</button></li>
+      <li><button class="quiz-option">Ha daqiqasiga oltmish so'rov avtomatik cheklab qo'yiladi</button></li>
+      <li><button class="quiz-option">Ha lekin faqat auth bilan himoyalangan marshrutlarda</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi: <code>api</code>
+    guruhida atigi <code>SubstituteBindings</code> bor. Laravel
+    10'gacha <code>throttle:api</code> bor edi, 11'dan boshlab
+    olib tashlandi.
+    ✅ <code>$middleware-&gt;throttleApi()</code> bilan
+    qaytariladi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span> Ikki
+    marshrutda <code>throttle:2,1</code> yozilsa nima bo'ladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Ikkalasi bitta hisobni bo'lishadi marshrut hisobga olinmaydi</button></li>
+      <li><button class="quiz-option">Har marshrut o'zining alohida hisobiga ega bo'ladi</button></li>
+      <li><button class="quiz-option">Ikkinchi throttle birinchisini bekor qiladi va ishlamaydi</button></li>
+    </ul>
+    <div class="quiz-explain">Kalit — foydalanuvchi id yoki
+    <code>domen|IP</code>. <b>Marshrut kalitda yo'q.</b>
+    O'lchandi: <code>/x/c</code> ikkitani yegach,
+    <code>/x/d</code> birinchi murojaatdayoq 429.
+    ✅ Uchinchi argument — prefiks:
+    <code>throttle:2,1,kalit</code>.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span> Cheklov
+    ichida <code>$request-&gt;user()</code> nima qaytaradi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Token bilan null qaytaradi standart guard web</button></li>
+      <li><button class="quiz-option">Sanctum tokenini avtomatik tanib foydalanuvchini topib beradi</button></li>
+      <li><button class="quiz-option">Har doim IP manzilni qaytaradi foydalanuvchi emas</button></li>
+    </ul>
+    <div class="quiz-explain"><code>config/auth.php</code> da
+    standart guard — <code>web</code>, ya'ni <b>sessiya</b>.
+    Token bilan sessiya yo'q → <code>null</code> → cheklov
+    jimgina <b>IP bo'yicha</b> ishlab qoladi.
+    ⚠️ Bitta IP ostidagi barcha foydalanuvchilar hisobni
+    bo'lishadi.
+    ✅ <code>$request-&gt;user('sanctum')</code>.</div>
+  </div>
+
+  <!-- ═══════════════ 13) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+
+    <p>Javobni ovoz chiqarib ayting, keyin ochib
+    solishtiring.</p>
+
+    <details class="recall">
+      <summary>429 javobidagi to'rtta sarlavha qaysilar va
+      qaysi biri eng muhim?</summary>
+      <div class="answer"><code>X-RateLimit-Limit</code> (jami
+      nechta mumkin), <code>X-RateLimit-Remaining</code> (yana
+      nechta qoldi), <code>Retry-After</code> (necha soniyadan
+      keyin), <code>X-RateLimit-Reset</code> (hisob qachon
+      nolga tushadi, unix vaqti).
+      Eng muhimi — <code>Retry-After</code>: 429 «yo'q» emas,
+      «<b>hozircha</b> yo'q» degani, va mijoz qachon qayta
+      urinishini bilishi kerak.</div>
+    </details>
+
+    <details class="recall">
+      <summary>Ikki marshrutdagi <code>throttle:2,1</code> nega
+      bitta hisobni bo'lishadi?</summary>
+      <div class="answer">Chunki cheklov kaliti
+      <code>resolveRequestSignature()</code> dan keladi:
+      autentifikatsiya qilingan bo'lsa <b>foydalanuvchi id</b>,
+      bo'lmasa <b><code>domen|IP</code></b>. <b>Marshrut kalitda
+      yo'q.</b>
+      ✅ Yechim — uchinchi argument (prefiks):
+      <code>throttle:2,1,kalit</code>, yoki nomlangan cheklov
+      yozib <code>by()</code> ni o'zingiz belgilash.</div>
+    </details>
+
+    <details class="recall">
+      <summary>Token API'da <code>$request-&gt;user()</code> nega
+      xavfli?</summary>
+      <div class="answer">U <b>standart</b> guard'ni so'raydi —
+      <code>config/auth.php</code> bo'yicha <code>web</code>,
+      ya'ni sessiya. Token so'rovida sessiya yo'q, demak
+      <code>null</code>. Natijada <code>?: $request-&gt;ip()</code>
+      ishlaydi va cheklov <b>jimgina IP bo'yicha</b> bo'lib
+      qoladi — bitta NAT ortidagi minglab foydalanuvchi bitta
+      hisobga tushadi. ✅
+      <code>$request-&gt;user('sanctum')</code>.</div>
+    </details>
+
+    <details class="recall">
+      <summary>O'z <code>response()</code> ingizni yozganda
+      nimani unutmaslik kerak?</summary>
+      <div class="answer">Callback <b>ikkinchi argument</b>
+      sifatida sarlavhalarni oladi — uni javobga uzatish kerak:
+      <code>fn ($request, array $sarlavhalar) =&gt; response()-&gt;json([...], 429, $sarlavhalar)</code>.
+      ⚠️ Aks holda <code>Retry-After</code> <b>yo'qoladi</b>, va
+      javobda tashqi cheklovning sarlavhalari qolib ketadi —
+      o'lchandi: «54 ta qoldi» deb turib rad etdi.</div>
+    </details>
+
+    <details class="recall">
+      <summary>Versiyani qachon qo'shish kerak va nega?</summary>
+      <div class="answer"><b>Mijoz paydo bo'lishidan oldin.</b>
+      O'lchandi: <code>/v1</code> prefiksi qo'shilishi bilan
+      15 testdan <b>11</b> tasi qizardi — ya'ni har bir mavjud
+      mijoz buziladi. Hozir «mijozimiz» faqat testlar va ularni
+      tuzatish bitta <code>sed</code>; mobil ilova
+      chiqqandan keyin esa bu imkonsiz.
+      Mijozlar allaqachon bo'lsa — eski manzillarni
+      <code>Deprecation</code>, <code>Sunset</code> va
+      <code>Link</code> sarlavhalari bilan bir muddat tirik
+      qoldiring.</div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 14) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Xulosa</span>
+    <ul>
+      <li>⚠️ Laravel 13'da <code>api</code> guruhida cheklov
+      <b>yo'q</b> — faqat <code>SubstituteBindings</code>.
+      Framework nimani o'zi qilishini <b>tekshiring</b>.</li>
+      <li><b>429</b> — «hozircha yo'q». Unda
+      <code>Retry-After</code> bo'lishi shart.</li>
+      <li>⚠️ <code>throttle:2,1</code> ikki marshrutda —
+      <b>bitta</b> hisob. Kalitda marshrut yo'q. Uchinchi
+      argument prefiks beradi.</li>
+      <li><code>RateLimiter::for()</code> — cheklovni bir joyda
+      ta'riflash: <code>perMinute()</code> · <code>by()</code> ·
+      <code>response()</code>.</li>
+      <li><code>$middleware-&gt;throttleApi()</code> — butun
+      guruhga bir qatorda.</li>
+      <li>⚠️ <code>$request-&gt;user()</code> token API'da
+      <code>null</code> (standart guard — <code>web</code>).
+      <b>Har doim</b> <code>user('sanctum')</code>.</li>
+      <li>⚠️ O'z <code>response()</code> ingiz sarlavhalarni
+      yo'qotadi — ikkinchi argumentni qabul qilib
+      uzating.</li>
+      <li>Kirish marshrutiga <b>alohida, qattiqroq</b> cheklov —
+      parol taxmin qilishga qarshi.</li>
+      <li>Cheklov hisoblari <b>keshda</b>. Ko'p serverli
+      ilovada umumiy kesh (redis) kerak.</li>
+      <li>⚠️ Proksi ortida <code>ip()</code> proksinikini
+      beradi — <code>trustProxies</code>, lekin
+      <code>at: '*'</code> ni ehtiyot bilan.</li>
+      <li>Versiyani <b>mijoz paydo bo'lishidan oldin</b>
+      qo'ying: o'lchandi, <code>/v1</code> 15 testdan 11 tasini
+      buzdi.</li>
+      <li>Mijozlar bor bo'lsa — <code>Deprecation</code>,
+      <code>Sunset</code>, <code>Link</code> bilan o'tish
+      davri bering.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p><b>Modul F tugadi.</b> API endi haqiqiy: REST, JSON,
+    Resource, token, to'liq CRUD, filtr va saralash, tartibli
+    xatolar, cheklov va versiya.</p>
+    <p>Modul F davomida bir necha marta «Laravel buni o'zi
+    qiladi» dedik: binding modelni o'zi topadi, Resource javobga
+    <code>links</code> ni o'zi qo'shadi, xato klassidagi
+    <code>render()</code> ni o'zi ko'radi. Har safar <b>nega</b>
+    ekanini manbaga qarab ko'rsatdik — lekin qismlab.</p>
+    <p>49-darsdan <b>Modul G</b> boshlanadi: <b>Laravel ichki
+    mexanizmi — sehrni yakson qilish</b>. 14–15-darslarda o'z
+    qo'lingiz bilan yozgan <code>router</code> va
+    <code>container</code> ga qaytamiz va Laravel'ning o'sha
+    joylarini ochamiz.</p>
+    <p>49-dars — <b>Service Container</b>: Laravel obyektni
+    qanday yasaydi, <code>bind</code> va <code>singleton</code>
+    farqi nimada, va controller metodiga
+    <code>Request $request</code> deb yozganingizda u
+    <b>qayerdan</b> keladi.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel — Rate Limiting</b>:
+    <a href="https://laravel.com/docs/13.x/routing#rate-limiting">RateLimiter::for,
+    Limit, throttle, throttleApi</a>.<sup><a href="#fn3">3</a></sup><br>
+    <b>MDN — 429 Too Many Requests</b>:
+    <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429">developer.mozilla.org</a>.<sup><a href="#fn1">1</a></sup><br>
+    <b>RFC 8594 — The Sunset HTTP Header</b>:
+    <a href="https://www.rfc-editor.org/rfc/rfc8594">rfc-editor.org</a>.<sup><a href="#fn2">2</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b> «cheklovni
+    token bo'yicha emas, kompaniya bo'yicha qo'ysam
+    bo'ladimi?», «<code>RateLimiter::attempt()</code> nima —
+    middleware'siz ishlatsa bo'ladimi?», «v2 chiqarganda
+    controllerlarni ham nusxalash kerakmi?», «cheklovni
+    vaqtincha o'chirish mumkinmi?» — har qanday savol yaxshi.
+    Uchinchisiga qisqa javob: <b>ko'pincha yo'q</b> — odatda
+    faqat <code>Resource</code> va <code>Request</code> klasslari
+    nusxalanadi (<code>App\Http\Resources\V2\...</code>),
+    controller esa bitta qoladi. Oxirgisiga:
+    <code>Limit::none()</code> qaytaring yoki testda
+    <code>RateLimiter::clear($kalit)</code> —
+    <code>withoutMiddleware</code> dan ko'ra aniqroq.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0047-xatoni-togri-qaytarish.html">Oldingi: Xatolar</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">MDN — <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429">429 Too Many Requests</a>.</li>
+      <li id="fn2">RFC 8594 — <a href="https://www.rfc-editor.org/rfc/rfc8594">The Sunset HTTP Header Field</a>.</li>
+      <li id="fn3">Laravel 13 — <a href="https://laravel.com/docs/13.x/routing#rate-limiting">Rate Limiting</a>.</li>
+      <li id="fn4">Barchasi jonli o'lchangan (PHP 8.3.32, Laravel 13.26.1,
+      Pest 4.7.8, SQLite):
+      ⚠️ <code>api</code> middleware guruhi = faqat
+      <code>Illuminate\Routing\Middleware\SubstituteBindings</code>
+      (cheklov <b>yo'q</b>) ·
+      <code>throttle:3,1</code> → 3 ta <b>200</b>, keyin
+      <b>429</b>; sarlavhalar <code>X-RateLimit-Limit: 3</code>,
+      <code>X-RateLimit-Remaining</code>, 429 da qo'shimcha
+      <code>Retry-After: 60</code> va
+      <code>X-RateLimit-Reset</code> (unix vaqti);
+      tana <code>{"message": "Too Many Attempts."}</code> ·
+      ⚠️ A/B: <code>throttle:2,1</code> ikki marshrutda —
+      <code>/x/c</code> 200,200 keyin <code>/x/d</code>
+      <b>birinchi</b> murojaatda <b>429</b>;
+      <code>throttle:2,1,aaa</code> / <code>...,bbb</code> bilan
+      ikkalasi <b>alohida</b> ·
+      sabab manbada: <code>resolveRequestSignature()</code> →
+      foydalanuvchi id yoki <code>domen|IP</code>, marshrut
+      <b>yo'q</b> ·
+      <code>throttleApi()</code> → guruhga <code>throttle:api</code>
+      qo'shildi; 62 so'rov → <b>60 ta 200, 2 ta 429</b> ·
+      ⚠️ <code>$request-&gt;user()</code> token bilan
+      <code>null</code> (<code>config/auth.php</code>:
+      <code>'guard' =&gt; 'web'</code>); <code>perMinute(3)</code>
+      bilan o'lchandi: mehmon 200,200,200,429 →
+      token bilan <b>429,429,429,429</b>;
+      <code>user('sanctum')</code> dan keyin token bilan
+      <b>200,200,200,429</b> ·
+      <code>throttle:kirish</code> (<code>perMinute(5)</code>) →
+      5 ta <b>422</b>, 6-si <b>429</b> +
+      <code>kod: juda_kop_urinish</code> ·
+      ⚠️ argumentsiz <code>response()</code> → 429 da
+      <code>x-ratelimit-limit: 60</code>,
+      <code>remaining: 54</code> (tashqi cheklovniki) va
+      <code>Retry-After</code> <b>yo'q</b>;
+      <code>fn ($request, array $sarlavhalar)</code> bilan →
+      <code>limit: 5</code>, <code>remaining: 0</code>,
+      <code>retry-after: 60</code>, <code>reset</code> ·
+      ⚠️ <code>/v1</code> prefiksi → to'liq to'plam
+      <b>11 failed, 4 passed</b>; testlar yangilangach
+      <b>15 passed</b> ·
+      ⚠️ marshrut guruhida closure middleware →
+      <code>Object of class Closure could not be converted to
+      string</code> (<code>RouteRegistrar.php:129</code>);
+      klass bilan <code>Deprecation</code>, <code>Sunset</code>,
+      <code>Link</code> sarlavhalari ishladi ·
+      cheklov hisoblari keshda: <code>CACHE_STORE=database</code>
+      bilan <code>cache</code> jadvalida
+      <code>laravel-cache-&lt;hash&gt;</code> va
+      <code>...:timer</code> juftliklari ·
+      <code>CheklovTest</code> — <b>4 passed</b>, to'liq to'plam
+      <b>19 passed (52 assertions), 0.31s</b>.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>
