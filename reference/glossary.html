@@ -18,7 +18,7 @@
   izoh esa o'zbekcha.</p>
 
   <p class="lesson-meta">
-    <span>Atamalar: <b>256 ta</b></span>
+    <span>Atamalar: <b>261 ta</b></span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>📱 O'qishga mos</span>
   </p>
@@ -26,7 +26,7 @@
   <div class="callout note">
     <span class="label">Bu hujjat o'sib boradi</span>
     <p>Atama faqat <b>o'z darsi yozilganda</b> qo'shiladi — oldindan emas. Hozir:
-    Modul A–H (1–60-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
+    Modul A–I (1–61-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
     bosqichida qat'iy belgilangan va 73 dars bo'ylab o'zgarmaydi).</p>
   </div>
 
@@ -2609,6 +2609,116 @@
       uchraydigan xato — <code>EXPLAIN</code> ni
       o'tkazib yuborish.
       <span class="eg">DB::select("EXPLAIN QUERY PLAN $sql", $bog)</span></dd>
+    </div>
+
+    <div class="term" id="kollatsiya">
+      <dt>kollatsiya (collation) <span class="uz">— «xato yo'q, natija boshqacha» ning sababi</span></dt>
+      <dd>Bazaning <b>matnni solishtirish qoidasi</b>.
+      MySQL 8 standarti — <code>utf8mb4_0900_ai_ci</code>:
+      <code>utf8mb4</code> to'liq Unicode (emoji ham) ·
+      <code>0900</code> Unicode 9.0 qoidalari ·
+      <code>ai</code> urg'uga befarq ·
+      <code>ci</code> harf registriga befarq.
+      SQLite standarti — <code>BINARY</code> (bayt
+      bo'yicha aniq).
+      🔍 O'lchandi: uchta yozuv
+      (<code>ZOND Dasturchi</code>,
+      <code>ZOND dasturchi</code>,
+      <code>ZOND DASTURCHI</code>) ustida
+      <code>where('nom', 'ZOND Dasturchi')</code> →
+      SQLite <b>1 ta</b>, MySQL <b>3 ta</b>.
+      Va <code>'ZOND Café'</code> ustida
+      <code>where('nom', 'ZOND Cafe')</code> →
+      SQLite <b>0</b>, MySQL <b>1</b>.
+      ⚠️ Xato ham, ogohlantirish ham yo'q — faqat
+      <b>javob boshqacha</b>.
+      ✅ Ustunga alohida berish mumkin:
+      <code>-&gt;collation('utf8mb4_bin')</code> — token va
+      hash uchun to'g'ri keladi.
+      <span class="eg">character set utf8mb4 collate utf8mb4_0900_ai_ci</span></dd>
+    </div>
+
+    <div class="term" id="where-like">
+      <dt>whereLike() <span class="uz">— ko'chma qidiruv</span></dt>
+      <dd><code>whereLike($ustun, $qiymat, caseSensitive: false)</code>.
+      Laravel har baza uchun <b>o'sha bazaning</b>
+      vositasini tanlaydi.
+      🔍 O'lchandi (2 yozuv):
+      <code>whereLike('nom', '%dasturchi%')</code> →
+      <b>ikkalasida 2</b>;
+      <code>caseSensitive: true</code> bilan →
+      <b>ikkalasida 1</b>.
+      Yaratilgan SQL: MySQL <code>like binary ?</code>,
+      SQLite <code>glob ?</code>.
+      🔑 Qoida: baza xulqiga bog'liq joyni o'zingiz
+      yozmang —
+      <code>whereLike</code>, <code>whereDate</code> kabi
+      Laravel vositalarini ishlating.
+      ⚠️ <code>where('nom', '=', $q)</code> esa
+      <b>ko'chma emas</b>: SQLite 1, MySQL 3.
+      <span class="eg">Vakansiya::whereLike('nom', "%{$q}%")</span></dd>
+    </div>
+
+    <div class="term" id="sql-mode">
+      <dt>sql_mode va STRICT <span class="uz">— SQLite nimalarni o'tkazib yuboradi</span></dt>
+      <dd>MySQL 8 standarti:
+      <code>ONLY_FULL_GROUP_BY</code>,
+      <code>STRICT_TRANS_TABLES</code>,
+      <code>NO_ZERO_DATE</code>, ...
+      🔍 O'lchandi — SQLite <b>indamay qabul qildi</b>,
+      MySQL <b>xato berdi</b>:
+      integer ustunga <code>'salom'</code> →
+      <code>1366 Incorrect integer value</code> ·
+      <code>varchar(255)</code> ga 300 belgi (SQLite
+      <b>305</b> saqladi) →
+      <code>1406 Data too long</code> ·
+      guruhlanmagan ustunli <code>group by</code> →
+      <code>1055</code>.
+      ⚠️ SQLite ustun uzunligini <b>saqlamaydi</b> ham:
+      <code>varchar(255)</code> →
+      <code>varchar</code>.
+      🔑 Sozlama emas, <b>o'lchov</b> ishonch beradi —
+      testlarni MySQL'da ham ishlating.
+      <span class="eg">select @@sql_mode</span></dd>
+    </div>
+
+    <div class="term" id="ddl-tranzaksiya">
+      <dt>DDL tranzaksiya <span class="uz">— yarim bajarilgan migratsiya</span></dt>
+      <dd>🔍 O'lchandi: tranzaksiya ichida
+      <code>create table</code> qilib xato tashlandi —
+      SQLite jadvalni <b>qaytardi</b>, MySQL
+      <b>qoldirdi</b>.
+      ⚠️ MySQL'da <code>create/alter/drop table</code>
+      tranzaksiyaga <b>bo'ysunmaydi</b>. Bitta
+      migratsiyada ikki amal bo'lsa va ikkinchisi xato
+      bersa: birinchisi <b>qoladi</b>,
+      <code>migrations</code> jadvaliga esa
+      <b>yozilmaydi</b> — migratsiya tiqilib qoladi.
+      ✅ Bitta migratsiya = <b>bitta amal</b>. Va ishlab
+      chiqarishda migratsiyadan oldin <b>zaxira
+      nusxa</b>.
+      🔑 PostgreSQL'da DDL <b>tranzaksion</b> — bu uning
+      kuchli tomoni.
+      <span class="eg">Schema::create('a', ...);   // faqat shu</span></dd>
+    </div>
+
+    <div class="term" id="phpunit-baza">
+      <dt>phpunit.xml va test bazasi <span class="uz">— jim turadigan tuzoq</span></dt>
+      <dd>Laravel standarti:
+      <code>&lt;env name="DB_CONNECTION" value="sqlite"/&gt;</code>
+      va <code>DB_DATABASE=":memory:"</code>.
+      ⚠️ Ya'ni loyihangizni MySQL'ga ko'chirsangiz ham,
+      <b>testlar unga tegmaydi</b> — baza farqlarining
+      hech biri tutilmaydi.
+      ✅ Ikkinchi fayl (<code>phpunit.mysql.xml</code>) va
+      <b><code>force="true"</code></b> — usiz PHPUnit
+      mavjud muhit o'zgaruvchisini bosib o'tmaydi.
+      <code>php artisan test -c phpunit.mysql.xml</code>.
+      🔍 O'lchandi: <b>85 passed ikkala bazada ham</b> —
+      SQLite <b>0.77s</b>, MySQL <b>1.98s</b>.
+      🔑 Mahalliy ishda SQLite (tez qaytish), CI'da MySQL
+      (haqiqat).
+      <span class="eg">&lt;env name="DB_CONNECTION" value="mysql" force="true"/&gt;</span></dd>
     </div>
 
     <div class="term" id="telescope">

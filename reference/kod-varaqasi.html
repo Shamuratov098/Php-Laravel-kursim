@@ -17,7 +17,7 @@
   muhit ma'lumotlari. Har dars yangi buyruq o'rgatilsa, shu yerga qo'shiladi.</p>
 
   <p class="lesson-meta">
-    <span>Qamrov: <b>1&ndash;60-darslar</b> — muhitdan API'gacha</span>
+    <span>Qamrov: <b>1&ndash;61-darslar</b> — muhitdan API'gacha</span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>💻 Amaliyotga mos</span>
   </p>
@@ -1826,6 +1826,50 @@
     <code>database</code> · <code>redis</code> (ishlab
     chiqarish, teglar bor).
     Redis nafaqat kesh: navbat, sessiya va cheklov ham.</p>
+  </div>
+
+  <h2>SQLite'dan MySQL'ga (61-darsdan)</h2>
+  <table class="sheet">
+    <tr><th>Kod / buyruq</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>sudo apt install mysql-server php8.3-mysql</code></td><td class="note-cell">Server <b>va</b> drayver — ikki alohida narsa</td></tr>
+    <tr><td><code>php -m | grep pdo_mysql</code></td><td class="note-cell">Drayver bormi?</td></tr>
+    <tr><td><code>create database ishtop character set utf8mb4</code></td><td class="note-cell">⚠️ <code>utf8</code> emas — emoji sig'maydi</td></tr>
+    <tr><td><code>DB_CONNECTION=mysql</code> + 5 ta <code>DB_*</code></td><td class="note-cell">So'ng <code>config:clear</code></td></tr>
+    <tr><td><code>whereLike($u, $q)</code></td><td class="note-cell">✅ Ko'chma qidiruv — Laravel moslaydi</td></tr>
+    <tr><td><code>whereLike($u, $q, caseSensitive: true)</code></td><td class="note-cell">MySQL <code>like binary</code> · SQLite <code>glob</code></td></tr>
+    <tr><td><code>-&gt;collation('utf8mb4_bin')</code></td><td class="note-cell">Token/hash ustuni uchun aniq solishtirish</td></tr>
+    <tr><td><code>select @@collation_database, @@sql_mode</code></td><td class="note-cell">Baza qanday qoidalar bilan ishlayapti</td></tr>
+    <tr><td><code>php artisan test -c phpunit.mysql.xml</code></td><td class="note-cell">⚠️ <code>force="true"</code> siz ishlamaydi</td></tr>
+    <tr><td><code>php artisan migrate</code></td><td class="note-cell">✅ Ishlab chiqarishda <b>faqat shu</b></td></tr>
+    <tr><td><code>php artisan migrate:fresh</code></td><td class="note-cell">☠️ HAMMA jadvalni o'chiradi</td></tr>
+  </table>
+  <div class="callout note">
+    <p><b>Xato raqami manzil beradi:</b></p>
+    <p><code>could not find driver</code> → PHP drayveri yo'q ·
+    <b>2002</b> Connection refused → serverga yetmadi ·
+    <b>1045</b> Access denied (using password: YES) → <b>parol</b> ·
+    <b>1044</b> Access denied to database → <b>baza / huquq</b>.</p>
+    <p>⭐ <b>Xato yo'q, natija boshqacha.</b> Uchta yozuv
+    (<code>ZOND Dasturchi</code>/<code>dasturchi</code>/<code>DASTURCHI</code>):
+    <code>where('nom', 'ZOND Dasturchi')</code> →
+    <b>SQLite 1 · MySQL 3</b>.
+    Sabab: <code>utf8mb4_0900_ai_ci</code> —
+    <code>ci</code> registrsiz, <code>ai</code> urg'usiz
+    (<code>Café</code> = <code>Cafe</code>).</p>
+    <p>⚠️ <b>SQLite qat'iy emas:</b> integer ustunga
+    <code>'salom'</code> <b>sig'di</b> (MySQL 1366) ·
+    <code>varchar(255)</code> ga 300 belgi <b>sig'di</b>
+    (MySQL 1406) · guruhlanmagan <code>group by</code>
+    <b>ishladi</b> (MySQL 1055).</p>
+    <p>⚠️ <b>MySQL'da DDL tranzaksiyaga bo'ysunmaydi</b> —
+    yarim migratsiya qoladi. Bitta migratsiya = bitta
+    amal.</p>
+    <p>🔑 <b>Qoidani bazaga emas, kodga yozing</b> —
+    <code>Str::lower(trim($email))</code>. Shunda ko'chganda
+    o'zgarmaydi.</p>
+    <p>🔍 <code>migrate:fresh</code>: MySQL <b>1.47s</b> ·
+    SQLite <b>0.42s</b>. To'liq to'plam:
+    <b>85 passed ikkalasida</b> — 0.77s va 1.98s.</p>
   </div>
 
   <h2>N+1, indeks va Telescope (60-darsdan) ⭐</h2>

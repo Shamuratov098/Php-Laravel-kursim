@@ -1,0 +1,1305 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 61 — SQLite'dan MySQL'ga ko'chish</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 61 · MODUL I — ISHLAB CHIQARISHGA TAYYORGARLIK</p>
+  <h1>SQLite'dan MySQL'ga ko'chish</h1>
+  <p class="lead">22-darsda «SQLite tayyorlov uchun»
+  degandik. 60-darsda rejalar bazadan bazaga farq
+  qilishini aytdik. Bugun haqiqatan ko'chamiz — va
+  <b>ikkala bazada bir xil kod ishlatib</b>, farqlarni
+  o'lchaymiz. Bittasi juda yoqimsiz:
+  <b>xato yo'q, natija boshqacha</b>.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 18 daqiqa</span>
+    <span>💻 Amaliyot ≈ 35 daqiqa</span>
+    <span>Kerak: <a href="0060-n-plus-1-indeks-telescope.html">Dars 60</a></span>
+  </p>
+
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b>Nega SQLite yetarli emas</b>
+        <span class="nima">Bitta fayl, bitta yozuvchi,
+        bo'sh tekshiruv.</span></li>
+      <li><b><code>pdo_mysql</code> va MySQL server</b>
+        <span class="nima">Ikkitasi <b>alohida</b> narsa
+        — chalkashtirish oson.</span></li>
+      <li><b><code>DB_*</code> sozlamalari</b>
+        <span class="nima">Va <code>migrate:fresh</code>
+        — 🔍 MySQL <b>1.47s</b>, SQLite
+        <b>0.42s</b>.</span></li>
+      <li><b>🔍 To'rtta ulanish xatosi</b>
+        <span class="nima">Har biri <b>boshqacha</b>
+        aytadi: <code>could not find driver</code>,
+        <b>1045</b>, <b>1044</b>, <b>2002</b>.</span></li>
+      <li><b>⭐ Xato yo'q, natija boshqacha</b>
+        <span class="nima">🔍 Bir xil so'rov: SQLite
+        <b>1 ta</b>, MySQL <b>3 ta</b>
+        topdi.</span></li>
+      <li><b><code>utf8mb4_0900_ai_ci</code></b>
+        <span class="nima">Nomning har harfi ma'noli.
+        🔍 <code>Café</code> = <code>Cafe</code>
+        bo'lib chiqdi.</span></li>
+      <li><b>⚠️ Qat'iy tip tekshiruvi</b>
+        <span class="nima">🔍 SQLite <code>maosh</code> ga
+        <code>'salom'</code> ni <b>yozib
+        qo'ydi</b>.</span></li>
+      <li><b>⚠️ <code>varchar(255)</code> chegarasi</b>
+        <span class="nima">🔍 SQLite <b>305</b> belgini
+        saqladi, MySQL <b>1406</b> xatosi.</span></li>
+      <li><b>⚠️ DDL tranzaksiya</b>
+        <span class="nima">🔍 Yarim bajarilgan migratsiya
+        MySQL'da <b>qaytarilmaydi</b>.</span></li>
+      <li><b><code>whereLike()</code> — yechim</b>
+        <span class="nima">🔍 Laravel MySQL'da
+        <code>like binary</code>, SQLite'da
+        <code>glob</code> yozar ekan.</span></li>
+      <li><b>⚠️ <code>phpunit.xml</code> tuzoq</b>
+        <span class="nima">Testlaringiz MySQL'ga
+        <b>umuman tegmaydi</b>.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima">Ma'lumot ko'chirish ·
+        <code>utf8mb4</code> · <code>strict</code> ·
+        PostgreSQL · zaxira nusxa.</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">SQLite yomonmi? Yo'q. Lekin...</span>
+    <p>SQLite ajoyib baza — u telefoningizda ham,
+    brauzeringizda ham ishlaydi. Muammo unda emas,
+    <b>bizning ishimizda</b>:</p>
+    <div class="natija">1) BITTA FAYL       →  bir vaqtda bitta yozuvchi. Ikkinchisi kutadi
+2) BO'SH TEKSHIRUV  →  son ustuniga matn yozsangiz — qabul qiladi
+3) FOYDALANUVCHI YO'Q →  parol, huquq, masofadan ulanish yo'q
+4) BOSHQA XULQ      →  ba'zi so'rovlar BOSHQACHA javob beradi</div>
+    <p>Birinchi uchtasi ma'lum va kutilgan. Eng xavflisi
+    — <b>to'rtinchisi</b>, chunki u <b>indamay</b>
+    keladi.</p>
+    <p>Bugun ikkala bazani <b>yonma-yon</b> qo'yib,
+    bir xil kodni ishlatamiz. Va farqlarni ko'ramiz —
+    <b>aytilgan</b> farqlarni ham,
+    <b>aytilmagan</b>larini ham.</p>
+  </div>
+
+  <!-- ═══════════════ 2) IKKI QISM ═══════════════ -->
+  <h2>Ikki alohida narsa</h2>
+
+  <p>Bu yerda yangi boshlovchilar eng ko'p
+  chalkashadi:</p>
+
+  <div class="natija">MySQL SERVER    →  ma'lumotni saqlaydigan dastur (alohida ishlaydi)
+pdo_mysql       →  PHP ning MySQL bilan gaplashish drayveri</div>
+
+  <p>Ikkalasi ham kerak. Bittasi bo'lmasa, xato
+  <b>boshqacha</b> bo'ladi — va aynan shu farq
+  sizga nima yetishmayotganini aytadi.</p>
+
+  <div class="natija">sudo apt install mysql-server      ← SERVER
+sudo apt install php8.3-mysql      ← DRAYVER
+php -m | grep pdo_mysql            ← tekshiruv</div>
+
+  <div class="callout tip">
+    <span class="label">🔑 <code>php -m</code> nima ko'rsatadi</span>
+    <p><code>php -m</code> — PHP'ga <b>o'rnatilgan
+    modullar</b> ro'yxati. <code>pdo_mysql</code> u yerda
+    bo'lmasa, Laravel MySQL bilan gaplasha
+    <b>olmaydi</b> — server ishlab turgan bo'lsa
+    ham.</p>
+    <p>⚠️ Drayverni o'rnatgandan keyin PHP-FPM yoki
+    <code>artisan serve</code> ni <b>qayta ishga
+    tushiring</b>.</p>
+  </div>
+
+  <!-- ═══════════════ 3) SOZLAMALAR ═══════════════ -->
+  <h2><code>.env</code> sozlamalari</h2>
+
+  <p>22-darsdan beri <code>.env</code> da bitta qator
+  bor edi:</p>
+
+  <div class="natija">DB_CONNECTION=sqlite</div>
+
+  <p>MySQL uchun oltita:</p>
+
+  <div class="codefile">
+    <div class="fname">.env</div>
+    <code class="cmd">DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=ishtop
+DB_USERNAME=ishtop
+DB_PASSWORD=sirli-parol</code>
+  </div>
+
+  <p>Bazani va foydalanuvchini <b>oldindan</b> yaratish
+  kerak — Laravel buni o'zi qilmaydi:</p>
+
+  <div class="natija">create database ishtop character set utf8mb4 collate utf8mb4_0900_ai_ci;
+create user 'ishtop'@'localhost' identified by 'sirli-parol';
+grant all privileges on ishtop.* to 'ishtop'@'localhost';
+flush privileges;</div>
+
+  <p>So'ng migratsiya:</p>
+
+  <div class="natija">php artisan migrate:fresh --seed
+
+  Creating migration table ....................... 16.35ms DONE
+  0001_01_01_000000_create_users_table ........... 74.66ms DONE
+  ...
+  2026_01_01_000002_create_vakansiyalar_table .... 105.66ms DONE
+
+jami: 1.47 s        (SQLite'da o'sha migratsiyalar: 0.42 s)</div>
+
+  <p>MySQL <b>uch barobar</b> sekinroq migratsiya
+  qiladi — bu normal. U diskka ishonchli yozadi,
+  huquqlarni tekshiradi, indekslarni quradi.</p>
+
+  <!-- ═══════════════ 4) TO'RTTA XATO ═══════════════ -->
+  <h2>To'rtta ulanish xatosi</h2>
+
+  <p>47-darsda «xatoni o'qishni o'rganing» degandik.
+  Bu yerda u to'liq ishlaydi — har xato
+  <b>boshqa</b> narsani aytadi:</p>
+
+  <div class="natija">could not find driver
+   →  pdo_mysql O'RNATILMAGAN. Server bilan aloqasi yo'q.
+   →  sudo apt install php8.3-mysql
+
+SQLSTATE[HY000] [2002] Connection refused
+   →  Serverga YETIB BORMADI. Ishlamayapti yoki port boshqa.
+   →  systemctl status mysql  ·  DB_PORT ni tekshiring
+
+SQLSTATE[HY000] [1045] Access denied for user 'ishtop'@'...'
+                        (using password: YES)
+   →  Serverga yetdi, PAROL noto'g'ri.
+   →  DB_USERNAME / DB_PASSWORD
+
+SQLSTATE[HY000] [1044] Access denied for user 'ishtop'@'%'
+                        to database 'yoq_baza'
+   →  Parol to'g'ri, BAZA yo'q yoki huquq berilmagan.
+   →  create database ...  ·  grant ...</div>
+
+  <div class="callout tip">
+    <span class="label">🔑 1045 va 1044 — bir harf farq, boshqa sabab</span>
+    <p>Ikkalasi ham «Access denied» deydi, lekin:</p>
+    <div class="natija">1045  →  "for user ... (using password: YES)"   →  PAROL
+1044  →  "for user ... to database 'X'"       →  BAZA / HUQUQ</div>
+    <p>Xato raqamini <b>o'qing</b> — u sizga qayerga
+    qarashni aytadi. Taxmin qilib bir soat
+    yo'qotishdan ko'ra, bir qator o'qigan
+    yaxshi.</p>
+  </div>
+
+  <!-- ═══════════════ 5) ⭐ XATO YO'Q, NATIJA BOSHQACHA ═══════════════ -->
+  <h2>⭐ Xato yo'q, natija boshqacha</h2>
+
+  <p>Endi darsning eng muhim qismi. Ikkala bazaga
+  <b>bir xil</b> uchta yozuv qo'yamiz:</p>
+
+  <div class="natija">'ZOND Dasturchi'
+'ZOND dasturchi'
+'ZOND DASTURCHI'</div>
+
+  <p>Va <b>bir xil</b> so'rovni yuboramiz:</p>
+
+  <div class="natija">Vakansiya::where('nom', 'ZOND Dasturchi')->count()
+
+SQLite:   1 ta
+MySQL:    3 ta          ⚠️</div>
+
+  <p>Xato yo'q. Ogohlantirish yo'q. Testlar yashil.
+  Faqat <b>javob boshqacha</b>.</p>
+
+  <div class="callout warn">
+    <span class="label">⚠️ Nega bunday?</span>
+    <p>Sabab — <b>kollatsiya</b> (solishtirish qoidasi).
+    MySQL 8 ning standarti:</p>
+    <div class="natija">utf8mb4_0900_ai_ci
+│       │    │  │
+│       │    │  └─ ci = case-insensitive  (KATTA harf = kichik harf)
+│       │    └──── ai = accent-insensitive (é = e)
+│       └───────── 0900 = Unicode 9.0 qoidalari
+└───────────────── utf8mb4 = to'liq Unicode (emoji ham)</div>
+    <p>SQLite'da esa standart — <b>BINARY</b>: bayt
+    bo'yicha aniq solishtirish.</p>
+    <p>🔍 Va <code>ai</code> ni ham o'lchadik:</p>
+    <div class="natija">Bazada saqlangan:  'ZOND Café'
+
+where nom = 'ZOND Cafe'      SQLite: 0 ta      MySQL: 1 ta   ⚠️</div>
+    <p>MySQL uchun <code>é</code> va <code>e</code> —
+    <b>bir xil harf</b>.</p>
+  </div>
+
+  <h3>Bu yaxshimi yoki yomonmi?</h3>
+
+  <p>Ikkalasi ham emas — <b>boshqacha</b>. Ko'p
+  hollarda MySQL'ning xulqi <b>foydalanuvchi
+  kutganidek</b>: odam «dasturchi» deb qidirsa,
+  «Dasturchi» ni topishi kerak.</p>
+
+  <p>Muammo — <b>bilmaslik</b>. Agar siz SQLite'da
+  ishlab, MySQL'ga chiqsangiz:</p>
+
+  <div class="natija">"Nega bu foydalanuvchi ikki marta ro'yxatdan o'tibdi?"
+   →  email tekshiruvi: SQLite'da 'Ali@x.uz' va 'ali@x.uz' — BOSHQA
+   →  MySQL'da ular BIR XIL, unique indeks ikkinchisini rad etadi
+
+"Nega qidiruv keraksiz narsalarni topyapti?"
+   →  MySQL harf registrini e'tiborsiz qoldiradi</div>
+
+  <h3>✅ Yechim: <code>whereLike()</code></h3>
+
+  <p>Laravel bu farqni <b>o'zi silliqlaydi</b> — agar
+  to'g'ri metodni ishlatsangiz:</p>
+
+  <div class="natija">2 ta yozuv: 'ZOND Dasturchi' va 'ZOND dasturchi'
+
+whereLike('nom', '%dasturchi%')                      SQLite: 2   MySQL: 2  ✅
+whereLike('nom', '%dasturchi%', caseSensitive: true)  SQLite: 1   MySQL: 1  ✅
+where('nom', '=', 'ZOND dasturchi')                   SQLite: 1   MySQL: 2  ⚠️</div>
+
+  <p>🔍 Laravel qanday qilyapti? Yaratilgan SQL'ga
+  qarang:</p>
+
+  <div class="natija">caseSensitive: true bo'lganda —
+
+MySQL:   where `nom` like binary ?
+SQLite:  where "nom" glob ?</div>
+
+  <p>Har baza uchun <b>o'sha bazaning</b> vositasini
+  tanlaydi. Bu — 49-darsdagi <b>abstraksiya</b>
+  g'oyasining amaldagi ko'rinishi.</p>
+
+  <div class="callout tip">
+    <span class="label">🔑 Umumiy qoida</span>
+    <p>Baza xulqiga bog'liq joyni <b>o'zingiz</b>
+    yozmang — Laravel bergan vositani ishlating:</p>
+    <div class="natija">❌ where('nom', 'like', "%{$q}%")     →  xulqi bazaga bog'liq
+✅ whereLike('nom', "%{$q}%")        →  Laravel moslaydi
+
+❌ whereRaw("date(created_at) = ?")  →  SQL funksiyalari farq qiladi
+✅ whereDate('created_at', $sana)    →  Laravel moslaydi</div>
+  </div>
+
+  <!-- ═══════════════ 6) QAT'IYLIK ═══════════════ -->
+  <h2>⚠️ Qat'iy tekshiruv: SQLite nimalarni o'tkazib yuboradi</h2>
+
+  <div class="natija">1) Son ustuniga MATN yozish (maosh — integer):
+
+   SQLite:  [OK]   saqlandi, qiymat: 'salom'                    ⚠️
+   MySQL:   [XATO] 1366 Incorrect integer value: 'salom'
+                   for column 'maosh' at row 1
+
+2) varchar(255) ga 300 belgi yozish:
+
+   SQLite:  [OK]   saqlandi, uzunligi: 305                      ⚠️
+   MySQL:   [XATO] SQLSTATE[22001] 1406 Data too long
+                   for column 'nom' at row 1
+
+3) Guruhlanmagan ustunni tanlash:
+   select shahar, nom from vakansiyalar group by shahar
+
+   SQLite:  [OK]   5 qator qaytardi                             ⚠️
+   MySQL:   [XATO] 1055 Expression #2 of SELECT list is not
+                   in GROUP BY clause ...</div>
+
+  <p>Uchala holatda ham SQLite <b>indamay qabul
+  qildi</b>. Kod ishladi, test yashil bo'ldi. Va
+  ishlab chiqarishga chiqqanda — <b>uchta xato</b>
+  birdan chiqadi.</p>
+
+  <div class="callout warn">
+    <span class="label">⚠️ SQLite ustun uzunligini SAQLAMAYDI ham</span>
+    <p>Bir xil migratsiyadan keyin ustun tiplarini
+    solishtiring:</p>
+    <div class="natija">migratsiyada:  $table->string('nom');      // varchar(255)
+
+MySQL'da:      nom  varchar(255)
+SQLite'da:     nom  varchar                ← uzunlik YO'Q
+
+migratsiyada:  $table->id();
+
+MySQL'da:      id   bigint unsigned
+SQLite'da:     id   INTEGER</div>
+    <p>🔑 SQLite tipni «maslahat» deb qabul qiladi.
+    U hech qachon «bu ustunga sig'maydi»
+    demaydi.</p>
+  </div>
+
+  <p>Bularning hammasi bitta sozlamadan kelib chiqadi —
+  MySQL'ning <code>sql_mode</code> i:</p>
+
+  <div class="natija">ONLY_FULL_GROUP_BY, STRICT_TRANS_TABLES, NO_ZERO_IN_DATE,
+NO_ZERO_DATE, ERROR_FOR_DIVISION_BY_ZERO, NO_ENGINE_SUBSTITUTION</div>
+
+  <p><code>STRICT_TRANS_TABLES</code> — «sig'masa xato
+  ber». <code>ONLY_FULL_GROUP_BY</code> — «guruhlashda
+  aniq bo'l». Bular MySQL 8 da <b>standart</b>
+  yoqilgan.</p>
+
+  <!-- ═══════════════ 7) DDL ═══════════════ -->
+  <h2>⚠️ Yarim bajarilgan migratsiya</h2>
+
+  <p>Bu farq eng kam gapiriladi va eng ko'p og'riq
+  keltiradi.</p>
+
+  <div class="natija">DB::transaction(function () {
+    DB::statement('create table zond_jadval (id int)');
+    throw new RuntimeException('ataylab xato');
+});
+
+// tranzaksiya bekor qilindi. zond_jadval bormi?
+
+SQLite:  YO'Q   ← jadval ham qaytarildi   ✅
+MySQL:   HA     ← jadval QOLDI            ⚠️</div>
+
+  <p>MySQL'da <code>create table</code>,
+  <code>alter table</code>, <code>drop table</code> —
+  <b>tranzaksiyaga bo'ysunmaydi</b>. Ular bajarilishi
+  bilan <b>yozib qo'yiladi</b>.</p>
+
+  <div class="callout warn">
+    <span class="label">⚠️ Amaliy oqibati</span>
+    <p>Bitta migratsiya faylida ikkita amal bor:</p>
+    <div class="natija">public function up(): void
+{
+    Schema::create('a_jadval', ...);      ← bajarildi
+    Schema::create('b_jadval', ...);      ← XATO berdi
+}</div>
+    <p>MySQL'da natija: <code>a_jadval</code>
+    <b>bor</b>, <code>b_jadval</code> <b>yo'q</b>, va
+    <code>migrations</code> jadvalida bu migratsiya
+    <b>yozilmagan</b>.</p>
+    <p>Endi <code>php artisan migrate</code> ni qayta
+    ishga tushirsangiz — «a_jadval already exists»
+    xatosi. Migratsiya <b>tiqilib qoldi</b>.</p>
+    <p>✅ Shuning uchun: <b>bitta migratsiya = bitta
+    amal</b>. Va ishlab chiqarishda migratsiyadan
+    oldin <b>zaxira nusxa</b>.</p>
+  </div>
+
+  <!-- ═══════════════ 8) PHPUNIT TUZOQ ═══════════════ -->
+  <h2>⚠️ <code>phpunit.xml</code> tuzog'i</h2>
+
+  <p>Bazani MySQL'ga o'tkazdingiz. Testlarni ishga
+  tushirdingiz — <b>85 ta yashil</b>. Ajoyib!</p>
+
+  <p>Faqat bitta muammo bor. <code>phpunit.xml</code> ga
+  qarang:</p>
+
+  <div class="codefile">
+    <div class="fname">phpunit.xml</div>
+    <code class="cmd">&lt;env name="DB_CONNECTION" value="sqlite"/&gt;
+&lt;env name="DB_DATABASE" value=":memory:"/&gt;</code>
+  </div>
+
+  <p>Testlaringiz MySQL'ga <b>umuman tegmadi</b>. Ular
+  hamon xotiradagi SQLite'da ishlaydi. Ya'ni yuqorida
+  ko'rgan farqlarning <b>hech biri</b> testda
+  tutilmaydi.</p>
+
+  <div class="callout tip">
+    <span class="label">🔑 Ikki qarash — ikkisi ham to'g'ri</span>
+    <div class="natija">SQLite :memory: da test    →  0.77s   TEZ, lekin haqiqiy emas
+MySQL da test              →  1.98s   SEKIN, lekin haqiqiy</div>
+    <p>Ko'p jamoalar <b>ikkalasini</b> ishlatadi:</p>
+    <div class="natija">mahalliy ish  →  SQLite (tez qaytish uchun)
+CI            →  MySQL (haqiqatni tekshirish uchun)</div>
+    <p>Buning uchun ikkinchi konfiguratsiya fayli
+    yetarli:</p>
+    <div class="natija">cp phpunit.xml phpunit.mysql.xml
+# ichida DB_CONNECTION ni mysql ga o'zgartiring va force="true" qo'ying
+
+php artisan test -c phpunit.mysql.xml</div>
+    <p>⚠️ <code>force="true"</code> muhim — usiz
+    PHPUnit mavjud muhit o'zgaruvchisini
+    <b>bosib o'tmaydi</b>.</p>
+  </div>
+
+  <p>🔍 Va natija ishonch beradi — <b>ikkala bazada
+  ham 85 ta test yashil</b>:</p>
+
+  <div class="natija">SQLite:  Tests: 85 passed (173 assertions)   Duration: 0.77s
+MySQL:   Tests: 85 passed (173 assertions)   Duration: 1.98s</div>
+
+  <p>Ya'ni loyihamiz <b>ko'chma</b>. Yuqoridagi farqlar
+  bizga tegmadi — chunki 46-darsda qidiruvni
+  <code>whereLike()</code> bilan yozgan edik.</p>
+
+  <!-- ═══════════════ 9) HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir
+  bir marta o'qing, ko'chirish paytida qaytib
+  qarang.</p>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 1</span>
+    <h4>Mavjud ma'lumotni ko'chirish</h4>
+    <div class="natija">1) SQLite'dan o'qing, MySQL'ga yozing — artisan buyrug'i bilan
+2) yoki: sqlite3 baza.sqlite .dump > eksport.sql   (SQL sintaksisi FARQ qiladi)
+3) yoki: eng ishonchlisi — seeder qayta ishga tushirish (test ma'lumoti bo'lsa)</div>
+    <p>⚠️ <code>.dump</code> to'g'ridan-to'g'ri MySQL'ga
+    <b>tushmaydi</b>: <code>AUTOINCREMENT</code>,
+    qo'shtirnoq turi, tip nomlari boshqacha.</p>
+    <p>✅ Haqiqiy ma'lumot bo'lsa, eng xavfsizi —
+    Laravel'ning o'zida ikkita ulanish ochib,
+    <code>chunkById</code> bilan ko'chirish
+    (60-dars).</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 2</span>
+    <h4><code>utf8mb4</code> emas <code>utf8</code></h4>
+    <div class="natija">create database ishtop character set utf8;     ❌ ESKI
+create database ishtop character set utf8mb4;  ✅</div>
+    <p>MySQL'ning <code>utf8</code> si aslida
+    <b>to'liq emas</b> — u har belgi uchun 3 bayt
+    ajratadi va 4 baytli belgilarni
+    <b>sig'dira olmaydi</b>.</p>
+    <p>Nima sig'maydi? <b>Emoji</b> va ba'zi
+    belgilar. Foydalanuvchi izohga 🎉 yozsa —
+    xato yoki yo'qolgan matn.</p>
+    <p>✅ Har doim <code>utf8mb4</code>. Laravel'ning
+    <code>config/database.php</code> da standarti
+    ham shu.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 3</span>
+    <h4>Kollatsiyani ataylab tanlash</h4>
+    <div class="natija">utf8mb4_0900_ai_ci   →  standart. Katta-kichik va urg'u FARQSIZ
+utf8mb4_0900_as_cs   →  aniq solishtirish (as = accent-sensitive)
+utf8mb4_bin          →  bayt bo'yicha, SQLite'ning BINARY iga eng yaqin</div>
+    <p>Ustunga alohida ham berish mumkin:</p>
+    <div class="natija">$table->string('token')->collation('utf8mb4_bin');</div>
+    <p>✅ <b>Token, hash, kalit</b> kabi ustunlarga
+    <code>_bin</code> to'g'ri keladi — u yerda
+    <code>ABC</code> va <code>abc</code> haqiqatan
+    boshqa narsa.</p>
+    <p>🔑 Ismlar va qidiriladigan matnlar uchun esa
+    <code>_ci</code> yaxshi.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 4</span>
+    <h4>SQLite'ni ham qat'iy qilish</h4>
+    <div class="natija">// config/database.php → sqlite ulanishida
+'busy_timeout' => 5000,
+'journal_mode' => 'WAL',
+'synchronous' => 'NORMAL',</div>
+    <p>Yangi SQLite versiyalarida <code>STRICT</code>
+    jadvallar ham bor — ular tipni haqiqatan
+    tekshiradi.</p>
+    <p>✅ Lekin eng oddiy yechim boshqa:
+    <b>testlaringizni MySQL'da ham ishlating</b>.
+    Sozlama emas, <b>o'lchov</b> ishonch beradi.</p>
+    <p>🔍 <code>WAL</code> rejimi SQLite'ning bir
+    vaqtda o'qish-yozish muammosini
+    ancha yumshatadi — lekin bitta yozuvchi cheklovi
+    qoladi.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 5</span>
+    <h4>PostgreSQL — uchinchi yo'l</h4>
+    <div class="natija">DB_CONNECTION=pgsql
+DB_PORT=5432
+sudo apt install php8.3-pgsql</div>
+    <p>PostgreSQL <b>har doim</b> katta-kichik harfni
+    farqlaydi (<code>=</code> ham,
+    <code>LIKE</code> ham). Ya'ni bu jihatdan u
+    SQLite'ga yaqinroq.</p>
+    <p>Kuchli tomonlari: <code>jsonb</code>, kuchli
+    tip tizimi, <b>tranzaksion DDL</b> (migratsiya
+    yarim qolmaydi!).</p>
+    <p>🔑 Laravel uchalasini ham qo'llab-quvvatlaydi.
+    Migratsiya va Eloquent kodingiz
+    <b>o'zgarmaydi</b> — faqat
+    <code>whereRaw</code> yozgan joylaringiz.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 6</span>
+    <h4><code>migrate:fresh</code> ni ishlab chiqarishda ishlatish</h4>
+    <div class="natija">php artisan migrate:fresh    →  HAMMA JADVALNI O'CHIRADI  ☠️
+php artisan migrate          →  faqat yangilarini qo'shadi  ✅</div>
+    <p>⚠️ <code>fresh</code> — «toza boshlash». Ishlab
+    chiqarishda bu <b>hamma ma'lumotni yo'qotish</b>
+    demakdir.</p>
+    <p>✅ Laravel himoya qo'ygan: ishlab chiqarish
+    muhitida u tasdiq so'raydi.
+    <code>--force</code> bilan bu himoya
+    <b>o'chadi</b> — shuning uchun
+    <code>--force</code> ni skriptga yozishdan oldin
+    ikki marta o'ylang.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>Ko'chishdan oldingi ro'yxat</h4>
+    <div class="natija">1) ZAXIRA NUSXA          →  eski bazani saqlang. Har doim.
+2) php -m | grep pdo_mysql →  drayver bormi?
+3) baza + foydalanuvchi + huquq yaratilganmi?
+4) utf8mb4 mi?
+5) migrate (fresh EMAS) — xatosiz o'tdimi?
+6) testlarni MySQL'da ishlating
+7) qidiruv/solishtirish joylarini qo'lda tekshiring  ← eng muhimi
+8) .env.example ni ham yangilang (jamoadoshlaringiz uchun)</div>
+    <p>🔑 7-qadam eng ko'p o'tkazib yuboriladi va eng
+    ko'p muammo keltiradi — chunki u yerda
+    <b>xato chiqmaydi</b>.</p>
+  </div>
+
+  <!-- ═══════════════ 10) AMALIYOT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    💻 Quyida amaliyot bor. Hozir o'qish rejimidasiz — kompyuter
+    yoningizda bo'lganda <b>💻 Amaliyot</b> rejimiga o'ting va
+    shu bo'limdan davom eting.
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <div class="callout warn">
+      <span class="label">⚠️ Avval zaxira nusxa</span>
+      <p>SQLite bazangiz bitta fayl — uni nusxalash bir
+      buyruq. Buni <b>hozir</b> qiling.</p>
+    </div>
+
+    <ol class="steps">
+      <li>
+        <b>Zaxira nusxa va hozirgi holat.</b>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+cp database/database.sqlite database/database.sqlite.zaxira
+cp .env .env.sqlite.zaxira
+php -m | grep -c pdo_mysql
+php artisan test 2>&amp;1 | tail -3">cd ~/Projects/Learn/ishtop
+cp database/database.sqlite database/database.sqlite.zaxira
+cp .env .env.sqlite.zaxira
+php -m | grep -c pdo_mysql
+php artisan test 2>&amp;1 | tail -3</div>
+        <p class="expect"><code>grep -c</code>
+        <b>0</b> qaytarsa — drayver yo'q.</p>
+      </li>
+
+      <li>
+        <b>⚠️ Drayversiz nima bo'lishini ko'ring.</b>
+        <div class="cmd" data-cmd="php artisan migrate --database=mysql 2>&amp;1 | head -5">php artisan migrate --database=mysql 2&gt;&amp;1 | head -5</div>
+        <p class="expect"><code>could not find driver</code>
+        — bu <b>PHP</b> tomonidagi muammo, server
+        bilan aloqasi yo'q.</p>
+      </li>
+
+      <li>
+        <b>Server va drayverni o'rnating.</b>
+        <div class="cmd" data-cmd="sudo apt update
+sudo apt install -y mysql-server php8.3-mysql
+php -m | grep pdo_mysql
+sudo systemctl status mysql --no-pager | head -4">sudo apt update
+sudo apt install -y mysql-server php8.3-mysql
+php -m | grep pdo_mysql
+sudo systemctl status mysql --no-pager | head -4</div>
+        <p class="expect"><code>pdo_mysql</code> va
+        <code>active (running)</code>.</p>
+      </li>
+
+      <li>
+        <b>Baza va foydalanuvchi yarating.</b>
+        <div class="cmd" data-cmd="sudo mysql -e &quot;create database if not exists ishtop character set utf8mb4 collate utf8mb4_0900_ai_ci;&quot;
+sudo mysql -e &quot;create database if not exists ishtop_test character set utf8mb4 collate utf8mb4_0900_ai_ci;&quot;
+sudo mysql -e &quot;create user if not exists 'ishtop'@'localhost' identified by 'sirli';&quot;
+sudo mysql -e &quot;grant all privileges on ishtop.* to 'ishtop'@'localhost';&quot;
+sudo mysql -e &quot;grant all privileges on ishtop_test.* to 'ishtop'@'localhost';&quot;
+sudo mysql -e &quot;flush privileges;&quot;">sudo mysql -e &quot;create database if not exists ishtop character set utf8mb4 collate utf8mb4_0900_ai_ci;&quot;
+sudo mysql -e &quot;create database if not exists ishtop_test character set utf8mb4 collate utf8mb4_0900_ai_ci;&quot;
+sudo mysql -e &quot;create user if not exists 'ishtop'@'localhost' identified by 'sirli';&quot;
+sudo mysql -e &quot;grant all privileges on ishtop.* to 'ishtop'@'localhost';&quot;
+sudo mysql -e &quot;grant all privileges on ishtop_test.* to 'ishtop'@'localhost';&quot;
+sudo mysql -e &quot;flush privileges;&quot;</div>
+      </li>
+
+      <li>
+        <b><code>.env</code> ni yangilang.</b>
+        <code>DB_CONNECTION=sqlite</code> qatorini
+        o'chirib, o'rniga:
+        <div class="cmd" data-cmd="# .env
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=ishtop
+DB_USERNAME=ishtop
+DB_PASSWORD=sirli"># .env
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=ishtop
+DB_USERNAME=ishtop
+DB_PASSWORD=sirli</div>
+        <div class="cmd" data-cmd="php artisan config:clear
+php artisan migrate:fresh --seed">php artisan config:clear
+php artisan migrate:fresh --seed</div>
+        <p class="expect">54-darsdagi
+        <code>config:clear</code> — konfiguratsiya
+        keshlangan bo'lsa, eski sozlama qoladi.</p>
+      </li>
+
+      <li>
+        <b>⚠️ Uchta xatoni ataylab chaqiring.</b>
+        Har birida <code>.env</code> ni buzib,
+        <code>php artisan migrate</code> ni ishga
+        tushiring va xato <b>raqamini</b> yozib
+        qo'ying:
+        <div class="cmd" data-cmd="# 1) DB_PASSWORD=notogri   →  ?
+# 2) DB_DATABASE=yoq_baza →  ?
+# 3) DB_PORT=3999         →  ?
+# Har birida:  php artisan config:clear &amp;&amp; php artisan migrate"># 1) DB_PASSWORD=notogri   →  ?
+# 2) DB_DATABASE=yoq_baza →  ?
+# 3) DB_PORT=3999         →  ?
+# Har birida:  php artisan config:clear &amp;&amp; php artisan migrate</div>
+        <p class="expect">Menda: <b>1045</b>,
+        <b>1044</b>, <b>2002</b>. So'ng
+        <code>.env</code> ni tiklang.</p>
+      </li>
+
+      <li>
+        <b>⭐ Farqni o'z ko'zingiz bilan ko'ring.</b>
+        <code>farq.php</code> yarating:
+        <div class="cmd" data-cmd="cat > farq.php <<'PHPEOF'
+&lt;?php
+require __DIR__.'/vendor/autoload.php';
+$app = require __DIR__.'/bootstrap/app.php';
+$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+
+use Illuminate\Support\Facades\DB;
+
+echo '=== ', DB::connection()->getDriverName(), ' ===', PHP_EOL;
+DB::table('vakansiyalar')->where('nom', 'like', 'ZOND%')->delete();
+$kid = DB::table('kompaniyalar')->value('id');
+
+foreach (['ZOND Dasturchi', 'ZOND dasturchi', 'ZOND DASTURCHI'] as $n) {
+    DB::table('vakansiyalar')->insert(['nom' => $n, 'shahar' => 'T', 'maosh' => 1,
+        'faol' => 1, 'kompaniya_id' => $kid, 'created_at' => now(), 'updated_at' => now()]);
+}
+
+$b = fn () => DB::table('vakansiyalar')->where('nom', 'like', 'ZOND%');
+printf(&quot;  where(nom, 'ZOND Dasturchi')       -> %d ta\n&quot;, (clone $b())->where('nom', 'ZOND Dasturchi')->count());
+printf(&quot;  whereLike(nom, '%%dasturchi%%')      -> %d ta\n&quot;, (clone $b())->whereLike('nom', '%dasturchi%')->count());
+printf(&quot;  whereLike(..., caseSensitive: true) -> %d ta\n&quot;, (clone $b())->whereLike('nom', '%dasturchi%', true)->count());
+
+try {
+    DB::table('vakansiyalar')->insert(['nom' => 'ZOND4', 'shahar' => 'T', 'maosh' => 'salom',
+        'faol' => 1, 'kompaniya_id' => $kid, 'created_at' => now(), 'updated_at' => now()]);
+    echo '  maosh = &quot;salom&quot; -> QABUL QILINDI: ', var_export(DB::table('vakansiyalar')->where('nom', 'ZOND4')->value('maosh'), true), PHP_EOL;
+} catch (\Throwable $e) {
+    echo '  maosh = &quot;salom&quot; -> XATO: ', substr(explode(' (Connection:', $e->getMessage())[0], 0, 90), PHP_EOL;
+}
+
+DB::table('vakansiyalar')->where('nom', 'like', 'ZOND%')->delete();
+PHPEOF
+php farq.php">cat &gt; farq.php &lt;&lt;'PHPEOF'
+&lt;?php
+require __DIR__.'/vendor/autoload.php';
+$app = require __DIR__.'/bootstrap/app.php';
+$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+
+use Illuminate\Support\Facades\DB;
+
+echo '=== ', DB::connection()-&gt;getDriverName(), ' ===', PHP_EOL;
+DB::table('vakansiyalar')-&gt;where('nom', 'like', 'ZOND%')-&gt;delete();
+$kid = DB::table('kompaniyalar')-&gt;value('id');
+
+foreach (['ZOND Dasturchi', 'ZOND dasturchi', 'ZOND DASTURCHI'] as $n) {
+    DB::table('vakansiyalar')-&gt;insert(['nom' =&gt; $n, 'shahar' =&gt; 'T', 'maosh' =&gt; 1,
+        'faol' =&gt; 1, 'kompaniya_id' =&gt; $kid, 'created_at' =&gt; now(), 'updated_at' =&gt; now()]);
+}
+
+$b = fn () =&gt; DB::table('vakansiyalar')-&gt;where('nom', 'like', 'ZOND%');
+printf(&quot;  where(nom, 'ZOND Dasturchi')       -&gt; %d ta\n&quot;, (clone $b())-&gt;where('nom', 'ZOND Dasturchi')-&gt;count());
+printf(&quot;  whereLike(nom, '%%dasturchi%%')      -&gt; %d ta\n&quot;, (clone $b())-&gt;whereLike('nom', '%dasturchi%')-&gt;count());
+printf(&quot;  whereLike(..., caseSensitive: true) -&gt; %d ta\n&quot;, (clone $b())-&gt;whereLike('nom', '%dasturchi%', true)-&gt;count());
+
+try {
+    DB::table('vakansiyalar')-&gt;insert(['nom' =&gt; 'ZOND4', 'shahar' =&gt; 'T', 'maosh' =&gt; 'salom',
+        'faol' =&gt; 1, 'kompaniya_id' =&gt; $kid, 'created_at' =&gt; now(), 'updated_at' =&gt; now()]);
+    echo '  maosh = &quot;salom&quot; -&gt; QABUL QILINDI: ', var_export(DB::table('vakansiyalar')-&gt;where('nom', 'ZOND4')-&gt;value('maosh'), true), PHP_EOL;
+} catch (\Throwable $e) {
+    echo '  maosh = &quot;salom&quot; -&gt; XATO: ', substr(explode(' (Connection:', $e-&gt;getMessage())[0], 0, 90), PHP_EOL;
+}
+
+DB::table('vakansiyalar')-&gt;where('nom', 'like', 'ZOND%')-&gt;delete();
+PHPEOF
+php farq.php</div>
+      </li>
+
+      <li>
+        <b>⭐ Endi SQLite'da bir xil skriptni
+        ishlating.</b>
+        <div class="cmd" data-cmd="cp .env .env.mysql.zaxira
+cp .env.sqlite.zaxira .env
+php artisan config:clear
+php farq.php
+cp .env.mysql.zaxira .env
+php artisan config:clear">cp .env .env.mysql.zaxira
+cp .env.sqlite.zaxira .env
+php artisan config:clear
+php farq.php
+cp .env.mysql.zaxira .env
+php artisan config:clear</div>
+        <p class="expect">⚠️ Menda uchta yozuv
+        ustida:</p>
+        <div class="natija">                                       SQLite   MySQL
+where(nom, 'ZOND Dasturchi')              1        3     &lt;- FARQ
+whereLike(nom, '%dasturchi%')             3        3     &lt;- bir xil
+whereLike(..., caseSensitive: true)       1        1     &lt;- bir xil
+maosh = "salom"                    QABUL QILINDI  XATO 1366</div>
+      </li>
+
+      <li>
+        <b>Testlarni MySQL'da ishlating.</b>
+        <div class="cmd" data-cmd="cp phpunit.xml phpunit.mysql.xml">cp phpunit.xml phpunit.mysql.xml</div>
+        <p><code>phpunit.mysql.xml</code> ichida
+        <code>DB_CONNECTION</code> va
+        <code>DB_DATABASE</code> qatorlarini
+        almashtiring:</p>
+        <div class="cmd" data-cmd="# phpunit.mysql.xml
+&lt;env name=&quot;DB_CONNECTION&quot; value=&quot;mysql&quot; force=&quot;true&quot;/&gt;
+&lt;env name=&quot;DB_HOST&quot; value=&quot;127.0.0.1&quot; force=&quot;true&quot;/&gt;
+&lt;env name=&quot;DB_PORT&quot; value=&quot;3306&quot; force=&quot;true&quot;/&gt;
+&lt;env name=&quot;DB_DATABASE&quot; value=&quot;ishtop_test&quot; force=&quot;true&quot;/&gt;
+&lt;env name=&quot;DB_USERNAME&quot; value=&quot;ishtop&quot; force=&quot;true&quot;/&gt;
+&lt;env name=&quot;DB_PASSWORD&quot; value=&quot;sirli&quot; force=&quot;true&quot;/&gt;"># phpunit.mysql.xml
+&lt;env name=&quot;DB_CONNECTION&quot; value=&quot;mysql&quot; force=&quot;true&quot;/&gt;
+&lt;env name=&quot;DB_HOST&quot; value=&quot;127.0.0.1&quot; force=&quot;true&quot;/&gt;
+&lt;env name=&quot;DB_PORT&quot; value=&quot;3306&quot; force=&quot;true&quot;/&gt;
+&lt;env name=&quot;DB_DATABASE&quot; value=&quot;ishtop_test&quot; force=&quot;true&quot;/&gt;
+&lt;env name=&quot;DB_USERNAME&quot; value=&quot;ishtop&quot; force=&quot;true&quot;/&gt;
+&lt;env name=&quot;DB_PASSWORD&quot; value=&quot;sirli&quot; force=&quot;true&quot;/&gt;</div>
+        <div class="cmd" data-cmd="php artisan test -c phpunit.mysql.xml 2>&amp;1 | tail -4">php artisan test -c phpunit.mysql.xml 2&gt;&amp;1 | tail -4</div>
+        <p class="expect">Menda <b>85 passed</b>,
+        <b>1.98s</b> (SQLite'da <b>0.77s</b>).</p>
+      </li>
+
+      <li>
+        <b>Ko'chma testni yozing.</b>
+        <code>tests/Feature/BazaFarqiTest.php</code>:
+        <div class="cmd" data-cmd="cat > tests/Feature/BazaFarqiTest.php <<'PHPEOF'
+&lt;?php
+
+use App\Models\Kompaniya;
+use App\Models\Vakansiya;
+use Illuminate\Support\Facades\DB;
+
+function ikkiVakansiya(): void
+{
+    $k = Kompaniya::factory()->create();
+    Vakansiya::factory()->create(['nom' => 'Katta Dasturchi', 'kompaniya_id' => $k->id]);
+    Vakansiya::factory()->create(['nom' => 'kichik dasturchi', 'kompaniya_id' => $k->id]);
+}
+
+it('whereLike har ikki bazada bir xil ishlaydi', function () {
+    ikkiVakansiya();
+
+    expect(Vakansiya::whereLike('nom', '%dasturchi%')->count())->toBe(2);
+    expect(Vakansiya::whereLike('nom', '%dasturchi%', caseSensitive: true)->count())->toBe(1);
+});
+
+it('qidiruv endpointi harf registridan qatiy nazar topadi', function () {
+    ikkiVakansiya();
+
+    $javob = $this->getJson('/api/v1/vakansiyalar?qidir=DASTURCHI');
+
+    $javob->assertOk();
+    expect($javob->json('meta.total'))->toBe(2);
+});
+
+it('drayver nomini logga yozadi', function () {
+    expect(DB::connection()->getDriverName())->toBeIn(['sqlite', 'mysql', 'pgsql']);
+});
+PHPEOF
+php artisan test tests/Feature/BazaFarqiTest.php
+php artisan test -c phpunit.mysql.xml --filter BazaFarqi">cat &gt; tests/Feature/BazaFarqiTest.php &lt;&lt;'PHPEOF'
+&lt;?php
+
+use App\Models\Kompaniya;
+use App\Models\Vakansiya;
+use Illuminate\Support\Facades\DB;
+
+function ikkiVakansiya(): void
+{
+    $k = Kompaniya::factory()-&gt;create();
+    Vakansiya::factory()-&gt;create(['nom' =&gt; 'Katta Dasturchi', 'kompaniya_id' =&gt; $k-&gt;id]);
+    Vakansiya::factory()-&gt;create(['nom' =&gt; 'kichik dasturchi', 'kompaniya_id' =&gt; $k-&gt;id]);
+}
+
+it('whereLike har ikki bazada bir xil ishlaydi', function () {
+    ikkiVakansiya();
+
+    expect(Vakansiya::whereLike('nom', '%dasturchi%')-&gt;count())-&gt;toBe(2);
+    expect(Vakansiya::whereLike('nom', '%dasturchi%', caseSensitive: true)-&gt;count())-&gt;toBe(1);
+});
+
+it('qidiruv endpointi harf registridan qatiy nazar topadi', function () {
+    ikkiVakansiya();
+
+    $javob = $this-&gt;getJson('/api/v1/vakansiyalar?qidir=DASTURCHI');
+
+    $javob-&gt;assertOk();
+    expect($javob-&gt;json('meta.total'))-&gt;toBe(2);
+});
+
+it('drayver nomini logga yozadi', function () {
+    expect(DB::connection()-&gt;getDriverName())-&gt;toBeIn(['sqlite', 'mysql', 'pgsql']);
+});
+PHPEOF
+php artisan test tests/Feature/BazaFarqiTest.php
+php artisan test -c phpunit.mysql.xml --filter BazaFarqi</div>
+        <p class="expect"><b>3 passed</b> —
+        <b>ikkala</b> bazada.</p>
+      </li>
+
+      <li>
+        <b>Tozalang.</b>
+        <div class="cmd" data-cmd="rm -f farq.php .env.mysql.zaxira
+php artisan test 2>&amp;1 | tail -3">rm -f farq.php .env.mysql.zaxira
+php artisan test 2&gt;&amp;1 | tail -3</div>
+        <p>⚠️ <code>database/database.sqlite.zaxira</code>
+        ni saqlab qo'ying — ma'lumot kerak bo'lishi
+        mumkin. <code>.gitignore</code> ga
+        qo'shing.</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li>Zaxira nusxa olindi</li>
+      <li>⚠️ <code>could not find driver</code> ni
+      ko'rdim</li>
+      <li><code>mysql-server</code> va
+      <code>php8.3-mysql</code> o'rnatildi</li>
+      <li>Baza, foydalanuvchi va huquqlar yaratildi
+      (<code>utf8mb4</code>)</li>
+      <li><code>migrate:fresh --seed</code> MySQL'da
+      o'tdi</li>
+      <li>⚠️ 1045 / 1044 / 2002 xatolarini ataylab
+      ko'rdim</li>
+      <li>⭐ Bir xil so'rov ikki bazada boshqa javob
+      berdi</li>
+      <li><code>whereLike</code> ikkalasida bir xil
+      ishladi</li>
+      <li><code>phpunit.mysql.xml</code> yaratildi</li>
+      <li>Testlar <b>ikkala</b> bazada yashil</li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 11) SINAB KO'RAMIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Jamoa loyihani SQLite'dan MySQL'ga ko'chirdi.
+    Hammasi rejadagidek o'tdi: migratsiyalar bajarildi,
+    testlar yashil, sayt ishlayapti.</p>
+    <p>Ro'yxatdan o'tish kodi shunday:</p>
+    <div class="natija">$bor = User::where('email', $request->email)->exists();
+
+if ($bor) {
+    return back()->withErrors(['email' => 'Bu email band']);
+}
+
+User::create([...]);</div>
+    <p>Bir hafta o'tib qo'llab-quvvatlash xizmatiga
+    shikoyat keldi:</p>
+    <div class="natija">"Ro'yxatdan o'tolmayapman. 'Bu email band' deydi,
+ lekin men hech qachon ro'yxatdan o'tmaganman."</div>
+    <p>Dasturchi bazani tekshirdi — foydalanuvchining
+    emaili haqiqatan <b>yo'q</b>. Nima
+    bo'lyapti?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <p>Foydalanuvchi <code>Ali@example.com</code> deb
+        yozdi. Bazada esa <code>ali@example.com</code>
+        bor — <b>boshqa odamning</b> emaili.</p>
+        <p>MySQL'ning <code>_ci</code> kollatsiyasi uchun
+        bu ikkalasi — <b>bir xil</b>. Shuning uchun
+        <code>exists()</code> <code>true</code>
+        qaytardi.</p>
+        <p class="expect">SQLite'da bu kod <b>yillar
+        davomida to'g'ri ishlagan</b> edi — u
+        <code>Ali@</code> va <code>ali@</code> ni boshqa
+        deb bilgan.</p>
+        <p>🔑 Va endi eng qiziq savol: <b>qaysi biri
+        to'g'ri?</b></p>
+        <div class="natija">RFC bo'yicha:  email ning domen qismi — registrsiz
+               local qismi (@ dan oldin) — TEXNIK JIHATDAN registrli
+
+Amalda:        deyarli hamma pochta xizmati registrni e'tiborsiz
+               qoldiradi. Ali@gmail.com va ali@gmail.com — BIR ODAM</div>
+        <p>Ya'ni <b>MySQL'ning xulqi to'g'riroq</b>.
+        SQLite'dagi «to'g'ri ishlagan» kod aslida
+        <b>xato</b> edi — u bir odamga ikkita hisob
+        ochish imkonini bergan.</p>
+        <p>⚠️ Muammo ko'chishda emas. Ko'chish faqat
+        <b>eski xatoni ko'rsatdi</b>.</p>
+        <p>✅ To'g'ri yechim — bazaga tayanmaslik:</p>
+        <div class="natija">// saqlashdan OLDIN normallashtirish
+$email = Str::lower(trim($request->email));
+
+$bor = User::where('email', $email)->exists();
+User::create(['email' => $email, ...]);</div>
+        <p>🔑 <b>Umumiy saboq:</b> qoidani bazaga emas,
+        <b>kodga</b> yozing. Shunda u ko'chganda ham
+        o'zgarmaydi — va o'qigan odam
+        <b>ko'radi</b>.</p>
+        <p>🔍 Va eski ma'lumotni ham tozalash kerak:
+        bazada allaqachon <code>Ali@</code> va
+        <code>ali@</code> bo'lsa, ular birlashtirilishi
+        yoki hal qilinishi lozim. Aks holda
+        <code>unique</code> indeks qo'yishning
+        <b>o'zi</b> xato beradi.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span>
+    <code>maosh</code> (integer) ustuniga
+    <code>'salom'</code> yozsangiz nima bo'ladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">SQLite qabul qiladi MySQL esa xato beradi chunki qatiy</button></li>
+      <li><button class="quiz-option">MySQL qabul qiladi SQLite esa xato beradi chunki tekshiradi</button></li>
+      <li><button class="quiz-option">Ikkalasi ham xato beradi va yozuv umuman saqlanmaydi shunday</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi: SQLite
+    <code>'salom'</code> ni <b>saqlab qo'ydi</b>;
+    MySQL — <code>1366 Incorrect integer value</code>.
+    Xuddi shunday <code>varchar(255)</code> ga 300 belgi:
+    SQLite <b>305</b> belgini saqladi, MySQL —
+    <code>1406 Data too long</code>.
+    🔑 Sabab: MySQL 8 da
+    <code>STRICT_TRANS_TABLES</code> standart
+    yoqiq.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span>
+    Bazada <code>'ZOND Dasturchi'</code>,
+    <code>'ZOND dasturchi'</code>,
+    <code>'ZOND DASTURCHI'</code> bor.
+    <code>where('nom', 'ZOND Dasturchi')</code> nechta
+    topadi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">SQLite bir ta topadi MySQL esa uch ta topadi</button></li>
+      <li><button class="quiz-option">Ikkala bazada ham aynan bir xil bitta yozuv topiladi</button></li>
+      <li><button class="quiz-option">SQLite uch ta topadi MySQL esa bir ta topadi</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi: <b>SQLite 1,
+    MySQL 3</b>. Xato yo'q — <b>javob boshqacha</b>.
+    Sabab: MySQL 8 standarti
+    <code>utf8mb4_0900_ai_ci</code> —
+    <code>ci</code> registrni,
+    <code>ai</code> urg'uni e'tiborsiz qoldiradi
+    (o'lchandi: <code>Café</code> =
+    <code>Cafe</code>). SQLite'da esa
+    <code>BINARY</code>.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span>
+    Qidiruv ikkala bazada bir xil ishlashi uchun nima
+    qilasiz?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">whereLike ishlatish chunki Laravel uni har bazaga moslaydi</button></li>
+      <li><button class="quiz-option">Har doim kichik harfga keltirib solishtirish kerak boladi</button></li>
+      <li><button class="quiz-option">Bazani almashtirmaslik va SQLite bilan qolib ketish yaxshi</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi:
+    <code>whereLike('nom', '%dasturchi%')</code> →
+    <b>ikkalasida ham 2</b>;
+    <code>caseSensitive: true</code> bilan →
+    <b>ikkalasida ham 1</b>.
+    Laravel yozgan SQL: MySQL'da
+    <code>like binary</code>, SQLite'da
+    <code>glob</code>.
+    🔑 Baza xulqiga bog'liq joyni o'zingiz emas,
+    <b>Laravel</b> hal qilsin.</div>
+  </div>
+
+  <!-- ═══════════════ 12) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+
+    <p>Javobni ovoz chiqarib ayting, keyin ochib
+    solishtiring.</p>
+
+    <details class="recall">
+      <summary>MySQL'ga o'tish uchun nima kerak?</summary>
+      <div class="answer"><b>Ikki alohida narsa:</b>
+      <code>mysql-server</code> (ma'lumotni saqlaydi)
+      va <code>php8.3-mysql</code> (PHP'ning drayveri).
+      Tekshiruv: <code>php -m | grep pdo_mysql</code>.
+      So'ng: baza + foydalanuvchi + huquq yaratish
+      (<b><code>utf8mb4</code></b> bilan), oltita
+      <code>DB_*</code> qatori,
+      <code>config:clear</code>,
+      <code>migrate</code>.
+      🔍 <code>migrate:fresh</code>: MySQL <b>1.47s</b>,
+      SQLite <b>0.42s</b>.</div>
+    </details>
+
+    <details class="recall">
+      <summary>To'rtta ulanish xatosi nimani
+      aytadi?</summary>
+      <div class="answer">
+      <code>could not find driver</code> → drayver
+      <b>o'rnatilmagan</b> (serverga tegishi yo'q).
+      <b>2002</b> Connection refused → serverga
+      <b>yetib bormadi</b> (ishlamayapti / port).
+      <b>1045</b> Access denied ... (using password:
+      YES) → <b>parol</b>.
+      <b>1044</b> Access denied ... to database 'X' →
+      <b>baza yo'q yoki huquq berilmagan</b>.
+      🔑 Raqamni o'qing — u qayerga qarashni
+      aytadi.</div>
+    </details>
+
+    <details class="recall">
+      <summary>⭐ Qanday farq eng xavfli va
+      nega?</summary>
+      <div class="answer"><b>Xato yo'q, natija
+      boshqacha.</b>
+      🔍 O'lchandi: uchta yozuv
+      (<code>ZOND Dasturchi</code> /
+      <code>dasturchi</code> / <code>DASTURCHI</code>),
+      <code>where('nom', 'ZOND Dasturchi')</code> →
+      SQLite <b>1</b>, MySQL <b>3</b>.
+      Sabab: <code>utf8mb4_0900_ai_ci</code> —
+      <code>ci</code> registrsiz,
+      <code>ai</code> urg'usiz
+      (<code>Café</code> = <code>Cafe</code>);
+      SQLite'da <code>BINARY</code>.
+      ⚠️ Xavfli, chunki test yashil qoladi va
+      xato faqat foydalanuvchi shikoyatida
+      ko'rinadi.
+      ✅ Yechim: <code>whereLike()</code> — Laravel
+      MySQL'da <code>like binary</code>, SQLite'da
+      <code>glob</code> yozadi.</div>
+    </details>
+
+    <details class="recall">
+      <summary>SQLite yana nimalarni o'tkazib
+      yuboradi?</summary>
+      <div class="answer">🔍 O'lchandi:
+      <b>1)</b> integer ustunga <code>'salom'</code> —
+      <b>saqladi</b> (MySQL: 1366).
+      <b>2)</b> <code>varchar(255)</code> ga 300 belgi —
+      <b>305 saqladi</b> (MySQL: 1406).
+      <b>3)</b> guruhlanmagan ustunli
+      <code>group by</code> — <b>ishladi</b>
+      (MySQL: 1055).
+      <b>4)</b> Ustun tipini ham saqlamaydi:
+      <code>varchar(255)</code> →
+      <code>varchar</code>.
+      <b>5)</b> ⚠️ DDL tranzaksiyasi: SQLite
+      <code>create table</code> ni <b>qaytardi</b>,
+      MySQL <b>qaytarmadi</b> — yarim bajarilgan
+      migratsiya tiqilib qoladi.</div>
+    </details>
+
+    <details class="recall">
+      <summary>Testlar MySQL'da ishlashini qanday
+      ta'minlaysiz?</summary>
+      <div class="answer">⚠️ Standart
+      <code>phpunit.xml</code> testlarni
+      <code>sqlite :memory:</code> ga <b>mixlab
+      qo'ygan</b> — MySQL'ga o'tsangiz ham testlar
+      unga <b>tegmaydi</b>.
+      ✅ Ikkinchi fayl:
+      <code>phpunit.mysql.xml</code>, ichida
+      <code>DB_*</code> larga
+      <b><code>force="true"</code></b> (usiz PHPUnit
+      mavjud qiymatni bosib o'tmaydi).
+      <code>php artisan test -c phpunit.mysql.xml</code>.
+      🔍 O'lchandi: <b>85 passed ikkalasida ham</b> —
+      SQLite <b>0.77s</b>, MySQL <b>1.98s</b>.
+      🔑 Mahalliy ishda SQLite (tez), CI'da MySQL
+      (haqiqiy).</div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 13) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Xulosa</span>
+    <ul>
+      <li><b>Server</b> (<code>mysql-server</code>) va
+      <b>drayver</b> (<code>php8.3-mysql</code>) —
+      ikki alohida narsa.</li>
+      <li>Baza + foydalanuvchi + huquqni <b>o'zingiz</b>
+      yaratasiz. <code>utf8mb4</code> bilan.</li>
+      <li>🔍 <code>migrate:fresh</code>: MySQL
+      <b>1.47s</b>, SQLite <b>0.42s</b>.</li>
+      <li>Xato raqami manzil beradi:
+      <b>driver</b> → PHP · <b>2002</b> → server ·
+      <b>1045</b> → parol · <b>1044</b> → baza.</li>
+      <li>⭐ Eng xavflisi — <b>xato yo'q, natija
+      boshqacha</b>: SQLite <b>1</b>, MySQL
+      <b>3</b>.</li>
+      <li><code>utf8mb4_0900_ai_ci</code>:
+      <code>ci</code> registrsiz, <code>ai</code>
+      urg'usiz (<code>Café</code> =
+      <code>Cafe</code>).</li>
+      <li>✅ <code>whereLike()</code> ikkalasida bir xil —
+      Laravel <code>like binary</code> / <code>glob</code>
+      yozadi.</li>
+      <li>⚠️ SQLite qat'iy emas: matn son ustuniga
+      <b>sig'di</b>, 300 belgi
+      <code>varchar(255)</code> ga
+      <b>sig'di</b>.</li>
+      <li>⚠️ MySQL'da DDL tranzaksiyaga bo'ysunmaydi —
+      yarim migratsiya <b>qoladi</b>. Bitta
+      migratsiya = bitta amal.</li>
+      <li>⚠️ <code>phpunit.xml</code> testlarni SQLite'ga
+      mixlagan — <code>force="true"</code> bilan
+      ikkinchi fayl kerak.</li>
+      <li>🔍 Loyihamiz <b>ko'chma</b>: 85 test ikkala
+      bazada ham yashil (0.77s va 1.98s).</li>
+      <li>🔑 Qoidani bazaga emas, <b>kodga</b> yozing —
+      ko'chganda o'zgarmaydi.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p>Baza tayyor. Endi <b>kodga</b> qaytamiz.</p>
+    <p>Kursimiz boshidan beri mantiq controllerda
+    yashab keldi: 45-darsdagi
+    <code>VakansiyaController</code> ni oching —
+    u endi filtr, saralash, huquq tekshiruvi,
+    hodisa yuborish va kesh bilan
+    <b>shishib ketgan</b>.</p>
+    <p>62-darsda <b>Service va Action</b> sinflarini
+    o'rganamiz: mantiqni controllerdan chiqarib,
+    <b>nomlangan</b>, <b>alohida testlanadigan</b>
+    bo'laklarga ajratamiz — 49-darsdagi konteyner
+    ularni o'zi ulab beradi.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel — Database Configuration</b>:
+    <a href="https://laravel.com/docs/13.x/database#configuration">ulanishlar,
+    <code>DB_*</code>, bir nechta baza</a>.<sup><a href="#fn1">1</a></sup><br>
+    <b>MySQL 8.4 — Character Sets and Collations</b>:
+    <a href="https://dev.mysql.com/doc/refman/8.4/en/charset.html">utf8mb4,
+    <code>_ai_ci</code> nimani anglatadi</a>.<sup><a href="#fn2">2</a></sup><br>
+    <b>SQLite — Datatypes</b>:
+    <a href="https://www.sqlite.org/datatype3.html">nega
+    SQLite tipni qat'iy tekshirmaydi</a>.<sup><a href="#fn3">3</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b>
+    «MySQL yoki PostgreSQL?», «mavjud ma'lumotni qanday
+    ko'chiraman?», «kollatsiyani keyin o'zgartirsam
+    bo'ladimi?» — har qanday savol yaxshi. Oxirgisiga
+    qisqa javob: <b>ha, lekin ehtiyot bo'ling</b> —
+    <code>alter table ... convert to character set</code>
+    hamma qatorni qayta yozadi va katta jadvalda uzoq
+    davom etadi. Birinchisiga: ikkalasi ham yaxshi;
+    PostgreSQL qat'iyroq va tranzaksion DDL beradi,
+    MySQL esa keng tarqalgan va hosting topish
+    osonroq.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0060-n-plus-1-indeks-telescope.html">Oldingi: N+1, indeks va Telescope</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel 13 — <a href="https://laravel.com/docs/13.x/database#configuration">Database: Configuration</a>.</li>
+      <li id="fn2">MySQL 8.4 — <a href="https://dev.mysql.com/doc/refman/8.4/en/charset.html">Character Sets, Collations, Unicode</a>.</li>
+      <li id="fn3">SQLite — <a href="https://www.sqlite.org/datatype3.html">Datatypes In SQLite</a>.</li>
+      <li id="fn4">Barchasi jonli o'lchangan. Ikki baza yonma-yon:
+      <b>SQLite</b> (PHP 8.3.32, Laravel 13.26.1) va
+      <b>MySQL 8.4.11</b> (PHP 8.3.33, <code>pdo_mysql</code>),
+      bir xil migratsiya va bir xil kod bilan.
+      Ulanish xatolari: <code>could not find driver</code> ·
+      <code>SQLSTATE[HY000] [2002] Connection refused</code> ·
+      <code>SQLSTATE[HY000] [1045] Access denied for user
+      'ishtop'@'...' (using password: YES)</code> ·
+      <code>SQLSTATE[HY000] [1044] Access denied for user
+      'ishtop'@'%' to database 'yoq_baza'</code> ·
+      <code>migrate:fresh</code>: MySQL <b>1.47s</b>
+      (eng uzun migratsiya 192.35ms), SQLite <b>0.42s</b>
+      (48.83ms) ·
+      ⭐ uchta yozuv (<code>ZOND Dasturchi</code>,
+      <code>ZOND dasturchi</code>,
+      <code>ZOND DASTURCHI</code>) ustida
+      <code>where('nom', 'ZOND Dasturchi')</code> →
+      SQLite <b>1 ta</b>, MySQL <b>3 ta</b> ·
+      saqlangan <code>'ZOND Café'</code> ustida
+      <code>where('nom', 'ZOND Cafe')</code> →
+      SQLite <b>0</b>, MySQL <b>1</b> ·
+      MySQL sozlamalari: <code>collation
+      utf8mb4_0900_ai_ci</code>, <code>charset
+      utf8mb4</code>, <code>sql_mode
+      ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,
+      NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,
+      NO_ENGINE_SUBSTITUTION</code> ·
+      ⚠️ <code>maosh</code> (integer) ga
+      <code>'salom'</code>: SQLite <b>saqladi</b>
+      (<code>'salom'</code>), MySQL
+      <code>1366 Incorrect integer value</code> ·
+      <code>varchar(255)</code> ga 300 belgi: SQLite
+      <b>305 belgi saqladi</b>, MySQL
+      <code>SQLSTATE[22001] 1406 Data too long</code> ·
+      <code>select shahar, nom ... group by shahar</code>:
+      SQLite <b>5 qator</b>, MySQL
+      <code>1055 Expression #2 of SELECT list is not in
+      GROUP BY clause</code> ·
+      ⚠️ tranzaksiya ichida <code>create table</code> +
+      xato: SQLite jadval <b>qaytarildi</b>, MySQL
+      <b>qoldi</b> ·
+      ustun tiplari: <code>string('nom')</code> → MySQL
+      <code>varchar(255)</code>, SQLite
+      <code>varchar</code>; <code>id()</code> → MySQL
+      <code>bigint unsigned</code>, SQLite
+      <code>INTEGER</code> ·
+      <code>EXPLAIN</code>: SQLite
+      <code>SCAN vakansiyalar</code>, MySQL
+      <code>type: ALL, key: NULL, rows: 3, Extra: Using
+      where</code> ·
+      ✅ <code>whereLike('nom','%dasturchi%')</code> →
+      <b>ikkalasida 2</b>;
+      <code>caseSensitive: true</code> →
+      <b>ikkalasida 1</b>; yaratilgan SQL: MySQL
+      <code>like binary ?</code>, SQLite
+      <code>glob ?</code> ·
+      <code>1/0</code>, boolean (<code>int 1</code>) va
+      <code>created_at</code> (<code>string</code>) —
+      <b>ikkalasida bir xil</b> ·
+      to'liq to'plam: <b>85 passed (173 assertions)</b> —
+      SQLite <b>0.77s</b>, MySQL <b>1.98s</b>.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>
