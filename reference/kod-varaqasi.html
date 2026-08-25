@@ -17,7 +17,7 @@
   muhit ma'lumotlari. Har dars yangi buyruq o'rgatilsa, shu yerga qo'shiladi.</p>
 
   <p class="lesson-meta">
-    <span>Qamrov: <b>1&ndash;57-darslar</b> — muhitdan API'gacha</span>
+    <span>Qamrov: <b>1&ndash;58-darslar</b> — muhitdan API'gacha</span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>💻 Amaliyotga mos</span>
   </p>
@@ -1740,6 +1740,45 @@
     <p>🔑 Hodisa (53-dars) — <b>ichki</b> aloqa (ilova
     qismlari orasida). Bildirishnoma — <b>tashqi</b> aloqa
     (ilovadan odamga). Birga ishlaydi.</p>
+  </div>
+
+  <h2>Task Scheduling (58-darsdan)</h2>
+  <table class="sheet">
+    <tr><th>Kod / buyruq</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>* * * * * php artisan schedule:run</code></td><td class="note-cell">Serverdagi <b>yagona</b> cron qatori</td></tr>
+    <tr><td><code>make:command X</code></td><td class="note-cell">Buyruq (Laravel 13: <code>#[Signature]</code> atributi)</td></tr>
+    <tr><td><code>{--kun=0 : izoh}</code></td><td class="note-cell">Parametr + <code>--help</code> matni</td></tr>
+    <tr><td><code>Schedule::command('x')-&gt;dailyAt('03:00')</code></td><td class="note-cell">Rejaga qo'yish (<code>routes/console.php</code>)</td></tr>
+    <tr><td><code>Schedule::call(fn () =&gt; ...)-&gt;name('nom')</code></td><td class="note-cell">Closure — <code>name()</code> majburiy</td></tr>
+    <tr><td><code>-&gt;timezone('Asia/Tashkent')</code></td><td class="note-cell">⚠️ Standart <b>UTC</b></td></tr>
+    <tr><td><code>-&gt;withoutOverlapping(10)</code></td><td class="note-cell">Cho'zilgan vazifa ikki marta ishlamasin</td></tr>
+    <tr><td><code>-&gt;onOneServer()</code> · <code>runInBackground()</code></td><td class="note-cell">Bir necha server · kutmasdan davom</td></tr>
+    <tr><td><code>-&gt;appendOutputTo(...)</code> · <code>emailOutputOnFailure(...)</code></td><td class="note-cell">Chiqishni saqlash · xatoda xat</td></tr>
+    <tr><td><code>-&gt;when(fn () =&gt; config('...'))</code></td><td class="note-cell">Sozlama bilan rejani o'chirish</td></tr>
+    <tr><td><code>schedule:list</code> · <code>schedule:run</code> · <code>schedule:test</code></td><td class="note-cell">Ko'rish · vaqti kelganlar · vaqtga qaramay</td></tr>
+    <tr><td><code>schedule:work</code></td><td class="note-cell">Mahalliy ish — cron'siz sinash</td></tr>
+    <tr><td><code>$this-&gt;artisan('x')-&gt;expectsOutputToContain(...)</code></td><td class="note-cell">Buyruq mantiqini test qilish</td></tr>
+    <tr><td><code>Schedule::events()</code></td><td class="note-cell">Vazifa <b>rejada</b> turibdimi — testda</td></tr>
+  </table>
+  <div class="callout note">
+    <p>🔑 <b>Reja uchun uchta savol:</b>
+    qaysi <b>vaqt zonasida</b>? · <b>cho'zilib ketsa</b>
+    nima bo'ladi? · <b>yiqilsa kim biladi</b>?
+    Uchalasi ham testda ko'rinmaydi.</p>
+    <p>🔑 <b>Og'ir ish uchun reja faqat boshlasin:</b>
+    <code>Schedule::call(fn () =&gt; HisobotIsh::dispatch())</code>
+    — qayta urinish va <code>failed_jobs</code> bepul
+    keladi (55-dars).</p>
+    <p>⚠️ <b>Yashirin xato topildi:</b> test qizardi —
+    <code>faol</code> yaratilganda <code>bool</code>,
+    bazadan qayta o'qilganda <b><code>int 0</code></b>.
+    Sabab: modelda cast yo'q edi.
+    ✅ <code>'faol' =&gt; 'boolean'</code>.
+    🔍 Tashxis: <code>get_debug_type($qiymat)</code>.</p>
+    <p>🔑 Buyruq uchun <b>ikki xil</b> test: mantiqi va
+    rejada turganligi. Ikkinchisi unutilsa, buyruq
+    <b>hech qachon ishlamaydi</b> va hech kim
+    sezmaydi.</p>
   </div>
 
   <h2>Xatoni o'qish</h2>

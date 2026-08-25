@@ -1,0 +1,1059 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 58 — Task Scheduling</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 58 · MODUL H — FON ISHLAR VA TEZLIK</p>
+  <h1>Task Scheduling</h1>
+  <p class="lead">57-darsda savol qoldi: bildirishnomalar
+  jadvali o'sib boradi, eskilarini <b>kim</b> tozalaydi?
+  Va yangi talab bor: muddati o'tgan vakansiyalar har
+  kecha <b>o'zi</b> yopilsin. Ikkalasi bitta narsani
+  talab qiladi — <b>belgilangan vaqtda o'zi ishlaydigan
+  kod</b>. Va yo'lda modelimizdagi yashirin xatoni
+  topamiz.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 16 daqiqa</span>
+    <span>💻 Amaliyot ≈ 26 daqiqa</span>
+    <span>Kerak: <a href="0057-notifications.html">Dars 57</a></span>
+  </p>
+
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b>Bitta cron qatori</b>
+        <span class="nima">Serverga <b>bir marta</b> yoziladi,
+        keyin hamma reja kodda boshqariladi.</span></li>
+      <li><b><code>make:command</code> va atributlar</b>
+        <span class="nima">Laravel 13'da
+        <code>#[Signature]</code> va
+        <code>#[Description]</code> — xossa
+        emas.</span></li>
+      <li><b>Buyruq parametrlari</b>
+        <span class="nima"><code>{--kun=0 : izoh}</code> —
+        imzoning o'zi yordam matnini ham
+        beradi.</span></li>
+      <li><b><code>routes/console.php</code> da reja</b>
+        <span class="nima">Laravel 11+ da
+        <code>Kernel.php</code> yo'q — reja marshrutlar
+        kabi yoziladi.</span></li>
+      <li><b><code>Schedule::command</code> va
+        <code>Schedule::call</code></b>
+        <span class="nima">Artisan buyrug'i yoki
+        to'g'ridan-to'g'ri closure.</span></li>
+      <li><b><code>schedule:list</code></b>
+        <span class="nima">🔍 O'lchandi: cron ifodasi va
+        «<i>Next Due</i>» — reja to'g'ri
+        o'qilganini tekshirish.</span></li>
+      <li><b><code>schedule:run</code> va
+        <code>schedule:test</code></b>
+        <span class="nima">Birinchisi vaqti kelganlarni,
+        ikkinchisi <b>istalgan</b> vazifani darrov
+        ishlatadi.</span></li>
+      <li><b><code>withoutOverlapping</code> va
+        <code>onOneServer</code></b>
+        <span class="nima">Uzoq ish yoki bir necha server
+        bo'lganda <b>majburiy</b>.</span></li>
+      <li><b>⚠️ Yashirin xato topildi</b>
+        <span class="nima">Test qizardi va sabab rejada
+        emas edi: modelda <code>faol</code> uchun
+        <b>cast yo'q</b> ekan.</span></li>
+      <li><b>Buyruqni test qilish</b>
+        <span class="nima"><code>$this-&gt;artisan(...)</code>,
+        <code>expectsOutputToContain</code>,
+        <code>assertSuccessful</code>.</span></li>
+      <li><b>Rejaning o'zini test qilish</b>
+        <span class="nima"><code>Schedule::events()</code> —
+        vazifa ro'yxatda turganini
+        tekshirish.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima">Vaqt zonasi · chiqishni saqlash ·
+        xato bo'lsa xabar · <code>runInBackground</code> ·
+        cron sintaksisi.</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Hech kim bosmaydigan tugma</span>
+    <p>Ikki talab yig'ilib qoldi:</p>
+    <div class="natija">57-dars:  notifications jadvali o'sib boradi — eskilarini tozalash kerak
+yangi:    muddati o'tgan vakansiya saytda turaverishi kerak emas</div>
+    <p>Ikkalasi ham <b>hech kim so'ramaydigan</b> ish.
+    Foydalanuvchi «eski bildirishnomalarni tozala»
+    tugmasini bosmaydi.</p>
+    <p>An'anaviy yechim — <b>cron</b>: serverda vaqt
+    jadvali. Lekin har yangi vazifa uchun serverga kirib
+    crontab tahrirlash kerak bo'ladi, va u <b>kodda
+    ko'rinmaydi</b>.</p>
+    <p>Laravel boshqacha qiladi: serverga <b>bitta</b>
+    qator yoziladi, qolgan hammasi <b>kodda</b>:</p>
+    <div class="natija">* * * * * cd /yol/loyihaga &amp;&amp; php artisan schedule:run &gt;&gt; /dev/null 2&gt;&amp;1</div>
+    <p>Bu qator har daqiqada <code>schedule:run</code> ni
+    chaqiradi, u esa <b>vaqti kelgan</b> vazifalarni
+    topadi va ishlatadi.</p>
+  </div>
+
+  <!-- ═══════════════ 2) BUYRUQ ═══════════════ -->
+  <h2>O'z buyrug'ingiz</h2>
+
+  <p>Avval vakansiyaga <b>muddat</b> ustuni kerak:</p>
+
+  <div class="natija">php artisan make:migration add_muddat_to_vakansiyalar_table
+
+$table-&gt;date('muddat')-&gt;nullable()-&gt;index();</div>
+
+  <p><code>index()</code> — 25-darsdan tanish: biz bu
+  ustun bo'yicha <b>qidiramiz</b>, demak indeks
+  kerak.</p>
+
+  <div class="natija">php artisan make:command VakansiyalarniYop</div>
+
+  <div class="codefile">
+    <div class="fname">app/Console/Commands/VakansiyalarniYop.php</div>
+    <code class="cmd" data-cmd="&lt;?php
+
+namespace App\Console\Commands;
+
+use App\Models\Vakansiya;
+use Illuminate\Console\Attributes\Description;
+use Illuminate\Console\Attributes\Signature;
+use Illuminate\Console\Command;
+
+#[Signature('ishtop:vakansiyalarni-yop {--kun=0 : Necha kun oldingi muddat}')]
+#[Description('Muddati o\'tgan vakansiyalarni yopadi')]
+class VakansiyalarniYop extends Command
+{
+    public function handle(): int
+    {
+        $chegara = now()-&gt;subDays((int) $this-&gt;option('kun'))-&gt;toDateString();
+
+        $soni = Vakansiya::where('faol', true)
+            -&gt;whereNotNull('muddat')
+            -&gt;whereDate('muddat', '&lt;', $chegara)
+            -&gt;update(['faol' =&gt; false]);
+
+        $this-&gt;info(&quot;{$soni} ta vakansiya yopildi.&quot;);
+
+        return self::SUCCESS;
+    }
+}">&lt;?php
+
+namespace App\Console\Commands;
+
+use App\Models\Vakansiya;
+use Illuminate\Console\Attributes\Description;
+use Illuminate\Console\Attributes\Signature;
+use Illuminate\Console\Command;
+
+#[Signature('ishtop:vakansiyalarni-yop {--kun=0 : Necha kun oldingi muddat}')]
+#[Description('Muddati o\'tgan vakansiyalarni yopadi')]
+class VakansiyalarniYop extends Command
+{
+    public function handle(): int
+    {
+        $chegara = now()-&gt;subDays((int) $this-&gt;option('kun'))-&gt;toDateString();
+
+        $soni = Vakansiya::where('faol', true)
+            -&gt;whereNotNull('muddat')
+            -&gt;whereDate('muddat', '&lt;', $chegara)
+            -&gt;update(['faol' =&gt; false]);
+
+        $this-&gt;info(&quot;{$soni} ta vakansiya yopildi.&quot;);
+
+        return self::SUCCESS;
+    }
+}</code>
+  </div>
+
+  <div class="callout tip">
+    <span class="label">🔑 Laravel 13'da atributlar</span>
+    <p>Eski Laravel'da <code>protected $signature</code> va
+    <code>protected $description</code> <b>xossa</b> edi.
+    Laravel 13'da ular <b>atribut</b>:</p>
+    <div class="natija">#[Signature('ishtop:vakansiyalarni-yop {--kun=0 : Necha kun oldingi muddat}')]
+#[Description('Muddati o\'tgan vakansiyalarni yopadi')]</div>
+    <p>Bu 29-darsdagi <code>#[Scope]</code> va 53-darsdagi
+    <code>#[ObservedBy]</code> bilan bir oiladan —
+    Laravel asta-sekin atributlarga o'tmoqda.</p>
+    <p>🔍 Imzo <b>o'zi hujjat</b>: <code>{--kun=0 : izoh}</code>
+    dagi izoh <code>--help</code> da ko'rinadi.</p>
+    <p>🔑 Nom oldiga <code>ishtop:</code> qo'ydik —
+    <code>php artisan list</code> da o'z buyruqlaringiz
+    bir joyda turadi.</p>
+  </div>
+
+  <p>Sinab ko'ramiz. Uchta vakansiya: biri muddati
+  o'tgan, biri kelasi, biri muddatsiz:</p>
+
+  <div class="natija">faol: 6
+
+php artisan ishtop:vakansiyalarni-yop
+1 ta vakansiya yopildi.
+
+faol: 5   yopiq: 1        ✅ faqat muddati o'tgani</div>
+
+  <!-- ═══════════════ 3) REJA ═══════════════ -->
+  <h2>Rejaga qo'yish</h2>
+
+  <p>Laravel 11+ da <code>app/Console/Kernel.php</code>
+  <b>yo'q</b>. Reja marshrutlar kabi yoziladi:</p>
+
+  <div class="codefile">
+    <div class="fname">routes/console.php</div>
+    <code class="cmd" data-cmd="use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schedule;
+
+Schedule::command('ishtop:vakansiyalarni-yop')
+    -&gt;dailyAt('03:00')
+    -&gt;withoutOverlapping()
+    -&gt;onOneServer()
+    -&gt;appendOutputTo(storage_path('logs/reja.log'));
+
+Schedule::call(function () {
+    DB::table('notifications')
+        -&gt;whereNotNull('read_at')
+        -&gt;where('created_at', '&lt;', now()-&gt;subMonths(3))
+        -&gt;delete();
+})-&gt;weeklyOn(1, '04:00')-&gt;name('eski-bildirishnomalarni-tozala');">use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schedule;
+
+Schedule::command('ishtop:vakansiyalarni-yop')
+    -&gt;dailyAt('03:00')
+    -&gt;withoutOverlapping()
+    -&gt;onOneServer()
+    -&gt;appendOutputTo(storage_path('logs/reja.log'));
+
+Schedule::call(function () {
+    DB::table('notifications')
+        -&gt;whereNotNull('read_at')
+        -&gt;where('created_at', '&lt;', now()-&gt;subMonths(3))
+        -&gt;delete();
+})-&gt;weeklyOn(1, '04:00')-&gt;name('eski-bildirishnomalarni-tozala');</code>
+  </div>
+
+  <p>Ikki xil usul:</p>
+
+  <div class="natija">Schedule::command('nom')   →  Artisan buyrug'i (alohida jarayonda)
+Schedule::call(fn () =&gt; ..) →  closure (schedule:run jarayonida)</div>
+
+  <p>Kichik ish uchun <code>call</code> yetarli. Katta ish
+  uchun <code>command</code> afzal: alohida jarayon, ya'ni
+  xotira muammosi butun rejani buzmaydi.</p>
+
+  <p>Tekshiramiz:</p>
+
+  <div class="natija">php artisan schedule:list
+
+0 3 * * *  php artisan ishtop:vakansiyalarni-yop  Next Due: 7 hours from now
+0 4 * * 1  eski-bildirishnomalarni-tozala         Next Due: 5 days from now</div>
+
+  <p><code>dailyAt('03:00')</code> →
+  <code>0 3 * * *</code>, <code>weeklyOn(1, '04:00')</code>
+  → <code>0 4 * * 1</code>. Laravel odam o'qiy oladigan
+  yozuvni cron ifodasiga <b>o'zi</b> o'giradi.</p>
+
+  <div class="callout tip">
+    <span class="label">🔑 <code>name()</code> nega kerak?</span>
+    <p><code>Schedule::call</code> da <b>buyruq nomi
+    yo'q</b> — <code>schedule:list</code> da u anonim
+    bo'lib ko'rinadi.</p>
+    <p><code>-&gt;name('...')</code> unga nom beradi va
+    <code>withoutOverlapping()</code> ham aynan shu nom
+    bo'yicha qulflaydi.</p>
+  </div>
+
+  <!-- ═══════════════ 4) ISHLATISH ═══════════════ -->
+  <h2><code>schedule:run</code> va <code>schedule:test</code></h2>
+
+  <div class="natija">php artisan schedule:run
+
+INFO  No scheduled commands are ready to run.</div>
+
+  <p>To'g'ri — soat 03:00 emas.
+  <code>schedule:run</code> faqat <b>vaqti kelgan</b>
+  vazifalarni ishlatadi.</p>
+
+  <p>Vaqtincha <code>everyMinute()</code> qilib
+  ko'ramiz:</p>
+
+  <div class="natija">2026-08-25 19:08:39 Running ['artisan' ishtop:vakansiyalarni-yop]  121.36ms DONE
+ ⇂ '/usr/bin/php8.3' 'artisan' ishtop:vakansiyalarni-yop &gt;&gt; 'storage/logs/reja.log' 2&gt;&amp;1</div>
+
+  <div class="natija">cat storage/logs/reja.log
+0 ta vakansiya yopildi.</div>
+
+  <p>Ikkinchi qator qiziq: Laravel <b>alohida PHP
+  jarayonini</b> ishga tushiradi va chiqishni faylga
+  yozadi.</p>
+
+  <p>Rejani buzmasdan sinash uchun esa maxsus buyruq
+  bor:</p>
+
+  <div class="natija">php artisan schedule:test --name='ishtop:vakansiyalarni-yop'
+
+Running ['artisan' ishtop:vakansiyalarni-yop] .. 125.83ms DONE</div>
+
+  <p><code>schedule:test</code> vaqtga <b>qaramaydi</b> —
+  vazifani darrov ishlatadi. Rejani sinash uchun eng
+  qulay yo'l.</p>
+
+  <!-- ═══════════════ 5) YASHIRIN XATO ═══════════════ -->
+  <h2>⚠️ Test qizardi — sabab rejada emas edi</h2>
+
+  <p>Buyruq uchun test yozdim:</p>
+
+  <div class="natija">$otgan = Vakansiya::factory()-&gt;create(['faol' =&gt; true, 'muddat' =&gt; now()-&gt;subDay()]);
+
+$this-&gt;artisan('ishtop:vakansiyalarni-yop')-&gt;assertSuccessful();
+
+expect($otgan-&gt;fresh()-&gt;faol)-&gt;toBeFalse();     →  FAILED</div>
+
+  <p>Buyruq <b>ishladi</b> («1 ta vakansiya yopildi»),
+  lekin tekshiruv qizardi. Nima xato?</p>
+
+  <div class="natija">dump(get_debug_type($v-&gt;faol));      →  bool   (yaratilganda)
+$this-&gt;artisan(...);
+dump(get_debug_type($v-&gt;faol));      →  int    (yangilangandan keyin)  ⚠️
+
+var_export($v-&gt;faol)                 →  0</div>
+
+  <div class="callout warn">
+    <span class="label">⚠️ Xato buyruqda emas — modelda</span>
+    <p>Modelimizda <code>faol</code> uchun <b>cast
+    yo'q</b> edi. SQLite <code>boolean</code> ustunni
+    <code>0</code>/<code>1</code> qilib saqlaydi, va
+    bazadan qayta o'qilganda u <b>butun son</b> bo'lib
+    keladi.</p>
+    <p>Yaratilganda <code>bool</code> ko'ringani
+    chalg'itdi: o'sha qiymat siz bergan holicha
+    xotirada turgan edi.</p>
+    <p>✅ Yechim modelda:</p>
+    <div class="natija">protected function casts(): array
+{
+    return ['muddat' =&gt; 'date', 'faol' =&gt; 'boolean'];
+}</div>
+    <p>🔑 Bu xato <b>29-darsdan beri</b> koddagi turgan
+    edi — faqat hech qachon <code>toBeFalse()</code>
+    kabi <b>qat'iy</b> tekshiruv yozmaganmiz. 34-darsda
+    <code>rol</code> uchun cast yozgandik,
+    <code>faol</code> esa e'tibordan
+    chetda qolgan.</p>
+    <p>🔍 Naqsh tanish: <b>test yozish yashirin xatoni
+    ochdi</b>. 46-darsdagi <code>?q=0</code> ham
+    shunday topilgandi.</p>
+  </div>
+
+  <!-- ═══════════════ 6) TESTLAR ═══════════════ -->
+  <h2>Testlar</h2>
+
+  <div class="codefile">
+    <div class="fname">tests/Feature/RejaTest.php</div>
+    <code class="cmd">use App\Models\Vakansiya;
+use Illuminate\Support\Facades\Schedule;
+
+it('muddati o\'tgan vakansiyani yopadi', function () {
+    $otgan = Vakansiya::factory()-&gt;create(['faol' =&gt; true, 'muddat' =&gt; now()-&gt;subDay()]);
+    $kelasi = Vakansiya::factory()-&gt;create(['faol' =&gt; true, 'muddat' =&gt; now()-&gt;addDay()]);
+    $muddatsiz = Vakansiya::factory()-&gt;create(['faol' =&gt; true, 'muddat' =&gt; null]);
+
+    $this-&gt;artisan('ishtop:vakansiyalarni-yop')
+        -&gt;expectsOutputToContain('1 ta vakansiya yopildi.')
+        -&gt;assertSuccessful();
+
+    expect($otgan-&gt;fresh()-&gt;faol)-&gt;toBeFalse();
+    expect($kelasi-&gt;fresh()-&gt;faol)-&gt;toBeTrue();
+    expect($muddatsiz-&gt;fresh()-&gt;faol)-&gt;toBeTrue();
+});
+
+it('kun parametri chegarani suradi', function () {
+    Vakansiya::factory()-&gt;create(['faol' =&gt; true, 'muddat' =&gt; now()-&gt;subDays(2)]);
+
+    $this-&gt;artisan('ishtop:vakansiyalarni-yop', ['--kun' =&gt; 5])
+        -&gt;expectsOutputToContain('0 ta vakansiya yopildi.')
+        -&gt;assertSuccessful();
+});
+
+it('yopilgan vakansiya qayta yopilmaydi', function () {
+    Vakansiya::factory()-&gt;create(['faol' =&gt; false, 'muddat' =&gt; now()-&gt;subDay()]);
+
+    $this-&gt;artisan('ishtop:vakansiyalarni-yop')
+        -&gt;expectsOutputToContain('0 ta vakansiya yopildi.')
+        -&gt;assertSuccessful();
+});
+
+it('buyruq rejaga qo\'yilgan', function () {
+    $topildi = collect(Schedule::events())
+        -&gt;contains(fn ($e) =&gt; str_contains($e-&gt;command ?? '', 'ishtop:vakansiyalarni-yop'));
+
+    expect($topildi)-&gt;toBeTrue();
+});
+
+it('bildirishnoma tozalash ham rejada', function () {
+    $topildi = collect(Schedule::events())
+        -&gt;contains(fn ($e) =&gt; $e-&gt;description === 'eski-bildirishnomalarni-tozala');
+
+    expect($topildi)-&gt;toBeTrue();
+});</code>
+  </div>
+
+  <div class="natija">Tests:  5 passed (11 assertions)</div>
+
+  <p>Ikki xil test bor va ikkalasi ham kerak:</p>
+
+  <div class="natija">1-3:  buyruqning MANTIQI to'g'rimi
+4-5:  buyruq REJADA turibdimi</div>
+
+  <p>Ikkinchisi ko'pincha unutiladi. Buyruq mukammal
+  bo'lishi mumkin, lekin
+  <code>routes/console.php</code> ga qo'shishni unutsangiz
+  — u <b>hech qachon ishlamaydi</b> va <b>hech kim
+  buni sezmaydi</b>.</p>
+
+  <p><code>Schedule::events()</code> ro'yxatdagi hamma
+  vazifani qaytaradi. Nomi bo'yicha qidirish esa
+  <code>schedule:list</code> ni qo'lda tekshirishni
+  o'rniga qo'yadi.</p>
+
+  <div class="natija">To'liq to'plam:  72 passed (149 assertions)</div>
+
+  <!-- ═══════════════ 7) HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir bir
+  marta o'qib chiqing, keyin kerak bo'lganda qaytib
+  qarang.</p>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 1</span>
+    <h4>Vaqt oralig'i usullari</h4>
+    <div class="natija">everyMinute()        everyFiveMinutes()     hourly()
+hourlyAt(17)         daily()                dailyAt('03:00')
+twiceDaily(1, 13)    weekly()               weeklyOn(1, '04:00')
+monthly()            quarterly()            yearly()
+cron('0 */6 * * *')  →  o'z ifodangiz</div>
+    <p>Qo'shimcha cheklovlar zanjirlanadi:</p>
+    <div class="natija">-&gt;weekdays()          -&gt;weekends()
+-&gt;between('9:00', '18:00')
+-&gt;unlessBetween('0:00', '6:00')
+-&gt;when(fn () =&gt; config('ishtop.reja_yoqilgan'))</div>
+    <p>🔑 <code>when()</code> foydali: sozlama bilan
+    rejani <b>o'chirib qo'yish</b> mumkin (54-dars).</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 2</span>
+    <h4>Vaqt zonasi</h4>
+    <div class="natija">config/app.php:  'timezone' =&gt; 'UTC'    ← standart
+
+dailyAt('03:00')  →  UTC bo'yicha 03:00
+                  →  Toshkentda 08:00  ⚠️</div>
+    <p>✅ Ikki yo'l:</p>
+    <div class="natija">1) config/app.php da:  'timezone' =&gt; 'Asia/Tashkent'
+2) vazifada:          -&gt;timezone('Asia/Tashkent')-&gt;dailyAt('03:00')</div>
+    <p>⚠️ Birinchisi butun ilovaga ta'sir qiladi
+    (<code>now()</code>, sanalar). Ikkinchisi faqat
+    o'sha vazifaga.</p>
+    <p>🔍 Tekshirish: <code>schedule:list</code>
+    «<i>Next Due</i>» ni ko'rsatadi — u kutgan
+    vaqtingizmi?</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 3</span>
+    <h4><code>withoutOverlapping</code></h4>
+    <div class="natija">-&gt;everyMinute()-&gt;withoutOverlapping()</div>
+    <p>Vazifa 3 daqiqa davom etsa, <code>everyMinute</code>
+    bilan <b>uchtasi birga</b> ishlaydi. Natija: baza
+    qulflari, ikki marta bajarilgan ish.</p>
+    <p><code>withoutOverlapping()</code> qulf qo'yadi:
+    oldingisi tugamaguncha yangisi
+    ishlamaydi.</p>
+    <p>⚠️ Qulf standart holda <b>24 soat</b> yashaydi.
+    Vazifa qulab tushsa (server o'chsa) qulf qolib
+    ketishi mumkin —
+    <code>withoutOverlapping(10)</code> bilan
+    daqiqasini bering.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 4</span>
+    <h4><code>onOneServer</code> va <code>runInBackground</code></h4>
+    <div class="natija">-&gt;onOneServer()        →  bir necha serverda FAQAT bittasi ishlatsin
+-&gt;runInBackground()    →  keyingi vazifani kutmasdan davom etsin</div>
+    <p><code>onOneServer</code> — ilova uch serverda
+    ishlayotgan bo'lsa <b>majburiy</b>: aks holda
+    email uch marta ketadi.</p>
+    <p>⚠️ U <b>umumiy kesh</b> talab qiladi (redis yoki
+    database) — <code>file</code> keshda serverlar
+    bir-birini ko'rmaydi.</p>
+    <p><code>runInBackground</code> — bir vaqtda
+    boshlanadigan uzun vazifalar uchun.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 5</span>
+    <h4>Xato bo'lsa hech kim bilmaydi</h4>
+    <div class="natija">⚠️ cron chiqishi &gt;&gt; /dev/null ga ketadi
+   vazifa yiqilsa — hech qanday xabar YO'Q</div>
+    <p>✅ Uch qatlam:</p>
+    <div class="natija">-&gt;appendOutputTo(storage_path('logs/reja.log'))   →  chiqishni saqlash
+-&gt;emailOutputOnFailure('admin@ishtop.uz')        →  xato bo'lsa xat
+-&gt;onFailure(fn () =&gt; Log::error('...'))          →  o'z reaksiyangiz
+-&gt;onSuccess(fn () =&gt; ...)                        →  muvaffaqiyatda</div>
+    <p>🔑 Yoki tashqi kuzatuv: vazifa oxirida ma'lum
+    manzilga so'rov yuboriladi
+    (<code>-&gt;pingOnSuccess($url)</code>) — kelmasa
+    xizmat sizni ogohlantiradi.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 6</span>
+    <h4>Cron sintaksisi</h4>
+    <div class="natija">┌─ daqiqa (0-59)
+│ ┌─ soat (0-23)
+│ │ ┌─ oyning kuni (1-31)
+│ │ │ ┌─ oy (1-12)
+│ │ │ │ ┌─ hafta kuni (0-7, 0 va 7 = yakshanba)
+│ │ │ │ │
+0 3 * * *      →  har kuni 03:00
+*/15 * * * *   →  har 15 daqiqada
+0 4 * * 1      →  har dushanba 04:00
+0 0 1 * *      →  har oyning 1-sanasi</div>
+    <p>Laravel'da buni yozish shart emas — lekin
+    <code>schedule:list</code> ni o'qish uchun
+    bilish kerak.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>Rejadagi ish sekin bo'lsa</h4>
+    <div class="natija">⚠️ Schedule::call(...) ichida 100 000 yozuvni yangilash
+   →  schedule:run JARAYONI band bo'ladi
+   →  boshqa vazifalar kechikadi</div>
+    <p>✅ Uch yechim:</p>
+    <div class="natija">1) Schedule::command(...)   →  alohida jarayon
+2) -&gt;runInBackground()       →  kutmasdan davom
+3) Ish navbatga qo'yilsin:
+   Schedule::call(fn () =&gt; EksportIsh::dispatch())-&gt;daily();</div>
+    <p>🔑 Uchinchisi eng yaxshisi: reja <b>faqat
+    boshlaydi</b>, og'ir ishni navbat ishchisi bajaradi
+    (55-dars).</p>
+    <p>🔍 Va ish ichida <code>cursor()</code> /
+    <code>chunk()</code> (52-dars) — xotira
+    uchun.</p>
+  </div>
+
+  <!-- ═══════════════ 8) AMALIYOT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    💻 Quyida amaliyot bor. Hozir o'qish rejimidasiz — kompyuter
+    yoningizda bo'lganda <b>💻 Amaliyot</b> rejimiga o'ting va
+    shu bo'limdan davom eting.
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <b><code>muddat</code> ustunini qo'shing.</b>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+php artisan make:migration add_muddat_to_vakansiyalar_table">cd ~/Projects/Learn/ishtop
+php artisan make:migration add_muddat_to_vakansiyalar_table</div>
+        <p>Migratsiyaga <code>$table-&gt;date('muddat')-&gt;nullable()-&gt;index();</code>
+        yozing, so'ng:</p>
+        <div class="cmd" data-cmd="php artisan migrate
+php artisan tinker --execute='print_r(Schema::getColumnListing(&quot;vakansiyalar&quot;));'">php artisan migrate
+php artisan tinker --execute='print_r(Schema::getColumnListing(&quot;vakansiyalar&quot;));'</div>
+      </li>
+
+      <li>
+        <b>Modelni yangilang.</b>
+        <code>$fillable</code> ga <code>'muddat'</code>
+        qo'shing va cast yozing:
+        <div class="cmd" data-cmd="# app/Models/Vakansiya.php
+protected function casts(): array
+{
+    return ['muddat' => 'date', 'faol' => 'boolean'];
+}"># app/Models/Vakansiya.php
+protected function casts(): array
+{
+    return ['muddat' =&gt; 'date', 'faol' =&gt; 'boolean'];
+}</div>
+        <p class="expect">⚠️ <code>'faol' =&gt; 'boolean'</code>
+        ni <b>unutmang</b> — buning sababini quyida
+        ko'rasiz.</p>
+      </li>
+
+      <li>
+        <b>Buyruqni yarating.</b>
+        <div class="cmd" data-cmd="php artisan make:command VakansiyalarniYop">php artisan make:command VakansiyalarniYop</div>
+        <p>Yuqoridagi kodni ko'chiring (nusxa tugmasi
+        bor).</p>
+        <div class="cmd" data-cmd="php -l app/Console/Commands/VakansiyalarniYop.php
+php artisan list | grep ishtop">php -l app/Console/Commands/VakansiyalarniYop.php
+php artisan list | grep ishtop</div>
+      </li>
+
+      <li>
+        <b>Sinov ma'lumotini tayyorlang va buyruqni
+        ishlating.</b>
+        <div class="cmd" data-cmd="php artisan tinker --execute='App\Models\Vakansiya::query()->update([&quot;faol&quot; => true, &quot;muddat&quot; => null]); $v = App\Models\Vakansiya::limit(3)->get(); $v[0]->update([&quot;muddat&quot; => now()->subDays(5)]); $v[1]->update([&quot;muddat&quot; => now()->addDays(5)]); echo &quot;faol: &quot;, App\Models\Vakansiya::where(&quot;faol&quot;, true)->count(), PHP_EOL;'
+php artisan ishtop:vakansiyalarni-yop
+php artisan tinker --execute='echo &quot;faol: &quot;, App\Models\Vakansiya::where(&quot;faol&quot;, true)->count(), &quot;  yopiq: &quot;, App\Models\Vakansiya::where(&quot;faol&quot;, false)->count(), PHP_EOL;'">php artisan tinker --execute='App\Models\Vakansiya::query()-&gt;update([&quot;faol&quot; =&gt; true, &quot;muddat&quot; =&gt; null]); $v = App\Models\Vakansiya::limit(3)-&gt;get(); $v[0]-&gt;update([&quot;muddat&quot; =&gt; now()-&gt;subDays(5)]); $v[1]-&gt;update([&quot;muddat&quot; =&gt; now()-&gt;addDays(5)]); echo &quot;faol: &quot;, App\Models\Vakansiya::where(&quot;faol&quot;, true)-&gt;count(), PHP_EOL;'
+php artisan ishtop:vakansiyalarni-yop
+php artisan tinker --execute='echo &quot;faol: &quot;, App\Models\Vakansiya::where(&quot;faol&quot;, true)-&gt;count(), &quot;  yopiq: &quot;, App\Models\Vakansiya::where(&quot;faol&quot;, false)-&gt;count(), PHP_EOL;'</div>
+        <p class="expect"><b>1 ta vakansiya yopildi</b> —
+        faqat muddati o'tgani.</p>
+      </li>
+
+      <li>
+        <b>Yordam matnini ko'ring.</b>
+        <div class="cmd" data-cmd="php artisan ishtop:vakansiyalarni-yop --help">php artisan ishtop:vakansiyalarni-yop --help</div>
+        <p class="expect">Imzodagi izoh
+        (<code>Necha kun oldingi muddat</code>) shu
+        yerda chiqadi.</p>
+      </li>
+
+      <li>
+        <b>Rejaga qo'ying.</b>
+        <code>routes/console.php</code> ga yuqoridagi
+        kodni ko'chiring.
+        <div class="cmd" data-cmd="php -l routes/console.php
+php artisan schedule:list">php -l routes/console.php
+php artisan schedule:list</div>
+        <p class="expect">Ikki qator: <code>0 3 * * *</code>
+        va <code>0 4 * * 1</code>, «<i>Next Due</i>»
+        bilan.</p>
+      </li>
+
+      <li>
+        <b><code>schedule:run</code> ni sinang.</b>
+        <div class="cmd" data-cmd="php artisan schedule:run">php artisan schedule:run</div>
+        <p class="expect"><code>No scheduled commands are
+        ready to run.</code> — soat 03:00 emas.</p>
+      </li>
+
+      <li>
+        <b>Vaqtincha <code>everyMinute</code> qilib
+        ko'ring.</b>
+        <code>dailyAt('03:00')</code> ni
+        <code>everyMinute()</code> ga almashtiring:
+        <div class="cmd" data-cmd="php artisan schedule:run
+cat storage/logs/reja.log">php artisan schedule:run
+cat storage/logs/reja.log</div>
+        <p class="expect"><code>Running [...] DONE</code> va
+        logda chiqish. So'ng
+        <code>dailyAt('03:00')</code> ni
+        <b>qaytaring</b>.</p>
+      </li>
+
+      <li>
+        <b><code>schedule:test</code> — vaqtga
+        qaramasdan.</b>
+        <div class="cmd" data-cmd="php artisan schedule:test --name='ishtop:vakansiyalarni-yop'">php artisan schedule:test --name='ishtop:vakansiyalarni-yop'</div>
+      </li>
+
+      <li>
+        <b>⚠️ Cast'siz nima bo'lishini ko'ring.</b>
+        Modeldan <code>'faol' =&gt; 'boolean'</code> ni
+        vaqtincha olib tashlang:
+        <div class="cmd" data-cmd="php artisan tinker --execute='$v = App\Models\Vakansiya::factory()->create([&quot;faol&quot; => true, &quot;muddat&quot; => now()->subDay()]); echo &quot;oldin: &quot;, get_debug_type($v->faol), PHP_EOL; Artisan::call(&quot;ishtop:vakansiyalarni-yop&quot;); $v->refresh(); echo &quot;keyin: &quot;, get_debug_type($v->faol), &quot; = &quot;, var_export($v->faol, true), PHP_EOL;'">php artisan tinker --execute='$v = App\Models\Vakansiya::factory()-&gt;create([&quot;faol&quot; =&gt; true, &quot;muddat&quot; =&gt; now()-&gt;subDay()]); echo &quot;oldin: &quot;, get_debug_type($v-&gt;faol), PHP_EOL; Artisan::call(&quot;ishtop:vakansiyalarni-yop&quot;); $v-&gt;refresh(); echo &quot;keyin: &quot;, get_debug_type($v-&gt;faol), &quot; = &quot;, var_export($v-&gt;faol, true), PHP_EOL;'</div>
+        <p class="expect">⚠️ <code>bool</code> →
+        <code>int 0</code>. Cast'ni <b>qaytaring</b> va
+        qayta o'lchang.</p>
+      </li>
+
+      <li>
+        <b>Testlarni yozing.</b> Yuqoridagi
+        <code>tests/Feature/RejaTest.php</code> ni
+        ko'chiring:
+        <div class="cmd" data-cmd="php artisan test tests/Feature/RejaTest.php">php artisan test tests/Feature/RejaTest.php</div>
+        <p class="expect">Kutilgan: <b>5 passed</b>.</p>
+      </li>
+
+      <li>
+        <b>To'liq to'plamni ishga tushiring.</b>
+        <div class="cmd" data-cmd="rm -f storage/logs/reja.log
+php artisan test">rm -f storage/logs/reja.log
+php artisan test</div>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><code>muddat</code> ustuni va indeks
+      qo'shildi</li>
+      <li>Modelga <code>faol</code> va <code>muddat</code>
+      cast'lari yozildi</li>
+      <li>Buyruq atributlar bilan yozildi va ishladi</li>
+      <li><code>schedule:list</code> ikki vazifani
+      ko'rsatdi</li>
+      <li><code>schedule:run</code> vaqtni hisobga
+      olishini ko'rdim</li>
+      <li><code>schedule:test</code> vaqtga qaramasligini
+      ko'rdim</li>
+      <li>⚠️ Cast'siz <code>bool → int</code>
+      bo'lishini ko'rdim</li>
+      <li><code>everyMinute</code> qaytarildi</li>
+      <li><code>RejaTest</code> — 5 test yashil</li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 9) SINAB KO'RAMIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Dasturchi kunlik hisobot buyrug'ini yozdi va rejaga
+    qo'ydi:</p>
+    <div class="codefile">
+      <div class="fname">routes/console.php</div>
+      <code class="cmd" data-cmd="Schedule::command('ishtop:kunlik-hisobot')
+    -&gt;dailyAt('02:00');">Schedule::command('ishtop:kunlik-hisobot')
+    -&gt;dailyAt('02:00');</code>
+    </div>
+    <p>Buyruq 30 000 vakansiyani o'qib, CSV yasaydi va
+    adminga email yuboradi — <b>4 daqiqa</b> davom
+    etadi.</p>
+    <p>Testda tekshirdi — ishladi.
+    <code>schedule:test</code> bilan sinadi — ishladi.
+    Serverga chiqardi.</p>
+    <p>Bir hafta o'tib admin shikoyat qildi: «ba'zi
+    kunlari hisobot <b>kelmayapti</b>, ba'zi kunlari esa
+    <b>ikki marta</b> keladi». Serverda esa hech qanday
+    xato yo'q. Nima bo'lyapti?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <p>Uchta narsa birga ishlayapti.</p>
+        <p><b>1. Vaqt zonasi.</b>
+        <code>config/app.php</code> da standart
+        <code>'timezone' =&gt; 'UTC'</code>. Ya'ni
+        <code>dailyAt('02:00')</code> — UTC bo'yicha
+        02:00, Toshkentda esa <b>07:00</b>. Admin
+        «tunda kelishi kerak» deb kutgan.</p>
+        <p><b>2. <code>withoutOverlapping</code>
+        yo'q.</b> Vazifa 4 daqiqa davom etadi. Agar
+        server band bo'lib 5 daqiqa cho'zilsa —
+        keyingi <code>schedule:run</code> ikkinchi nusxani
+        boshlaydi. Natija: <b>ikki marta</b>
+        email.</p>
+        <p><b>3. Chiqish saqlanmaydi.</b> Cron
+        <code>&gt;&gt; /dev/null</code> ga yozadi, vazifa
+        yiqilsa <b>hech qanday xabar yo'q</b> — «hisobot
+        kelmadi» ning sababi shu.</p>
+        <p class="expect">⚠️ Va uchalasi ham testda
+        <b>ko'rinmaydi</b>: test bitta jarayonda,
+        bir marta, darrov ishlaydi.</p>
+        <p>✅ Tuzatilgan variant:</p>
+        <div class="natija">Schedule::command('ishtop:kunlik-hisobot')
+    -&gt;timezone('Asia/Tashkent')
+    -&gt;dailyAt('02:00')
+    -&gt;withoutOverlapping(10)
+    -&gt;onOneServer()
+    -&gt;appendOutputTo(storage_path('logs/reja.log'))
+    -&gt;emailOutputOnFailure('admin@ishtop.uz');</div>
+        <p>🔑 Yanada yaxshisi — reja <b>faqat
+        boshlasin</b>:</p>
+        <div class="natija">Schedule::call(fn () =&gt; HisobotIsh::dispatch())
+    -&gt;timezone('Asia/Tashkent')-&gt;dailyAt('02:00');</div>
+        <p>Endi 4 daqiqalik ish <b>navbat ishchisida</b>
+        bajariladi: reja darrov tugaydi, qayta urinish va
+        <code>failed_jobs</code> ham bepul keladi
+        (55-dars).</p>
+        <p>🔍 <b>Umumiy saboq:</b> reja uchun uchta savol
+        bering — <b>qaysi vaqt zonasida?</b>,
+        <b>cho'zilib ketsa nima bo'ladi?</b>,
+        <b>yiqilsa kim biladi?</b></p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span>
+    Serverga nechta cron qatori yoziladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Bitta qator qolgan reja esa kodda o'zi boshqariladi</button></li>
+      <li><button class="quiz-option">Har bir vazifa uchun alohida cron qatori kerak</button></li>
+      <li><button class="quiz-option">Hech qanday cron kerak emas Laravel o'zi qiladi</button></li>
+    </ul>
+    <div class="quiz-explain">Bitta qator har daqiqada
+    <code>schedule:run</code> ni chaqiradi, u esa
+    <b>vaqti kelgan</b> vazifalarni topadi.
+    🔑 Foydasi: yangi vazifa qo'shish uchun serverga
+    kirish shart emas — reja <b>kodda</b> va git'da
+    ko'rinadi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span>
+    Reja vazifasi 3 daqiqa davom etsa va
+    <code>everyMinute()</code> bo'lsa?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Bir vaqtda uchtasi ishlaydi shuning uchun withoutOverlapping kerak</button></li>
+      <li><button class="quiz-option">Laravel avtomatik kutadi va navbat bilan birma-bir ishlatadi</button></li>
+      <li><button class="quiz-option">Ikkinchisi umuman ishga tushmaydi va jimgina tashlab ketiladi</button></li>
+    </ul>
+    <div class="quiz-explain">Har <code>schedule:run</code>
+    mustaqil — oldingisi tugaganini tekshirmaydi.
+    ✅ <code>-&gt;withoutOverlapping(10)</code> qulf
+    qo'yadi (daqiqasini bering, aks holda qulf 24 soat
+    yashaydi).
+    ⚠️ Bir necha server bo'lsa —
+    <code>onOneServer()</code> ham, va u <b>umumiy
+    kesh</b> talab qiladi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span> Test
+    qizardi: <code>faol</code> <code>false</code> emas,
+    <code>0</code> ekan. Sabab?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Modelda faol uchun boolean cast yozilmagan ekan</button></li>
+      <li><button class="quiz-option">Buyruqda update o'rniga save ishlatish kerak edi</button></li>
+      <li><button class="quiz-option">SQLite boolean ustunlarni umuman qo'llab-quvvatlamaydi shuning uchun</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi: yaratilganda
+    <code>bool</code>, bazadan qayta o'qilganda
+    <code>int 0</code>.
+    Sabab: cast yo'q edi va SQLite
+    <code>0</code>/<code>1</code> saqlaydi.
+    ✅ <code>protected function casts(): array</code> —
+    <code>'faol' =&gt; 'boolean'</code>.
+    🔑 Test yozish <b>yashirin xatoni</b> ochdi —
+    46-darsdagi <code>?q=0</code> kabi.</div>
+  </div>
+
+  <!-- ═══════════════ 10) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+
+    <p>Javobni ovoz chiqarib ayting, keyin ochib
+    solishtiring.</p>
+
+    <details class="recall">
+      <summary>Laravel rejasi cron'dan nimasi bilan
+      farq qiladi?</summary>
+      <div class="answer">Serverga <b>bitta</b> qator
+      yoziladi (<code>* * * * * php artisan
+      schedule:run</code>), qolgan hamma reja
+      <b>kodda</b>.
+      🔑 Foydasi: yangi vazifa uchun serverga kirish
+      shart emas, reja git'da ko'rinadi va
+      <code>schedule:list</code> bilan
+      tekshiriladi.
+      Laravel 11+ da u
+      <code>routes/console.php</code> da —
+      <code>Kernel.php</code> yo'q.</div>
+    </details>
+
+    <details class="recall">
+      <summary><code>schedule:run</code> va
+      <code>schedule:test</code> farqi?</summary>
+      <div class="answer"><code>schedule:run</code> —
+      faqat <b>vaqti kelgan</b> vazifalarni ishlatadi
+      (🔍 o'lchandi: <code>No scheduled commands are
+      ready to run.</code>).
+      <code>schedule:test</code> — vaqtga <b>qaramaydi</b>,
+      tanlangan vazifani darrov ishlatadi.
+      🔑 Rejani sinash uchun ikkinchisi; birinchisi cron
+      chaqiradigan buyruq.</div>
+    </details>
+
+    <details class="recall">
+      <summary>Reja uchun uchta muhim savol
+      qaysi?</summary>
+      <div class="answer"><b>1)</b> Qaysi vaqt zonasida?
+      Standart <code>UTC</code> — Toshkent bilan 5 soat
+      farq.
+      <b>2)</b> Cho'zilib ketsa nima bo'ladi?
+      <code>withoutOverlapping()</code> va
+      <code>onOneServer()</code>.
+      <b>3)</b> Yiqilsa kim biladi? Cron chiqishi
+      <code>/dev/null</code> ga ketadi —
+      <code>appendOutputTo</code>,
+      <code>emailOutputOnFailure</code>,
+      <code>onFailure</code>.</div>
+    </details>
+
+    <details class="recall">
+      <summary>Rejadagi ish sekin bo'lsa nima
+      qilasiz?</summary>
+      <div class="answer">Reja <b>faqat boshlasin</b>:
+      <code>Schedule::call(fn () =&gt; HisobotIsh::dispatch())</code>.
+      Og'ir ishni <b>navbat ishchisi</b> bajaradi
+      (55-dars) — qayta urinish va
+      <code>failed_jobs</code> bepul keladi.
+      Muqobillar: <code>Schedule::command</code>
+      (alohida jarayon) va
+      <code>runInBackground()</code>.
+      🔍 Ish ichida <code>cursor()</code> (52-dars).</div>
+    </details>
+
+    <details class="recall">
+      <summary>Buyruq uchun nechta xil test kerak?</summary>
+      <div class="answer"><b>Ikki xil.</b>
+      1) Buyruqning <b>mantiqi</b>:
+      <code>$this-&gt;artisan(...)</code>,
+      <code>expectsOutputToContain</code>,
+      <code>assertSuccessful</code>.
+      2) Buyruq <b>rejada</b> turibdimi:
+      <code>Schedule::events()</code> ichidan
+      qidirish.
+      🔑 Ikkinchisi ko'pincha unutiladi — buyruq
+      mukammal bo'lsa ham, rejaga qo'shilmagan
+      bo'lsa <b>hech qachon ishlamaydi</b> va hech
+      kim sezmaydi.</div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 11) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Xulosa</span>
+    <ul>
+      <li>Serverga <b>bitta</b> cron qatori, qolgan reja
+      kodda — <code>routes/console.php</code>.</li>
+      <li>Laravel 13'da buyruq imzosi <b>atribut</b>:
+      <code>#[Signature]</code>,
+      <code>#[Description]</code>.</li>
+      <li>Imzo o'zi hujjat:
+      <code>{--kun=0 : izoh}</code> →
+      <code>--help</code> da ko'rinadi.</li>
+      <li><code>Schedule::command</code> (alohida jarayon)
+      va <code>Schedule::call</code> (closure,
+      <code>name()</code> bering).</li>
+      <li><code>schedule:list</code> — cron ifodasi va
+      «<i>Next Due</i>».</li>
+      <li><code>schedule:run</code> vaqtni hisobga oladi;
+      <code>schedule:test</code> <b>qaramaydi</b>.</li>
+      <li>⚠️ Vaqt zonasi standart <b>UTC</b> —
+      <code>timezone()</code> yoki
+      <code>config/app.php</code>.</li>
+      <li>⚠️ <code>withoutOverlapping(10)</code> —
+      cho'zilib ketgan vazifa uchun;
+      <code>onOneServer()</code> — bir necha
+      server.</li>
+      <li>⚠️ Yiqilsa hech kim bilmaydi —
+      <code>appendOutputTo</code>,
+      <code>emailOutputOnFailure</code>,
+      <code>onFailure</code>.</li>
+      <li>🔑 Og'ir ish uchun reja <b>faqat boshlasin</b>,
+      ishni navbat bajarsin.</li>
+      <li>⚠️ Test qizardi va sabab modelda edi:
+      <code>faol</code> uchun <b>cast yo'q</b> ekan
+      (<code>bool</code> → <code>int 0</code>).</li>
+      <li>Ikki xil test: buyruq <b>mantiqi</b> va buyruq
+      <b>rejada</b> turibdimi
+      (<code>Schedule::events()</code>).</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p>Fon ishlarning uchtasi tayyor: navbat, xat,
+    bildirishnoma va reja. Endi <b>tezlik</b> tomoniga
+    o'tamiz.</p>
+    <p>52-darsda statistika endpointini yozgandik — u har
+    so'rovda <b>hamma vakansiyani</b> bazadan
+    o'qiydi. Mashhur sahifa bo'lsa, baza shu bitta
+    so'rov bilan band bo'lib qoladi.</p>
+    <p>Va 53-darsda <code>StatistikaniYangila</code>
+    tinglovchisi <code>Cache::forget('statistika')</code>
+    yozgandi — lekin biz hali hech narsani
+    <b>keshlamagandik</b>.</p>
+    <p>59-darsda <b>Cache va Redis</b>:
+    <code>Cache::remember</code>, teglar,
+    <code>forget</code> — va nihoyat o'sha
+    tinglovchi ma'noga ega bo'ladi.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel — Task Scheduling</b>:
+    <a href="https://laravel.com/docs/13.x/scheduling">Schedule,
+    withoutOverlapping, onOneServer</a>.<sup><a href="#fn1">1</a></sup><br>
+    <b>Laravel — Artisan Console</b>:
+    <a href="https://laravel.com/docs/13.x/artisan">make:command,
+    Signature, options</a>.<sup><a href="#fn2">2</a></sup><br>
+    <b>Laravel — Console Tests</b>:
+    <a href="https://laravel.com/docs/13.x/console-tests">artisan(),
+    expectsOutput</a>.<sup><a href="#fn2">2</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b>
+    «reja ishlayotganini qanday bilaman?», «cron qatorini
+    qayerga yozaman?», «buyruqqa argument berish
+    mumkinmi?», «<code>schedule:work</code> nima?» — har
+    qanday savol yaxshi. Oxirgisiga qisqa javob:
+    <code>schedule:work</code> — mahalliy ish uchun:
+    u <b>doimiy</b> ishlab turadi va har daqiqada
+    <code>schedule:run</code> ni o'zi chaqiradi, ya'ni
+    cron o'rnatmasdan rejani sinab ko'rasiz.
+    Uchinchisiga: <b>ha</b> — imzoda
+    <code>{shahar : Qaysi shahar}</code> deb yozasiz va
+    <code>Schedule::command('nom', ['Toshkent'])</code>
+    bilan uzatasiz.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0057-notifications.html">Oldingi: Notifications</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel 13 — <a href="https://laravel.com/docs/13.x/scheduling">Task Scheduling</a>.</li>
+      <li id="fn2">Laravel 13 — <a href="https://laravel.com/docs/13.x/artisan">Artisan Console</a>.</li>
+      <li id="fn3">Barchasi jonli o'lchangan (PHP 8.3.32, Laravel 13.26.1,
+      Pest 4.7.8, SQLite):
+      <code>make:command</code> Laravel 13'da
+      <code>#[Signature]</code> va
+      <code>#[Description]</code> atributlari bilan skelet
+      beradi (xossa emas) ·
+      buyruq ishladi: <b>1 ta vakansiya yopildi</b>
+      (faol 6 → 5, yopiq 1) — muddati o'tgani yopildi,
+      kelasi va muddatsiz tegilmadi ·
+      <code>schedule:list</code>:
+      <code>0 3 * * * php artisan ishtop:vakansiyalarni-yop
+      Next Due: 7 hours from now</code> va
+      <code>0 4 * * 1 eski-bildirishnomalarni-tozala
+      Next Due: 5 days from now</code> ·
+      <code>schedule:run</code> (vaqti kelmagan) →
+      <code>INFO No scheduled commands are ready to
+      run.</code> ·
+      <code>everyMinute()</code> bilan →
+      <code>Running ['artisan' ishtop:vakansiyalarni-yop]
+      121.36ms DONE</code>, <code>reja.log</code> da
+      <code>0 ta vakansiya yopildi.</code> ·
+      <code>schedule:test --name=...</code> →
+      <b>125.83ms DONE</b> (vaqtga qaramaydi) ·
+      ⚠️ test qizardi:
+      <code>expect($otgan-&gt;fresh()-&gt;faol)-&gt;toBeFalse()</code>
+      — <code>get_debug_type()</code> ko'rsatdi:
+      yaratilganda <b>bool</b>, yangilangandan keyin
+      <b>int 0</b>. Sabab: modelda <code>faol</code>
+      uchun cast yo'q edi.
+      <code>'faol' =&gt; 'boolean'</code> qo'shilgach
+      yashil ·
+      <code>RejaTest</code> — <b>5 passed (11
+      assertions)</b>, to'liq to'plam <b>72 passed (149
+      assertions), 0.74s</b>.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

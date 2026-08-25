@@ -18,7 +18,7 @@
   izoh esa o'zbekcha.</p>
 
   <p class="lesson-meta">
-    <span>Atamalar: <b>243 ta</b></span>
+    <span>Atamalar: <b>246 ta</b></span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>📱 O'qishga mos</span>
   </p>
@@ -26,7 +26,7 @@
   <div class="callout note">
     <span class="label">Bu hujjat o'sib boradi</span>
     <p>Atama faqat <b>o'z darsi yozilganda</b> qo'shiladi — oldindan emas. Hozir:
-    Modul A–H (1–57-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
+    Modul A–H (1–58-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
     bosqichida qat'iy belgilangan va 73 dars bo'ylab o'zgarmaydi).</p>
   </div>
 
@@ -2375,6 +2375,68 @@
       <code>(string)</code> qiling
       (<code>get_debug_type()</code> bilan tekshiring).
       <span class="eg">Notification::assertSentTo($u, X::class, fn ($x, $k) =&gt; $k === ['mail','database'])</span></dd>
+    </div>
+
+    <div class="term" id="task-scheduling">
+      <dt>Task Scheduling <span class="uz">— bitta cron qatori</span></dt>
+      <dd>Serverga <b>bitta</b> qator yoziladi
+      (<code>* * * * * php artisan schedule:run</code>),
+      qolgan hamma reja <b>kodda</b> —
+      Laravel 11+ da <code>routes/console.php</code>
+      (<code>Kernel.php</code> yo'q).
+      <code>Schedule::command()</code> (alohida jarayon) ·
+      <code>Schedule::call()</code> (closure,
+      <code>name()</code> bering).
+      🔍 <code>schedule:list</code> cron ifodasi va
+      «<i>Next Due</i>» ni ko'rsatadi
+      (<code>dailyAt('03:00')</code> →
+      <code>0 3 * * *</code>).
+      <code>schedule:run</code> vaqtni hisobga oladi;
+      <code>schedule:test</code> <b>qaramaydi</b>.
+      <span class="eg">Schedule::command('x')-&gt;dailyAt('03:00')</span></dd>
+    </div>
+
+    <div class="term" id="reja-xavfsizligi">
+      <dt>withoutOverlapping va onOneServer <span class="uz">— rejaning uch savoli</span></dt>
+      <dd>⚠️ <b>1) Vaqt zonasi:</b> standart <code>UTC</code>
+      — Toshkent bilan 5 soat farq.
+      <code>-&gt;timezone('Asia/Tashkent')</code>.
+      ⚠️ <b>2) Cho'zilib ketsa:</b> 3 daqiqalik vazifa
+      <code>everyMinute()</code> bilan <b>uchtasi birga</b>
+      ishlaydi → <code>withoutOverlapping(10)</code>
+      (daqiqasini bering, aks holda qulf 24 soat
+      yashaydi). Bir necha server bo'lsa —
+      <code>onOneServer()</code> (umumiy kesh talab
+      qiladi).
+      ⚠️ <b>3) Yiqilsa kim biladi:</b> cron chiqishi
+      <code>/dev/null</code> ga ketadi →
+      <code>appendOutputTo</code>,
+      <code>emailOutputOnFailure</code>,
+      <code>onFailure</code>.
+      🔑 Og'ir ish uchun reja <b>faqat boshlasin</b>:
+      <code>Schedule::call(fn () =&gt; Ish::dispatch())</code>.
+      <span class="eg">-&gt;withoutOverlapping(10)-&gt;onOneServer()</span></dd>
+    </div>
+
+    <div class="term" id="artisan-buyruq">
+      <dt>Artisan buyrug'i <span class="uz">— atributlar bilan</span></dt>
+      <dd>Laravel 13'da imzo <b>atribut</b>:
+      <code>#[Signature('ishtop:nom {--kun=0 : izoh}')]</code>
+      va <code>#[Description('...')]</code> — xossa emas
+      (29-darsdagi <code>#[Scope]</code> bilan bir
+      oiladan).
+      Imzo <b>o'zi hujjat</b>: izoh
+      <code>--help</code> da ko'rinadi.
+      Nom oldiga <code>ishtop:</code> — o'z
+      buyruqlaringiz <code>artisan list</code> da bir
+      joyda.
+      🔑 Ikki xil test kerak: buyruq <b>mantiqi</b>
+      (<code>$this-&gt;artisan()</code>,
+      <code>expectsOutputToContain</code>) va buyruq
+      <b>rejada</b> turibdimi
+      (<code>Schedule::events()</code>) — ikkinchisi
+      ko'pincha unutiladi.
+      <span class="eg">$this-&gt;artisan('ishtop:x')-&gt;assertSuccessful();</span></dd>
     </div>
 
     <div class="term" id="sanctum">
