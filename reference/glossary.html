@@ -18,7 +18,7 @@
   izoh esa o'zbekcha.</p>
 
   <p class="lesson-meta">
-    <span>Atamalar: <b>185 ta</b></span>
+    <span>Atamalar: <b>193 ta</b></span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>📱 O'qishga mos</span>
   </p>
@@ -26,7 +26,7 @@
   <div class="callout note">
     <span class="label">Bu hujjat o'sib boradi</span>
     <p>Atama faqat <b>o'z darsi yozilganda</b> qo'shiladi — oldindan emas. Hozir:
-    Modul A–F (1–46-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
+    Modul A–F (1–47-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
     bosqichida qat'iy belgilangan va 73 dars bo'ylab o'zgarmaydi).</p>
   </div>
 
@@ -1418,6 +1418,120 @@
       (<code>&amp;laquo; Previous</code>) — mijozga uni emas,
       <code>links.prev/next</code> ni ishlatishni ayting.
       <span class="eg">meta.total: 7  ·  links.next: ...?page=2</span></dd>
+    </div>
+
+    <div class="term" id="withexceptions">
+      <dt>withExceptions <span class="uz">— xatolarning boshqaruv joyi</span></dt>
+      <dd><code>bootstrap/app.php</code> dagi blok. To'rtta asosiy metod:
+      <code>render()</code> (ma'lum xato uchun javobni o'zim yozaman) ·
+      <code>respond()</code> (tayyor javobni oxirida ko'rib chiqaman) ·
+      <code>context()</code> (har bir log yozuviga qo'shimcha) ·
+      <code>dontReport()</code> (bu xatoni logga yozma).
+      🔍 <code>shouldRenderJsonWhen</code> Laravel 13'da <b>standart</b>
+      bor — shuning uchun <code>api/*</code> xatolari boshidan JSON edi.
+      ⚠️ Metod nomi <code>respondUsing()</code> <b>emas</b> — u
+      <code>Handler</code> klassiniki; bu yerda
+      <code>Configuration\Exceptions</code> va nomi
+      <code>respond()</code>.
+      <span class="eg">$exceptions-&gt;render(fn ($e, $r) =&gt; ...);</span></dd>
+    </div>
+
+    <div class="term" id="prepareexception">
+      <dt>prepareException <span class="uz">— xatoni almashtirish bosqichi</span></dt>
+      <dd>⚠️ <b>O'lik kod tuzog'i.</b>
+      <code>render(ModelNotFoundException …)</code> <b>hech qachon</b>
+      chaqirilmaydi: Laravel uni
+      <code>NotFoundHttpException</code> ga aylantirib bo'lgan
+      (<code>Handler.php:710</code> — <code>prepareException()</code>
+      <code>renderViaCallbacks()</code> dan <b>oldin</b> ishlaydi).
+      Xato chiqmaydi, kod shunchaki ishlamaydi.
+      🔍 O'lchandi — <b>ishlamaydi</b>:
+      <code>ModelNotFoundException</code>,
+      <code>AuthorizationException</code>;
+      <b>ishlaydi</b>: <code>NotFoundHttpException</code>,
+      <code>AccessDeniedHttpException</code>,
+      <code>AuthenticationException</code>,
+      <code>ValidationException</code>.
+      ✅ Asl sababni <code>$e-&gt;getPrevious()</code> beradi.
+      <span class="eg">ModelNotFoundException → NotFoundHttpException</span></dd>
+    </div>
+
+    <div class="term" id="getprevious">
+      <dt>getPrevious() <span class="uz">— asl sabab</span></dt>
+      <dd>Aylantirilgan xatoning <b>ichidagi</b> eski xato. Bitta
+      <code>NotFoundHttpException</code> ni uch holatga ajratadi:
+      <code>ModelNotFoundException</code> → yozuv yo'q ·
+      <code>null</code> + <code>$request-&gt;route() === null</code> →
+      manzil yo'q · <code>null</code> + marshrut bor →
+      <code>abort(404, 'xabar')</code>.
+      403 uchun ham xuddi shunday:
+      <code>AccessDeniedHttpException</code> ichida
+      <code>AuthorizationException</code>.
+      <span class="eg">$e-&gt;getPrevious() instanceof ModelNotFoundException</span></dd>
+    </div>
+
+    <div class="term" id="xato-render-metodi">
+      <dt>xato klassidagi render() <span class="uz">— javobni o'zi bilan olib yurish</span></dt>
+      <dd><code>php artisan make:exception X --render</code>.
+      Klassda <code>render(Request $request)</code> metodi bo'lsa,
+      Laravel uni <b>o'zi topadi</b> —
+      <code>bootstrap/app.php</code> ga yozish kerak emas.
+      Konstruktor bo'yicha xossa
+      (<code>public Vakansiya $vakansiya</code>) tufayli javobga
+      kontekst qo'shiladi.
+      ⚠️ Bunday xato standart holda <b>ERROR</b> darajasida
+      loglanadi — normal ish jarayoni bo'lsa
+      <code>dontReport()</code> qo'shing.
+      <span class="eg">throw new VakansiyaYopilgan($vakansiya);</span></dd>
+    </div>
+
+    <div class="term" id="status-410">
+      <dt>410 Gone <span class="uz">— bor edi, ataylab yopildi</span></dt>
+      <dd>404 dan farqi <b>ma'noda</b>: 404 «bunday narsa bo'lganini
+      bilmayman», 410 esa «bo'lgan, endi <b>doimiy</b> yopilgan».
+      Yopilgan vakansiya, o'chirilgan e'lon, arxivlangan hujjat uchun.
+      🔑 Mijoz 410 ni ko'rib qayta urinmaydi — 404 da esa urinishi
+      mumkin.
+      <span class="eg">response()-&gt;json([...], 410)</span></dd>
+    </div>
+
+    <div class="term" id="xato-kodi">
+      <dt>kod (xato javobida) <span class="uz">— dastur uchun barqaror nom</span></dt>
+      <dd><code>message</code> — <b>odam</b> uchun va o'zgaradi
+      (tarjima, tahrir). <code>kod</code> — <b>dastur</b> uchun va
+      <b>hech qachon</b> o'zgarmaydi.
+      ⚠️ Mijoz <code>message</code> matnini solishtirsa, xabardagi
+      bitta harf tuzatilishi bilan uning kodi buziladi.
+      🔑 43-darsdagi Resource g'oyasi — xatolar tomonida.
+      <span class="eg">'kod' =&gt; 'vakansiya_yopilgan'</span></dd>
+    </div>
+
+    <div class="term" id="app-debug">
+      <dt>APP_DEBUG <span class="uz">— 14911 bayt yoki 33 bayt</span></dt>
+      <dd>🔍 O'lchandi. <code>true</code>: 500 javobi
+      <b>14911 bayt</b> — <code>file</code> (to'liq fayl yo'li),
+      <code>line</code>, <b>38 kadrli</b> <code>trace</code>.
+      <code>false</code>: <b>33 bayt</b> —
+      <code>{"message": "Server Error"}</code>.
+      ⚠️ Ishlab chiqarishda <code>true</code> qolishi — eng ko'p
+      uchraydigan haqiqiy xavfsizlik xatosi.
+      ⚠️ Lekin <code>false</code> <b>yetarli emas</b>: 404 hamon
+      model klassi nomini aytadi.
+      🔍 Tashxis: <code>php artisan about</code> → «Debug Mode».
+      <span class="eg">APP_DEBUG=false · APP_ENV=production</span></dd>
+    </div>
+
+    <div class="term" id="xato-id">
+      <dt>xato_id <span class="uz">— 500 ni logga bog'lash</span></dt>
+      <dd><code>{"message": "Server Error"}</code> mijozga ham,
+      sizga ham foyda bermaydi. <code>respond()</code> ichida
+      <code>Str::uuid()</code> yasab, uni <b>javobga ham, logga
+      ham</b> qo'ying — o'sha raqam bilan logdan bir soniyada
+      topasiz.
+      🔍 O'lchandi: javobdagi va logdagi id <b>aynan bir xil</b>.
+      ✅ Test: <code>assertJsonStructure(['message', 'xato_id'])</code>
+      va <code>assertJsonMissing(['trace'])</code>.
+      <span class="eg">'xato_id' =&gt; (string) Str::uuid()</span></dd>
     </div>
 
     <div class="term" id="sanctum">

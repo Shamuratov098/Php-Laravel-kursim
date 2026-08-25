@@ -1,0 +1,1402 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 47 — Xatoni to'g'ri qaytarish</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 47 · MODUL F — API QATLAMI</p>
+  <h1>Xatoni to'g'ri qaytarish</h1>
+  <p class="lead">Bugungacha xatolar <b>o'zicha</b> qaytardi. Ba'zisi
+  yaxshi (<b>422</b> — qaysi maydon xato ekani aniq), ba'zisi
+  <b>foydasiz</b> (<b>500</b> — hech narsa aytmaydi), bittasi esa
+  <b>xavfli</b>: fayl yo'llaringizni mijozga ko'rsatadi. Bugun
+  hammasini bir joydan boshqaramiz — va yo'lda <b>hech qachon
+  ishlamaydigan</b> mashhur kodni topamiz.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 18 daqiqa</span>
+    <span>💻 Amaliyot ≈ 30 daqiqa</span>
+    <span>Kerak: <a href="0046-filtr-qidiruv-saralash.html">Dars 46</a></span>
+  </p>
+
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b><code>APP_DEBUG</code> — 14911 bayt va 33 bayt</b>
+        <span class="nima">🔍 O'lchandi: <code>true</code> da 500 javobi
+        fayl yo'li, klass nomi va <b>38 kadrli</b> stack trace beradi;
+        <code>false</code> da atigi <b>33 bayt</b>.</span></li>
+      <li><b>⚠️ 404 hamon ma'lumot sizdiradi</b>
+        <span class="nima"><code>APP_DEBUG=false</code> bo'lsa ham:
+        <code>No query results for model [App\Models\Vakansiya]</code>
+        — model klassi mijozga ko'rinadi.</span></li>
+      <li><b><code>withExceptions</code> — bitta boshqaruv joyi</b>
+        <span class="nima"><code>bootstrap/app.php</code> dagi blok:
+        <code>render</code> · <code>respond</code> ·
+        <code>context</code> · <code>dontReport</code>.</span></li>
+      <li><b>🔑 <code>shouldRenderJsonWhen</code> allaqachon bor</b>
+        <span class="nima">Laravel 13'ning <b>standart</b> qismi —
+        shuning uchun API xatolarimiz boshidan JSON edi. Toza
+        skelet bilan solishtirib tekshirildi.</span></li>
+      <li><b>⚠️ Darsning eng qimmat topilmasi</b>
+        <span class="nima"><code>render(ModelNotFoundException …)</code>
+        — <b>hech qachon ishlamaydi</b>. Sababi framework kodida
+        topildi. Xato ham chiqmaydi: kod shunchaki
+        <b>o'lik</b>.</span></li>
+      <li><b><code>prepareException()</code> jadvali</b>
+        <span class="nima">Qaysi xatolar boshqasiga
+        <b>aylantiriladi</b> va qaysilari o'zicha qoladi — to'rttasi
+        jonli o'lchandi.</span></li>
+      <li><b><code>getPrevious()</code> — asl sababni topish</b>
+        <span class="nima">Bitta <code>NotFoundHttpException</code>
+        ichida ikki xil hikoya: yozuv topilmadi yoki manzil
+        yo'q.</span></li>
+      <li><b><code>return null</code> — orqaga qaytish</b>
+        <span class="nima">Handler <code>null</code> qaytarsa,
+        Laravel standart yo'lga tushadi — web tomon HTML'da
+        qoladi.</span></li>
+      <li><b>O'z xatoyingiz: <code>render()</code> metodli klass</b>
+        <span class="nima"><code>VakansiyaYopilgan</code> → <b>410
+        Gone</b>, o'z <code>kod</code> maydoni bilan. Yangi status
+        kodi bilan tanishamiz.</span></li>
+      <li><b><code>dontReport</code> va <code>context</code></b>
+        <span class="nima">⚠️ O'z xatoyingiz standart holda
+        <b>ERROR</b> darajasida loglanadi — bu shovqin. Va logga
+        foydali kontekst qo'shish.</span></li>
+      <li><b><code>respond()</code> — 500 uchun xato raqami</b>
+        <span class="nima">Mijozga <code>xato_id</code>, logga
+        <b>aynan o'sha</b> id. ⚠️ Metod nomi
+        <code>respondUsing</code> <b>emas</b> — o'lchandi.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima">Status jadvali · <code>abort()</code>
+        tuzog'i · unicode qochirish · testda 500 · nimani
+        <b>aytmaslik</b> kerak.</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Bitta javob — ikkita muammo</span>
+    <p>46-darsda ikki marta <b>500</b> ko'rdik. Endi unga diqqat bilan
+    qaraymiz. <code>APP_DEBUG=true</code> bilan:</p>
+    <div class="natija">GET /api/x/500        →  500,  14911 bayt
+
+{
+  "message": "Baza yiqildi",
+  "exception": "RuntimeException",
+  "file": "/home/dostonbek/Projects/Learn/ishtop/routes/api.php",   ⚠️
+  "line": 29,
+  "trace": [ ...38 ta kadr... ]                                     ⚠️
+}</div>
+    <p>Mijoz nima oldi? <b>Sizning kompyuteringizning fayl
+    tuzilishini.</b> Papka nomlari, foydalanuvchi nomi, qaysi
+    kutubxonalarni ishlatishingiz, kod qaysi qatorda ekani — hammasi.
+    Bu <b>hujum uchun xarita</b>.</p>
+    <p>Endi <code>APP_DEBUG=false</code> bilan:</p>
+    <div class="natija">GET /api/x/500        →  500,  33 bayt
+
+{ "message": "Server Error" }</div>
+    <p>Sizdirish tugadi. Lekin endi <b>ikkinchi muammo</b> boshlandi:
+    mijoz dasturchisi qo'ng'iroq qiladi va «sizda 500 chiqyapti»
+    deydi. Siz so'raysiz: «qachon? qaysi so'rovda? qaysi
+    foydalanuvchi?» — u <b>bilmaydi</b>, chunki javobda hech narsa
+    yo'q.</p>
+    <div class="natija">debug=true   →  juda ko'p ma'lumot   ⚠️ xavfli
+debug=false  →  hech qanday ma'lumot  ⚠️ foydasiz</div>
+    <p>To'g'ri javob ikkalasi ham emas: mijozga <b>kerakli miqdorda</b>,
+    logga esa <b>hamma narsani</b>. Bugun shuni quramiz.</p>
+  </div>
+
+  <!-- ═══════════════ 2) 404 SIZDIRISHI ═══════════════ -->
+  <h2>404 hamon gapirib qo'yadi</h2>
+
+  <p><code>APP_DEBUG=false</code> qo'yib, mavjud bo'lmagan vakansiyani
+  so'raymiz:</p>
+
+  <div class="natija">GET /api/vakansiyalar/999999   →  404
+
+{ "message": "No query results for model [App\\Models\\Vakansiya] 999999" }</div>
+
+  <p>Bu <b>debug o'chirilgan holatda</b>. Ya'ni mijoz baribir
+  bilib oldi:</p>
+
+  <div class="natija">1) Siz Laravel/Eloquent ishlatasiz
+2) Modelingiz nomi — Vakansiya
+3) Namespace — App\Models</div>
+
+  <p>Bu 500 ning stack trace'i qadar yomon emas. Lekin bu
+  <b>sizning tanlovingiz emas</b> edi — Laravel shunchaki
+  ichki xato xabarini javobga qo'yib yubordi. API'ning har bir
+  javobi <b>siz yozgan</b> matn bo'lishi kerak.</p>
+
+  <div class="callout tip">
+    <span class="label">🔑 Qoida</span>
+    <p>Mijozga ketadigan xabar <b>ikkita savolga</b> javob bersin:
+    <b>nima bo'ldi</b> va <b>endi nima qilay</b>. «Framework ichida
+    nima sodir bo'ldi» — bu <b>log</b>ning ishi, javobning emas.</p>
+  </div>
+
+  <!-- ═══════════════ 3) WITHEXCEPTIONS ═══════════════ -->
+  <h2><code>withExceptions</code> — boshqaruv joyi</h2>
+
+  <p>Fayl allaqachon tanish: <code>bootstrap/app.php</code>. Uning
+  uchinchi bloki hozir shunday:</p>
+
+  <div class="codefile">
+    <div class="fname">bootstrap/app.php — hozirgi holat</div>
+    <code class="cmd">-&gt;withExceptions(function (Exceptions $exceptions): void {
+    $exceptions-&gt;shouldRenderJsonWhen(
+        fn (Request $request) =&gt; $request-&gt;is('api/*') || $request-&gt;expectsJson(),
+    );
+})-&gt;create();</code>
+  </div>
+
+  <div class="callout tip">
+    <span class="label">🔍 Buni biz yozmaganmiz</span>
+    <p>Tekshirdim: toza <code>laravel/laravel</code> skeletini yonma-yon
+    ochib solishtirdim — bu blok Laravel 13'da <b>standart</b> holda
+    bor.</p>
+    <p>Ya'ni 42-darsdan beri API xatolarimiz JSON bo'lib kelayotgani
+    <b>tasodif emas</b>: <code>api/*</code> bilan boshlanadigan yoki
+    <code>Accept: application/json</code> yuborgan so'rovga Laravel
+    HTML sahifa emas, JSON qaytaradi.</p>
+    <p>🔑 Demak <code>-H &quot;Accept: application/json&quot;</code> ni
+    <code>curl</code> ga qo'shib yurganimiz shu sababdan edi.</p>
+  </div>
+
+  <p>Bu blokda ishlatadigan to'rtta metod bor:</p>
+
+  <div class="natija">render(...)      →  ma'lum bir xato uchun javobni o'zim yozaman
+respond(...)     →  tayyor javobni oxirida ko'rib chiqaman
+context(...)     →  har bir log yozuviga qo'shimcha ma'lumot
+dontReport(...)  →  bu xatoni logga yozma</div>
+
+  <!-- ═══════════════ 4) O'LIK KOD ═══════════════ -->
+  <h2>Hech qachon ishlamaydigan kod</h2>
+
+  <p>404 xabarini tuzatish uchun tabiiy qadam shunday ko'rinadi —
+  va internetdagi ko'p maqolada aynan shunday yozilgan:</p>
+
+  <div class="codefile">
+    <div class="fname">❌ bu ishlamaydi</div>
+    <code class="cmd">$exceptions-&gt;render(function (ModelNotFoundException $e, Request $request) {
+    return response()-&gt;json(['message' =&gt; 'Yozuv topilmadi.'], 404);
+});</code>
+  </div>
+
+  <p>Yozamiz, saqlaymiz, so'rov yuboramiz:</p>
+
+  <div class="natija">GET /api/vakansiyalar/999999   →  404
+
+{ "message": "No query results for model [App\\Models\\Vakansiya] 999999" }
+                                       ⚠️ o'zgarmadi</div>
+
+  <p>Xato chiqmadi. Sintaksis to'g'ri. Klass nomi to'g'ri. Kod
+  shunchaki <b>hech qachon chaqirilmaydi</b>.</p>
+
+  <p>Sababni topish uchun framework kodiga qaraymiz —
+  <code>Handler.php</code>:</p>
+
+  <div class="natija">// Illuminate/Foundation/Exceptions/Handler.php
+
+$e = $this-&gt;prepareException($e);              ← 710-qator: AVVAL
+
+if ($response = $this-&gt;renderViaCallbacks($request, $e)) {   ← KEYIN
+    return ...;                                  (bizning render'imiz)
+}</div>
+
+  <p>Va <code>prepareException()</code> ichida:</p>
+
+  <div class="natija">match (true) {
+    $e instanceof ModelNotFoundException =&gt; new NotFoundHttpException($e-&gt;getMessage(), $e),
+    $e instanceof AuthorizationException =&gt; new AccessDeniedHttpException($e-&gt;getMessage(), $e),
+    ...
+}</div>
+
+  <p>Ya'ni bizning handler chaqirilguncha <code>ModelNotFoundException</code>
+  <b>boshqa klassga aylantirilgan</b> bo'ladi. Biz esa eski nomni
+  kutib turibmiz.</p>
+
+  <h3>Qaysi biri aylantiriladi?</h3>
+
+  <p>To'rtta handler yozib, har birini alohida sinab ko'rdim:</p>
+
+  <div class="natija">render(ModelNotFoundException ...)     →  ISHLAMADI  ⚠️
+render(AuthorizationException ...)     →  ISHLAMADI  ⚠️
+render(AuthenticationException ...)    →  ishladi    ✅
+render(ValidationException ...)        →  ishladi    ✅
+render(NotFoundHttpException ...)      →  ishladi    ✅
+render(AccessDeniedHttpException ...)  →  ishladi    ✅</div>
+
+  <p>Naqsh aniq: <b><code>prepareException</code> ro'yxatidagilar
+  ishlamaydi</b>, qolganlari ishlaydi.</p>
+
+  <div class="natija">Siz kutgan nom                  Aslida keladigan nom
+────────────────────────────────────────────────────────
+ModelNotFoundException      →   NotFoundHttpException
+AuthorizationException      →   AccessDeniedHttpException
+TokenMismatchException      →   HttpException (419)
+
+AuthenticationException     →   o'zi (401 alohida yo'l bilan)
+ValidationException         →   o'zi (422 alohida yo'l bilan)</div>
+
+  <div class="callout warn">
+    <span class="label">⚠️ Nega bu xato juda xavfli</span>
+    <p>Chunki u <b>jimgina</b>. Kod bor, u to'g'ri ko'rinadi, code
+    review'dan o'tadi, testda ham ko'rinmaydi — chunki natija
+    <b>baribir 404</b>. Faqat xabar boshqacha.</p>
+    <p>🔑 Bu 46-darsdagi <code>?sort=moash</code> bilan bir oiladan:
+    <b>status to'g'ri, mazmun noto'g'ri</b>. Bunday xatolarni faqat
+    <b>javob tanasini tekshiradigan</b> test tutadi.</p>
+  </div>
+
+  <!-- ═══════════════ 5) GETPREVIOUS ═══════════════ -->
+  <h2><code>getPrevious()</code> — asl sabab</h2>
+
+  <p>To'g'ri nomni yozdik — endi yangi savol tug'iladi.
+  <code>NotFoundHttpException</code> <b>ikki xil</b> holatda keladi:</p>
+
+  <div class="natija">GET /api/vakansiyalar/999999   →  yozuv topilmadi
+GET /api/yolgon-manzil         →  bunday marshrut yo'q</div>
+
+  <p>Mijoz uchun bular <b>butunlay boshqa</b> narsa. Birinchisida
+  manzil to'g'ri, ma'lumot yo'q. Ikkinchisida mijoz noto'g'ri manzilga
+  murojaat qilyapti — bu <b>mijozning kodidagi xato</b>.</p>
+
+  <p>Ajratish uchun <code>getPrevious()</code> ishlatiladi.
+  <code>prepareException</code> eski xatoni yangisining <b>ichiga</b>
+  qo'yadi (<code>new NotFoundHttpException($e-&gt;getMessage(), $e)</code>
+  — ikkinchi argument aynan shu). O'lchandi:</p>
+
+  <div class="natija">/api/vakansiyalar/999999  →  getPrevious():  ModelNotFoundException
+/api/yolgon-manzil        →  getPrevious():  null
+
+// 403 uchun ham xuddi shunday:
+begona yozuvni o'chirish   →  getPrevious():  AuthorizationException</div>
+
+  <p>Endi handlerni yozish mumkin:</p>
+
+  <div class="codefile">
+    <div class="fname">bootstrap/app.php</div>
+    <code class="cmd">$exceptions-&gt;render(function (NotFoundHttpException $e, Request $request) {
+    if (! $request-&gt;is('api/*')) {
+        return null;
+    }
+
+    return response()-&gt;json([
+        'message' =&gt; match (true) {
+            $e-&gt;getPrevious() instanceof ModelNotFoundException =&gt; 'So\'ralgan yozuv topilmadi.',
+            $request-&gt;route() === null =&gt; 'Bunday manzil yo\'q.',
+            default =&gt; $e-&gt;getMessage(),
+        },
+    ], 404);
+});</code>
+  </div>
+
+  <p>Natija:</p>
+
+  <div class="natija">/api/vakansiyalar/999999  →  { "message": "So'ralgan yozuv topilmadi." }
+/api/yolgon-manzil        →  { "message": "Bunday manzil yo'q." }</div>
+
+  <h3><code>return null</code> nima qiladi?</h3>
+
+  <p>Handler <code>null</code> qaytarsa, Laravel «bu xatoni sen
+  bilmagansan» deb tushunadi va <b>standart yo'lga</b> tushadi.
+  Bizga aynan shu kerak: API JSON oladi, web esa o'zining HTML
+  404 sahifasida qoladi. O'lchandi:</p>
+
+  <div class="natija">GET /api/yolgon   →  404,  application/json   ← bizning xabar
+GET /yolgon       →  404,  text/html          ← Laravel sahifasi</div>
+
+  <p>Uchinchi qator — <code>default =&gt; $e-&gt;getMessage()</code> —
+  nima uchun kerakligini «Har xil holatlar» bo'limida ko'ramiz
+  (HOLAT 3).</p>
+
+  <!-- ═══════════════ 6) O'Z XATOSI ═══════════════ -->
+  <h2>O'z xatoyingiz</h2>
+
+  <p>Endi domen tomoniga o'tamiz. Ish beruvchi vakansiyani yopadi
+  (<code>faol = false</code>). Mijoz esa eski havolani ochadi.
+  Hozir nima bo'ladi?</p>
+
+  <div class="natija">GET /api/vakansiyalar/3   →  200, hamma ma'lumot bilan</div>
+
+  <p>Bu <b>noto'g'ri</b>: mobil ilova «Ariza yuborish» tugmasini
+  chiqaradi, foydalanuvchi bosadi — va ariza hech qayerga
+  bormaydi.</p>
+
+  <p>Bu holat uchun HTTP'da aniq status bor — <b>410 Gone</b>:
+  «bu resurs <b>bor edi</b>, endi yo'q, va bu <b>doimiy</b>».
+  404 dan farqi shunda: 404 «bunday narsa bo'lganini bilmayman»,
+  410 esa «bo'lgan, ataylab yopilgan».<sup><a href="#fn1">1</a></sup></p>
+
+  <p>Buning uchun <b>o'z xato klassimizni</b> yozamiz:</p>
+
+  <div class="codefile">
+    <div class="fname">app/Exceptions/VakansiyaYopilgan.php</div>
+    <code class="cmd" data-cmd="&lt;?php
+
+namespace App\Exceptions;
+
+use App\Models\Vakansiya;
+use Exception;
+use Illuminate\Http\Request;
+
+class VakansiyaYopilgan extends Exception
+{
+    public function __construct(public Vakansiya $vakansiya)
+    {
+        parent::__construct(&quot;Vakansiya yopilgan: {$vakansiya-&gt;id}&quot;);
+    }
+
+    public function render(Request $request)
+    {
+        return response()-&gt;json([
+            'message' =&gt; 'Bu vakansiya endi qabul qilmayapti.',
+            'kod' =&gt; 'vakansiya_yopilgan',
+            'yopilgan_sana' =&gt; $this-&gt;vakansiya-&gt;updated_at-&gt;toDateString(),
+        ], 410);
+    }
+}">&lt;?php
+
+namespace App\Exceptions;
+
+use App\Models\Vakansiya;
+use Exception;
+use Illuminate\Http\Request;
+
+class VakansiyaYopilgan extends Exception
+{
+    public function __construct(public Vakansiya $vakansiya)
+    {
+        parent::__construct(&quot;Vakansiya yopilgan: {$vakansiya-&gt;id}&quot;);
+    }
+
+    public function render(Request $request)
+    {
+        return response()-&gt;json([
+            'message' =&gt; 'Bu vakansiya endi qabul qilmayapti.',
+            'kod' =&gt; 'vakansiya_yopilgan',
+            'yopilgan_sana' =&gt; $this-&gt;vakansiya-&gt;updated_at-&gt;toDateString(),
+        ], 410);
+    }
+}</code>
+  </div>
+
+  <p>Ikkita yangi narsa bor.</p>
+
+  <p><b>Birinchisi</b> — <code>render()</code> metodi. Agar xato
+  klassida shunday metod bo'lsa, Laravel uni <b>o'zi topadi</b>:
+  <code>bootstrap/app.php</code> ga hech narsa yozish kerak emas.
+  Xato o'z javobini <b>o'zi bilan olib yuradi</b>.</p>
+
+  <p><b>Ikkinchisi</b> — <code>public Vakansiya $vakansiya</code>
+  konstruktorda. Bu 12-darsdagi <b>konstruktor bo'yicha xossa</b>
+  (constructor property promotion): argument bir vaqtning o'zida
+  xossa bo'lib qoladi. Shu tufayli <code>render()</code> ichida
+  <code>$this-&gt;vakansiya</code> mavjud — ya'ni javobga
+  <b>kontekst</b> qo'sha olamiz.</p>
+
+  <p>Controllerda ishlatish bir qator:</p>
+
+  <div class="codefile">
+    <div class="fname">app/Http/Controllers/Api/VakansiyaController.php</div>
+    <code class="cmd">public function show(Vakansiya $vakansiya)
+{
+    if (! $vakansiya-&gt;faol) {
+        throw new VakansiyaYopilgan($vakansiya);
+    }
+
+    return VakansiyaResource::make($vakansiya-&gt;load('kompaniya'));
+}</code>
+  </div>
+
+  <div class="natija">GET /api/vakansiyalar/1   (faol)     →  200, ma'lumot
+GET /api/vakansiyalar/3   (yopiq)    →  410
+
+{
+  "message": "Bu vakansiya endi qabul qilmayapti.",
+  "kod": "vakansiya_yopilgan",
+  "yopilgan_sana": "2026-08-25"
+}</div>
+
+  <div class="callout tip">
+    <span class="label">🔍 <code>kod</code> maydoni nima uchun?</span>
+    <p><code>message</code> — <b>odam</b> uchun, va u o'zgarishi mumkin
+    (tarjima, tahrir). <code>kod</code> — <b>dastur</b> uchun, va u
+    <b>hech qachon</b> o'zgarmaydi.</p>
+    <p>Mobil ilova <code>if (kod === 'vakansiya_yopilgan')</code> deb
+    yozadi. Agar u <code>message</code> matnini solishtirsa, siz
+    xabardagi bitta harfni tuzatishingiz bilan uning kodi
+    buziladi.</p>
+    <p>🔑 Bu 43-darsdagi Resource g'oyasining <b>xatolar
+    tomonidagi</b> ko'rinishi: mijoz bilan kelishuv <b>barqaror
+    nomlar</b> orqali bo'ladi.</p>
+  </div>
+
+  <!-- ═══════════════ 7) LOG ═══════════════ -->
+  <h2>Log: shovqin va foyda</h2>
+
+  <p>Xatoni yozgach, <code>storage/logs/laravel.log</code> ga
+  qaraymiz. Kutilmagan narsa bor:</p>
+
+  <div class="natija">[2026-08-25 07:22:46] local.ERROR: Vakansiya yopilgan: 3</div>
+
+  <p>Yopilgan vakansiyani ochish — <b>xato emas</b>. Bu normal
+  ish jarayoni. Lekin har safar <code>ERROR</code> darajasida
+  loglanmoqda. Kuniga ming marta bo'lsa, logingiz shu bilan
+  to'ladi va <b>haqiqiy</b> xatolar ko'rinmay qoladi.</p>
+
+  <p>Laravel'ning o'zida bunday ro'yxat bor — <b>12 ta</b> klass
+  hech qachon loglanmaydi (<code>ValidationException</code>,
+  <code>AuthenticationException</code>,
+  <code>ModelNotFoundException</code> va boshqalar). Shuning uchun
+  422 va 404 logda ko'rinmaydi. O'z klassimizni ham qo'shamiz:</p>
+
+  <div class="codefile">
+    <div class="fname">bootstrap/app.php</div>
+    <code class="cmd">$exceptions-&gt;dontReport([
+    VakansiyaYopilgan::class,
+]);</code>
+  </div>
+
+  <p>Teskarisi ham bor: <code>stopIgnoring(ModelNotFoundException::class)</code>
+  — «404'larni menga ko'rsat» degani. Ba'zan foydali: mijoz
+  qayerlarni noto'g'ri so'rayotganini bilish uchun.</p>
+
+  <h3>Logga kontekst qo'shish</h3>
+
+  <p>Endi haqiqiy xato — 500 — logda qanday ko'rinadi? Standart
+  holda faqat xabar va stack trace. «Kim?» va «qaysi manzil?»
+  yo'q. Buni <code>context()</code> hal qiladi:</p>
+
+  <div class="codefile">
+    <div class="fname">bootstrap/app.php</div>
+    <code class="cmd">$exceptions-&gt;context(fn () =&gt; [
+    'manzil' =&gt; request()-&gt;fullUrl(),
+    'user_id' =&gt; request()-&gt;user()?-&gt;id,
+]);</code>
+  </div>
+
+  <div class="natija">[2026-08-25 07:22:45] local.ERROR: Baza yiqildi
+{"manzil":"http://127.0.0.1:8000/api/x/500","user_id":null,"exception":"[object] ..."}</div>
+
+  <p>Bu funksiya <b>har bir</b> log yozuvida chaqiriladi — shuning
+  uchun uni yengil tuting.</p>
+
+  <!-- ═══════════════ 8) XATO RAQAMI ═══════════════ -->
+  <h2>500 uchun xato raqami</h2>
+
+  <p>Endi darsning boshidagi ikkinchi muammoga qaytamiz.
+  <code>{"message": "Server Error"}</code> — mijoz bunga qarab hech
+  narsa qila olmaydi, siz ham unga qarab logdan hech narsa topa
+  olmaysiz.</p>
+
+  <p>Yechim oddiy: har bir 500 ga <b>raqam</b> beramiz. O'sha raqam
+  <b>javobda ham, logda ham</b> bo'ladi. Mijoz shikoyat qilganda
+  raqamni aytadi, siz logdan bir soniyada topasiz.</p>
+
+  <p>Buning uchun <code>respond()</code> ishlatiladi — u
+  <b>tayyor</b> javobni oxirgi marta ko'rib chiqadi:</p>
+
+  <div class="codefile">
+    <div class="fname">bootstrap/app.php</div>
+    <code class="cmd">$exceptions-&gt;respond(function ($javob, Throwable $e, Request $request) {
+    if (! $request-&gt;is('api/*') || $javob-&gt;getStatusCode() !== 500) {
+        return $javob;
+    }
+
+    $id = (string) Str::uuid();
+
+    Log::error('API 500', [
+        'xato_id' =&gt; $id,
+        'manzil' =&gt; $request-&gt;fullUrl(),
+        'sabab' =&gt; $e-&gt;getMessage(),
+    ]);
+
+    return response()-&gt;json([
+        'message' =&gt; 'Serverda kutilmagan xato yuz berdi.',
+        'xato_id' =&gt; $id,
+    ], 500);
+});</code>
+  </div>
+
+  <div class="natija">// mijozga:
+{
+  "message": "Serverda kutilmagan xato yuz berdi.",
+  "xato_id": "6a72b6d9-e53a-4856-9c9e-845aeec7c3ca"
+}
+
+// logda:
+local.ERROR: API 500 {"xato_id":"6a72b6d9-e53a-4856-9c9e-845aeec7c3ca", ...}</div>
+
+  <p>Bir xil raqam ikki joyda. Endi «sizda 500 chiqdi» degan
+  shikoyat <b>manzil</b>ga aylandi.</p>
+
+  <div class="callout warn">
+    <span class="label">⚠️ Metod nomi <code>respondUsing</code> emas</span>
+    <p>Avval <code>$exceptions-&gt;respondUsing(...)</code> deb yozdim va
+    <b>butun ilova</b> qulab tushdi — <code>404</code> ham,
+    <code>410</code> ham, hammasi <code>500 Server Error</code>
+    bo'lib qoldi.</p>
+    <div class="natija">Call to undefined method
+Illuminate\Foundation\Configuration\Exceptions::respondUsing()</div>
+    <p>Sababi: <code>respondUsing()</code> <b>Handler</b> klassida bor,
+    <code>bootstrap/app.php</code> dagi <code>$exceptions</code> esa
+    boshqa klass — <code>Configuration\Exceptions</code>. Undagi nom —
+    <code>respond()</code>.</p>
+    <p>🔑 Va bu xatoni topish <b>oson bo'lmadi</b>: <code>APP_DEBUG=false</code>
+    bo'lgani uchun javob shunchaki «Server Error» edi. Sabab faqat
+    <code>APP_DEBUG=true</code> qo'yilgach ko'rindi.
+    <br>🔍 <b>Tashxis:</b> hamma narsa 500 bo'lib qolsa — birinchi
+    ish <code>APP_DEBUG=true</code>.</p>
+  </div>
+
+  <!-- ═══════════════ 9) YAKUNIY KOD ═══════════════ -->
+  <h2>Yakuniy <code>withExceptions</code></h2>
+
+  <div class="codefile">
+    <div class="fname">bootstrap/app.php</div>
+    <code class="cmd" data-cmd="use App\Exceptions\VakansiyaYopilgan;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+
+// ...
+
+-&gt;withExceptions(function (Exceptions $exceptions): void {
+    $exceptions-&gt;shouldRenderJsonWhen(
+        fn (Request $request) =&gt; $request-&gt;is('api/*') || $request-&gt;expectsJson(),
+    );
+
+    $exceptions-&gt;context(fn () =&gt; [
+        'manzil' =&gt; request()-&gt;fullUrl(),
+        'user_id' =&gt; request()-&gt;user()?-&gt;id,
+    ]);
+
+    $exceptions-&gt;dontReport([
+        VakansiyaYopilgan::class,
+    ]);
+
+    $exceptions-&gt;render(function (NotFoundHttpException $e, Request $request) {
+        if (! $request-&gt;is('api/*')) {
+            return null;
+        }
+
+        return response()-&gt;json([
+            'message' =&gt; match (true) {
+                $e-&gt;getPrevious() instanceof ModelNotFoundException =&gt; 'So\'ralgan yozuv topilmadi.',
+                $request-&gt;route() === null =&gt; 'Bunday manzil yo\'q.',
+                default =&gt; $e-&gt;getMessage(),
+            },
+        ], 404);
+    });
+
+    $exceptions-&gt;respond(function ($javob, Throwable $e, Request $request) {
+        if (! $request-&gt;is('api/*') || $javob-&gt;getStatusCode() !== 500) {
+            return $javob;
+        }
+
+        $id = (string) Str::uuid();
+
+        Log::error('API 500', [
+            'xato_id' =&gt; $id,
+            'manzil' =&gt; $request-&gt;fullUrl(),
+            'sabab' =&gt; $e-&gt;getMessage(),
+        ]);
+
+        return response()-&gt;json([
+            'message' =&gt; 'Serverda kutilmagan xato yuz berdi.',
+            'xato_id' =&gt; $id,
+        ], 500);
+    });
+})-&gt;create();">use App\Exceptions\VakansiyaYopilgan;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+
+// ...
+
+-&gt;withExceptions(function (Exceptions $exceptions): void {
+    $exceptions-&gt;shouldRenderJsonWhen(
+        fn (Request $request) =&gt; $request-&gt;is('api/*') || $request-&gt;expectsJson(),
+    );
+
+    $exceptions-&gt;context(fn () =&gt; [
+        'manzil' =&gt; request()-&gt;fullUrl(),
+        'user_id' =&gt; request()-&gt;user()?-&gt;id,
+    ]);
+
+    $exceptions-&gt;dontReport([
+        VakansiyaYopilgan::class,
+    ]);
+
+    $exceptions-&gt;render(function (NotFoundHttpException $e, Request $request) {
+        if (! $request-&gt;is('api/*')) {
+            return null;
+        }
+
+        return response()-&gt;json([
+            'message' =&gt; match (true) {
+                $e-&gt;getPrevious() instanceof ModelNotFoundException =&gt; 'So\'ralgan yozuv topilmadi.',
+                $request-&gt;route() === null =&gt; 'Bunday manzil yo\'q.',
+                default =&gt; $e-&gt;getMessage(),
+            },
+        ], 404);
+    });
+
+    $exceptions-&gt;respond(function ($javob, Throwable $e, Request $request) {
+        if (! $request-&gt;is('api/*') || $javob-&gt;getStatusCode() !== 500) {
+            return $javob;
+        }
+
+        $id = (string) Str::uuid();
+
+        Log::error('API 500', [
+            'xato_id' =&gt; $id,
+            'manzil' =&gt; $request-&gt;fullUrl(),
+            'sabab' =&gt; $e-&gt;getMessage(),
+        ]);
+
+        return response()-&gt;json([
+            'message' =&gt; 'Serverda kutilmagan xato yuz berdi.',
+            'xato_id' =&gt; $id,
+        ], 500);
+    });
+})-&gt;create();</code>
+  </div>
+
+  <p>Tartib muhim emas — bu <b>ro'yxatga olish</b>, ijro emas.
+  Lekin o'qish uchun qulay tartib bor: avval umumiy sozlamalar
+  (<code>shouldRenderJsonWhen</code>, <code>context</code>,
+  <code>dontReport</code>), keyin aniq xatolar
+  (<code>render</code>), oxirida umumiy to'r
+  (<code>respond</code>).</p>
+
+  <!-- ═══════════════ 10) TESTLAR ═══════════════ -->
+  <h2>Testlar</h2>
+
+  <p>Bu darsda test <b>ayniqsa</b> muhim, chunki barcha xatolar
+  <b>status jihatdan to'g'ri</b> edi — noto'g'ri narsa
+  <b>javob tanasida</b> edi. Demak testlar ham tanani
+  tekshirishi kerak.</p>
+
+  <div class="codefile">
+    <div class="fname">tests/Feature/XatoTest.php</div>
+    <code class="cmd">use App\Models\Vakansiya;
+use Illuminate\Support\Facades\Route;
+
+it('mavjud bo\'lmagan yozuv uchun toza 404 beradi', function () {
+    $this-&gt;getJson('/api/vakansiyalar/999999')
+        -&gt;assertNotFound()
+        -&gt;assertExactJson(['message' =&gt; 'So\'ralgan yozuv topilmadi.']);
+});
+
+it('404 javobida model klassi nomi yo\'q', function () {
+    $javob = $this-&gt;getJson('/api/vakansiyalar/999999');
+
+    expect($javob-&gt;json('message'))
+        -&gt;not-&gt;toContain('App\\Models')
+        -&gt;not-&gt;toContain('No query results');
+});
+
+it('mavjud bo\'lmagan manzil uchun boshqa xabar beradi', function () {
+    $this-&gt;getJson('/api/yolgon-manzil')
+        -&gt;assertNotFound()
+        -&gt;assertExactJson(['message' =&gt; 'Bunday manzil yo\'q.']);
+});
+
+it('yopilgan vakansiya uchun 410 va o\'z kodimiz qaytadi', function () {
+    $vakansiya = Vakansiya::factory()-&gt;create(['faol' =&gt; false]);
+
+    $this-&gt;getJson(&quot;/api/vakansiyalar/{$vakansiya-&gt;id}&quot;)
+        -&gt;assertStatus(410)
+        -&gt;assertJsonPath('kod', 'vakansiya_yopilgan');
+});
+
+it('faol vakansiya oldingidek 200 qaytaradi', function () {
+    $vakansiya = Vakansiya::factory()-&gt;create(['faol' =&gt; true]);
+
+    $this-&gt;getJson(&quot;/api/vakansiyalar/{$vakansiya-&gt;id}&quot;)
+        -&gt;assertOk()
+        -&gt;assertJsonPath('data.id', $vakansiya-&gt;id);
+});
+
+it('web tomonda HTML qoladi', function () {
+    $javob = $this-&gt;get('/yolgon-manzil');
+
+    $javob-&gt;assertNotFound();
+    expect($javob-&gt;headers-&gt;get('content-type'))-&gt;toContain('text/html');
+});
+
+it('kutilmagan xato uchun xato_id beradi va stack trace bermaydi', function () {
+    Route::get('/api/sinov-500', fn () =&gt; throw new RuntimeException('sinov uchun'));
+
+    $javob = $this-&gt;getJson('/api/sinov-500');
+
+    $javob-&gt;assertStatus(500)
+        -&gt;assertJsonStructure(['message', 'xato_id'])
+        -&gt;assertJsonMissing(['trace'])
+        -&gt;assertJsonMissing(['file']);
+
+    expect($javob-&gt;json('message'))-&gt;not-&gt;toContain('sinov uchun');
+});</code>
+  </div>
+
+  <div class="natija">Tests:  7 passed (18 assertions)</div>
+
+  <p>Uchta yangi narsa bor.</p>
+
+  <p><code>assertExactJson([...])</code> — javob <b>aynan</b> shu
+  bo'lishi kerak, ortiqcha kalitsiz. 404 uchun aynan shu kerak:
+  agar biror kun javobga <code>exception</code> yoki
+  <code>file</code> qaytib kelsa, test <b>darrov</b> qizaradi.</p>
+
+  <p><code>Route::get(...)</code> testning <b>ichida</b> — bu
+  faqat shu test uchun yashaydigan marshrut. Ishlab chiqarish
+  kodiga «xato tashlash uchun» marshrut qo'shish kerak
+  emas.</p>
+
+  <p><code>-&gt;not-&gt;toContain(...)</code> — <b>bo'lmasligi
+  kerak</b>ni tekshirish. Xavfsizlik testlari ko'pincha shunday
+  yoziladi: nima <b>bor</b>ligini emas, nima <b>yo'q</b>ligini
+  tasdiqlaydi.</p>
+
+  <div class="callout tip">
+    <span class="label">🔍 Test <code>APP_DEBUG</code> ga bog'liqmi?</span>
+    <p>Yo'q — ikkala holatda ham sinab ko'rdim:
+    <code>APP_DEBUG=true</code> bilan ham, <code>false</code> bilan ham
+    <b>7 passed</b>.</p>
+    <p>Sababi: <code>respond()</code> javob <b>tayyor bo'lgandan
+    keyin</b> ishlaydi va uni butunlay almashtiradi. Ya'ni himoya
+    sozlamaga emas, <b>kodga</b> bog'liq — bu ancha ishonchli.</p>
+  </div>
+
+  <!-- ═══════════════ 11) HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir bir marta
+  o'qib chiqing, keyin kerak bo'lganda qaytib qarang.</p>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 1</span>
+    <h4>API xatolar jadvali</h4>
+    <div class="natija">400  so'rov o'zi buzuq (JSON sintaksisi xato)
+401  { "message": "Unauthenticated." }              tokensiz / yolg'on token
+403  { "message": "This action is unauthorized." }  policy ruxsat bermadi
+404  { "message": "So'ralgan yozuv topilmadi." }    yozuv yo'q
+405  { "message": "The DELETE method is not supported for route
+                   api/vakansiyalar. Supported methods: GET, HEAD, POST." }
+410  { "message": "...", "kod": "vakansiya_yopilgan" }   yopilgan
+422  { "message": "...", "errors": { "nom": [...] } }    ma'lumot xato
+429  (48-darsda)                                    juda ko'p so'rov
+500  { "message": "...", "xato_id": "..." }         bizning xatomiz</div>
+    <p>🔑 Chegara: <b>4xx — mijozning xatosi</b>, <b>5xx — sizniki</b>.
+    Agar 5xx qaytarayotgan bo'lsangiz, kimdir kodni tuzatishi
+    kerak.</p>
+    <p>🔍 <b>405</b> javobi qaysi metodlar ruxsat etilganini
+    <b>o'zi aytadi</b> — bu foydali, sizdirish emas: mijoz
+    baribir manzilni biladi.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 2</span>
+    <h4><code>APP_DEBUG</code> ishlab chiqarishda yoqilgan</h4>
+    <div class="natija">APP_DEBUG=true   →  500 javobi 14911 bayt
+                    file, line, 38 kadrli trace</div>
+    <p>Bu eng ko'p uchraydigan <b>haqiqiy</b> xavfsizlik xatosi:
+    <code>.env</code> ni serverga ko'chirishda unutiladi.</p>
+    <p>✅ <code>APP_DEBUG=false</code> va <code>APP_ENV=production</code>.
+    <br>🔍 Tashxis: <code>php artisan about</code> — «Debug Mode»
+    qatoriga qarang.</p>
+    <p>⚠️ Lekin <code>false</code> qilish <b>yetarli emas</b>:
+    404 xabari baribir model nomini aytadi (yuqorida ko'rdik).
+    Shuning uchun <code>render()</code> yozamiz.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 3</span>
+    <h4>Keng handler <code>abort()</code> xabarini yutib yuboradi</h4>
+    <div class="natija">// controllerda:
+abort(404, 'Bu kompaniya arxivlangan');
+
+// mijozga (bizning render'imiz bilan):
+{ "message": "Bunday manzil yo'q." }        ⚠️ xabar yo'qoldi</div>
+    <p>Sabab: <code>abort(404, ...)</code> ham
+    <code>NotFoundHttpException</code> tashlaydi, va bizning handler
+    <b>hammasini</b> ushlaydi.</p>
+    <p>✅ Shuning uchun yakuniy kodda uchinchi tarmoq bor:</p>
+    <div class="natija">$request-&gt;route() === null  =&gt;  'Bunday manzil yo\'q.'   ← marshrut topilmadi
+default                     =&gt;  $e-&gt;getMessage()          ← abort() xabari</div>
+    <p><code>$request-&gt;route()</code> — marshrut <b>topilmagan</b>
+    bo'lsa <code>null</code>. Shu bilan «manzil yo'q» va «kod
+    ataylab 404 tashladi» ajraladi. O'lchandi — uchala holat ham
+    to'g'ri xabar beradi.</p>
+    <p>🔑 Umumiy saboq: <b>keng handler yozsangiz, u nimalarni
+    ushlashini sanab chiqing.</b></p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 4</span>
+    <h4>JSON'da <code>—</code> ko'rinishi</h4>
+    <div class="natija">json_encode(['x' =&gt; 'salom — dunyo'])
+→  {"x":"salom — dunyo"}
+
+json_encode([...], JSON_UNESCAPED_UNICODE)
+→  {"x":"salom — dunyo"}</div>
+    <p>PHP standart holda ASCII bo'lmagan belgilarni
+    <b>qochiradi</b>. Bu <b>xato emas</b> — mijoz JSON'ni ochganda
+    to'g'ri matn oladi.</p>
+    <p>🔍 Bizning xabarlarimizda muammo yo'q, chunki
+    <code>o'</code> va <code>g'</code> oddiy ASCII apostrof bilan
+    yozilgan. Lekin <code>—</code>, <code>«»</code> yoki emoji
+    ishlatsangiz javob shunday ko'rinadi.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 5</span>
+    <h4>Xatoni testda ko'rish</h4>
+    <div class="natija">$this-&gt;withoutExceptionHandling();     ← xatoni O'ZI ni ko'rsatadi</div>
+    <p>Test <b>500</b> qaytardi, sababi noma'lum. Shu qatorni
+    testning boshiga qo'ying — Laravel xatoni ushlamaydi va Pest
+    sizga <b>haqiqiy</b> xato bilan stack trace'ni
+    ko'rsatadi.</p>
+    <p>⚠️ Tekshirgandan keyin <b>o'chiring</b>: bu qator turgan
+    testda xato javoblarini (404, 422) tekshirib bo'lmaydi —
+    ular endi <b>exception</b> bo'lib chiqadi.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 6</span>
+    <h4>Log darajasini boshqarish</h4>
+    <div class="natija">$exceptions-&gt;level(ValidationException::class, LogLevel::INFO);
+$exceptions-&gt;dontReport([VakansiyaYopilgan::class]);
+$exceptions-&gt;stopIgnoring(ModelNotFoundException::class);
+$exceptions-&gt;dontReportDuplicates();</div>
+    <p><code>level()</code> — «logla, lekin ERROR emas».
+    <code>dontReport()</code> — «umuman logla<b>ma</b>».
+    <code>stopIgnoring()</code> — «Laravel yashirganini menga
+    ko'rsat».</p>
+    <p>🔑 Maqsad bitta: logda faqat <b>siz harakat qiladigan</b>
+    narsalar qolsin. Logga qaramaydigan dasturchi yo'q emas —
+    <b>logi shovqinli</b> dasturchi bor.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>Xabarda ortiqcha ma'lumot</h4>
+    <div class="natija">❌ "Bu email bilan foydalanuvchi topilmadi"
+❌ "Parol xato"
+✅ "Email yoki parol xato."</div>
+    <p>Birinchi ikkitasi hujumchiga <b>qaysi email ro'yxatdan
+    o'tganini</b> aytib beradi — u shu bilan foydalanuvchilar
+    ro'yxatini yig'a oladi.</p>
+    <p>🔍 44-darsdagi <code>TokenController</code> da aynan
+    uchinchi shakl yozilgan edi. Endi sababi ma'lum.</p>
+    <p>🔑 Qoida: <b>autentifikatsiya xatolari doim bir xil
+    gapirsin.</b> Boshqa joyda esa aksincha — aniqlik foydali
+    (422 qaysi maydon ekanini aytadi, va bu to'g'ri).</p>
+  </div>
+
+  <!-- ═══════════════ 12) AMALIYOT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    💻 Quyida amaliyot bor. Hozir o'qish rejimidasiz — kompyuter
+    yoningizda bo'lganda <b>💻 Amaliyot</b> rejimiga o'ting va
+    shu bo'limdan davom eting.
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <b>Avval sizdirishni o'z ko'zingiz bilan ko'ring.</b>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+grep APP_DEBUG .env">cd ~/Projects/Learn/ishtop
+grep APP_DEBUG .env</div>
+        <p><code>APP_DEBUG=true</code> bo'lishi kerak. Vaqtincha
+        xato tashlaydigan marshrut qo'shing:</p>
+        <div class="cmd" data-cmd="# routes/api.php oxiriga:
+Route::get('/x/500', fn () => throw new \RuntimeException('Baza yiqildi'));"># routes/api.php oxiriga:
+Route::get('/x/500', fn () =&gt; throw new \RuntimeException('Baza yiqildi'));</div>
+      </li>
+
+      <li>
+        <b>Ikkala holatni o'lchang.</b> Serverni ishga tushiring:
+        <div class="cmd" data-cmd="php artisan serve">php artisan serve</div>
+        <p>Boshqa terminalda:</p>
+        <div class="cmd" data-cmd="curl -s -o /dev/null -w 'debug=true : %{size_download} bayt\n' -H 'Accept: application/json' http://127.0.0.1:8000/api/x/500">curl -s -o /dev/null -w 'debug=true : %{size_download} bayt\n' -H 'Accept: application/json' http://127.0.0.1:8000/api/x/500</div>
+        <p>Endi <code>.env</code> da <code>APP_DEBUG=false</code>
+        qiling va qayta o'lchang:</p>
+        <div class="cmd" data-cmd="curl -s -o /dev/null -w 'debug=false: %{size_download} bayt\n' -H 'Accept: application/json' http://127.0.0.1:8000/api/x/500">curl -s -o /dev/null -w 'debug=false: %{size_download} bayt\n' -H 'Accept: application/json' http://127.0.0.1:8000/api/x/500</div>
+        <p class="expect">Menda: <b>14911</b> va <b>33</b> bayt.
+        Sizda son boshqacha bo'lishi mumkin, farq esa
+        <b>yuzlab marta</b> bo'ladi.</p>
+      </li>
+
+      <li>
+        <b>404 hamon gapirayotganini ko'ring.</b>
+        <div class="cmd" data-cmd="curl -s -H 'Accept: application/json' http://127.0.0.1:8000/api/vakansiyalar/999999; echo">curl -s -H 'Accept: application/json' http://127.0.0.1:8000/api/vakansiyalar/999999; echo</div>
+        <p class="expect">⚠️ <code>APP_DEBUG=false</code> bo'lsa ham
+        <code>App\Models\Vakansiya</code> ko'rinadi.</p>
+      </li>
+
+      <li>
+        <b>O'lik kodni o'z qo'lingiz bilan yozing.</b> Buni
+        <b>o'tkazib yubormang</b> — bu darsning eng muhim
+        tajribasi:
+        <div class="cmd" data-cmd="# bootstrap/app.php — withExceptions ichiga:
+
+$exceptions->render(function (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+    return response()->json(['message' => 'Yozuv topilmadi.'], 404);
+});"># bootstrap/app.php — withExceptions ichiga:
+
+$exceptions-&gt;render(function (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+    return response()-&gt;json(['message' =&gt; 'Yozuv topilmadi.'], 404);
+});</div>
+        <div class="cmd" data-cmd="curl -s -H 'Accept: application/json' http://127.0.0.1:8000/api/vakansiyalar/999999; echo">curl -s -H 'Accept: application/json' http://127.0.0.1:8000/api/vakansiyalar/999999; echo</div>
+        <p class="expect">⚠️ Xabar <b>o'zgarmaydi</b>. Xato ham
+        chiqmaydi. Kod o'lik.</p>
+      </li>
+
+      <li>
+        <b>To'g'ri nom bilan almashtiring.</b> Yuqoridagi «Yakuniy
+        <code>withExceptions</code>» bo'limidagi <code>render</code>
+        blokini ko'chiring (nusxa tugmasi bor) va <code>use</code>
+        qatorlarini fayl boshiga qo'shing.
+        <div class="cmd" data-cmd="php -l bootstrap/app.php">php -l bootstrap/app.php</div>
+        <div class="cmd" data-cmd="curl -s -H 'Accept: application/json' http://127.0.0.1:8000/api/vakansiyalar/999999; echo
+curl -s -H 'Accept: application/json' http://127.0.0.1:8000/api/yolgon-manzil; echo">curl -s -H 'Accept: application/json' http://127.0.0.1:8000/api/vakansiyalar/999999; echo
+curl -s -H 'Accept: application/json' http://127.0.0.1:8000/api/yolgon-manzil; echo</div>
+        <p class="expect">Ikki xil xabar chiqishi kerak.</p>
+      </li>
+
+      <li>
+        <b>Web tomon buzilmaganini tekshiring.</b>
+        <div class="cmd" data-cmd="curl -s -o /dev/null -w 'web 404: %{http_code}  %{content_type}\n' http://127.0.0.1:8000/yolgon-manzil">curl -s -o /dev/null -w 'web 404: %{http_code}  %{content_type}\n' http://127.0.0.1:8000/yolgon-manzil</div>
+        <p class="expect">Kutilgan: <code>404  text/html</code> —
+        <code>return null</code> ishlagani shu.</p>
+      </li>
+
+      <li>
+        <b>O'z xato klassingizni yarating.</b>
+        <div class="cmd" data-cmd="php artisan make:exception VakansiyaYopilgan --render">php artisan make:exception VakansiyaYopilgan --render</div>
+        <p>Yuqoridagi <code>VakansiyaYopilgan</code> kodini
+        ko'chiring, so'ng <code>show()</code> ga uchta qator
+        qo'shing va <code>use App\Exceptions\VakansiyaYopilgan;</code>
+        ni unutmang.</p>
+        <div class="cmd" data-cmd="php artisan tinker --execute=&quot;echo App\Models\Vakansiya::where('faol', false)->value('id') ?? 'yopiq vakansiya yoq';&quot;">php artisan tinker --execute=&quot;echo App\Models\Vakansiya::where('faol', false)-&gt;value('id') ?? 'yopiq vakansiya yoq';&quot;</div>
+        <p>Chiqqan id bilan sinang (bu yerda <code>3</code>):</p>
+        <div class="cmd" data-cmd="curl -s -w '\nstatus: %{http_code}\n' -H 'Accept: application/json' http://127.0.0.1:8000/api/vakansiyalar/3">curl -s -w '\nstatus: %{http_code}\n' -H 'Accept: application/json' http://127.0.0.1:8000/api/vakansiyalar/3</div>
+        <p class="expect">Kutilgan: <b>410</b> va
+        <code>kod: vakansiya_yopilgan</code>.</p>
+      </li>
+
+      <li>
+        <b>Logni tozalab, shovqinni ko'ring.</b>
+        <div class="cmd" data-cmd="rm -f storage/logs/laravel.log
+curl -s -o /dev/null -H 'Accept: application/json' http://127.0.0.1:8000/api/vakansiyalar/3
+grep -o 'local.ERROR: [^{]*' storage/logs/laravel.log">rm -f storage/logs/laravel.log
+curl -s -o /dev/null -H 'Accept: application/json' http://127.0.0.1:8000/api/vakansiyalar/3
+grep -o 'local.ERROR: [^{]*' storage/logs/laravel.log</div>
+        <p class="expect">⚠️ Normal holat ERROR sifatida
+        loglangan. Endi <code>dontReport</code> ni qo'shib,
+        shu buyruqni qayta ishlating — natija <b>bo'sh</b>
+        bo'ladi. 🔍 Aslida <code>grep</code>
+        «No such file or directory» deydi: loglanadigan narsa
+        qolmagani uchun fayl <b>umuman yaratilmaydi</b>.</p>
+      </li>
+
+      <li>
+        <b><code>context</code> va <code>respond</code> ni qo'shing.</b>
+        Yakuniy koddan ikkala blokni ko'chiring.
+        <div class="cmd" data-cmd="rm -f storage/logs/laravel.log
+curl -s -H 'Accept: application/json' http://127.0.0.1:8000/api/x/500; echo
+grep -o '&quot;xato_id&quot;:&quot;[^&quot;]*&quot;' storage/logs/laravel.log">rm -f storage/logs/laravel.log
+curl -s -H 'Accept: application/json' http://127.0.0.1:8000/api/x/500; echo
+grep -o '&quot;xato_id&quot;:&quot;[^&quot;]*&quot;' storage/logs/laravel.log</div>
+        <p class="expect">Javobdagi va logdagi <code>xato_id</code>
+        <b>aynan bir xil</b> bo'lishi kerak.</p>
+      </li>
+
+      <li>
+        <b>Testlarni yozing va sinov marshrutini o'chiring.</b>
+        Yuqoridagi <code>tests/Feature/XatoTest.php</code> ni
+        ko'chiring, so'ng <code>routes/api.php</code> dagi
+        <code>/x/500</code> qatorini <b>o'chiring</b>.
+        <div class="cmd" data-cmd="php artisan test tests/Feature/XatoTest.php">php artisan test tests/Feature/XatoTest.php</div>
+        <p class="expect">Kutilgan: <b>7 passed</b>.</p>
+      </li>
+
+      <li>
+        <b><code>APP_DEBUG</code> ni ikkala holatda sinang.</b>
+        <div class="cmd" data-cmd="php artisan test tests/Feature/XatoTest.php
+sed -i 's/^APP_DEBUG=false/APP_DEBUG=true/' .env
+php artisan test tests/Feature/XatoTest.php
+sed -i 's/^APP_DEBUG=true/APP_DEBUG=false/' .env">php artisan test tests/Feature/XatoTest.php
+sed -i 's/^APP_DEBUG=false/APP_DEBUG=true/' .env
+php artisan test tests/Feature/XatoTest.php
+sed -i 's/^APP_DEBUG=true/APP_DEBUG=false/' .env</div>
+        <p class="expect">Ikkalasi ham yashil — himoya sozlamaga
+        emas, kodga bog'liq.</p>
+      </li>
+
+      <li>
+        <b>To'liq to'plamni ishga tushiring.</b>
+        <div class="cmd" data-cmd="php artisan test">php artisan test</div>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li>404 javobida <code>App\Models</code> yo'q</li>
+      <li>Yozuv va manzil uchun <b>ikki xil</b> xabar</li>
+      <li>Web tomonda 404 hamon HTML</li>
+      <li>Yopilgan vakansiya → <b>410</b> va <code>kod</code></li>
+      <li>Logda <code>VakansiyaYopilgan</code> yo'q</li>
+      <li>500 javobida <code>xato_id</code> bor va logda ham o'sha</li>
+      <li><code>/x/500</code> sinov marshruti o'chirilgan</li>
+      <li><code>XatoTest</code> — 7 test yashil</li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 13) SINAB KO'RAMIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Dasturchi 404 xabarini tuzatmoqchi bo'ldi. U
+    <code>bootstrap/app.php</code> ga shuni yozdi:</p>
+    <div class="codefile">
+      <div class="fname">bootstrap/app.php</div>
+      <code class="cmd" data-cmd="$exceptions-&gt;render(function (ModelNotFoundException $e, Request $request) {
+    return response()-&gt;json(['message' =&gt; 'Yozuv topilmadi.'], 404);
+});">$exceptions-&gt;render(function (ModelNotFoundException $e, Request $request) {
+    return response()-&gt;json(['message' =&gt; 'Yozuv topilmadi.'], 404);
+});</code>
+    </div>
+    <p>Testni ishga tushirdi:</p>
+    <div class="natija">it('mavjud bo\'lmagan yozuv uchun 404 beradi', function () {
+    $this-&gt;getJson('/api/vakansiyalar/999999')-&gt;assertNotFound();
+});
+
+Tests:  1 passed        ← YASHIL</div>
+    <p>Test yashil, kod bor, xato yo'q. Lekin mijoz hamon
+    <code>App\Models\Vakansiya</code> ni ko'ryapti. Nima
+    bo'lyapti?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <p>Handler <b>hech qachon chaqirilmaydi</b>. Laravel
+        <code>ModelNotFoundException</code> ni
+        <code>NotFoundHttpException</code> ga <b>aylantirib</b>
+        bo'lgan.</p>
+        <div class="natija">Handler.php:710   $e = $this-&gt;prepareException($e);      ← AVVAL aylantiradi
+Handler.php:712   $this-&gt;renderViaCallbacks($request, $e)  ← KEYIN bizni chaqiradi</div>
+        <p class="expect">⚠️ Test <b>yashil</b> bo'lgani chalg'itdi:
+        u faqat <b>statusni</b> tekshirgan. Status esa ikkala
+        holatda ham <b>404</b> — handler ishlagan-ishlamaganidan
+        qat'i nazar.</p>
+        <p>🔑 Bu 46-darsdagi <code>?sort=moash</code> bilan bir
+        xil naqsh: <b>status to'g'ri, mazmun noto'g'ri</b>. Bunday
+        xatolar faqat <b>tanani</b> tekshiradigan test bilan
+        tutiladi:</p>
+        <div class="natija">-&gt;assertExactJson(['message' =&gt; 'So\'ralgan yozuv topilmadi.']);
+
+expect($javob-&gt;json('message'))-&gt;not-&gt;toContain('App\\Models');</div>
+        <p>✅ To'g'ri klass — <code>NotFoundHttpException</code>,
+        va yozuv/manzilni ajratish uchun
+        <code>getPrevious()</code>.</p>
+        <p>🔍 <b>Umumiy saboq:</b> <code>assertNotFound()</code> —
+        <b>zaif</b> tekshiruv. «Status to'g'rimi?» degan savol
+        «javob to'g'rimi?» degani emas.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span>
+    <code>render(ModelNotFoundException …)</code> nega ishlamaydi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Laravel uni avval boshqa klassga aylantirib yuboradi</button></li>
+      <li><button class="quiz-option">Bu klass Eloquent ichida yashirin va yopiq</button></li>
+      <li><button class="quiz-option">Handler'lar faqat 500 xatolari uchun chaqirilishi mumkin</button></li>
+    </ul>
+    <div class="quiz-explain"><code>prepareException()</code>
+    <code>ModelNotFoundException</code> ni
+    <code>NotFoundHttpException</code> ga aylantiradi — va bu
+    bizning handler chaqirilishidan <b>oldin</b> bo'ladi.
+    ⚠️ Eng yomoni: xato chiqmaydi, kod shunchaki <b>o'lik</b>.
+    ✅ Asl sababni <code>getPrevious()</code> beradi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span>
+    <code>APP_DEBUG=false</code> qilish yetarlimi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Yo'q 404 xabari hamon model nomini aytadi</button></li>
+      <li><button class="quiz-option">Ha barcha ichki ma'lumot butunlay yopilgan bo'ladi</button></li>
+      <li><button class="quiz-option">Yo'q chunki u faqat web sahifalarga tegishli</button></li>
+    </ul>
+    <div class="quiz-explain">O'lchandi: 500 javobi <b>14911</b>
+    baytdan <b>33</b> baytga tushdi — bu katta yutuq. Lekin 404
+    hamon <code>No query results for model [App\Models\Vakansiya]</code>
+    deydi.
+    ✅ Shuning uchun <code>render()</code> bilan xabarni
+    <b>o'zingiz</b> yozasiz.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span> Xato
+    javobida <code>kod</code> maydoni nima uchun kerak?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Dastur uchun barqaror nom xabar matni o'zgarishi mumkin</button></li>
+      <li><button class="quiz-option">HTTP status kodini takrorlash uchun ishlatiladigan qo'shimcha maydon</button></li>
+      <li><button class="quiz-option">Laravel uni talab qiladi aks holda xato chiqadi</button></li>
+    </ul>
+    <div class="quiz-explain"><code>message</code> — <b>odam</b>
+    uchun va o'zgaradi (tarjima, tahrir). <code>kod</code> —
+    <b>dastur</b> uchun va o'zgarmaydi.
+    ⚠️ Mijoz <code>message</code> matnini solishtirsa, xabardagi
+    bitta harf tuzatilishi bilan uning kodi buziladi.
+    🔑 43-darsdagi Resource g'oyasi — xatolar tomonida.</div>
+  </div>
+
+  <!-- ═══════════════ 14) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+
+    <p>Javobni ovoz chiqarib ayting, keyin ochib solishtiring.</p>
+
+    <details class="recall">
+      <summary><code>APP_DEBUG</code> ikki holatida 500 javobi
+      qanday farq qiladi?</summary>
+      <div class="answer"><code>true</code>: <b>14911 bayt</b> —
+      <code>message</code>, <code>exception</code>,
+      <code>file</code> (to'liq fayl yo'li), <code>line</code> va
+      <b>38 kadrli</b> <code>trace</code>.
+      <code>false</code>: <b>33 bayt</b> —
+      <code>{"message": "Server Error"}</code>.
+      Birinchisi xavfli, ikkinchisi foydasiz — shuning uchun
+      <code>xato_id</code> qo'shamiz.</div>
+    </details>
+
+    <details class="recall">
+      <summary>Nega <code>render(ModelNotFoundException …)</code>
+      hech qachon chaqirilmaydi?</summary>
+      <div class="answer"><code>Handler::prepareException()</code>
+      uni <code>NotFoundHttpException</code> ga <b>aylantiradi</b>,
+      va bu <code>renderViaCallbacks()</code> dan <b>oldin</b>
+      bo'ladi. Xuddi shu narsa
+      <code>AuthorizationException</code> →
+      <code>AccessDeniedHttpException</code> uchun ham to'g'ri.
+      <code>AuthenticationException</code> va
+      <code>ValidationException</code> esa aylantirilmaydi —
+      ular uchun handler <b>ishlaydi</b>.</div>
+    </details>
+
+    <details class="recall">
+      <summary>Bitta <code>NotFoundHttpException</code> ichidagi
+      ikki xil holatni qanday ajratasiz?</summary>
+      <div class="answer"><code>$e-&gt;getPrevious()</code> bilan.
+      Yozuv topilmasa u <code>ModelNotFoundException</code>
+      qaytaradi; marshrut topilmasa <code>null</code>.
+      Uchinchi holat — <code>abort(404, 'xabar')</code>: unda
+      <code>getPrevious()</code> <code>null</code>, lekin
+      <code>$request-&gt;route()</code> <b>bor</b>, ya'ni xabarni
+      saqlab qolish kerak.</div>
+    </details>
+
+    <details class="recall">
+      <summary>Xato klassidagi <code>render()</code> metodi nima
+      qiladi va u qanday topiladi?</summary>
+      <div class="answer">Xato o'z HTTP javobini <b>o'zi bilan
+      olib yuradi</b>: status, xabar, qo'shimcha maydonlar.
+      <code>bootstrap/app.php</code> ga hech narsa yozish kerak
+      emas — Laravel klassda <code>render()</code> borligini
+      <b>o'zi ko'radi</b>. Konstruktor bo'yicha xossa
+      (<code>public Vakansiya $vakansiya</code>) tufayli javobga
+      kontekst qo'shish mumkin.</div>
+    </details>
+
+    <details class="recall">
+      <summary><code>dontReport</code> nega kerak va nima uchun
+      <code>respond()</code> (<code>respondUsing()</code>
+      emas)?</summary>
+      <div class="answer"><code>dontReport</code>: normal ish
+      jarayoni (masalan yopilgan vakansiya) standart holda
+      <b>ERROR</b> darajasida loglanadi — bu shovqin, haqiqiy
+      xatolarni ko'mib yuboradi. Laravel'ning o'zida shunday
+      <b>12 ta</b> klass bor.
+      <code>respondUsing()</code> — <code>Handler</code> klassining
+      metodi; <code>bootstrap/app.php</code> dagi
+      <code>$exceptions</code> esa
+      <code>Configuration\Exceptions</code>, undagi nom —
+      <code>respond()</code>.</div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 15) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Xulosa</span>
+    <ul>
+      <li><b>Mijozga kerakli miqdorda, logga hamma narsani.</b>
+      Xato javobining maqsadi — «nima bo'ldi» va «endi nima
+      qilay».</li>
+      <li><code>APP_DEBUG=true</code> → <b>14911 bayt</b>, fayl
+      yo'li va 38 kadrli trace. Ishlab chiqarishda
+      <b>faqat <code>false</code></b>.</li>
+      <li>⚠️ <code>false</code> yetarli emas: 404 hamon
+      <code>App\Models\Vakansiya</code> deydi.</li>
+      <li>⚠️ <code>render(ModelNotFoundException …)</code> —
+      <b>o'lik kod</b>. <code>prepareException()</code> uni
+      <code>NotFoundHttpException</code> ga aylantirib bo'lgan.</li>
+      <li>Xuddi shu narsa <code>AuthorizationException</code> →
+      <code>AccessDeniedHttpException</code> uchun ham.
+      <code>AuthenticationException</code> va
+      <code>ValidationException</code> esa aylantirilmaydi.</li>
+      <li><code>getPrevious()</code> asl sababni beradi:
+      yozuv yo'q · manzil yo'q · <code>abort()</code>.</li>
+      <li><code>return null</code> — standart yo'lga qaytish.
+      Shu tufayli web tomon HTML'da qoladi.</li>
+      <li>Xato klassidagi <code>render()</code> metodi javobni
+      <b>xato bilan birga</b> olib yuradi. <b>410 Gone</b> —
+      «bor edi, ataylab yopildi».</li>
+      <li><code>message</code> odam uchun, <code>kod</code>
+      dastur uchun. Mijoz matnni emas, <b>kodni</b>
+      solishtirsin.</li>
+      <li>⚠️ O'z xatoyingiz standart holda ERROR bo'lib
+      loglanadi → <code>dontReport</code>.</li>
+      <li><code>respond()</code> (<b>emas</b>
+      <code>respondUsing()</code>) — 500 uchun <code>xato_id</code>:
+      javobda ham, logda ham bir xil.</li>
+      <li>⚠️ <code>assertNotFound()</code> zaif tekshiruv —
+      <b>tanani</b> ham tekshiring
+      (<code>assertExactJson</code>, <code>not-&gt;toContain</code>).</li>
+      <li>Autentifikatsiya xatolari doim <b>bir xil</b>
+      gapirsin.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p>API endi to'liq, himoyalangan, qidiriladigan va xatolari
+    tartibli. Bitta bo'shliq qoldi: hozir <b>istalgan kishi</b>
+    <code>/api/token</code> ga soniyasiga ming marta so'rov
+    yubora oladi — parolni taxmin qilish uchun ham, serverni
+    band qilish uchun ham.</p>
+    <p>48-darsda <b>rate limiting</b> qo'shamiz:
+    <code>throttle</code>, <code>RateLimiter</code> va yangi
+    status — <b>429 Too Many Requests</b>. Yonida
+    <b>versiyalash</b> ham bor: <code>/api/v1</code> nima uchun
+    kerak va uni <b>qachon</b> qo'shish kerak (javob: kech
+    emas).</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel — Error Handling</b>:
+    <a href="https://laravel.com/docs/13.x/errors">render, respond,
+    context, dontReport, shouldRenderJsonWhen</a>.<sup><a href="#fn2">2</a></sup><br>
+    <b>MDN — 410 Gone</b>:
+    <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/410">developer.mozilla.org</a>.<sup><a href="#fn1">1</a></sup><br>
+    <b>OWASP — Improper Error Handling</b>:
+    <a href="https://owasp.org/www-community/Improper_Error_Handling">owasp.org</a>.<sup><a href="#fn3">3</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b> «xato
+    javoblarini bir xil shaklga solsam bo'ladimi (hammasi
+    <code>kod</code> bilan)?», «<code>report()</code> nima —
+    <code>reportable()</code> dan farqi bormi?», «Sentry kabi
+    xizmatlarga qanday ulanadi?», «<code>map()</code> nima
+    qiladi?» — har qanday savol yaxshi. Birinchisiga qisqa javob:
+    <b>ha va tavsiya etiladi</b> — <code>respond()</code> ichida
+    barcha 4xx javoblarga <code>kod</code> qo'shsangiz bo'ladi,
+    faqat 422 ning <code>errors</code> maydonini
+    <b>saqlab qoling</b> (mijozlar unga tayanadi). Oxirgisiga:
+    <code>map()</code> bitta xatoni boshqasiga aylantiradi —
+    aynan Laravel <code>ModelNotFoundException</code> bilan
+    qiladigan ish, faqat sizning qo'lingizda.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0046-filtr-qidiruv-saralash.html">Oldingi: Filtr va saralash</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">MDN — <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/410">410 Gone</a>.</li>
+      <li id="fn2">Laravel 13 — <a href="https://laravel.com/docs/13.x/errors">Error Handling</a>.</li>
+      <li id="fn3">OWASP — <a href="https://owasp.org/www-community/Improper_Error_Handling">Improper Error Handling</a>.</li>
+      <li id="fn4">Barchasi jonli o'lchangan (PHP 8.3.32, Laravel 13.26.1,
+      Pest 4.7.8, SQLite):
+      <code>APP_DEBUG=true</code> → 500 javobi <b>14911 bayt</b>,
+      kalitlar <code>message</code>, <code>exception</code>,
+      <code>file</code>, <code>line</code>, <code>trace</code>
+      (<b>38</b> kadr); <code>APP_DEBUG=false</code> → <b>33 bayt</b>,
+      <code>{"message": "Server Error"}</code> ·
+      ⚠️ <code>false</code> bo'lsa ham 404 →
+      <code>No query results for model [App\Models\Vakansiya] 999999</code> ·
+      <code>shouldRenderJsonWhen</code> toza
+      <code>laravel/laravel</code> skeletida <b>standart</b> bor
+      (yonma-yon solishtirildi) ·
+      ⚠️ <code>render(ModelNotFoundException)</code> va
+      <code>render(AuthorizationException)</code> — <b>ishlamadi</b>;
+      <code>render(NotFoundHttpException)</code>,
+      <code>render(AccessDeniedHttpException)</code>,
+      <code>render(AuthenticationException)</code>,
+      <code>render(ValidationException)</code> — <b>ishladi</b> ·
+      sabab manbada: <code>Handler.php:710</code>
+      <code>prepareException()</code> <code>renderViaCallbacks()</code>
+      dan <b>oldin</b> ·
+      <code>getPrevious()</code>: yozuv 404 →
+      <code>ModelNotFoundException</code>, marshrut 404 →
+      <code>null</code>, 403 → <code>AuthorizationException</code> ·
+      <code>return null</code> → web 404 hamon
+      <code>text/html</code> ·
+      <code>VakansiyaYopilgan</code> → <b>410</b> +
+      <code>kod</code> + <code>yopilgan_sana</code> ·
+      ⚠️ u standart holda <b>ERROR</b> loglandi;
+      <code>dontReport</code> dan keyin logda yo'q
+      (Laravel'ning <code>internalDontReport</code> ro'yxatida
+      <b>12</b> klass) ·
+      ⚠️ <code>respondUsing()</code> →
+      <code>Call to undefined method
+      Illuminate\Foundation\Configuration\Exceptions::respondUsing()</code>,
+      va <b>hamma javob</b> 500 bo'lib qoldi; to'g'ri nom —
+      <code>respond()</code> ·
+      <code>respond()</code> dan keyin javobdagi va logdagi
+      <code>xato_id</code> <b>bir xil</b> ·
+      ⚠️ <code>abort(404, 'xabar')</code> keng handler tomonidan
+      yutildi; <code>$request-&gt;route() === null</code> tarmog'i
+      qo'shilgach uchala holat ham to'g'ri ·
+      status javoblari: <b>401</b> <code>Unauthenticated.</code>,
+      <b>403</b> <code>This action is unauthorized.</code>,
+      <b>405</b> ruxsat etilgan metodlar ro'yxati bilan,
+      <b>422</b> <code>errors</code> bilan ·
+      <code>json_encode</code> standart holda
+      <code>—</code> ni <code>—</code> qiladi ·
+      <code>XatoTest</code> — <b>7 passed (18 assertions)</b>,
+      <code>APP_DEBUG</code> ning <b>ikkala</b> holatida ham
+      yashil; to'liq to'plam <b>15 passed (37 assertions), 0.28s</b>.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

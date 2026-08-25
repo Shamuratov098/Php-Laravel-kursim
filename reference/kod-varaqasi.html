@@ -17,7 +17,7 @@
   muhit ma'lumotlari. Har dars yangi buyruq o'rgatilsa, shu yerga qo'shiladi.</p>
 
   <p class="lesson-meta">
-    <span>Qamrov: <b>1&ndash;46-darslar</b> — muhitdan API'gacha</span>
+    <span>Qamrov: <b>1&ndash;47-darslar</b> — muhitdan API'gacha</span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>💻 Amaliyotga mos</span>
   </p>
@@ -1172,6 +1172,69 @@
     <code>meta.last_page</code>, <code>links.last</code> <b>yo'q</b>.</p>
     <p>🔑 «Topilmadi» → <b>200</b> va bo'sh <code>data</code>, 404 emas.
     <code>meta.from</code>/<code>to</code> esa <code>null</code> bo'ladi.</p>
+  </div>
+
+  <h2>Xatoni to'g'ri qaytarish (47-darsdan)</h2>
+  <table class="sheet">
+    <tr><th>Kod</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>$exceptions-&gt;render(fn ($e, $r) =&gt; ...)</code></td><td class="note-cell">Ma'lum bir xato uchun javobni o'zingiz yozasiz</td></tr>
+    <tr><td><code>$exceptions-&gt;respond(...)</code></td><td class="note-cell">⚠️ <code>respondUsing</code> <b>emas</b> — tayyor javobni oxirida ko'rish</td></tr>
+    <tr><td><code>$exceptions-&gt;context(fn () =&gt; [...])</code></td><td class="note-cell">Har bir log yozuviga qo'shimcha maydonlar</td></tr>
+    <tr><td><code>$exceptions-&gt;dontReport([X::class])</code></td><td class="note-cell">Bu xatoni logga yozmaslik (shovqinni kamaytirish)</td></tr>
+    <tr><td><code>$exceptions-&gt;stopIgnoring(X::class)</code></td><td class="note-cell">Teskarisi: Laravel yashirganini ko'rsat</td></tr>
+    <tr><td><code>$exceptions-&gt;level(X::class, LogLevel::INFO)</code></td><td class="note-cell">Logla, lekin ERROR darajasida emas</td></tr>
+    <tr><td><code>$e-&gt;getPrevious()</code></td><td class="note-cell">Aylantirilgan xatoning asl sababi</td></tr>
+    <tr><td><code>$request-&gt;route() === null</code></td><td class="note-cell">Marshrut topilmagan (<code>abort()</code> dan ajratish uchun)</td></tr>
+    <tr><td><code>return null</code> (handler ichida)</td><td class="note-cell">Standart yo'lga qaytish — web HTML'da qoladi</td></tr>
+    <tr><td><code>make:exception X --render</code></td><td class="note-cell">Javobni o'zi bilan olib yuradigan xato klassi</td></tr>
+    <tr><td><code>assertExactJson([...])</code></td><td class="note-cell">Javob <b>aynan</b> shu — ortiqcha kalitsiz</td></tr>
+    <tr><td><code>assertJsonMissing(['trace'])</code></td><td class="note-cell">Nima <b>yo'q</b>ligini tasdiqlash (xavfsizlik testi)</td></tr>
+    <tr><td><code>$this-&gt;withoutExceptionHandling()</code></td><td class="note-cell">Testda haqiqiy xatoni ko'rish (keyin o'chiring)</td></tr>
+  </table>
+  <div class="callout note">
+    <p>⚠️ <b>O'lik kod tuzog'i.</b>
+    <code>render(ModelNotFoundException …)</code> <b>hech qachon</b>
+    chaqirilmaydi — <code>Handler::prepareException()</code> uni
+    <code>NotFoundHttpException</code> ga aylantirib bo'lgan
+    (<code>Handler.php:710</code>, <code>renderViaCallbacks()</code> dan
+    <b>oldin</b>). Xato chiqmaydi, test ham yashil qoladi — chunki
+    status baribir 404.
+    <br>🔍 <b>Ishlamaydi:</b> <code>ModelNotFoundException</code>,
+    <code>AuthorizationException</code>.
+    <b>Ishlaydi:</b> <code>NotFoundHttpException</code>,
+    <code>AccessDeniedHttpException</code>,
+    <code>AuthenticationException</code>,
+    <code>ValidationException</code>.</p>
+    <p>🔑 <b><code>getPrevious()</code> jadvali:</b>
+    yozuv 404 → <code>ModelNotFoundException</code> ·
+    marshrut 404 → <code>null</code> ·
+    403 → <code>AuthorizationException</code>.</p>
+    <p>⚠️ <b><code>APP_DEBUG</code>.</b> O'lchandi: <code>true</code> →
+    500 javobi <b>14911 bayt</b> (fayl yo'li, 38 kadrli trace);
+    <code>false</code> → <b>33 bayt</b>.
+    Lekin <code>false</code> <b>yetarli emas</b> — 404 hamon
+    <code>App\Models\Vakansiya</code> deydi.
+    🔍 Tashxis: <code>php artisan about</code> → «Debug Mode».</p>
+    <p>⚠️ <b>Keng handler <code>abort()</code> ni yutadi.</b>
+    <code>abort(404, 'xabar')</code> ham
+    <code>NotFoundHttpException</code> tashlaydi. Ajratish:
+    <code>$request-&gt;route() === null</code>.</p>
+    <p>🔑 <b>Status jadvali:</b>
+    <b>401</b> <code>Unauthenticated.</code> ·
+    <b>403</b> <code>This action is unauthorized.</code> ·
+    <b>404</b> yozuv/manzil yo'q ·
+    <b>405</b> ruxsat etilgan metodlar bilan ·
+    <b>410</b> bor edi, ataylab yopildi ·
+    <b>422</b> <code>errors</code> bilan ·
+    <b>500</b> <code>xato_id</code> bilan.
+    <br>Chegara: <b>4xx — mijozniki, 5xx — sizniki</b>.</p>
+    <p>🔑 <code>message</code> odam uchun, <code>kod</code> dastur
+    uchun. Mijoz matnni emas, <b>kodni</b> solishtirsin.
+    <br>⚠️ Autentifikatsiya xatolari doim <b>bir xil</b> gapirsin
+    («Email yoki parol xato»), aks holda hujumchi ro'yxatdan
+    o'tgan emaillarni aniqlaydi.</p>
+    <p>⚠️ <code>assertNotFound()</code> — <b>zaif</b> tekshiruv.
+    «Status to'g'rimi?» degan savol «javob to'g'rimi?» degani emas.</p>
   </div>
 
   <h2>Xatoni o'qish</h2>
