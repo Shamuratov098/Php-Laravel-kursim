@@ -18,7 +18,7 @@
   izoh esa o'zbekcha.</p>
 
   <p class="lesson-meta">
-    <span>Atamalar: <b>246 ta</b></span>
+    <span>Atamalar: <b>251 ta</b></span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>📱 O'qishga mos</span>
   </p>
@@ -26,7 +26,7 @@
   <div class="callout note">
     <span class="label">Bu hujjat o'sib boradi</span>
     <p>Atama faqat <b>o'z darsi yozilganda</b> qo'shiladi — oldindan emas. Hozir:
-    Modul A–H (1–58-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
+    Modul A–H (1–59-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
     bosqichida qat'iy belgilangan va 73 dars bo'ylab o'zgarmaydi).</p>
   </div>
 
@@ -2437,6 +2437,96 @@
       (<code>Schedule::events()</code>) — ikkinchisi
       ko'pincha unutiladi.
       <span class="eg">$this-&gt;artisan('ishtop:x')-&gt;assertSuccessful();</span></dd>
+    </div>
+
+    <div class="term" id="cache-remember">
+      <dt>Cache::remember <span class="uz">— asosiy kesh naqshi</span></dt>
+      <dd>«Keshda bormi? Bo'lsa ber, bo'lmasa hisobla va
+      saqla» — bir qatorda.
+      🔍 O'lchandi (30 007 yozuv): keshsiz
+      <b>0.93s · 0.72s · 0.94s</b>;
+      <code>database</code> keshda <b>0.739s</b> keyin
+      <b>~0.010s</b>; <code>redis</code> da
+      <b>0.892s</b> keyin <b>~0.005s</b>.
+      🔑 Kesh hisoblashni <b>tezlashtirmaydi</b> — faqat
+      <b>takrorlanishini</b> oldini oladi.
+      Narxi — <b>eski ma'lumot</b>: «qancha eskilik
+      joiz?» Tozalash ikki yo'l bilan: <b>TTL</b> va
+      <code>forget()</code>.
+      <span class="eg">Cache::remember('statistika', now()-&gt;addMinutes(10), fn () =&gt; ...)</span></dd>
+    </div>
+
+    <div class="term" id="kesh-kaliti">
+      <dt>kesh kaliti <span class="uz">— ma'lumot sizishining sababi</span></dt>
+      <dd>⚠️ Kalit — <b>global</b> nom.
+      <code>Cache::remember('profil', ...)</code> yozsangiz
+      birinchi kirgan odamning ma'lumoti <b>hammaga</b>
+      ko'rinadi — bu xato emas, <b>ma'lumot
+      sizishi</b>.
+      ⚠️ Testlar buni <b>tutmaydi</b>: testda odatda
+      bitta foydalanuvchi bo'ladi.
+      ✅ Kalitda <b>egasi</b> ko'rinsin:
+      <code>"profil:{$user-&gt;id}"</code>. Til, rol, sahifa
+      raqami ham kirishi mumkin.
+      🔑 Nomlash odati: <code>tur:id:qism</code>.
+      <span class="eg">Cache::remember("profil:{$user-&gt;id}", 1800, ...)</span></dd>
+    </div>
+
+    <div class="term" id="cache-teglar">
+      <dt>kesh teglari <span class="uz">— faqat redis va memcached</span></dt>
+      <dd>Bir guruh kalitni birdan tozalash:
+      <code>Cache::tags(['vakansiya'])-&gt;flush()</code>.
+      🔍 O'lchandi: teg bilan yozilgan qiymat
+      <b>tegsiz o'qilmaydi</b>; bitta teg bilan
+      <code>flush</code> yetarli.
+      ⚠️ <code>file</code> va <code>database</code> da
+      <b>yo'q</b>:
+      <code>BadMethodCallException: This cache store does
+      not support tagging.</code>
+      🔑 Teglarga tayangan kod drayver almashtirilganda
+      <b>yiqiladi</b>.
+      ✅ Muqobil: kalitga versiya qo'shish
+      (<code>"vakansiya:{$id}:v{$updated_at}"</code>) —
+      hamma drayverda ishlaydi.
+      <span class="eg">Cache::tags(['statistika'])-&gt;put('k', $v, 600)</span></dd>
+    </div>
+
+    <div class="term" id="redis-fasadi">
+      <dt>Redis fasadi <span class="uz">— taxallus yo'q</span></dt>
+      <dd>⚠️ <code>Redis::set(...)</code> →
+      <code>Error: Non-static method Redis::set() cannot be
+      called statically.</code>
+      Sabab: PHP'ning <code>phpredis</code> kengaytmasida
+      <b>global <code>Redis</code> klassi</b> bor va u
+      Laravel fasadidan ustun keladi — shuning uchun
+      51-darsdagi taxalluslar ro'yxatida
+      <code>Redis</code> <b>yo'q</b>.
+      ✅ <code>use Illuminate\Support\Facades\Redis;</code>
+      yoki to'liq nom.
+      🔍 Redis 1-bazasida kalitlar prefiks bilan:
+      <code>laravel-database-laravel-cache-...</code>;
+      u yerda kesh va 48-darsdagi cheklov
+      <b>birga</b> yashaydi — shuning uchun
+      <code>Cache::flush()</code> xavfli.
+      <span class="eg">\Illuminate\Support\Facades\Redis::get('kalit')</span></dd>
+    </div>
+
+    <div class="term" id="cache-lock">
+      <dt>Cache::add va lock <span class="uz">— atomar amallar</span></dt>
+      <dd><code>add()</code> qiymat <b>yo'q bo'lsagina</b>
+      yozadi va <code>true</code>/<code>false</code>
+      qaytaradi (o'lchandi: mavjudga <b>false</b>,
+      yangiga <b>true</b>) — oddiy qulf sifatida
+      ishlaydi.
+      <code>Cache::lock('nom', 120)-&gt;get(fn () =&gt; ...)</code>
+      — jiddiyroq qulf; 58-darsdagi
+      <code>withoutOverlapping()</code> aynan shuni
+      ishlatadi. <code>finally</code> da
+      <code>release()</code> ni unutmang.
+      <code>Cache::flexible('k', [300, 600], ...)</code> —
+      kesh bosqinchiligiga qarshi: eski qiymat darrov
+      beriladi, yangilash <b>fonda</b>.
+      <span class="eg">if (Cache::add("eksport:{$id}", true, 300)) { ... }</span></dd>
     </div>
 
     <div class="term" id="sanctum">

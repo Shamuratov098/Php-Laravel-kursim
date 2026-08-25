@@ -17,7 +17,7 @@
   muhit ma'lumotlari. Har dars yangi buyruq o'rgatilsa, shu yerga qo'shiladi.</p>
 
   <p class="lesson-meta">
-    <span>Qamrov: <b>1&ndash;58-darslar</b> — muhitdan API'gacha</span>
+    <span>Qamrov: <b>1&ndash;59-darslar</b> — muhitdan API'gacha</span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>💻 Amaliyotga mos</span>
   </p>
@@ -1779,6 +1779,53 @@
     rejada turganligi. Ikkinchisi unutilsa, buyruq
     <b>hech qachon ishlamaydi</b> va hech kim
     sezmaydi.</p>
+  </div>
+
+  <h2>Cache va Redis (59-darsdan)</h2>
+  <table class="sheet">
+    <tr><th>Kod / buyruq</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>Cache::remember('k', 600, fn () =&gt; ...)</code></td><td class="note-cell">Bo'lsa ber, bo'lmasa hisobla va saqla</td></tr>
+    <tr><td><code>Cache::rememberForever('k', fn () =&gt; ...)</code></td><td class="note-cell">TTL'siz</td></tr>
+    <tr><td><code>Cache::flexible('k', [300, 600], ...)</code></td><td class="note-cell">Eski qiymat darrov, yangilash fonda (stampede'ga qarshi)</td></tr>
+    <tr><td><code>Cache::put/get/has/forget</code></td><td class="note-cell">Oddiy amallar</td></tr>
+    <tr><td><code>Cache::flush()</code></td><td class="note-cell">⚠️ Hammasini — cheklov hisoblarini <b>ham</b></td></tr>
+    <tr><td><code>Cache::increment('k', 5)</code></td><td class="note-cell">Atomar oshirish</td></tr>
+    <tr><td><code>Cache::add('k', $v, 300)</code></td><td class="note-cell">Yo'q bo'lsagina yozadi — oddiy qulf</td></tr>
+    <tr><td><code>Cache::lock('nom', 120)-&gt;get(fn () =&gt; ...)</code></td><td class="note-cell">Haqiqiy qulf (58-darsdagi mexanizm)</td></tr>
+    <tr><td><code>Cache::tags([...])-&gt;flush()</code></td><td class="note-cell">⚠️ Faqat <code>redis</code>/<code>memcached</code></td></tr>
+    <tr><td><code>php artisan cache:clear</code></td><td class="note-cell">Keshni tozalash</td></tr>
+    <tr><td><code>redis-cli -n 1 --scan</code> · <code>TTL kalit</code></td><td class="note-cell">Redis ichiga qarash</td></tr>
+    <tr><td><code>use Illuminate\Support\Facades\Redis;</code></td><td class="note-cell">⚠️ <code>Redis::</code> taxallusi <b>yo'q</b></td></tr>
+  </table>
+  <div class="callout note">
+    <p>🔑 <b>O'lchandi</b> (30 007 yozuv):
+    keshsiz <b>~0.8s</b> · <code>database</code> keshda
+    <b>~0.010s</b> · <code>redis</code> da
+    <b>~0.005s</b>.
+    <br>Kesh hisoblashni <b>tezlashtirmaydi</b> — faqat
+    <b>takrorlanishini</b> oldini oladi. Narxi —
+    <b>eski ma'lumot</b>.</p>
+    <p>⚠️ <b>Kalitda ma'lumot kimga tegishli ekani
+    ko'rinsin.</b> <code>'profil'</code> deb yozsangiz
+    birinchi kirgan odamning ma'lumoti hammaga
+    ko'rinadi — <b>ma'lumot sizishi</b>, va testlar
+    tutmaydi.</p>
+    <p>⚠️ <b>Teglar</b> faqat <code>redis</code> va
+    <code>memcached</code> da:
+    <code>This cache store does not support tagging.</code>
+    Muqobil — kalitga versiya qo'shish.</p>
+    <p>⚠️ <b><code>Redis::</code> fasadi ishlamaydi</b> —
+    <code>phpredis</code> kengaytmasining global
+    <code>Redis</code> klassi bilan to'qnashuv.
+    To'liq nom yozing.</p>
+    <p>🔑 <b>53-darsdagi tinglovchi</b>
+    <code>ShouldQueue</code> — kesh <b>ishchi
+    ishlagach</b> tozalanadi, darrov emas.</p>
+    <p>🔑 Drayverlar: <code>array</code> (testlar) ·
+    <code>file</code> (⚠️ bir necha serverda alohida) ·
+    <code>database</code> · <code>redis</code> (ishlab
+    chiqarish, teglar bor).
+    Redis nafaqat kesh: navbat, sessiya va cheklov ham.</p>
   </div>
 
   <h2>Xatoni o'qish</h2>

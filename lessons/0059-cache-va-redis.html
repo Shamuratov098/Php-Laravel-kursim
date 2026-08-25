@@ -1,0 +1,1073 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 59 — Cache va Redis</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 59 · MODUL H — FON ISHLAR VA TEZLIK</p>
+  <h1>Cache va Redis</h1>
+  <p class="lead">52-darsda statistika endpointini yozgandik —
+  u har so'rovda <b>30 000 vakansiyani</b> bazadan
+  o'qiydi. 53-darsda esa
+  <code>Cache::forget('statistika')</code> yozgandik, lekin
+  hech narsani keshlamagandik. Bugun ikkala qarzni ham
+  to'laymiz: <b>0.74s → 0.011s</b>.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 17 daqiqa</span>
+    <span>💻 Amaliyot ≈ 26 daqiqa</span>
+    <span>Kerak: <a href="0058-task-scheduling.html">Dars 58</a></span>
+  </p>
+
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b>🔍 0.74s → 0.011s</b>
+        <span class="nima">Bitta <code>Cache::remember</code>
+        qatori. 30 000 yozuvda o'lchandi.</span></li>
+      <li><b><code>Cache::remember</code> — asosiy naqsh</b>
+        <span class="nima">«Keshda bormi? Bo'lsa ber,
+        bo'lmasa hisobla va saqla» — bir
+        qatorda.</span></li>
+      <li><b>Drayverlar: database va redis</b>
+        <span class="nima">🔍 Ikkalasi ham o'lchandi:
+        <b>0.011s</b> va <b>0.005s</b>.</span></li>
+      <li><b>Redis ichiga qarash</b>
+        <span class="nima">Kalit nomi, prefiks, TTL —
+        <code>redis-cli</code> bilan
+        ko'rsatiladi.</span></li>
+      <li><b>⚠️ <code>Redis</code> fasadi taxallusi yo'q</b>
+        <span class="nima">O'lchandi:
+        <code>Redis::set()</code> xato beradi — PHP
+        kengaytmasi bilan to'qnashuv.</span></li>
+      <li><b>53-darsdagi tinglovchi ma'noga ega bo'ldi</b>
+        <span class="nima">Va u <b>navbatda</b> ekanini
+        eslash kerak — kesh darrov
+        tozalanmaydi.</span></li>
+      <li><b>Eski ma'lumot muammosi</b>
+        <span class="nima">Kesh — <b>kelishuv</b>: tezlik
+        evaziga eskilik. Test bilan
+        ko'rsatiladi.</span></li>
+      <li><b>Teglar</b>
+        <span class="nima">Bir guruh kalitni birdan
+        tozalash. ⚠️ Faqat <code>redis</code> va
+        <code>memcached</code>.</span></li>
+      <li><b>⚠️ <code>database</code> da teg xatosi</b>
+        <span class="nima">Aniq xabar:
+        <code>This cache store does not support
+        tagging.</code></span></li>
+      <li><b>Boshqa metodlar</b>
+        <span class="nima"><code>increment</code> ·
+        <code>add</code> (qulf sifatida) ·
+        <code>rememberForever</code> ·
+        <code>flexible</code>.</span></li>
+      <li><b>Keshni test qilish</b>
+        <span class="nima">So'rovlar sonini sanash va
+        <code>remember</code> bir marta hisoblashini
+        isbotlash.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima">Kalit nomlash · nimani
+        keshlamaslik · <code>Cache::lock</code> ·
+        <code>array</code> drayveri · kesh bosqinchiligi ·
+        Redis ishlatilishi.</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Har so'rovda 30 000 yozuv</span>
+    <p>52-darsdagi statistika controlleri shunday
+    boshlanadi:</p>
+    <div class="natija">$vakansiyalar = Vakansiya::with('kompaniya')-&gt;get();</div>
+    <p>Bu <b>hamma</b> vakansiyani xotiraga oladi. Bazada
+    30 000 yozuv bo'lsa, har so'rov shuni
+    takrorlaydi:</p>
+    <div class="natija">GET /api/v1/statistika   (uch marta)
+
+0.929s
+0.720s
+0.936s</div>
+    <p>Va bu <b>bitta</b> foydalanuvchi. Sahifa mashhur
+    bo'lsa, baza faqat shu so'rov bilan band bo'lib
+    qoladi.</p>
+    <p>Muhimi shundaki, javob deyarli <b>o'zgarmaydi</b>:
+    statistika har soniyada emas, har o'n daqiqada
+    yangilansa yetarli.</p>
+    <p>Aynan shu holat uchun <b>kesh</b> bor: bir marta
+    hisoblab, natijani <b>tez joyga</b> qo'yib
+    qo'yish.</p>
+  </div>
+
+  <!-- ═══════════════ 2) REMEMBER ═══════════════ -->
+  <h2><code>Cache::remember</code></h2>
+
+  <div class="codefile">
+    <div class="fname">app/Http/Controllers/Api/StatistikaController.php</div>
+    <code class="cmd" data-cmd="use Illuminate\Support\Facades\Cache;
+
+public function __invoke()
+{
+    return Cache::remember('statistika', now()-&gt;addMinutes(10), fn () =&gt; $this-&gt;hisobla());
+}
+
+private function hisobla(): array
+{
+    $vakansiyalar = Vakansiya::with('kompaniya')-&gt;get();
+
+    // ... 52-darsdagi kod o'zgarmadi
+}">use Illuminate\Support\Facades\Cache;
+
+public function __invoke()
+{
+    return Cache::remember('statistika', now()-&gt;addMinutes(10), fn () =&gt; $this-&gt;hisobla());
+}
+
+private function hisobla(): array
+{
+    $vakansiyalar = Vakansiya::with('kompaniya')-&gt;get();
+
+    // ... 52-darsdagi kod o'zgarmadi
+}</code>
+  </div>
+
+  <p><code>remember</code> uch narsani oladi:</p>
+
+  <div class="natija">'statistika'            →  kalit
+now()-&gt;addMinutes(10)   →  qancha yashaydi
+fn () =&gt; ...            →  keshda bo'lmasa NIMA qilish</div>
+
+  <p>Mantiq oddiy: keshda bo'lsa — darrov qaytaradi;
+  bo'lmasa — closure'ni ishlatadi, natijani
+  <b>saqlaydi</b> va qaytaradi.</p>
+
+  <p>Hisoblash kodini <code>hisobla()</code> ga
+  ko'chirdik — <code>__invoke</code> endi <b>bir
+  qator</b>.</p>
+
+  <h3>O'lchov</h3>
+
+  <div class="natija">CACHE_STORE=database
+
+0.739s    ← birinchi so'rov (kesh bo'sh, hisoblandi)
+0.011s    ← ikkinchi
+0.010s
+0.0099s</div>
+
+  <p><b>67 barobar</b> tez. Va e'tibor bering: birinchi
+  so'rov ham <b>oldingidan tez emas</b> — kesh
+  hisoblashni tezlashtirmaydi, u faqat
+  <b>takrorlanishini</b> oldini oladi.</p>
+
+  <!-- ═══════════════ 3) REDIS ═══════════════ -->
+  <h2>Redis bilan</h2>
+
+  <p>Redis — xotirada ishlaydigan ma'lumotlar ombori.
+  Kesh uchun eng ko'p ishlatiladigan tanlov.</p>
+
+  <div class="natija"># .env
+CACHE_STORE=redis
+REDIS_CLIENT=phpredis
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379</div>
+
+  <div class="natija">CACHE_STORE=redis
+
+0.892s    ← birinchi
+0.0060s   ← ikkinchi
+0.0054s
+0.0049s</div>
+
+  <div class="natija">                    database kesh   redis kesh
+birinchi so'rov      0.739s          0.892s
+keyingilari          ~0.010s         ~0.005s      ← ikki barobar tez</div>
+
+  <p>Farq kichik ko'rinadi (5 millisekund), lekin
+  sekundiga yuzlab so'rovda bu <b>sezilarli</b>. Va
+  asosiysi: Redis bazani <b>umuman</b> bezovta
+  qilmaydi.</p>
+
+  <h3>Redis ichiga qaraymiz</h3>
+
+  <div class="natija">redis-cli -n 1 --scan
+
+laravel-database-laravel-cache-statistika          TTL=566
+laravel-database-laravel-cache-a75f3f17...         TTL=25    ← 48-darsdagi cheklov
+laravel-database-laravel-cache-a75f3f17...:timer   TTL=25</div>
+
+  <p>Uch narsa ko'rinadi. <b>Birinchidan</b>, kalit
+  <code>-n 1</code> — Redis ning <b>1-bazasida</b>
+  (<code>config/database.php</code> da shunday
+  yozilgan).</p>
+
+  <p><b>Ikkinchidan</b>, prefiks:
+  <code>laravel-database-laravel-cache-</code>. Bitta
+  Redis serverini bir necha ilova baham ko'rishi mumkin —
+  prefiks ularni ajratadi.</p>
+
+  <p><b>Uchinchidan</b>, <code>TTL=566</code> — bizning
+  600 soniyamizdan qolgan vaqt. Va yonida 48-darsdagi
+  rate limiter kalitlari ham turibdi: <b>kesh</b> va
+  <b>cheklov</b> bir omborni ishlatadi.</p>
+
+  <div class="callout warn">
+    <span class="label">⚠️ <code>Redis::</code> fasadi ishlamaydi</span>
+    <div class="natija">Redis::set('sinov', 'salom');
+
+Error: Non-static method Redis::set() cannot be called statically.</div>
+    <p>Sabab: PHP'ning <code>phpredis</code> kengaytmasida
+    <b>global <code>Redis</code> klassi</b> bor, va u
+    Laravel fasadidan <b>ustun</b> keladi.</p>
+    <p>✅ To'liq nom bilan yozing:</p>
+    <div class="natija">\Illuminate\Support\Facades\Redis::set('sinov', 'salom');
+// yoki faylning boshida:
+use Illuminate\Support\Facades\Redis;</div>
+    <p>🔑 51-darsdagi taxalluslar ro'yxatida
+    <code>Redis</code> <b>yo'q</b> edi — endi sababi
+    ma'lum.</p>
+  </div>
+
+  <!-- ═══════════════ 4) TOZALASH ═══════════════ -->
+  <h2>53-darsdagi tinglovchi ma'noga ega bo'ldi</h2>
+
+  <p>53-darsda shunday yozgandik va o'shanda u
+  <b>hech nima qilmasdi</b>:</p>
+
+  <div class="natija">// app/Listeners/StatistikaniYangila.php
+Cache::forget('statistika');</div>
+
+  <p>Endi u ma'noli: yangi vakansiya qo'shilsa,
+  statistika <b>eskirdi</b> — keshni tashlash
+  kerak.</p>
+
+  <p>Sinab ko'ramiz:</p>
+
+  <div class="natija">kesh bormi (oldin):  HA
+VakansiyaYaratildi::dispatch($v);
+kesh bormi (keyin):  HA          ⚠️ tozalanmadi!</div>
+
+  <div class="callout warn">
+    <span class="label">⚠️ Tinglovchi navbatda edi</span>
+    <p>53-darsda <code>StatistikaniYangila</code> ga
+    <code>ShouldQueue</code> qo'shgandik. Demak u
+    <b>darrov ishlamaydi</b> — navbatga tushadi.</p>
+    <div class="natija">navbatda: 1 ta ish
+
+php artisan queue:work --stop-when-empty
+App\Listeners\StatistikaniYangila ...... 11.92ms DONE
+
+ishchidan keyin kesh bormi: YO'Q      ✅</div>
+    <p>🔑 Ya'ni foydalanuvchi vakansiya qo'shgach,
+    statistika <b>darrov</b> emas, ishchi ishlagach
+    yangilanadi.</p>
+    <p>Bu <b>yomon emas</b> — statistika 10 daqiqagacha
+    eskirishi mumkin edi. Lekin buni <b>bilib</b>
+    turish kerak.</p>
+    <p>⚠️ Agar darrov kerak bo'lsa,
+    <code>ShouldQueue</code> ni olib tashlang — lekin
+    unda 53-darsdagi «500, lekin yozuv bazada»
+    xatari qaytadi.</p>
+  </div>
+
+  <!-- ═══════════════ 5) ESKI MA'LUMOT ═══════════════ -->
+  <h2>Kesh — kelishuv</h2>
+
+  <p>Kesh bepul emas. Uning narxi — <b>eski
+  ma'lumot</b>:</p>
+
+  <div class="natija">2 ta vakansiya yaratildi
+GET /statistika   →   jami: 2       (keshlandi)
+
+yana 5 ta yaratildi
+
+GET /statistika   →   jami: 2       ⚠️ hamon 2
+Vakansiya::count() →  7</div>
+
+  <p>Bu <b>xato emas</b> — kesh aynan shunday ishlaydi.
+  Savol boshqacha: <b>qancha eskilik joiz?</b></p>
+
+  <div class="natija">statistika sahifasi     →  10 daqiqa eskilik — muammo emas
+foydalanuvchi profili   →  eskilik SEZILADI — keshlamang yoki qisqa
+bank balansi            →  eskilik MUMKIN EMAS</div>
+
+  <p>Ikki yo'l bor va ikkalasi ham kerak:</p>
+
+  <div class="natija">1) TTL         →  vaqt o'tsa o'zi eskiradi
+2) forget()    →  ma'lumot o'zgarganda darrov tashlash</div>
+
+  <p>Bizda ikkalasi ham bor: 10 daqiqa TTL va hodisa
+  bo'yicha tozalash.</p>
+
+  <!-- ═══════════════ 6) TEGLAR ═══════════════ -->
+  <h2>Teglar</h2>
+
+  <p>Bir guruh kalitni <b>birdan</b> tozalash kerak
+  bo'lganda:</p>
+
+  <div class="natija">Cache::tags(['statistika', 'vakansiya'])-&gt;put('shahar-jami', 42, 600);
+
+teg bilan o'qish:  42
+tegsiz o'qish:     NULL        ← teg kalitning bir qismi
+
+Cache::tags(['vakansiya'])-&gt;flush();
+
+flush dan keyin:   NULL        ✅ bitta teg yetarli</div>
+
+  <p>Foydali holat: vakansiya o'zgarsa, unga tegishli
+  <b>hamma</b> keshni tashlash — ro'yxat, statistika,
+  qidiruv natijasi.</p>
+
+  <div class="callout warn">
+    <span class="label">⚠️ Teglar hamma drayverda yo'q</span>
+    <div class="natija">CACHE_STORE=database
+Cache::tags(['a'])-&gt;put('k', 1, 60);
+
+BadMethodCallException: This cache store does not support tagging.</div>
+    <p>Teglar faqat <code>redis</code> va
+    <code>memcached</code> da ishlaydi.
+    <code>file</code> va <code>database</code> da
+    <b>yo'q</b>.</p>
+    <p>🔑 Ya'ni teglarga tayangan kod drayver
+    almashtirilganda <b>yiqiladi</b>. Loyihani
+    <code>file</code> keshda boshlab, keyin teg
+    yozsangiz — ishlab chiqarishda kutilmagan xato
+    chiqadi.</p>
+    <p>✅ Muqobil: kalit nomiga versiya qo'shish
+    (<code>"vakansiya:{$v-&gt;id}:v{$v-&gt;updated_at}"</code>)
+    — hamma drayverda ishlaydi.</p>
+  </div>
+
+  <!-- ═══════════════ 7) BOSHQA METODLAR ═══════════════ -->
+  <h2>Boshqa foydali metodlar</h2>
+
+  <div class="natija">Cache::put('kalit', $qiymat, 600)      →  saqlash
+Cache::get('kalit', 'standart')        →  o'qish
+Cache::has('kalit')                    →  bormi
+Cache::forget('kalit')                 →  o'chirish
+Cache::flush()                         →  ⚠️ HAMMASINI
+
+Cache::increment('son', 5)   →  15      (o'lchandi)
+Cache::add('son', 99, 60)    →  false   ← mavjud bo'lsa YOZMAYDI
+Cache::add('yangi', 1, 60)   →  true
+
+Cache::rememberForever('kalit', fn () =&gt; ...)   →  TTL'siz
+Cache::flexible('kalit', [60, 600], fn () =&gt; ...)  →  eskisini berib, fonda yangilaydi</div>
+
+  <div class="callout tip">
+    <span class="label">🔑 <code>add()</code> — oddiy qulf</span>
+    <p><code>add</code> qiymat <b>yo'q bo'lsagina</b>
+    yozadi va <code>true</code>/<code>false</code>
+    qaytaradi. Bu <b>atomar</b> amal.</p>
+    <div class="natija">if (Cache::add("eksport:{$user-&gt;id}", true, 300)) {
+    EksportIsh::dispatch($user);      // faqat bitta ish ketadi
+}</div>
+    <p>🔍 Jiddiyroq qulf uchun
+    <code>Cache::lock('nom', 10)-&gt;get(fn () =&gt; ...)</code>
+    — u 58-darsdagi
+    <code>withoutOverlapping()</code> ichida
+    ishlatiladigan mexanizm.</p>
+  </div>
+
+  <!-- ═══════════════ 8) TESTLAR ═══════════════ -->
+  <h2>Testlar</h2>
+
+  <div class="codefile">
+    <div class="fname">tests/Feature/KeshTest.php</div>
+    <code class="cmd">use App\Events\VakansiyaYaratildi;
+use App\Models\Vakansiya;
+use Illuminate\Support\Facades\Cache;
+
+it('statistika keshlanadi', function () {
+    Vakansiya::factory()-&gt;count(3)-&gt;create();
+
+    expect(Cache::has('statistika'))-&gt;toBeFalse();
+
+    $this-&gt;getJson('/api/v1/statistika')-&gt;assertOk();
+
+    expect(Cache::has('statistika'))-&gt;toBeTrue();
+});
+
+it('ikkinchi so\'rov bazaga bormaydi', function () {
+    Vakansiya::factory()-&gt;count(3)-&gt;create();
+
+    $this-&gt;getJson('/api/v1/statistika');
+
+    DB::enableQueryLog();
+    $this-&gt;getJson('/api/v1/statistika')-&gt;assertOk();
+    $sorovlar = collect(DB::getQueryLog())
+        -&gt;reject(fn ($q) =&gt; str_contains($q['query'], 'cache'))
+        -&gt;count();
+
+    expect($sorovlar)-&gt;toBe(0);
+});
+
+it('kesh eski ma\'lumotni qaytaradi', function () {
+    Vakansiya::factory()-&gt;count(2)-&gt;create();
+
+    $birinchi = $this-&gt;getJson('/api/v1/statistika')-&gt;json('jami');
+
+    Vakansiya::factory()-&gt;count(5)-&gt;create();
+
+    $ikkinchi = $this-&gt;getJson('/api/v1/statistika')-&gt;json('jami');
+
+    expect($birinchi)-&gt;toBe(2);
+    expect($ikkinchi)-&gt;toBe(2);
+    expect(Vakansiya::count())-&gt;toBe(7);
+});
+
+it('hodisa keshni tozalaydi', function () {
+    Vakansiya::factory()-&gt;count(2)-&gt;create();
+    $this-&gt;getJson('/api/v1/statistika');
+
+    expect(Cache::has('statistika'))-&gt;toBeTrue();
+
+    VakansiyaYaratildi::dispatch(Vakansiya::factory()-&gt;create());
+
+    expect(Cache::has('statistika'))-&gt;toBeFalse();
+});
+
+it('remember faqat bir marta hisoblaydi', function () {
+    $chaqirildi = 0;
+
+    $hisobla = function () use (&amp;$chaqirildi) {
+        $chaqirildi++;
+
+        return 'natija';
+    };
+
+    Cache::remember('sinov', 60, $hisobla);
+    Cache::remember('sinov', 60, $hisobla);
+    Cache::remember('sinov', 60, $hisobla);
+
+    expect($chaqirildi)-&gt;toBe(1);
+});</code>
+  </div>
+
+  <div class="natija">Tests:  5 passed (11 assertions)</div>
+
+  <p>Ikkinchi test eng qimmatlisi: u keshning
+  <b>ishlaganini</b> emas, bazaga <b>bormaganini</b>
+  isbotlaydi. Bu 29 va 52-darsdagi so'rov sanash
+  usuli.</p>
+
+  <p>Uchinchisi «eskilik» ni <b>ataylab</b> mixlaydi:
+  agar kimdir keshni olib tashlasa, bu test qizaradi va
+  «xatti-harakat o'zgardi» deb aytadi.</p>
+
+  <p>To'rtinchisi 53-darsdagi tinglovchi bilan
+  bog'lanishni tekshiradi. E'tibor bering — testda
+  navbat <code>sync</code>, shuning uchun tinglovchi
+  <b>darrov</b> ishlaydi (53-dars).</p>
+
+  <div class="natija">To'liq to'plam:  77 passed (160 assertions)</div>
+
+  <!-- ═══════════════ 9) HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir bir
+  marta o'qib chiqing, keyin kerak bo'lganda qaytib
+  qarang.</p>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 1</span>
+    <h4>Kalitni nomlash</h4>
+    <div class="natija">❌ 'data'  ·  'x'  ·  'natija'
+✅ 'statistika'
+✅ "vakansiya:{$id}"
+✅ "vakansiya:{$id}:konikmalar"
+✅ "qidiruv:{$shahar}:{$sahifa}"</div>
+    <p>Kalit — <b>global</b> nom. Ikki joyda bir xil
+    kalit ishlatilsa, biri ikkinchisining ma'lumotini
+    o'qiydi.</p>
+    <p>🔑 Ikki nuqta bilan bo'lish odat:
+    <code>tur:id:qism</code>. Redis vositalarida ular
+    daraxt bo'lib ko'rinadi.</p>
+    <p>⚠️ Kalitga foydalanuvchi kiritgan matnni
+    <b>to'g'ridan-to'g'ri</b> qo'ymang —
+    <code>md5()</code> yoki tozalash kerak.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 2</span>
+    <h4>Nimani keshlamaslik kerak</h4>
+    <div class="natija">❌ foydalanuvchiga xos ma'lumot — umumiy kalit bilan
+   Cache::remember('profil', 600, fn () =&gt; auth()-&gt;user()-&gt;profil())
+   →  BIRINCHI kirgan odamning profili HAMMAGA ko'rinadi  ⚠️
+
+✅ Cache::remember("profil:{$user-&gt;id}", 600, ...)</div>
+    <p>Bu <b>eng xavfli</b> kesh xatosi: xato emas,
+    <b>ma'lumot sizishi</b>.</p>
+    <p>⚠️ Yana: tez o'zgaradigan narsalar (balans, ariza
+    holati), va hisoblash <b>arzon</b> bo'lgan
+    narsalar — kesh ham vaqt oladi.</p>
+    <p>🔑 Qoida: kalitda <b>kimga tegishli</b>
+    ekani ko'rinsin.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 3</span>
+    <h4>Drayverlar</h4>
+    <div class="natija">array      →  xotirada, so'rov tugasa yo'qoladi (TESTLAR)
+file       →  storage/framework/cache — sozlash shart emas, sekin
+database   →  cache jadvali — bir necha server ko'radi
+redis      →  eng tez, teglar bor, ishlab chiqarish uchun
+memcached  →  redis kabi, lekin imkoniyati kamroq</div>
+    <p>⚠️ <code>file</code> keshi bir necha serverda
+    <b>alohida</b> bo'ladi — 48-darsdagi rate limiting
+    ham shundan buziladi.</p>
+    <p>🔑 Yo'l: mahalliy ishda <code>file</code> yoki
+    <code>database</code>, ishlab chiqarishda
+    <code>redis</code>. Kod <b>o'zgarmaydi</b> —
+    54-darsdagi config qatlami tufayli.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 4</span>
+    <h4><code>Cache::lock</code> — haqiqiy qulf</h4>
+    <div class="natija">$qulf = Cache::lock('hisobot', 120);
+
+if ($qulf-&gt;get()) {
+    try {
+        // faqat bitta jarayon bu yerga kiradi
+    } finally {
+        $qulf-&gt;release();
+    }
+}
+
+// yoki qisqasi:
+Cache::lock('hisobot', 120)-&gt;get(fn () =&gt; ...);</div>
+    <p>58-darsdagi <code>withoutOverlapping()</code>
+    aynan shu mexanizmni ishlatadi.</p>
+    <p>⚠️ <code>finally</code> muhim: xato bo'lsa ham
+    qulf ochilsin. Aks holda vazifa
+    <b>abadiy</b> bloklanadi.</p>
+    <p>🔍 <code>block(10)</code> — qulf bo'shashini
+    10 soniya <b>kutish</b>.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 5</span>
+    <h4>Kesh bosqinchiligi (stampede)</h4>
+    <div class="natija">⚠️ kesh eskirdi + 100 ta so'rov bir vaqtda keldi
+   →  100 tasi ham "keshda yo'q" deb ko'radi
+   →  100 marta hisoblash boshlanadi  →  baza yiqiladi</div>
+    <p>✅ Laravel 11+ da tayyor yechim bor:</p>
+    <div class="natija">Cache::flexible('statistika', [300, 600], fn () =&gt; $this-&gt;hisobla());</div>
+    <p>Ikki son: <b>300</b> soniyagacha kesh «yangi»;
+    300–600 orasida <b>eski qiymat darrov beriladi</b>,
+    yangilash esa <b>fonda</b> bajariladi; 600 dan
+    keyin oddiy <code>remember</code> kabi.</p>
+    <p>🔑 Muqobil: <code>Cache::lock</code> bilan faqat
+    bitta jarayon hisoblasin.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 6</span>
+    <h4>Testda kesh</h4>
+    <div class="natija">phpunit.xml:  &lt;env name="CACHE_STORE" value="array"/&gt;</div>
+    <p>48-darsda buni ko'rgandik: <code>array</code>
+    keshi <b>har test uchun yangi</b>, ya'ni testlar
+    bir-birining keshini merosga olmaydi.</p>
+    <p>⚠️ Oqibati: <b>teglar</b> testda ishlaydi
+    (<code>array</code> ularni qo'llab-quvvatlaydi),
+    lekin <code>database</code> drayverida ishlab
+    chiqarishda <b>yiqiladi</b>.</p>
+    <p>🔑 Ya'ni test drayveri ishlab chiqarishnikiga
+    <b>yaqin</b> bo'lishi kerak — aks holda 54 va
+    55-darslardagi kabi «testda ishladi» tuzog'i
+    qaytadi.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>Redis nafaqat kesh</h4>
+    <div class="natija">CACHE_STORE=redis      →  kesh
+QUEUE_CONNECTION=redis →  navbat (55-dars) — database'dan tez
+SESSION_DRIVER=redis   →  sessiya — bir necha serverda majburiy
++ rate limiting (48-dars) ham kesh omborini ishlatadi</div>
+    <p>🔍 O'lchandi: Redis'ning 1-bazasida statistika
+    kaliti yonida <b>48-darsdagi cheklov</b> kalitlari
+    ham turibdi.</p>
+    <p>⚠️ Shuning uchun <code>Cache::flush()</code>
+    xavfli: u <b>cheklov hisoblarini ham</b>
+    tozalaydi.</p>
+    <p>🔑 Aniq kalitni <code>forget()</code> qiling yoki
+    teg ishlating.</p>
+  </div>
+
+  <!-- ═══════════════ 10) AMALIYOT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    💻 Quyida amaliyot bor. Hozir o'qish rejimidasiz — kompyuter
+    yoningizda bo'lganda <b>💻 Amaliyot</b> rejimiga o'ting va
+    shu bo'limdan davom eting.
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <b>Ko'p yozuv qo'shing va keshsiz o'lchang.</b>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+php artisan tinker --execute='$k = App\Models\Kompaniya::first()->id; $q = []; for ($i = 0; $i < 30000; $i++) { $q[] = [&quot;nom&quot; => &quot;Vakansiya {$i}&quot;, &quot;shahar&quot; => &quot;Shahar&quot;.($i % 7), &quot;maosh&quot; => 500 + ($i % 3000), &quot;faol&quot; => true, &quot;kompaniya_id&quot; => $k, &quot;created_at&quot; => now(), &quot;updated_at&quot; => now()]; if (count($q) === 3000) { DB::table(&quot;vakansiyalar&quot;)->insert($q); $q = []; } } if ($q) { DB::table(&quot;vakansiyalar&quot;)->insert($q); } echo App\Models\Vakansiya::count(), PHP_EOL;'">cd ~/Projects/Learn/ishtop
+php artisan tinker --execute='$k = App\Models\Kompaniya::first()-&gt;id; $q = []; for ($i = 0; $i &lt; 30000; $i++) { $q[] = [&quot;nom&quot; =&gt; &quot;Vakansiya {$i}&quot;, &quot;shahar&quot; =&gt; &quot;Shahar&quot;.($i % 7), &quot;maosh&quot; =&gt; 500 + ($i % 3000), &quot;faol&quot; =&gt; true, &quot;kompaniya_id&quot; =&gt; $k, &quot;created_at&quot; =&gt; now(), &quot;updated_at&quot; =&gt; now()]; if (count($q) === 3000) { DB::table(&quot;vakansiyalar&quot;)-&gt;insert($q); $q = []; } } if ($q) { DB::table(&quot;vakansiyalar&quot;)-&gt;insert($q); } echo App\Models\Vakansiya::count(), PHP_EOL;'</div>
+        <div class="cmd" data-cmd="php artisan serve">php artisan serve</div>
+        <p>Boshqa terminalda:</p>
+        <div class="cmd" data-cmd="for i in 1 2 3; do curl -s -o /dev/null -w '  %{time_total}s\n' -H 'Accept: application/json' http://127.0.0.1:8000/api/v1/statistika; done">for i in 1 2 3; do curl -s -o /dev/null -w '  %{time_total}s\n' -H 'Accept: application/json' http://127.0.0.1:8000/api/v1/statistika; done</div>
+        <p class="expect">Menda ~<b>0.7–0.9s</b> — har
+        safar.</p>
+      </li>
+
+      <li>
+        <b>Keshni qo'shing.</b>
+        <code>StatistikaController</code> ni yuqoridagi
+        kabi o'zgartiring (nusxa tugmasi bor).
+        <div class="cmd" data-cmd="php -l app/Http/Controllers/Api/StatistikaController.php
+php artisan cache:clear">php -l app/Http/Controllers/Api/StatistikaController.php
+php artisan cache:clear</div>
+        <div class="cmd" data-cmd="for i in 1 2 3 4; do curl -s -o /dev/null -w '  %{time_total}s\n' -H 'Accept: application/json' http://127.0.0.1:8000/api/v1/statistika; done">for i in 1 2 3 4; do curl -s -o /dev/null -w '  %{time_total}s\n' -H 'Accept: application/json' http://127.0.0.1:8000/api/v1/statistika; done</div>
+        <p class="expect">Birinchisi sekin, keyingilari
+        ~<b>0.01s</b>.</p>
+      </li>
+
+      <li>
+        <b>Redis'ni ishga tushiring.</b>
+        <div class="cmd" data-cmd="redis-server --daemonize yes --port 6379
+redis-cli ping">redis-server --daemonize yes --port 6379
+redis-cli ping</div>
+        <p class="expect"><code>PONG</code>. Bo'lmasa:
+        <code>sudo apt install redis-server</code>.</p>
+      </li>
+
+      <li>
+        <b>Redis keshiga o'ting va o'lchang.</b>
+        <div class="cmd" data-cmd="sed -i 's/^CACHE_STORE=database/CACHE_STORE=redis/' .env
+grep CACHE_STORE .env">sed -i 's/^CACHE_STORE=database/CACHE_STORE=redis/' .env
+grep CACHE_STORE .env</div>
+        <p>Serverni qayta ishga tushiring, so'ng:</p>
+        <div class="cmd" data-cmd="php artisan cache:clear
+for i in 1 2 3 4; do curl -s -o /dev/null -w '  %{time_total}s\n' -H 'Accept: application/json' http://127.0.0.1:8000/api/v1/statistika; done">php artisan cache:clear
+for i in 1 2 3 4; do curl -s -o /dev/null -w '  %{time_total}s\n' -H 'Accept: application/json' http://127.0.0.1:8000/api/v1/statistika; done</div>
+        <p class="expect">Menda ~<b>0.005s</b> — database
+        keshdan ikki barobar tez.</p>
+      </li>
+
+      <li>
+        <b>Redis ichiga qarang.</b>
+        <div class="cmd" data-cmd="for K in $(redis-cli -n 1 --scan); do echo &quot;  TTL=$(redis-cli -n 1 TTL \&quot;$K\&quot;)  $K&quot;; done | head -5">for K in $(redis-cli -n 1 --scan); do echo &quot;  TTL=$(redis-cli -n 1 TTL \&quot;$K\&quot;)  $K&quot;; done | head -5</div>
+        <p class="expect">Statistika kaliti va 48-darsdagi
+        cheklov kalitlari — <b>bir omborda</b>.</p>
+      </li>
+
+      <li>
+        <b>⚠️ <code>Redis::</code> fasadini sinang.</b>
+        <div class="cmd" data-cmd="php artisan tinker --execute='try { Redis::set(&quot;a&quot;,&quot;b&quot;); } catch (\Throwable $e) { echo get_class($e), &quot;: &quot;, $e->getMessage(), PHP_EOL; }'
+php artisan tinker --execute='\Illuminate\Support\Facades\Redis::set(&quot;sinov&quot;,&quot;salom&quot;); echo \Illuminate\Support\Facades\Redis::get(&quot;sinov&quot;), PHP_EOL; \Illuminate\Support\Facades\Redis::del(&quot;sinov&quot;);'">php artisan tinker --execute='try { Redis::set(&quot;a&quot;,&quot;b&quot;); } catch (\Throwable $e) { echo get_class($e), &quot;: &quot;, $e-&gt;getMessage(), PHP_EOL; }'
+php artisan tinker --execute='\Illuminate\Support\Facades\Redis::set(&quot;sinov&quot;,&quot;salom&quot;); echo \Illuminate\Support\Facades\Redis::get(&quot;sinov&quot;), PHP_EOL; \Illuminate\Support\Facades\Redis::del(&quot;sinov&quot;);'</div>
+        <p class="expect">⚠️ Birinchisi xato beradi,
+        ikkinchisi ishlaydi.</p>
+      </li>
+
+      <li>
+        <b>53-darsdagi tinglovchini sinang.</b>
+        <div class="cmd" data-cmd="php artisan tinker --execute='echo &quot;kesh (oldin): &quot;, (Cache::has(&quot;statistika&quot;) ? &quot;HA&quot; : &quot;YO\047Q&quot;), PHP_EOL; App\Events\VakansiyaYaratildi::dispatch(App\Models\Vakansiya::factory()->create()); echo &quot;kesh (keyin): &quot;, (Cache::has(&quot;statistika&quot;) ? &quot;HA&quot; : &quot;YO\047Q&quot;), PHP_EOL; echo &quot;navbatda: &quot;, DB::table(&quot;jobs&quot;)->count(), PHP_EOL;'">php artisan tinker --execute='echo &quot;kesh (oldin): &quot;, (Cache::has(&quot;statistika&quot;) ? &quot;HA&quot; : &quot;YO\047Q&quot;), PHP_EOL; App\Events\VakansiyaYaratildi::dispatch(App\Models\Vakansiya::factory()-&gt;create()); echo &quot;kesh (keyin): &quot;, (Cache::has(&quot;statistika&quot;) ? &quot;HA&quot; : &quot;YO\047Q&quot;), PHP_EOL; echo &quot;navbatda: &quot;, DB::table(&quot;jobs&quot;)-&gt;count(), PHP_EOL;'</div>
+        <p class="expect">⚠️ Kesh <b>tozalanmadi</b> —
+        tinglovchi navbatda.</p>
+        <div class="cmd" data-cmd="php artisan queue:work --stop-when-empty
+php artisan tinker --execute='echo &quot;ishchidan keyin: &quot;, (Cache::has(&quot;statistika&quot;) ? &quot;HA&quot; : &quot;YO\047Q&quot;), PHP_EOL;'">php artisan queue:work --stop-when-empty
+php artisan tinker --execute='echo &quot;ishchidan keyin: &quot;, (Cache::has(&quot;statistika&quot;) ? &quot;HA&quot; : &quot;YO\047Q&quot;), PHP_EOL;'</div>
+      </li>
+
+      <li>
+        <b>Teglarni sinang.</b>
+        <div class="cmd" data-cmd="php artisan tinker --execute='Cache::tags([&quot;statistika&quot;,&quot;vakansiya&quot;])->put(&quot;shahar-jami&quot;, 42, 600); echo &quot;teg bilan: &quot;, Cache::tags([&quot;statistika&quot;,&quot;vakansiya&quot;])->get(&quot;shahar-jami&quot;), PHP_EOL; echo &quot;tegsiz:    &quot;, var_export(Cache::get(&quot;shahar-jami&quot;), true), PHP_EOL; Cache::tags([&quot;vakansiya&quot;])->flush(); echo &quot;flush dan keyin: &quot;, var_export(Cache::tags([&quot;statistika&quot;,&quot;vakansiya&quot;])->get(&quot;shahar-jami&quot;), true), PHP_EOL;'">php artisan tinker --execute='Cache::tags([&quot;statistika&quot;,&quot;vakansiya&quot;])-&gt;put(&quot;shahar-jami&quot;, 42, 600); echo &quot;teg bilan: &quot;, Cache::tags([&quot;statistika&quot;,&quot;vakansiya&quot;])-&gt;get(&quot;shahar-jami&quot;), PHP_EOL; echo &quot;tegsiz:    &quot;, var_export(Cache::get(&quot;shahar-jami&quot;), true), PHP_EOL; Cache::tags([&quot;vakansiya&quot;])-&gt;flush(); echo &quot;flush dan keyin: &quot;, var_export(Cache::tags([&quot;statistika&quot;,&quot;vakansiya&quot;])-&gt;get(&quot;shahar-jami&quot;), true), PHP_EOL;'</div>
+      </li>
+
+      <li>
+        <b>⚠️ Teglarni <code>database</code> da sinang.</b>
+        <div class="cmd" data-cmd="sed -i 's/^CACHE_STORE=redis/CACHE_STORE=database/' .env
+php artisan tinker --execute='try { Cache::tags([&quot;a&quot;])->put(&quot;k&quot;, 1, 60); echo &quot;ishladi&quot;, PHP_EOL; } catch (\Throwable $e) { echo get_class($e), &quot;: &quot;, $e->getMessage(), PHP_EOL; }'">sed -i 's/^CACHE_STORE=redis/CACHE_STORE=database/' .env
+php artisan tinker --execute='try { Cache::tags([&quot;a&quot;])-&gt;put(&quot;k&quot;, 1, 60); echo &quot;ishladi&quot;, PHP_EOL; } catch (\Throwable $e) { echo get_class($e), &quot;: &quot;, $e-&gt;getMessage(), PHP_EOL; }'</div>
+        <p class="expect">⚠️ <code>This cache store does not
+        support tagging.</code></p>
+      </li>
+
+      <li>
+        <b>Boshqa metodlarni sinang.</b>
+        <div class="cmd" data-cmd="php artisan tinker --execute='Cache::put(&quot;son&quot;, 10, 60); echo &quot;increment: &quot;, Cache::increment(&quot;son&quot;, 5), PHP_EOL; echo &quot;add (mavjud): &quot;, var_export(Cache::add(&quot;son&quot;, 99, 60), true), PHP_EOL; echo &quot;add (yangi):  &quot;, var_export(Cache::add(&quot;yangi&quot;, 1, 60), true), PHP_EOL; Cache::forget(&quot;son&quot;); Cache::forget(&quot;yangi&quot;);'">php artisan tinker --execute='Cache::put(&quot;son&quot;, 10, 60); echo &quot;increment: &quot;, Cache::increment(&quot;son&quot;, 5), PHP_EOL; echo &quot;add (mavjud): &quot;, var_export(Cache::add(&quot;son&quot;, 99, 60), true), PHP_EOL; echo &quot;add (yangi):  &quot;, var_export(Cache::add(&quot;yangi&quot;, 1, 60), true), PHP_EOL; Cache::forget(&quot;son&quot;); Cache::forget(&quot;yangi&quot;);'</div>
+      </li>
+
+      <li>
+        <b>Tozalang va testlarni yozing.</b>
+        <div class="cmd" data-cmd="php artisan tinker --execute='App\Models\Vakansiya::where(&quot;nom&quot;,&quot;like&quot;,&quot;Vakansiya %&quot;)->delete(); DB::table(&quot;jobs&quot;)->delete(); Cache::flush(); echo App\Models\Vakansiya::count(), &quot; ta qoldi&quot;, PHP_EOL;'">php artisan tinker --execute='App\Models\Vakansiya::where(&quot;nom&quot;,&quot;like&quot;,&quot;Vakansiya %&quot;)-&gt;delete(); DB::table(&quot;jobs&quot;)-&gt;delete(); Cache::flush(); echo App\Models\Vakansiya::count(), &quot; ta qoldi&quot;, PHP_EOL;'</div>
+        <p><code>tests/Feature/KeshTest.php</code> ni
+        yozing:</p>
+        <div class="cmd" data-cmd="php artisan test tests/Feature/KeshTest.php">php artisan test tests/Feature/KeshTest.php</div>
+        <p class="expect">Kutilgan: <b>5 passed</b>.</p>
+      </li>
+
+      <li>
+        <b>To'liq to'plamni ishga tushiring.</b>
+        <div class="cmd" data-cmd="php artisan test">php artisan test</div>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li>Keshsiz ~0.7s ni o'lchadim</li>
+      <li><code>Cache::remember</code> bilan ~0.01s</li>
+      <li>Redis o'rnatildi va ~0.005s berdi</li>
+      <li>Redis kalitlari va TTL ni ko'rdim</li>
+      <li>⚠️ <code>Redis::</code> fasadi xatosini
+      ko'rdim</li>
+      <li>⚠️ Tinglovchi navbatda ekanini ko'rdim</li>
+      <li>Teglar redis'da ishladi</li>
+      <li>⚠️ <code>database</code> da teg xatosi</li>
+      <li>Ma'lumot tozalangan</li>
+      <li><code>KeshTest</code> — 5 test yashil</li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 11) SINAB KO'RAMIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Dasturchi profil sahifasi sekin ishlayotganini
+    ko'rdi va keshladi:</p>
+    <div class="codefile">
+      <div class="fname">app/Http/Controllers/ProfilController.php</div>
+      <code class="cmd" data-cmd="public function __invoke(Request $request)
+{
+    return Cache::remember('profil', now()-&gt;addMinutes(30), function () use ($request) {
+        return [
+            'nom' =&gt; $request-&gt;user()-&gt;name,
+            'email' =&gt; $request-&gt;user()-&gt;email,
+            'vakansiyalari' =&gt; $request-&gt;user()-&gt;vakansiyalar()-&gt;count(),
+        ];
+    });
+}">public function __invoke(Request $request)
+{
+    return Cache::remember('profil', now()-&gt;addMinutes(30), function () use ($request) {
+        return [
+            'nom' =&gt; $request-&gt;user()-&gt;name,
+            'email' =&gt; $request-&gt;user()-&gt;email,
+            'vakansiyalari' =&gt; $request-&gt;user()-&gt;vakansiyalar()-&gt;count(),
+        ];
+    });
+}</code>
+    </div>
+    <p>Sahifa <b>ancha tez</b> bo'ldi. Testlar yashil
+    (testda bitta foydalanuvchi bor). Ishga
+    tushirildi.</p>
+    <p>Ertasi kuni qo'llab-quvvatlash xizmatiga
+    qo'ng'iroqlar keldi: «men o'z profilimga kirsam,
+    <b>boshqa odamning</b> ismi va emaili
+    ko'rinyapti». Nima bo'ldi?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <p>Kalit — <code>'profil'</code>. <b>Bitta</b>
+        kalit, <b>hamma</b> foydalanuvchi uchun.</p>
+        <div class="natija">Ali kirdi   →  keshda yo'q  →  hisoblandi  →  'profil' = Ali'ning ma'lumoti
+Vali kirdi  →  keshda BOR  →  Ali'ning ma'lumoti qaytarildi  ⚠️</div>
+        <p class="expect">⚠️ Bu xato emas —
+        <b>ma'lumot sizishi</b>. Va u 30 daqiqa davom
+        etadi.</p>
+        <p>🔍 Nega testlar tutmadi? Testda odatda
+        <b>bitta</b> foydalanuvchi yaratiladi — ikkinchisi
+        bo'lmasa, muammo <b>ko'rinmaydi</b>.</p>
+        <p>✅ Yechim — kalitga <b>egasini</b> qo'shish:</p>
+        <div class="natija">Cache::remember("profil:{$request-&gt;user()-&gt;id}", now()-&gt;addMinutes(30), ...)</div>
+        <p>✅ Va testga ikkinchi foydalanuvchi:</p>
+        <div class="natija">it('har foydalanuvchi o\'z profilini ko\'radi', function () {
+    $ali = User::factory()-&gt;create(['name' =&gt; 'Ali']);
+    $vali = User::factory()-&gt;create(['name' =&gt; 'Vali']);
+
+    expect($this-&gt;actingAs($ali)-&gt;getJson('/api/v1/profil')-&gt;json('nom'))-&gt;toBe('Ali');
+    expect($this-&gt;actingAs($vali)-&gt;getJson('/api/v1/profil')-&gt;json('nom'))-&gt;toBe('Vali');
+});</div>
+        <p>🔑 <b>Umumiy qoida:</b> kesh kalitiga qarab
+        savol bering — «bu ma'lumot <b>kimga</b>
+        tegishli?» Agar javob «hammaga» bo'lmasa, kalitda
+        <b>egasi ko'rinishi</b> shart.</p>
+        <p>🔍 Xuddi shu savol boshqa joylarda ham:
+        til (<code>"profil:{$id}:{$til}"</code>), rol,
+        sahifa raqami.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span>
+    <code>Cache::remember</code> nima qiladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Keshda bo'lsa darrov beradi bo'lmasa hisoblab keyin saqlab qo'yadi</button></li>
+      <li><button class="quiz-option">Har safar qayta hisoblaydi va natijani keshga yozib qo'yadi</button></li>
+      <li><button class="quiz-option">Faqat keshdan o'qiydi bo'lmasa esa xato berib to'xtatib qo'yadi</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi: birinchi so'rov
+    <b>0.739s</b> (hisoblandi), keyingilari
+    <b>~0.010s</b>.
+    🔑 Kesh hisoblashni <b>tezlashtirmaydi</b> — u faqat
+    <b>takrorlanishini</b> oldini oladi.
+    Test bilan ham isbotlandi: closure <b>1 marta</b>
+    chaqirildi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span>
+    Teglar qaysi drayverlarda ishlaydi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Faqat redis va memcached da ishlaydi qolganlarida xato beradi</button></li>
+      <li><button class="quiz-option">Hamma drayverda bir xil ishlaydi hech qanday farqi yo'q</button></li>
+      <li><button class="quiz-option">Faqat database va file da ishlaydi redis da emas</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi:
+    <code>database</code> drayverida
+    <code>BadMethodCallException: This cache store does
+    not support tagging.</code>
+    ⚠️ Teglarga tayangan kod drayver almashtirilganda
+    <b>yiqiladi</b>.
+    ✅ Muqobil: kalit nomiga versiya qo'shish — hamma
+    drayverda ishlaydi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span>
+    Kesh kalitida nima bo'lishi kerak?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Ma'lumot kimga tegishli ekani ko'rinib turishi kerak</button></li>
+      <li><button class="quiz-option">Imkon qadar qisqa bo'lishi va tez yozilishi</button></li>
+      <li><button class="quiz-option">Faqat harflardan iborat bo'lib raqamsiz yozilishi kerak</button></li>
+    </ul>
+    <div class="quiz-explain">Kalit — <b>global</b> nom.
+    <code>'profil'</code> deb yozsangiz, birinchi kirgan
+    odamning ma'lumoti <b>hammaga</b> ko'rinadi.
+    ⚠️ Bu xato emas — <b>ma'lumot sizishi</b>, va
+    testlar uni tutmaydi (testda bitta foydalanuvchi
+    bo'ladi).
+    ✅ <code>"profil:{$user-&gt;id}"</code>.</div>
+  </div>
+
+  <!-- ═══════════════ 12) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+
+    <p>Javobni ovoz chiqarib ayting, keyin ochib
+    solishtiring.</p>
+
+    <details class="recall">
+      <summary>Kesh nimani tezlashtiradi va nimani
+      yo'q?</summary>
+      <div class="answer">U hisoblashni
+      <b>tezlashtirmaydi</b> — faqat
+      <b>takrorlanishini</b> oldini oladi.
+      🔍 O'lchandi: birinchi so'rov <b>0.739s</b>
+      (oldingidek), keyingilari <b>~0.010s</b>.
+      🔑 Narxi — <b>eski ma'lumot</b>. Savol: «qancha
+      eskilik joiz?» Statistika uchun 10 daqiqa
+      normal, bank balansi uchun umuman
+      mumkin emas.</div>
+    </details>
+
+    <details class="recall">
+      <summary>Kesh kalitida nima bo'lishi shart?</summary>
+      <div class="answer"><b>Ma'lumot kimga tegishli</b>
+      ekani.
+      ⚠️ <code>Cache::remember('profil', ...)</code> —
+      birinchi kirgan odamning ma'lumoti hammaga
+      ko'rinadi (ma'lumot sizishi, xato emas).
+      ✅ <code>"profil:{$user-&gt;id}"</code>.
+      🔑 Til, rol, sahifa raqami ham kalitga
+      kirishi mumkin.
+      🔍 Testlar buni tutmaydi — testda odatda bitta
+      foydalanuvchi bo'ladi.</div>
+    </details>
+
+    <details class="recall">
+      <summary>Keshni tozalashning ikki yo'li?</summary>
+      <div class="answer"><b>1) TTL</b> — vaqt o'tsa
+      o'zi eskiradi.
+      <b>2) <code>forget()</code></b> — ma'lumot
+      o'zgarganda darrov.
+      Bizda ikkalasi ham: 10 daqiqa TTL va
+      53-darsdagi hodisa tinglovchisi.
+      ⚠️ O'lchandi: tinglovchi <code>ShouldQueue</code>
+      bo'lgani uchun kesh <b>darrov</b> tozalanmadi —
+      faqat ishchi ishlagach.</div>
+    </details>
+
+    <details class="recall">
+      <summary>Teglar nima uchun va cheklovi
+      nima?</summary>
+      <div class="answer">Bir guruh kalitni <b>birdan</b>
+      tozalash uchun:
+      <code>Cache::tags(['vakansiya'])-&gt;flush()</code>.
+      ⚠️ Faqat <code>redis</code> va
+      <code>memcached</code> da.
+      <code>file</code>/<code>database</code> da —
+      <code>BadMethodCallException: This cache store
+      does not support tagging.</code>
+      ✅ Muqobil: kalitga versiya qo'shish
+      (<code>"vakansiya:{$id}:v{$updated_at}"</code>).</div>
+    </details>
+
+    <details class="recall">
+      <summary>Kesh bosqinchiligi (stampede) nima?</summary>
+      <div class="answer">Kesh eskirgan lahzada 100 ta
+      so'rov birga kelsa — <b>hammasi</b> «keshda
+      yo'q» deb ko'radi va 100 marta hisoblash
+      boshlanadi.
+      ✅ <code>Cache::flexible('kalit', [300, 600], ...)</code>
+      — 300–600 orasida <b>eski qiymat darrov
+      beriladi</b>, yangilash fonda.
+      ✅ Yoki <code>Cache::lock</code> bilan faqat bitta
+      jarayon hisoblasin.</div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 13) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Xulosa</span>
+    <ul>
+      <li>🔍 <code>Cache::remember</code> bilan
+      <b>0.74s → 0.011s</b> (database),
+      <b>→ 0.005s</b> (redis).</li>
+      <li>Kesh hisoblashni tezlashtirmaydi —
+      <b>takrorlanishini</b> oldini oladi.</li>
+      <li>Narxi — <b>eski ma'lumot</b>. Savol: «qancha
+      eskilik joiz?»</li>
+      <li>Tozalashning ikki yo'li: <b>TTL</b> va
+      <b><code>forget()</code></b>.</li>
+      <li>⚠️ 53-darsdagi tinglovchi <code>ShouldQueue</code>
+      — kesh <b>ishchi ishlagach</b> tozalanadi.</li>
+      <li>⚠️ Kalitda <b>ma'lumot kimga tegishli</b> ekani
+      ko'rinsin — aks holda ma'lumot sizadi.</li>
+      <li>Redis: 1-baza, prefiks
+      <code>laravel-database-laravel-cache-</code>,
+      TTL <code>redis-cli</code> da ko'rinadi.</li>
+      <li>⚠️ <code>Redis::</code> fasadi ishlamaydi —
+      <code>phpredis</code> kengaytmasi bilan
+      to'qnashuv. To'liq nom yozing.</li>
+      <li>⚠️ Teglar faqat <code>redis</code>/<code>memcached</code>
+      da — <code>This cache store does not support
+      tagging</code>.</li>
+      <li><code>add()</code> — atomar, oddiy qulf
+      sifatida; <code>Cache::lock</code> — jiddiyroq
+      qulf (58-darsdagi
+      <code>withoutOverlapping</code>).</li>
+      <li><code>Cache::flexible</code> — kesh
+      bosqinchiligiga qarshi.</li>
+      <li>⚠️ <code>Cache::flush()</code> cheklov
+      hisoblarini <b>ham</b> tozalaydi — aniq kalitni
+      <code>forget()</code> qiling.</li>
+      <li>Redis nafaqat kesh: navbat, sessiya va
+      48-darsdagi cheklov ham.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p>Keshladik va tezlashdik. Lekin bu <b>yamoq</b>:
+    asosiy so'rov hamon <b>0.74 soniya</b> davom etadi,
+    biz uni faqat kamroq chaqiryapmiz.</p>
+    <p>Va savol tug'iladi: nega u <b>shuncha</b> sekin?
+    29 va 52-darslarda N+1 haqida gapirgandik, 58-darsda
+    indeks qo'shgandik — lekin hech qachon
+    <b>o'lchamagandik</b>: qaysi so'rov sekin, nega
+    sekin va indeks haqiqatan yordam berdimi?</p>
+    <p>60-dars — modulning eng muhimi:
+    <b>N+1, indeks va Telescope</b>. Taxmin qilishni
+    to'xtatib, <b>o'lchashni</b> boshlaymiz:
+    <code>EXPLAIN</code>, so'rovlar sonini sanash va
+    Telescope bilan har bir so'rovni
+    ko'rish.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel — Cache</b>:
+    <a href="https://laravel.com/docs/13.x/cache">remember, tags,
+    lock, flexible</a>.<sup><a href="#fn1">1</a></sup><br>
+    <b>Laravel — Redis</b>:
+    <a href="https://laravel.com/docs/13.x/redis">phpredis,
+    predis, sozlash</a>.<sup><a href="#fn2">2</a></sup><br>
+    <b>Redis — hujjatlar</b>:
+    <a href="https://redis.io/docs/latest/">redis.io</a>.<sup><a href="#fn3">3</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b>
+    «kesh qancha xotira oladi?», «Redis qulasa ilova
+    ishlaydimi?», «butun sahifani keshlash mumkinmi?»,
+    «<code>flexible</code> qanday ishlaydi?» — har qanday
+    savol yaxshi. Ikkinchisiga qisqa javob: <b>yo'q</b> —
+    <code>CACHE_STORE=redis</code> bo'lsa va Redis
+    o'chsa, har <code>Cache::</code> chaqiruvi xato
+    beradi. Shuning uchun muhim joylarda
+    <code>try/catch</code> yoki
+    <code>Cache::store('file')</code> zaxira sifatida
+    ishlatiladi. Uchinchisiga: <b>ha</b> — bu «response
+    caching» deyiladi, lekin foydalanuvchiga xos
+    sahifalarda xavfli (yuqoridagi predict bilan bir xil
+    xato).
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0058-task-scheduling.html">Oldingi: Task Scheduling</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel 13 — <a href="https://laravel.com/docs/13.x/cache">Cache</a>.</li>
+      <li id="fn2">Laravel 13 — <a href="https://laravel.com/docs/13.x/redis">Redis</a>.</li>
+      <li id="fn3">Redis — <a href="https://redis.io/docs/latest/">rasmiy hujjatlar</a>.</li>
+      <li id="fn4">Barchasi jonli o'lchangan (PHP 8.3.32, Laravel 13.26.1,
+      Pest 4.7.8, SQLite, Redis 6379, 30 007 vakansiya):
+      keshsiz <code>/api/v1/statistika</code> —
+      <b>0.930s · 0.720s · 0.937s</b> ·
+      <code>CACHE_STORE=database</code> +
+      <code>Cache::remember</code> — <b>0.739s</b> keyin
+      <b>0.011s · 0.010s · 0.0099s</b> ·
+      <code>CACHE_STORE=redis</code> — <b>0.892s</b> keyin
+      <b>0.0060s · 0.0054s · 0.0049s</b> ·
+      Redis 1-bazasida
+      <code>laravel-database-laravel-cache-statistika</code>
+      TTL <b>566</b>, yonida 48-darsdagi cheklov kalitlari
+      (TTL 25) ·
+      ⚠️ <code>Redis::set()</code> →
+      <code>Error: Non-static method Redis::set() cannot be
+      called statically.</code> (phpredis kengaytmasi bilan
+      to'qnashuv); to'liq nom bilan ishladi ·
+      ⚠️ <code>VakansiyaYaratildi::dispatch()</code> dan
+      keyin kesh <b>tozalanmadi</b> (tinglovchi
+      <code>ShouldQueue</code>); <code>queue:work</code>
+      (<b>11.92ms DONE</b>) dan keyin <b>tozalandi</b> ·
+      teglar (redis): teg bilan <b>42</b>, tegsiz
+      <b>NULL</b>, <code>tags(['vakansiya'])-&gt;flush()</code>
+      dan keyin <b>NULL</b> ·
+      ⚠️ <code>database</code> drayverida
+      <code>BadMethodCallException: This cache store does
+      not support tagging.</code> ·
+      <code>increment('son', 5)</code> → <b>15</b>;
+      <code>add</code> mavjudga <b>false</b>, yangiga
+      <b>true</b> ·
+      <code>KeshTest</code> — <b>5 passed (11
+      assertions)</b>, to'liq to'plam <b>77 passed (160
+      assertions), 0.68s</b>.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>
