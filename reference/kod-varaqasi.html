@@ -17,7 +17,7 @@
   muhit ma'lumotlari. Har dars yangi buyruq o'rgatilsa, shu yerga qo'shiladi.</p>
 
   <p class="lesson-meta">
-    <span>Qamrov: <b>1&ndash;52-darslar</b> — muhitdan API'gacha</span>
+    <span>Qamrov: <b>1&ndash;53-darslar</b> — muhitdan API'gacha</span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>💻 Amaliyotga mos</span>
   </p>
@@ -1517,6 +1517,47 @@
     <br>🔑 Qachon nima: <code>get()</code> yuzlab yozuv va
     JSON · <code>cursor()</code> minglab va bir marta ·
     <code>chunk()</code> minglab va yozish bor.</p>
+  </div>
+
+  <h2>Events va Listeners (53-darsdan)</h2>
+  <table class="sheet">
+    <tr><th>Kod</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>make:event X</code> · <code>make:listener Y --event=X</code></td><td class="note-cell">Hodisa va tinglovchi skeleti</td></tr>
+    <tr><td><code>X::dispatch($model)</code></td><td class="note-cell">Hodisani e'lon qilish (<code>Dispatchable</code> trait)</td></tr>
+    <tr><td><code>use Dispatchable, SerializesModels;</code></td><td class="note-cell">Navbatda model id bo'yicha saqlanadi</td></tr>
+    <tr><td><code>public function handle(X $event): void</code></td><td class="note-cell">⚠️ Tip-belgisi <b>majburiy</b> — usiz topilmaydi</td></tr>
+    <tr><td><code>php artisan event:list</code></td><td class="note-cell">Kim kimni tinglayotganini ko'rish (tashxis)</td></tr>
+    <tr><td><code>implements ShouldQueue</code></td><td class="note-cell">Tinglovchi navbatga tushadi — so'rovni buzmaydi</td></tr>
+    <tr><td><code>implements ShouldHandleEventsAfterCommit</code></td><td class="note-cell">Faqat <code>commit</code> dan keyin ishlaydi</td></tr>
+    <tr><td><code>X::dispatchAfterResponse($m)</code></td><td class="note-cell">Javob yuborilgandan keyin, navbatsiz</td></tr>
+    <tr><td><code>Event::fake()</code></td><td class="note-cell">Tinglovchilar ishlamaydi, tekshirish mumkin</td></tr>
+    <tr><td><code>Event::assertDispatched(X::class, fn ($e) =&gt; ...)</code></td><td class="note-cell">Hodisa e'lon qilindimi + shart</td></tr>
+    <tr><td><code>Event::assertListening(X::class, Y::class)</code></td><td class="note-cell">Ulanish bormi — tip-belgisi o'chsa qizaradi</td></tr>
+    <tr><td><code>make:observer X --model=Y</code></td><td class="note-cell">Model hodisalari uchun bitta klass</td></tr>
+    <tr><td><code>return false;</code> (handle ichida)</td><td class="note-cell">Keyingi tinglovchilarni to'xtatadi</td></tr>
+  </table>
+  <div class="callout note">
+    <p>⚠️ <b>Hodisalar sinxron.</b> O'lchandi: buzuq
+    tinglovchi → <b>500</b>, lekin yozuv <b>bazada</b>.
+    Mijoz qayta urinadi → ikkinchi nusxa.
+    ✅ <code>ShouldQueue</code> dan keyin o'sha buzuq
+    tinglovchi bilan <b>201</b>.
+    <br>🔑 Qoida: «bu ish bajarilmasa, mijozga 500 qaytarish
+    to'g'rimi?» — to'g'ri bo'lmasa navbatga.
+    Email · statistika · indeks · tashqi API → navbatga.</p>
+    <p>🔑 <b>Zanjir:</b> <code>dispatch()</code> →
+    <code>jobs</code> jadvali → <code>queue:work</code> →
+    <b>FAIL</b> → <code>failed_jobs</code>.
+    Xato yo'qolmadi — u javobni emas, logni buzadi.</p>
+    <p>⚠️ <b>Testda <code>ShouldQueue</code> ishlamaydi:</b>
+    <code>phpunit.xml</code> da
+    <code>QUEUE_CONNECTION=sync</code>. Navbatga
+    ko'chirishni <code>curl</code> bilan tekshiring.</p>
+    <p>⚠️ <b>Model hodisalari ommaviy amallarda ishlamaydi</b>
+    (<code>where()-&gt;update()</code> va h.k.).</p>
+    <p>🔑 Bitta reaksiya uchun hodisa <b>ortiqcha</b>:
+    bog'lanish ko'rinmay qoladi. Tinglovchilar
+    <b>mustaqil</b> bo'lsin — tartibga tayanmang.</p>
   </div>
 
   <h2>Xatoni o'qish</h2>

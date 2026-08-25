@@ -1,0 +1,1141 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 53 — Events va Listeners</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 53 · MODUL G — LARAVEL ICHKI MEXANIZMI</p>
+  <h1>Events va Listeners</h1>
+  <p class="lead">49-darsda <code>store()</code> ga xabar yuborishni
+  qo'shdik. Ertaga statistika, indeks, adminga bildirish
+  qo'shiladi — va metod o'sib ketadi. Bugun zanjirni
+  <b>uzamiz</b>: controller «vakansiya yaratildi» deb e'lon
+  qiladi, kim eshitishi esa uning ishi emas. Va yo'lda
+  <b>eng xavfli</b> holatni o'lchaymiz: 500 qaytdi, lekin
+  yozuv bazada.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 16 daqiqa</span>
+    <span>💻 Amaliyot ≈ 26 daqiqa</span>
+    <span>Kerak: <a href="0052-collections.html">Dars 52</a></span>
+  </p>
+
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b>Semiz <code>store()</code> muammosi</b>
+        <span class="nima">Bitta metodga to'rt xil ish
+        yig'ilganda nima bo'ladi va nega bu
+        yomon.</span></li>
+      <li><b><code>make:event</code> va
+        <code>make:listener</code></b>
+        <span class="nima">Hodisa — <b>ma'lumot</b>,
+        tinglovchi — <b>reaksiya</b>. Ikkalasi ham oddiy
+        klass.</span></li>
+      <li><b>🔍 Laravel 11+ da ro'yxatdan o'tkazish
+        <b>kerak emas</b></b>
+        <span class="nima"><code>EventServiceProvider</code>
+        yo'q. Tinglovchi <code>handle()</code> ning
+        <b>tip-belgisi</b> bo'yicha topiladi —
+        <code>event:list</code> bilan
+        tasdiqlandi.</span></li>
+      <li><b>Tinglovchida konstruktor injektsiyasi</b>
+        <span class="nima">49-darsdagi zanjir davom etadi:
+        tinglovchi ham container'dan xizmat
+        oladi.</span></li>
+      <li><b>⚠️ Hodisalar <b>sinxron</b></b>
+        <span class="nima">Darsning eng qimmat o'lchovi:
+        tinglovchi xato tashladi → <b>500</b>, lekin yozuv
+        <b>bazada qoldi</b>.</span></li>
+      <li><b><code>ShouldQueue</code> — bir qatorli yechim</b>
+        <span class="nima">🔍 O'lchandi: xuddi shu buzuq
+        tinglovchi bilan javob <b>201</b> bo'ldi.</span></li>
+      <li><b>⚠️ Testda <code>ShouldQueue</code> ishlamaydi</b>
+        <span class="nima"><code>phpunit.xml</code> da
+        <code>QUEUE_CONNECTION=sync</code> — navbat testda
+        <b>o'chirilgan</b>. O'lchandi.</span></li>
+      <li><b>Ish qayerga tushdi?</b>
+        <span class="nima"><code>jobs</code> jadvali →
+        <code>queue:work</code> → <b>FAIL</b> →
+        <code>failed_jobs</code>. Uchala bosqich
+        ko'rsatiladi.</span></li>
+      <li><b><code>Event::fake()</code> va tekshiruvlar</b>
+        <span class="nima"><code>assertDispatched</code> ·
+        <code>assertListening</code> ·
+        <code>assertNotDispatched</code> · closure bilan
+        shart.</span></li>
+      <li><b>Model hodisalari</b>
+        <span class="nima"><code>created</code>,
+        <code>updated</code>, <code>deleted</code> va yana
+        9 tasi — Eloquent ularni <b>o'zi</b>
+        e'lon qiladi.</span></li>
+      <li><b>Observer — model hodisalari uchun</b>
+        <span class="nima">O'nta tinglovchi o'rniga bitta
+        klass.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima">Hodisa nomlash · tartib ·
+        <code>afterCommit</code> · model hodisalari qachon
+        ishlamaydi · hodisa yoki to'g'ridan-to'g'ri
+        chaqiruv.</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">O'sib borayotgan metod</span>
+    <p>49-darsdan keyin <code>store()</code> shunday:</p>
+    <div class="natija">public function store(VakansiyaRequest $request)
+{
+    $vakansiya = Vakansiya::create(...);
+
+    $this-&gt;xabar-&gt;yubor($request-&gt;user()-&gt;email, "Vakansiya e'lon qilindi: ...");
+
+    return VakansiyaResource::make($vakansiya-&gt;fresh())-&gt;response()-&gt;setStatusCode(201);
+}</div>
+    <p>Hozircha yaxshi. Endi talablar keladi:</p>
+    <div class="natija">1) statistika keshini tozalash
+2) qidiruv indeksiga qo'shish
+3) adminga bildirish
+4) hamkor saytga yuborish</div>
+    <p>Har biri 3–5 qator. Bir yildan keyin
+    <code>store()</code> — 40 qatorli metod, va uning
+    <b>asosiy ishi</b> (yozuv yaratish) bir qatorda
+    ko'milib qoladi.</p>
+    <p>Yomoni shundaki, bu ishlarning hech biri
+    <b>controllerga tegishli emas</b>. Controller HTTP bilan
+    ishlaydi: so'rovni oladi, javob qaytaradi. Xabar yuborish
+    esa — domen ishi.</p>
+    <p>Yechim: controller <b>faktni e'lon qiladi</b>, kim
+    unga qanday javob berishi boshqa joyda hal
+    qilinadi.</p>
+  </div>
+
+  <!-- ═══════════════ 2) HODISA VA TINGLOVCHI ═══════════════ -->
+  <h2>Hodisa va tinglovchi</h2>
+
+  <div class="natija">php artisan make:event VakansiyaYaratildi
+php artisan make:listener XabarYubor --event=VakansiyaYaratildi</div>
+
+  <p><b>Hodisa</b> — sodir bo'lgan fakt haqidagi
+  ma'lumot. Unda mantiq yo'q, faqat ma'lumot:</p>
+
+  <div class="codefile">
+    <div class="fname">app/Events/VakansiyaYaratildi.php</div>
+    <code class="cmd" data-cmd="&lt;?php
+
+namespace App\Events;
+
+use App\Models\Vakansiya;
+use Illuminate\Foundation\Events\Dispatchable;
+use Illuminate\Queue\SerializesModels;
+
+class VakansiyaYaratildi
+{
+    use Dispatchable, SerializesModels;
+
+    public function __construct(public Vakansiya $vakansiya) {}
+}">&lt;?php
+
+namespace App\Events;
+
+use App\Models\Vakansiya;
+use Illuminate\Foundation\Events\Dispatchable;
+use Illuminate\Queue\SerializesModels;
+
+class VakansiyaYaratildi
+{
+    use Dispatchable, SerializesModels;
+
+    public function __construct(public Vakansiya $vakansiya) {}
+}</code>
+  </div>
+
+  <p>Ikkita trait bor. <code>Dispatchable</code> —
+  <code>VakansiyaYaratildi::dispatch($v)</code> yozish uchun.
+  <code>SerializesModels</code> — hodisa navbatga tushsa,
+  model <b>butunligicha</b> emas, <b>id bo'yicha</b>
+  saqlanadi va ishchi uni bazadan qayta oladi.</p>
+
+  <p><b>Tinglovchi</b> — reaksiya:</p>
+
+  <div class="codefile">
+    <div class="fname">app/Listeners/XabarYubor.php</div>
+    <code class="cmd" data-cmd="&lt;?php
+
+namespace App\Listeners;
+
+use App\Events\VakansiyaYaratildi;
+use App\Xizmatlar\XabarYuboruvchi;
+
+class XabarYubor
+{
+    public function __construct(private XabarYuboruvchi $xabar) {}
+
+    public function handle(VakansiyaYaratildi $event): void
+    {
+        $this-&gt;xabar-&gt;yubor(
+            $event-&gt;vakansiya-&gt;egasi?-&gt;email ?? 'admin@ishtop.uz',
+            &quot;Vakansiya e'lon qilindi: {$event-&gt;vakansiya-&gt;nom}&quot;
+        );
+    }
+}">&lt;?php
+
+namespace App\Listeners;
+
+use App\Events\VakansiyaYaratildi;
+use App\Xizmatlar\XabarYuboruvchi;
+
+class XabarYubor
+{
+    public function __construct(private XabarYuboruvchi $xabar) {}
+
+    public function handle(VakansiyaYaratildi $event): void
+    {
+        $this-&gt;xabar-&gt;yubor(
+            $event-&gt;vakansiya-&gt;egasi?-&gt;email ?? 'admin@ishtop.uz',
+            &quot;Vakansiya e'lon qilindi: {$event-&gt;vakansiya-&gt;nom}&quot;
+        );
+    }
+}</code>
+  </div>
+
+  <p>Konstruktorga e'tibor bering:
+  <code>XabarYuboruvchi</code> — 49-darsdagi interfeys. Uni
+  container beradi, tinglovchi esa faqat so'raydi. Zanjir
+  davom etyapti.</p>
+
+  <p>Controller endi bir qator:</p>
+
+  <div class="codefile">
+    <div class="fname">app/Http/Controllers/Api/VakansiyaController.php</div>
+    <code class="cmd">public function store(VakansiyaRequest $request)
+{
+    $vakansiya = Vakansiya::create(
+        $request-&gt;validated() + ['user_id' =&gt; $request-&gt;user()-&gt;id]
+    );
+
+    VakansiyaYaratildi::dispatch($vakansiya);
+
+    return VakansiyaResource::make($vakansiya-&gt;fresh())
+        -&gt;response()-&gt;setStatusCode(201);
+}</code>
+  </div>
+
+  <p>Konstruktordagi <code>XabarYuboruvchi</code> ham kerak
+  emas — controller endi xabar haqida <b>hech narsa
+  bilmaydi</b>.</p>
+
+  <!-- ═══════════════ 3) AVTOMATIK TOPILISH ═══════════════ -->
+  <h2>Ro'yxatdan o'tkazish kerak emas</h2>
+
+  <p>Eski Laravel'da <code>EventServiceProvider</code> bo'lgan
+  va unda hodisa–tinglovchi juftliklari qo'lda yozilgan.
+  Laravel 11+ da bu fayl <b>yo'q</b>:</p>
+
+  <div class="natija">ls app/Providers/
+→  AppServiceProvider.php   XabarServiceProvider.php</div>
+
+  <p>Shunga qaramay tinglovchi <b>ishlaydi</b>. Tekshiramiz:</p>
+
+  <div class="natija">php artisan event:list
+
+App\Events\VakansiyaYaratildi
+   ⇂ App\Listeners\XabarYubor@handle
+   ⇂ App\Listeners\StatistikaniYangila@handle</div>
+
+  <p>Laravel <code>app/Listeners</code> papkasini skanerlaydi
+  va har bir <code>handle()</code> metodining
+  <b>tip-belgisiga</b> qaraydi. <code>VakansiyaYaratildi</code>
+  deb yozilgan bo'lsa — o'sha hodisaga ulanadi.</p>
+
+  <div class="callout tip">
+    <span class="label">🔑 Yana bir «sehr» — yana Reflection</span>
+    <p>49-darsdan tanish mexanizm: klassdan «senga nima
+    kerak?» deb so'rash. Bu yerda savol boshqacha: «sen
+    qaysi hodisani kutyapsan?»</p>
+    <p>🔍 Shuning uchun <b>tip-belgisi majburiy</b>:
+    <code>handle($event)</code> deb yozsangiz, Laravel uni
+    topa olmaydi va tinglovchi <b>jimgina
+    ishlamaydi</b>.</p>
+    <p>✅ Tashxis: <code>php artisan event:list</code> — agar
+    tinglovchingiz ro'yxatda yo'q bo'lsa, birinchi navbatda
+    tip-belgisiga qarang.</p>
+  </div>
+
+  <!-- ═══════════════ 4) SINXRON TUZOG'I ═══════════════ -->
+  <h2>⚠️ Hodisalar sinxron</h2>
+
+  <p>Bu darsning eng muhim qismi. Ikkinchi tinglovchimizni
+  ataylab buzamiz:</p>
+
+  <div class="natija">// StatistikaniYangila
+public function handle(VakansiyaYaratildi $event): void
+{
+    throw new \RuntimeException('tinglovchi yiqildi');
+}</div>
+
+  <p>Va vakansiya yaratamiz. Natija:</p>
+
+  <div class="natija">status:  500
+javob:   {"message":"Serverda kutilmagan xato yuz berdi.","xato_id":"..."}
+
+bazada yozuv bormi:  TRUE      ⚠️⚠️</div>
+
+  <p>Ikkala qatorga birga qarang. Mijoz <b>xato</b> oldi —
+  demak u «vakansiya yaratilmadi» deb o'ylaydi. Vakansiya
+  esa <b>yaratilgan</b>.</p>
+
+  <div class="callout warn">
+    <span class="label">⚠️ Bu eng yomon holat</span>
+    <p>Mijoz qayta urinadi — <b>ikkinchi</b> vakansiya
+    paydo bo'ladi. Yoki urinmaydi — va foydalanuvchi
+    e'loni «yo'qolgan» deb o'ylaydi, aslida esa u
+    saytda turibdi.</p>
+    <p>Sabab oddiy: <code>dispatch()</code> tinglovchilarni
+    <b>o'sha yerda, o'sha so'rovda</b> chaqiradi. Ular xato
+    tashlasa, xato controllerga qaytadi va butun javobni
+    buzadi.</p>
+    <p>🔑 Ya'ni hodisa <b>o'zi</b> hech narsani
+    ajratmaydi. U faqat <b>kodni</b> ajratadi, <b>xatarni</b>
+    emas.</p>
+  </div>
+
+  <h3>✅ <code>ShouldQueue</code></h3>
+
+  <div class="codefile">
+    <div class="fname">app/Listeners/StatistikaniYangila.php</div>
+    <code class="cmd" data-cmd="&lt;?php
+
+namespace App\Listeners;
+
+use App\Events\VakansiyaYaratildi;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Support\Facades\Cache;
+
+class StatistikaniYangila implements ShouldQueue
+{
+    public function handle(VakansiyaYaratildi $event): void
+    {
+        Cache::forget('statistika');
+    }
+}">&lt;?php
+
+namespace App\Listeners;
+
+use App\Events\VakansiyaYaratildi;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Support\Facades\Cache;
+
+class StatistikaniYangila implements ShouldQueue
+{
+    public function handle(VakansiyaYaratildi $event): void
+    {
+        Cache::forget('statistika');
+    }
+}</code>
+  </div>
+
+  <p>Bitta interfeys qo'shildi — <code>ShouldQueue</code>.
+  Endi <b>o'sha buzuq tinglovchi</b> bilan qayta
+  o'lchaymiz:</p>
+
+  <div class="natija">status:  201        ✅
+javob:   {"data":{"id":40016,"nom":"Sinov vakansiya",...}}</div>
+
+  <p>Tinglovchi hamon buzuq. Lekin u endi <b>so'rov
+  ichida ishlamaydi</b> — navbatga tushadi. Mijoz to'g'ri
+  javob oladi.</p>
+
+  <!-- ═══════════════ 5) ISH QAYERGA TUSHDI ═══════════════ -->
+  <h2>Ish qayerga tushdi?</h2>
+
+  <div class="natija">DB::table('jobs')-&gt;count()   →   1 ta navbatdagi ish</div>
+
+  <p>Ishchini bir marta ishga tushiramiz:</p>
+
+  <div class="natija">php artisan queue:work --once --stop-when-empty
+
+2026-08-25 18:17:09 App\Listeners\StatistikaniYangila .... RUNNING
+2026-08-25 18:17:09 App\Listeners\StatistikaniYangila .... 9.89ms FAIL</div>
+
+  <div class="natija">DB::table('failed_jobs')-&gt;count()   →   1 ta muvaffaqiyatsiz ish</div>
+
+  <p>To'liq zanjir ko'rindi:</p>
+
+  <div class="natija">dispatch()  →  jobs jadvali  →  queue:work  →  FAIL  →  failed_jobs</div>
+
+  <p>Xato <b>yo'qolmadi</b> — u ko'chdi. Endi u
+  foydalanuvchining javobini emas, <b>sizning
+  logingizni</b> buzadi. Va aynan shunday
+  bo'lishi kerak.</p>
+
+  <div class="callout tip">
+    <span class="label">🔑 Qaysi tinglovchi navbatga tushsin?</span>
+    <div class="natija">Sinxron qoldiring:  natija javobga TA'SIR qiladi
+                    (masalan yozuvni to'ldirish, tekshirish)
+
+Navbatga bering:    natija javobga ta'sir QILMAYDI
+                    (email, statistika, indeks, tashqi API)</div>
+    <p>Savol: <b>bu ish bajarilmasa, mijozga 500 qaytarish
+    to'g'rimi?</b> To'g'ri bo'lmasa —
+    <code>ShouldQueue</code>.</p>
+  </div>
+
+  <!-- ═══════════════ 6) TESTDA ═══════════════ -->
+  <h2>⚠️ Testda <code>ShouldQueue</code> ishlamaydi</h2>
+
+  <p>Yuqoridagi tuzatishni <b>test bilan</b> tekshirmoqchi
+  bo'ldik — va 500 hamon chiqdi. Sabab:</p>
+
+  <div class="natija">phpunit.xml:
+&lt;env name="QUEUE_CONNECTION" value="sync"/&gt;</div>
+
+  <p><code>sync</code> — «navbat yo'q, hamma ishni
+  <b>darrov shu yerda</b> bajar». Ya'ni test muhitida
+  <code>ShouldQueue</code> <b>hech nima
+  o'zgartirmaydi</b>.</p>
+
+  <div class="callout warn">
+    <span class="label">⚠️ Bu ataylab qilingan</span>
+    <p>Sababi mantiqiy: testda navbat ishchisi yo'q, ish
+    esa <b>bajarilishi</b> kerak — aks holda testlar hech
+    narsani tekshira olmaydi.</p>
+    <p>⚠️ Lekin oqibati bor: <b>navbatga ko'chirish
+    to'g'ri ishlashini test tasdiqlay olmaydi</b>. Buni
+    <code>curl</code> bilan tekshirdik.</p>
+    <p>✅ Testda navbatni tekshirish uchun boshqa yo'l bor:
+    <code>Queue::fake()</code> va
+    <code>Queue::assertPushed(...)</code> — Modul H'da
+    batafsil.</p>
+    <p>🔑 Naqsh 50-darsdan tanish: <b>konsol/test muhiti
+    HTTP muhitidan farq qiladi</b>. U yerda kechiktirilgan
+    provider'lar, bu yerda navbat.</p>
+  </div>
+
+  <!-- ═══════════════ 7) TESTLAR ═══════════════ -->
+  <h2>Testlar</h2>
+
+  <p>Hodisalarni tekshirishning to'g'ri yo'li —
+  <code>Event::fake()</code>. U hodisalarni <b>ushlab
+  qoladi</b>: tinglovchilar ishlamaydi, lekin nima e'lon
+  qilinganini tekshirsa bo'ladi.</p>
+
+  <div class="codefile">
+    <div class="fname">tests/Feature/HodisaTest.php</div>
+    <code class="cmd">use App\Events\VakansiyaYaratildi;
+use App\Listeners\StatistikaniYangila;
+use App\Listeners\XabarYubor;
+use App\Models\Kompaniya;
+use App\Models\User;
+use Illuminate\Support\Facades\Event;
+use Laravel\Sanctum\Sanctum;
+
+function vakansiyaYarat(): \Illuminate\Testing\TestResponse
+{
+    $user = User::factory()-&gt;create(['rol' =&gt; 'ishberuvchi']);
+    $kompaniya = Kompaniya::factory()-&gt;create();
+    Sanctum::actingAs($user, ['vakansiya:yozish']);
+
+    return test()-&gt;postJson('/api/v1/vakansiyalar', [
+        'nom' =&gt; 'Backend dasturchi',
+        'maosh' =&gt; 2000,
+        'shahar' =&gt; 'Toshkent',
+        'kompaniya_id' =&gt; $kompaniya-&gt;id,
+    ]);
+}
+
+it('vakansiya yaratilganda hodisa e\'lon qilinadi', function () {
+    Event::fake();
+
+    vakansiyaYarat()-&gt;assertStatus(201);
+
+    Event::assertDispatched(VakansiyaYaratildi::class);
+});
+
+it('hodisaga ikkita tinglovchi ulangan', function () {
+    Event::fake();
+
+    vakansiyaYarat();
+
+    Event::assertListening(VakansiyaYaratildi::class, XabarYubor::class);
+    Event::assertListening(VakansiyaYaratildi::class, StatistikaniYangila::class);
+});
+
+it('hodisa to\'g\'ri modelni olib yuradi', function () {
+    Event::fake();
+
+    vakansiyaYarat();
+
+    Event::assertDispatched(
+        VakansiyaYaratildi::class,
+        fn (VakansiyaYaratildi $e) =&gt; $e-&gt;vakansiya-&gt;nom === 'Backend dasturchi'
+    );
+});
+
+it('hodisa e\'lon qilinmasa ham tekshirsa bo\'ladi', function () {
+    Event::fake();
+
+    Event::assertNotDispatched(VakansiyaYaratildi::class);
+});</code>
+  </div>
+
+  <div class="natija">Tests:  4 passed (6 assertions)</div>
+
+  <p>Ikkinchi test qiziq: <code>assertListening</code>
+  <b>ulanishni</b> tekshiradi. Agar kimdir tinglovchining
+  tip-belgisini o'chirsa yoki faylni ko'chirsa, bu test
+  darrov qizaradi — <code>event:list</code> ni har safar
+  qo'lda tekshirish kerak emas.</p>
+
+  <p><code>test()</code> — Pest'ning yordamchi funksiyasi:
+  oddiy funksiya ichida <code>$this</code> o'rniga
+  ishlatiladi.</p>
+
+  <div class="natija">To'liq to'plam:  50 passed (110 assertions)</div>
+
+  <!-- ═══════════════ 8) MODEL HODISALARI ═══════════════ -->
+  <h2>Model hodisalari</h2>
+
+  <p>Eloquent har bir model uchun hodisalarni <b>o'zi</b>
+  e'lon qiladi — siz hech narsa yozmaysiz:</p>
+
+  <div class="natija">retrieved · creating · created · updating · updated
+saving    · saved    · deleting · deleted
+restoring · restored · replicating</div>
+
+  <p>Ularni tinglashning eng toza yo'li —
+  <b>observer</b>:</p>
+
+  <div class="natija">php artisan make:observer VakansiyaObserver --model=Vakansiya</div>
+
+  <div class="natija">class VakansiyaObserver
+{
+    public function created(Vakansiya $vakansiya): void { ... }
+    public function updated(Vakansiya $vakansiya): void { ... }
+    public function deleted(Vakansiya $vakansiya): void { ... }
+}</div>
+
+  <p>Model'ga ulash Laravel 12+ da atribut bilan:</p>
+
+  <div class="natija">#[ObservedBy(VakansiyaObserver::class)]
+class Vakansiya extends Model { ... }</div>
+
+  <div class="callout warn">
+    <span class="label">⚠️ Model hodisalari qachon ishlamaydi</span>
+    <div class="natija">Vakansiya::create([...])           →  created ishlaydi
+Vakansiya::where(...)-&gt;update([...])  →  updated ISHLAMAYDI  ⚠️
+Vakansiya::where(...)-&gt;delete()       →  deleted ISHLAMAYDI  ⚠️
+DB::table('vakansiyalar')-&gt;insert()   →  hech narsa ishlamaydi</div>
+    <p>Sabab: ommaviy (<code>mass</code>) amallar modelni
+    <b>yasamaydi</b> — ular to'g'ridan-to'g'ri SQL
+    yuboradi. Hodisa esa modelning ishi.</p>
+    <p>🔑 Shuning uchun <b>muhim mantiqni</b> model
+    hodisasiga qo'ymang: kimdir ommaviy yangilash yozsa, u
+    jimgina o'tkazib yuboriladi.</p>
+    <p>✅ Ochiq <code>dispatch()</code> — ko'rinadigan va
+    ishonchli. Model hodisalari <b>yordamchi</b> ishlar
+    uchun yaxshi (slug yasash, kesh tozalash).</p>
+  </div>
+
+  <!-- ═══════════════ 9) HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir bir
+  marta o'qib chiqing, keyin kerak bo'lganda qaytib
+  qarang.</p>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 1</span>
+    <h4>Hodisa nomi — <b>o'tgan zamon</b></h4>
+    <div class="natija">✅ VakansiyaYaratildi · ArizaQabulQilindi · TolovOtdi
+❌ VakansiyaYarat   · XabarYubor        · KeshniTozala</div>
+    <p>Hodisa — <b>sodir bo'lgan fakt</b>, buyruq emas. Nom
+    o'tgan zamonda bo'lsa, kod o'zi tushuntiradi.</p>
+    <p>🔑 Tinglovchi nomi esa aksincha —
+    <b>buyruq</b>: <code>XabarYubor</code>,
+    <code>StatistikaniYangila</code>.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 2</span>
+    <h4>Tinglovchilar tartibiga tayanish</h4>
+    <div class="natija">⚠️ event:list dagi tartib — kafolat EMAS</div>
+    <p>Ikkita tinglovchi bir-biriga bog'liq bo'lsa
+    (birinchisi ma'lumot tayyorlaydi, ikkinchisi ishlatadi)
+    — bu <b>xato dizayn</b>.</p>
+    <p>✅ Bunday holatda ikkalasini <b>bitta</b> tinglovchiga
+    birlashtiring, yoki birinchisi o'z hodisasini e'lon
+    qilsin.</p>
+    <p>🔑 Hodisa tinglovchilari <b>mustaqil</b> bo'lishi
+    kerak: biri o'chsa, boshqasi ishlayveradi.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 3</span>
+    <h4>Tranzaksiya ichidagi hodisa</h4>
+    <div class="natija">DB::transaction(function () {
+    $v = Vakansiya::create([...]);
+    VakansiyaYaratildi::dispatch($v);     ⚠️
+    // ... keyin xato chiqsa — tranzaksiya BEKOR
+});
+
+→  yozuv bekor qilindi, lekin email KETIB BO'LGAN</div>
+    <p>Navbatdagi tinglovchi tranzaksiya tugashini
+    <b>kutmaydi</b>.</p>
+    <p>✅ Yechim: <code>ShouldQueue</code> yoniga
+    <code>ShouldHandleEventsAfterCommit</code> qo'shing —
+    tinglovchi faqat <code>commit</code> dan keyin
+    ishlaydi.</p>
+    <p>🔍 Yoki <code>DB::afterCommit(fn () =&gt; ...)</code>.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 4</span>
+    <h4>Hodisa yoki to'g'ridan-to'g'ri chaqiruv?</h4>
+    <div class="natija">✅ hodisa:      bir necha mustaqil reaksiya bor (yoki kelajakda bo'ladi)
+✅ to'g'ridan:  bitta ish va u asosiy oqimning qismi</div>
+    <p>Bitta tinglovchi uchun hodisa — <b>ortiqcha
+    qatlam</b>. Kodni o'qiganingizda «keyin nima
+    bo'ladi?» degan savolga javob topish qiyinlashadi.</p>
+    <p>🔑 Hodisaning narxi shu: <b>bog'lanish
+    ko'rinmay qoladi</b>. Foydasi ham shunda — lekin
+    faqat reaksiyalar haqiqatan ko'p bo'lganda.</p>
+    <p>🔍 Tashxis vositasi: <code>event:list</code> — kim
+    kimni tinglayotganini ko'rsatadi.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 5</span>
+    <h4><code>dispatchAfterResponse()</code></h4>
+    <div class="natija">VakansiyaYaratildi::dispatchAfterResponse($vakansiya);</div>
+    <p>Navbatsiz, lekin javob <b>yuborilgandan keyin</b>
+    ishlaydi. Foydalanuvchi kutmaydi, ishchi ham kerak
+    emas.</p>
+    <p>⚠️ Lekin PHP jarayoni tugamaguncha — ya'ni server
+    hamon band. Va xato bo'lsa <b>hech kim
+    bilmaydi</b>: javob allaqachon ketgan.</p>
+    <p>🔑 Yengil va ahamiyatsiz ishlar uchun. Muhim narsa —
+    haqiqiy navbat.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 6</span>
+    <h4>Bitta tinglovchi — ko'p hodisa</h4>
+    <div class="natija">public function handle(VakansiyaYaratildi|VakansiyaYangilandi $event): void</div>
+    <p>PHP 8 ning <b>union</b> tipi bilan bitta tinglovchi
+    bir necha hodisani kutishi mumkin — Laravel
+    ikkalasiga ham ulaydi.</p>
+    <p>🔍 Yoki <code>Event::listen</code> ni provider'ning
+    <code>boot()</code> ida qo'lda yozish (50-dars:
+    <code>register()</code> emas!) — joker bilan:
+    <code>Event::listen('vakansiya.*', ...)</code>.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>Tinglovchini to'xtatish</h4>
+    <div class="natija">public function handle(VakansiyaYaratildi $event): bool
+{
+    if (! $event-&gt;vakansiya-&gt;faol) {
+        return false;      // keyingi tinglovchilar ISHLAMAYDI
+    }
+    ...
+}</div>
+    <p><code>false</code> qaytarish zanjirni
+    <b>to'xtatadi</b>.</p>
+    <p>⚠️ Bu HOLAT 2 bilan bog'liq: tartibga tayanish
+    demakdir. Ehtiyot bo'ling — ba'zan foydali (spam
+    filtri), ko'pincha esa dizayn muammosi
+    belgisi.</p>
+  </div>
+
+  <!-- ═══════════════ 10) AMALIYOT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    💻 Quyida amaliyot bor. Hozir o'qish rejimidasiz — kompyuter
+    yoningizda bo'lganda <b>💻 Amaliyot</b> rejimiga o'ting va
+    shu bo'limdan davom eting.
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <b>Hodisa va tinglovchilarni yarating.</b>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+php artisan make:event VakansiyaYaratildi
+php artisan make:listener XabarYubor --event=VakansiyaYaratildi
+php artisan make:listener StatistikaniYangila --event=VakansiyaYaratildi">cd ~/Projects/Learn/ishtop
+php artisan make:event VakansiyaYaratildi
+php artisan make:listener XabarYubor --event=VakansiyaYaratildi
+php artisan make:listener StatistikaniYangila --event=VakansiyaYaratildi</div>
+      </li>
+
+      <li>
+        <b>Kodlarini yozing.</b> Yuqoridagi
+        <code>VakansiyaYaratildi</code> va
+        <code>XabarYubor</code> ni ko'chiring (nusxa tugmasi
+        bor). <code>StatistikaniYangila</code> ni hozircha
+        oddiy qoldiring:
+        <div class="cmd" data-cmd="# app/Listeners/StatistikaniYangila.php handle() ichiga:
+\Illuminate\Support\Facades\Cache::forget('statistika');"># app/Listeners/StatistikaniYangila.php handle() ichiga:
+\Illuminate\Support\Facades\Cache::forget('statistika');</div>
+        <div class="cmd" data-cmd="php -l app/Events/VakansiyaYaratildi.php
+php -l app/Listeners/XabarYubor.php
+php -l app/Listeners/StatistikaniYangila.php">php -l app/Events/VakansiyaYaratildi.php
+php -l app/Listeners/XabarYubor.php
+php -l app/Listeners/StatistikaniYangila.php</div>
+      </li>
+
+      <li>
+        <b>Ro'yxatdan o'tkazmasdan tekshiring.</b>
+        <div class="cmd" data-cmd="ls app/Providers/
+php artisan event:list | grep -A3 VakansiyaYaratildi">ls app/Providers/
+php artisan event:list | grep -A3 VakansiyaYaratildi</div>
+        <p class="expect">Hech qanday <code>EventServiceProvider</code>
+        yo'q, lekin ikkala tinglovchi ro'yxatda.</p>
+      </li>
+
+      <li>
+        <b>Controllerni soddalashtiring.</b>
+        <code>store()</code> dagi
+        <code>$this-&gt;xabar-&gt;yubor(...)</code> ni
+        <code>VakansiyaYaratildi::dispatch($vakansiya);</code>
+        ga almashtiring, konstruktordagi
+        <code>XabarYuboruvchi</code> ni ham
+        o'chiring.
+        <div class="cmd" data-cmd="php -l app/Http/Controllers/Api/VakansiyaController.php
+php artisan test">php -l app/Http/Controllers/Api/VakansiyaController.php
+php artisan test</div>
+        <p class="expect">Hammasi yashil — xatti-harakat
+        o'zgarmadi, faqat kod ko'chdi.</p>
+      </li>
+
+      <li>
+        <b>⚠️ Tinglovchini ataylab buzing.</b>
+        <div class="cmd" data-cmd="# StatistikaniYangila::handle() ichiga:
+throw new \RuntimeException('tinglovchi yiqildi');"># StatistikaniYangila::handle() ichiga:
+throw new \RuntimeException('tinglovchi yiqildi');</div>
+        <p>Serverni ishga tushiring va token oling:</p>
+        <div class="cmd" data-cmd="php artisan serve">php artisan serve</div>
+        <div class="cmd" data-cmd="TOKEN=$(php artisan tinker --execute='$u = App\Models\User::firstOrCreate([&quot;email&quot;=>&quot;ib@b.uz&quot;],[&quot;name&quot;=>&quot;IB&quot;,&quot;password&quot;=>bcrypt(&quot;parol123&quot;),&quot;rol&quot;=>&quot;ishberuvchi&quot;]); echo $u->createToken(&quot;t&quot;,[&quot;vakansiya:yozish&quot;])->plainTextToken;' | tail -1)
+KOMP=$(php artisan tinker --execute='echo App\Models\Kompaniya::first()->id;' | tail -1)
+echo &quot;token: ${TOKEN:0:10}...  kompaniya: $KOMP&quot;">TOKEN=$(php artisan tinker --execute='$u = App\Models\User::firstOrCreate([&quot;email&quot;=&gt;&quot;ib@b.uz&quot;],[&quot;name&quot;=&gt;&quot;IB&quot;,&quot;password&quot;=&gt;bcrypt(&quot;parol123&quot;),&quot;rol&quot;=&gt;&quot;ishberuvchi&quot;]); echo $u-&gt;createToken(&quot;t&quot;,[&quot;vakansiya:yozish&quot;])-&gt;plainTextToken;' | tail -1)
+KOMP=$(php artisan tinker --execute='echo App\Models\Kompaniya::first()-&gt;id;' | tail -1)
+echo &quot;token: ${TOKEN:0:10}...  kompaniya: $KOMP&quot;</div>
+        <div class="cmd" data-cmd="curl -s -o /dev/null -w 'status: %{http_code}\n' -X POST -H 'Accept: application/json' -H &quot;Authorization: Bearer $TOKEN&quot; -d &quot;nom=Sinov vakansiya&amp;maosh=1500&amp;shahar=Toshkent&amp;kompaniya_id=$KOMP&quot; http://127.0.0.1:8000/api/v1/vakansiyalar
+php artisan tinker --execute='echo App\Models\Vakansiya::where(&quot;nom&quot;,&quot;Sinov vakansiya&quot;)->exists() ? &quot;bazada BOR&quot; : &quot;bazada yo\047q&quot;, PHP_EOL;'">curl -s -o /dev/null -w 'status: %{http_code}\n' -X POST -H 'Accept: application/json' -H &quot;Authorization: Bearer $TOKEN&quot; -d &quot;nom=Sinov vakansiya&amp;maosh=1500&amp;shahar=Toshkent&amp;kompaniya_id=$KOMP&quot; http://127.0.0.1:8000/api/v1/vakansiyalar
+php artisan tinker --execute='echo App\Models\Vakansiya::where(&quot;nom&quot;,&quot;Sinov vakansiya&quot;)-&gt;exists() ? &quot;bazada BOR&quot; : &quot;bazada yo\047q&quot;, PHP_EOL;'</div>
+        <p class="expect">⚠️ <b>500</b> — lekin yozuv
+        <b>bazada bor</b>. Eng yomon holat.</p>
+      </li>
+
+      <li>
+        <b><code>ShouldQueue</code> qo'shing.</b>
+        <code>StatistikaniYangila</code> ga
+        <code>implements ShouldQueue</code> yozing
+        (<code>use Illuminate\Contracts\Queue\ShouldQueue;</code>
+        ni unutmang) — <code>throw</code> ni
+        <b>qoldiring</b>.
+        <div class="cmd" data-cmd="php artisan tinker --execute='App\Models\Vakansiya::where(&quot;nom&quot;,&quot;Sinov vakansiya&quot;)->delete(); echo &quot;tozalandi&quot;, PHP_EOL;'
+curl -s -o /dev/null -w 'status: %{http_code}\n' -X POST -H 'Accept: application/json' -H &quot;Authorization: Bearer $TOKEN&quot; -d &quot;nom=Sinov vakansiya&amp;maosh=1500&amp;shahar=Toshkent&amp;kompaniya_id=$KOMP&quot; http://127.0.0.1:8000/api/v1/vakansiyalar">php artisan tinker --execute='App\Models\Vakansiya::where(&quot;nom&quot;,&quot;Sinov vakansiya&quot;)-&gt;delete(); echo &quot;tozalandi&quot;, PHP_EOL;'
+curl -s -o /dev/null -w 'status: %{http_code}\n' -X POST -H 'Accept: application/json' -H &quot;Authorization: Bearer $TOKEN&quot; -d &quot;nom=Sinov vakansiya&amp;maosh=1500&amp;shahar=Toshkent&amp;kompaniya_id=$KOMP&quot; http://127.0.0.1:8000/api/v1/vakansiyalar</div>
+        <p class="expect">✅ <b>201</b> — buzuq tinglovchi
+        bilan ham.</p>
+      </li>
+
+      <li>
+        <b>Ish qayerga tushganini ko'ring.</b>
+        <div class="cmd" data-cmd="php artisan tinker --execute='echo DB::table(&quot;jobs&quot;)->count(), &quot; ta navbatdagi ish&quot;, PHP_EOL;'">php artisan tinker --execute='echo DB::table(&quot;jobs&quot;)-&gt;count(), &quot; ta navbatdagi ish&quot;, PHP_EOL;'</div>
+        <div class="cmd" data-cmd="php artisan queue:work --once --stop-when-empty">php artisan queue:work --once --stop-when-empty</div>
+        <div class="cmd" data-cmd="php artisan tinker --execute='echo DB::table(&quot;failed_jobs&quot;)->count(), &quot; ta muvaffaqiyatsiz ish&quot;, PHP_EOL;'">php artisan tinker --execute='echo DB::table(&quot;failed_jobs&quot;)-&gt;count(), &quot; ta muvaffaqiyatsiz ish&quot;, PHP_EOL;'</div>
+        <p class="expect"><code>RUNNING</code> → <code>FAIL</code>
+        → <code>failed_jobs</code> da 1 ta.</p>
+      </li>
+
+      <li>
+        <b>Testda <code>ShouldQueue</code> ishlamasligini
+        ko'ring.</b>
+        <div class="cmd" data-cmd="grep QUEUE_CONNECTION phpunit.xml">grep QUEUE_CONNECTION phpunit.xml</div>
+        <p class="expect"><code>sync</code> — shuning uchun
+        testda tinglovchi hamon so'rov ichida
+        ishlaydi.</p>
+      </li>
+
+      <li>
+        <b>Tozalang.</b> <code>throw</code> qatorini
+        o'chiring va <code>Cache::forget</code> ni
+        qaytaring.
+        <div class="cmd" data-cmd="php artisan tinker --execute='DB::table(&quot;failed_jobs&quot;)->delete(); DB::table(&quot;jobs&quot;)->delete(); App\Models\Vakansiya::where(&quot;nom&quot;,&quot;Sinov vakansiya&quot;)->delete(); echo &quot;tozalandi&quot;, PHP_EOL;'">php artisan tinker --execute='DB::table(&quot;failed_jobs&quot;)-&gt;delete(); DB::table(&quot;jobs&quot;)-&gt;delete(); App\Models\Vakansiya::where(&quot;nom&quot;,&quot;Sinov vakansiya&quot;)-&gt;delete(); echo &quot;tozalandi&quot;, PHP_EOL;'</div>
+      </li>
+
+      <li>
+        <b>Testlarni yozing.</b> Yuqoridagi
+        <code>tests/Feature/HodisaTest.php</code> ni
+        ko'chiring:
+        <div class="cmd" data-cmd="php artisan test tests/Feature/HodisaTest.php">php artisan test tests/Feature/HodisaTest.php</div>
+        <p class="expect">Kutilgan: <b>4 passed</b>.</p>
+      </li>
+
+      <li>
+        <b>Tip-belgisini o'chirib ko'ring.</b>
+        <code>XabarYubor::handle()</code> dagi
+        <code>VakansiyaYaratildi</code> tipini vaqtincha
+        olib tashlang:
+        <div class="cmd" data-cmd="php artisan event:list | grep -A3 VakansiyaYaratildi">php artisan event:list | grep -A3 VakansiyaYaratildi</div>
+        <p class="expect">⚠️ Tinglovchi ro'yxatdan
+        <b>yo'qoladi</b>. Tipni qaytaring.</p>
+      </li>
+
+      <li>
+        <b>To'liq to'plamni ishga tushiring.</b>
+        <div class="cmd" data-cmd="php artisan test">php artisan test</div>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li>Hodisa va ikkita tinglovchi yaratildi</li>
+      <li><code>event:list</code> ikkalasini ko'rsatdi</li>
+      <li>Controller bir qatorga tushdi</li>
+      <li>⚠️ Buzuq tinglovchi <b>500</b> berdi, yozuv esa
+      bazada qoldi</li>
+      <li><code>ShouldQueue</code> dan keyin <b>201</b></li>
+      <li>Ish <code>jobs</code> → <code>failed_jobs</code>
+      yo'lini bosib o'tdi</li>
+      <li>Testda navbat <code>sync</code> ekanini bildim</li>
+      <li>Tip-belgisi olinsa tinglovchi yo'qolishini
+      ko'rdim</li>
+      <li>Sinov o'zgarishlari tozalangan</li>
+      <li><code>HodisaTest</code> — 4 test yashil</li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 11) SINAB KO'RAMIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Dasturchi <code>store()</code> ni hodisaga o'tkazdi
+    va xursand bo'ldi: controller qisqardi, testlar
+    yashil.</p>
+    <p>Bir hafta o'tib, hamkasbi yangi tinglovchi qo'shdi —
+    hamkor saytga vakansiyani yuborish:</p>
+    <div class="codefile">
+      <div class="fname">app/Listeners/HamkorgaYubor.php</div>
+      <code class="cmd" data-cmd="class HamkorgaYubor
+{
+    public function handle(VakansiyaYaratildi $event): void
+    {
+        Http::post('https://hamkor.uz/api/vakansiyalar', [
+            'nom' =&gt; $event-&gt;vakansiya-&gt;nom,
+        ]);
+    }
+}">class HamkorgaYubor
+{
+    public function handle(VakansiyaYaratildi $event): void
+    {
+        Http::post('https://hamkor.uz/api/vakansiyalar', [
+            'nom' =&gt; $event-&gt;vakansiya-&gt;nom,
+        ]);
+    }
+}</code>
+    </div>
+    <p>Testlar <b>yashil</b> (chunki <code>Event::fake()</code>
+    tinglovchilarni ishlatmaydi). Ishga tushirildi.</p>
+    <p>Ertasi kuni: «vakansiya qo'shish <b>juda sekin</b>,
+    ba'zan umuman ishlamayapti». Hamkor sayti esa
+    ta'mirda. Nima bo'lyapti?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <p>Tinglovchida <code>ShouldQueue</code> <b>yo'q</b>.
+        Demak <code>Http::post(...)</code> foydalanuvchining
+        so'rovi <b>ichida</b> bajariladi.</p>
+        <div class="natija">hamkor sayti sekin  →  foydalanuvchi 10 soniya kutadi
+hamkor sayti o'chiq →  so'rov XATO bilan tugaydi  →  500</div>
+        <p class="expect">⚠️ Va eng yomoni:
+        <b>vakansiya bazada saqlangan</b>. Foydalanuvchi
+        500 ko'radi, qayta yuboradi — <b>ikkinchi
+        nusxa</b> paydo bo'ladi.</p>
+        <p>🔍 Nega testlar tutmadi? Ikkita sabab birga:</p>
+        <div class="natija">1) Event::fake() tinglovchilarni umuman ISHLATMAYDI
+2) phpunit.xml da QUEUE_CONNECTION=sync — ShouldQueue ham ta'sir qilmaydi</div>
+        <p>Ya'ni test muhitida bu tinglovchi <b>hech qachon
+        haqiqiy tashqi so'rov yubormaydi</b> — muammo
+        faqat ishlab chiqarishda ko'rinadi.</p>
+        <p>✅ Yechim: <code>implements ShouldQueue</code>.
+        Tashqi xizmatga boradigan <b>har qanday</b>
+        tinglovchi navbatda bo'lishi kerak.</p>
+        <p>🔑 <b>Qoida:</b> savol bering — «bu ish
+        bajarilmasa, mijozga 500 qaytarish to'g'rimi?»
+        Hamkor sayti o'chiq bo'lgani uchun foydalanuvchi
+        vakansiya qo'sha olmasligi — <b>albatta
+        noto'g'ri</b>.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span>
+    Laravel 11+ da tinglovchi qanday topiladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">handle metodining tip-belgisi bo'yicha avtomatik topiladi</button></li>
+      <li><button class="quiz-option">EventServiceProvider ichida qo'lda ro'yxatga yozib qo'yiladi</button></li>
+      <li><button class="quiz-option">Fayl nomi hodisa nomiga mos bo'ladi</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi:
+    <code>app/Providers/</code> da
+    <code>EventServiceProvider</code> <b>yo'q</b>, lekin
+    <code>event:list</code> ikkala tinglovchini
+    ko'rsatdi.
+    ⚠️ Tip-belgisi <b>majburiy</b>: <code>handle($event)</code>
+    deb yozsangiz tinglovchi jimgina ishlamaydi.
+    ✅ Tashxis: <code>php artisan event:list</code>.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span>
+    Sinxron tinglovchi xato tashlasa nima bo'ladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">500 qaytadi lekin yozuv bazada saqlanib qoladi</button></li>
+      <li><button class="quiz-option">Yozuv avtomatik bekor qilinadi va 500 qaytariladi</button></li>
+      <li><button class="quiz-option">Xato jimgina logga yoziladi javob esa buzilmaydi</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi: status <b>500</b>,
+    «bazada yozuv bormi» → <b>TRUE</b>.
+    ⚠️ Eng yomon holat: mijoz qayta urinadi va
+    <b>ikkinchi nusxa</b> paydo bo'ladi.
+    ✅ <code>implements ShouldQueue</code> — o'sha buzuq
+    tinglovchi bilan javob <b>201</b> bo'ldi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span>
+    Testda <code>ShouldQueue</code> nega ishlamaydi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">phpunit.xml da navbat sync qilib qo'yilgan</button></li>
+      <li><button class="quiz-option">Pest navbatlarni umuman qo'llab-quvvatlamaydi va o'chiradi</button></li>
+      <li><button class="quiz-option">ShouldQueue faqat ishlab chiqarish muhitida yoqiladi</button></li>
+    </ul>
+    <div class="quiz-explain">
+    <code>&lt;env name="QUEUE_CONNECTION" value="sync"/&gt;</code>
+    — «navbat yo'q, darrov bajar».
+    🔑 Bu ataylab: testda ishchi yo'q, ish esa bajarilishi
+    kerak.
+    ⚠️ Oqibati: navbatga ko'chirishni test
+    tasdiqlay olmaydi — <code>curl</code> bilan
+    tekshiring.</div>
+  </div>
+
+  <!-- ═══════════════ 12) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+
+    <p>Javobni ovoz chiqarib ayting, keyin ochib
+    solishtiring.</p>
+
+    <details class="recall">
+      <summary>Hodisa va tinglovchi nima va nomlari qanday
+      bo'ladi?</summary>
+      <div class="answer">Hodisa — <b>sodir bo'lgan fakt</b>
+      haqidagi ma'lumot, mantiqsiz.
+      Tinglovchi — <b>reaksiya</b>.
+      Nomlash: hodisa <b>o'tgan zamonda</b>
+      (<code>VakansiyaYaratildi</code>), tinglovchi
+      <b>buyruq</b> shaklida (<code>XabarYubor</code>).
+      🔍 Laravel 11+ da ro'yxatdan o'tkazish kerak emas —
+      <code>handle()</code> ning tip-belgisi
+      yetarli.</div>
+    </details>
+
+    <details class="recall">
+      <summary>Nega sinxron tinglovchi xavfli?</summary>
+      <div class="answer">U <b>o'sha so'rov ichida</b>
+      ishlaydi. Xato tashlasa, xato controllerga qaytadi.
+      🔍 O'lchandi: status <b>500</b>, lekin yozuv
+      <b>bazada</b> — mijoz qayta urinadi va ikkinchi
+      nusxa paydo bo'ladi.
+      🔑 Hodisa <b>kodni</b> ajratadi, <b>xatarni</b>
+      emas.</div>
+    </details>
+
+    <details class="recall">
+      <summary>Qaysi tinglovchi <code>ShouldQueue</code>
+      bo'lishi kerak?</summary>
+      <div class="answer">Savol bering: <b>bu ish
+      bajarilmasa, mijozga 500 qaytarish to'g'rimi?</b>
+      To'g'ri bo'lmasa — navbatga.
+      Amalda: email, statistika, indeks, tashqi API —
+      hammasi navbatga. Javobga ta'sir qiladigan ish
+      (tekshirish, to'ldirish) — sinxron.</div>
+    </details>
+
+    <details class="recall">
+      <summary>Navbatdagi tinglovchi xato tashlasa ish
+      qayerga boradi?</summary>
+      <div class="answer">Zanjir:
+      <code>dispatch()</code> → <code>jobs</code> jadvali →
+      <code>queue:work</code> → <b>FAIL</b> →
+      <code>failed_jobs</code>.
+      🔍 O'lchandi: ishchi <code>RUNNING</code> keyin
+      <code>FAIL</code> chiqardi, <code>failed_jobs</code>
+      da 1 ta yozuv.
+      🔑 Xato yo'qolmadi — u foydalanuvchining javobini
+      emas, sizning logingizni buzadi.</div>
+    </details>
+
+    <details class="recall">
+      <summary>Model hodisalari qachon <b>ishlamaydi</b>?</summary>
+      <div class="answer">Ommaviy amallarda:
+      <code>where(...)-&gt;update()</code>,
+      <code>where(...)-&gt;delete()</code>,
+      <code>DB::table(...)-&gt;insert()</code>.
+      Sabab: ular modelni <b>yasamaydi</b>,
+      to'g'ridan-to'g'ri SQL yuboradi.
+      🔑 Muhim mantiqni model hodisasiga qo'ymang — ochiq
+      <code>dispatch()</code> ishonchliroq.</div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 13) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Xulosa</span>
+    <ul>
+      <li>Hodisa — <b>fakt</b>, tinglovchi — <b>reaksiya</b>.
+      Controller e'lon qiladi, kim eshitishi uning ishi
+      emas.</li>
+      <li>Laravel 11+ da <code>EventServiceProvider</code>
+      <b>yo'q</b> — tinglovchi <code>handle()</code>
+      tip-belgisi bo'yicha topiladi.</li>
+      <li>⚠️ Tip-belgisi olinsa tinglovchi <b>jimgina</b>
+      yo'qoladi. Tashxis: <code>event:list</code>.</li>
+      <li>Tinglovchi konstruktoridan container orqali xizmat
+      oladi (49-dars).</li>
+      <li>⚠️ <b>Hodisalar sinxron.</b> O'lchandi: buzuq
+      tinglovchi → <b>500</b>, lekin yozuv
+      <b>bazada</b>.</li>
+      <li>✅ <code>implements ShouldQueue</code> — o'sha
+      buzuq tinglovchi bilan javob <b>201</b>.</li>
+      <li>Zanjir: <code>jobs</code> → <code>queue:work</code>
+      → <b>FAIL</b> → <code>failed_jobs</code>.</li>
+      <li>⚠️ Testda <code>QUEUE_CONNECTION=sync</code> —
+      <code>ShouldQueue</code> ta'sir qilmaydi.</li>
+      <li><code>Event::fake()</code> tinglovchilarni
+      <b>ishlatmaydi</b>: <code>assertDispatched</code>,
+      <code>assertListening</code>,
+      <code>assertNotDispatched</code>.</li>
+      <li>Model hodisalari (12 ta) Eloquent tomonidan
+      avtomatik, observer bilan yig'iladi.</li>
+      <li>⚠️ Ommaviy <code>update</code>/<code>delete</code>
+      model hodisalarini <b>ishga tushirmaydi</b>.</li>
+      <li>⚠️ Tranzaksiya ichida —
+      <code>ShouldHandleEventsAfterCommit</code>.</li>
+      <li>Bitta reaksiya uchun hodisa <b>ortiqcha</b>:
+      bog'lanish ko'rinmay qoladi.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p>Bugun <code>ShouldQueue</code> ni <b>ishlatdik</b>,
+    lekin navbatning o'zini ochmadik: <code>jobs</code>
+    jadvalida nima yotadi, <code>queue:work</code> qanday
+    ishlaydi, muvaffaqiyatsiz ish bilan nima
+    qilinadi?</p>
+    <p>Undan oldin esa kichikroq, lekin har kuni kerak
+    bo'ladigan mavzu bor. Bugun
+    <code>phpunit.xml</code> dagi
+    <code>QUEUE_CONNECTION</code> ga qaradik, 47-darsda
+    <code>APP_DEBUG</code> ga, 48-darsda
+    <code>CACHE_STORE</code> ga.</p>
+    <p>54-darsda <b>config, <code>.env</code> va kesh</b>ni
+    ochamiz: <code>env()</code> ni nega faqat
+    <code>config/</code> ichida yozish kerak, va
+    <code>config:cache</code> dan keyin nima uchun
+    ilova <b>jimgina</b> boshqacha ishlay
+    boshlaydi.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel — Events</b>:
+    <a href="https://laravel.com/docs/13.x/events">event, listener,
+    auto-discovery, ShouldQueue</a>.<sup><a href="#fn1">1</a></sup><br>
+    <b>Laravel — Eloquent Events va Observers</b>:
+    <a href="https://laravel.com/docs/13.x/eloquent#events">model
+    hodisalari</a>.<sup><a href="#fn2">2</a></sup><br>
+    <b>Laravel — Queues</b>:
+    <a href="https://laravel.com/docs/13.x/queues">queue:work,
+    failed_jobs</a>.<sup><a href="#fn3">3</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b>
+    «hodisa nechta tinglovchiga ega bo'lishi normal?»,
+    «<code>Event::fake([X::class])</code> nima qiladi?»,
+    «tinglovchini qayta urinishga majburlash mumkinmi?»,
+    «hodisani boshqa serverga yuborsa bo'ladimi?» — har
+    qanday savol yaxshi. Ikkinchisiga qisqa javob: faqat
+    <b>ko'rsatilgan</b> hodisalar soxta bo'ladi, qolganlari
+    haqiqiy ishlaydi — bitta hodisani tekshirib, boshqasini
+    ishlatish kerak bo'lganda foydali. Uchinchisiga:
+    <b>ha</b> — <code>public $tries = 3;</code> va
+    <code>public $backoff = 60;</code> (Modul H'da).
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0052-collections.html">Oldingi: Collections</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel 13 — <a href="https://laravel.com/docs/13.x/events">Events</a>.</li>
+      <li id="fn2">Laravel 13 — <a href="https://laravel.com/docs/13.x/eloquent#events">Eloquent Events</a>.</li>
+      <li id="fn3">Laravel 13 — <a href="https://laravel.com/docs/13.x/queues">Queues</a>.</li>
+      <li id="fn4">Barchasi jonli o'lchangan (PHP 8.3.32, Laravel 13.26.1,
+      Pest 4.7.8, SQLite):
+      <code>app/Providers/</code> da
+      <code>EventServiceProvider</code> <b>yo'q</b>, lekin
+      <code>event:list</code> ikkala tinglovchini ko'rsatdi
+      (<code>XabarYubor@handle</code>,
+      <code>StatistikaniYangila@handle</code>) ·
+      ⚠️ sinxron tinglovchi <code>throw</code> qilganda:
+      status <b>500</b>,
+      <code>{"message":"Serverda kutilmagan xato yuz
+      berdi.","xato_id":"..."}</code>, va
+      «bazada yozuv bormi» → <b>TRUE</b> ·
+      <code>implements ShouldQueue</code> +
+      <code>QUEUE_CONNECTION=database</code> dan keyin
+      <b>o'sha buzuq tinglovchi</b> bilan status
+      <b>201</b> ·
+      <code>DB::table('jobs')-&gt;count()</code> → <b>1</b>;
+      <code>queue:work --once --stop-when-empty</code> →
+      <code>RUNNING</code> keyin <code>FAIL</code> (9.89ms);
+      <code>failed_jobs</code> → <b>1</b> ·
+      ⚠️ <code>phpunit.xml</code> da
+      <code>QUEUE_CONNECTION=sync</code> — shuning uchun
+      testda <code>ShouldQueue</code> qo'shilgach ham
+      status <b>500</b> bo'lib qoldi ·
+      model hodisalari (12 ta): retrieved, creating,
+      created, updating, updated, saving, saved, deleting,
+      deleted, restoring, restored, replicating ·
+      <code>HodisaTest</code> — <b>4 passed (6
+      assertions)</b>, to'liq to'plam <b>50 passed (110
+      assertions), 0.56s</b>.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

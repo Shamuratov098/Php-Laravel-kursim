@@ -18,7 +18,7 @@
   izoh esa o'zbekcha.</p>
 
   <p class="lesson-meta">
-    <span>Atamalar: <b>224 ta</b></span>
+    <span>Atamalar: <b>228 ta</b></span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>📱 O'qishga mos</span>
   </p>
@@ -26,7 +26,7 @@
   <div class="callout note">
     <span class="label">Bu hujjat o'sib boradi</span>
     <p>Atama faqat <b>o'z darsi yozilganda</b> qo'shiladi — oldindan emas. Hozir:
-    Modul A–G (1–52-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
+    Modul A–G (1–53-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
     bosqichida qat'iy belgilangan va 73 dars bo'ylab o'zgarmaydi).</p>
   </div>
 
@@ -2037,6 +2037,72 @@
       ⚠️ Faqat bir nechta metodda ishlaydi va IDE ularni
       bilmaydi.
       <span class="eg">$vakansiyalar-&gt;sum-&gt;maosh</span></dd>
+    </div>
+
+    <div class="term" id="event-listener">
+      <dt>event va listener <span class="uz">— fakt va reaksiya</span></dt>
+      <dd>Hodisa — <b>sodir bo'lgan fakt</b> haqidagi
+      ma'lumot (mantiqsiz), tinglovchi — <b>reaksiya</b>.
+      Nomlash: hodisa <b>o'tgan zamonda</b>
+      (<code>VakansiyaYaratildi</code>), tinglovchi
+      <b>buyruq</b> (<code>XabarYubor</code>).
+      🔍 Laravel 11+ da <code>EventServiceProvider</code>
+      <b>yo'q</b> — tinglovchi <code>handle()</code> ning
+      <b>tip-belgisi</b> bo'yicha topiladi (o'lchandi:
+      <code>event:list</code> ikkalasini ko'rsatdi).
+      ⚠️ Tip-belgisi olinsa tinglovchi <b>jimgina</b>
+      yo'qoladi.
+      <span class="eg">VakansiyaYaratildi::dispatch($vakansiya);</span></dd>
+    </div>
+
+    <div class="term" id="hodisa-sinxron">
+      <dt>hodisalar sinxron <span class="uz">— eng xavfli holat</span></dt>
+      <dd>⚠️ <code>dispatch()</code> tinglovchilarni
+      <b>o'sha so'rovda</b> chaqiradi.
+      🔍 O'lchandi: buzuq tinglovchi → status <b>500</b>,
+      lekin yozuv <b>bazada qoldi</b>. Mijoz qayta urinadi
+      va <b>ikkinchi nusxa</b> paydo bo'ladi.
+      🔑 Hodisa <b>kodni</b> ajratadi, <b>xatarni</b> emas.
+      ✅ <code>implements ShouldQueue</code> — o'sha buzuq
+      tinglovchi bilan javob <b>201</b> bo'ldi.
+      Savol: «bu ish bajarilmasa, mijozga 500 qaytarish
+      to'g'rimi?»
+      <span class="eg">class X implements ShouldQueue</span></dd>
+    </div>
+
+    <div class="term" id="event-fake">
+      <dt>Event::fake() <span class="uz">— hodisani ushlab qolish</span></dt>
+      <dd>Tinglovchilar <b>ishlamaydi</b>, lekin nima e'lon
+      qilinganini tekshirsa bo'ladi:
+      <code>assertDispatched</code> ·
+      <code>assertListening</code> ·
+      <code>assertNotDispatched</code>; closure bilan shart
+      ham beriladi.
+      ⚠️ <code>assertListening</code> ulanishni tekshiradi —
+      tip-belgisi o'chsa test darrov qizaradi.
+      ⚠️ <b>Testda <code>ShouldQueue</code> ta'sir
+      qilmaydi</b>: <code>phpunit.xml</code> da
+      <code>QUEUE_CONNECTION=sync</code> (o'lchandi).
+      <span class="eg">Event::assertDispatched(X::class, fn ($e) =&gt; ...)</span></dd>
+    </div>
+
+    <div class="term" id="model-hodisalari">
+      <dt>model hodisalari <span class="uz">— Eloquent o'zi e'lon qiladi</span></dt>
+      <dd>12 ta: retrieved · creating · created · updating ·
+      updated · saving · saved · deleting · deleted ·
+      restoring · restored · replicating.
+      Observer bilan yig'iladi
+      (<code>make:observer X --model=Y</code>,
+      <code>#[ObservedBy(...)]</code>).
+      ⚠️ <b>Ommaviy amallarda ISHLAMAYDI</b>:
+      <code>where(...)-&gt;update()</code>,
+      <code>where(...)-&gt;delete()</code>,
+      <code>DB::table(...)-&gt;insert()</code> — ular modelni
+      yasamaydi.
+      🔑 Muhim mantiqni model hodisasiga qo'ymang.
+      ⚠️ Tranzaksiya ichida —
+      <code>ShouldHandleEventsAfterCommit</code>.
+      <span class="eg">#[ObservedBy(VakansiyaObserver::class)]</span></dd>
     </div>
 
     <div class="term" id="sanctum">
