@@ -18,7 +18,7 @@
   izoh esa o'zbekcha.</p>
 
   <p class="lesson-meta">
-    <span>Atamalar: <b>218 ta</b></span>
+    <span>Atamalar: <b>224 ta</b></span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>📱 O'qishga mos</span>
   </p>
@@ -26,7 +26,7 @@
   <div class="callout note">
     <span class="label">Bu hujjat o'sib boradi</span>
     <p>Atama faqat <b>o'z darsi yozilganda</b> qo'shiladi — oldindan emas. Hozir:
-    Modul A–G (1–51-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
+    Modul A–G (1–52-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
     bosqichida qat'iy belgilangan va 73 dars bo'ylab o'zgarmaydi).</p>
   </div>
 
@@ -1929,6 +1929,114 @@
       ⚠️ Bog'liqlikni <b>yashiradi</b> — yangi kodda
       konstruktor injektsiyasi afzal.
       <span class="eg">use Facades\App\Xizmatlar\XabarYuboruvchi;</span></dd>
+    </div>
+
+    <div class="term" id="collection">
+      <dt>Collection <span class="uz">— massiv emas, obyekt</span></dt>
+      <dd>🔍 O'lchandi: <code>Model::get()</code> →
+      <code>Illuminate\Database\Eloquent\Collection</code>,
+      ota-klassi <code>Illuminate\Support\Collection</code>;
+      <code>collect([...])</code> → oddiy
+      <code>Support\Collection</code>.
+      <b>O'zgarmas</b>: har bir metod <b>yangi</b> kolleksiya
+      qaytaradi, asl ma'lumot tegilmaydi (istisno —
+      <code>transform()</code>).
+      🔑 Zanjir <code>foreach</code> dan qisqa emas —
+      <b>bosqichlarga ajratilgan</b>. Ovoz chiqarib o'qib
+      bo'lmasa, bo'lib yuboring.
+      <span class="eg">$v-&gt;where(...)-&gt;sortByDesc(...)-&gt;pluck('nom')</span></dd>
+    </div>
+
+    <div class="term" id="values-tuzogi">
+      <dt>values() <span class="uz">— filter'dan keyingi majburiy qadam</span></dt>
+      <dd>⚠️ <code>filter()</code> kalitlarni <b>saqlaydi</b>.
+      O'lchandi:
+      <code>collect([1..6])-&gt;filter(juft)-&gt;toJson()</code>
+      → <code>{"1":2,"3":4,"5":6}</code> — massiv emas,
+      <b>JSON obyekt</b>.
+      🔍 Haqiqiy API'da: <code>top_uchta</code> kalitlari
+      <code>2, 0, 4</code> bo'lib chiqdi — mijoz uchun bu
+      «ba'zan bo'sh ro'yxat» va «tartib o'zgaradi».
+      Xuddi shu narsa <code>reject</code>, <code>where</code>,
+      <code>sortBy</code>, <code>sort</code>,
+      <code>unique</code>, <code>skip</code> dan keyin ham.
+      ✅ JSON'ga ketayotgan bo'lsa — <code>values()</code>.
+      🔑 <code>groupBy</code> dan keyin <b>kerak emas</b>:
+      u yerda kalitlar ma'noli.
+      🔍 Test: <code>expect(array_keys($javob-&gt;json(...)))-&gt;toBe([0,1,2])</code>
+      — <code>assertJsonCount</code> buni <b>tutmaydi</b>.
+      <span class="eg">-&gt;filter(...)-&gt;values()</span></dd>
+    </div>
+
+    <div class="term" id="avg-null">
+      <dt>avg() va null <span class="uz">— bo'luvchi kichikroq</span></dt>
+      <dd>⚠️ <code>avg()</code> <code>null</code> qiymatlarni
+      <b>hisobga olmaydi</b>.
+      🔍 O'lchandi: 6 yozuv (1 tasi <code>null</code>),
+      <code>sum</code> 9500 →
+      <code>avg</code> <b>1900</b> (9500/5),
+      <code>sum/count</code> <b>1583.3</b> (9500/6).
+      Ikkalasi ham «o'rtacha» deyiladi — savolga bog'liq.
+      ⚠️ Bo'sh kolleksiyada <code>avg()</code> →
+      <code>NULL</code>, <code>round()</code> uni
+      <code>0</code> qiladi.
+      🔍 Tip ham o'zgaradi: <code>avg([1,2])</code> →
+      <code>1.5</code> (float), <code>avg([2500,1200,null])</code>
+      → <code>1850</code> (int) — testda
+      <code>toEqual</code>, <code>toBe</code> emas.
+      <span class="eg">round((float) $v-&gt;avg('maosh'))</span></dd>
+    </div>
+
+    <div class="term" id="kolleksiya-where">
+      <dt>kolleksiyadagi where <span class="uz">— SQL emas</span></dt>
+      <dd><code>Vakansiya::where(...)-&gt;get()</code> —
+      <b>SQL</b>, baza faqat keraklisini qaytaradi.
+      <code>Vakansiya::get()-&gt;where(...)</code> —
+      <b>xotirada</b>, hamma yozuv olinadi.
+      🔑 <code>get()</code> qaysi tomonda turganiga qarang.
+      ⚠️ Kolleksiya <code>where</code> i qat'iy
+      solishtirmaydi (<code>1</code> va <code>true</code> bir
+      xil) — qat'iylik uchun <code>whereStrict()</code>.
+      ⚠️ Zanjir ichida <code>$v-&gt;kompaniya</code> yozsangiz
+      N+1 qaytadi — <code>with()</code> ni unutmang.
+      <span class="eg">Vakansiya::get()-&gt;where('faol', true)</span></dd>
+    </div>
+
+    <div class="term" id="lazy-collection">
+      <dt>LazyCollection <span class="uz">— bittalab o'qish</span></dt>
+      <dd><code>cursor()</code> va <code>lazy()</code>
+      <code>Illuminate\Support\LazyCollection</code>
+      qaytaradi — bir xil metodlar, lekin yozuvlar
+      <b>bittalab</b> o'qiladi.
+      🔍 20 006 yozuvda xotira o'lchandi (bo'sh ilova 22 MB):
+      <code>get()</code> <b>54 MB</b> ·
+      <code>cursor()</code> <b>24 MB</b> ·
+      <code>chunk(500)</code> <b>24 MB</b> ·
+      <code>lazy()</code> <b>26 MB</b>.
+      🔑 <b>Erta to'xtaydi</b>: <code>take(3)</code> uchun
+      20 006 dan atigi <b>2510</b> yozuv o'qildi.
+      ⚠️ <code>each()</code> ishlatsangiz bu foyda
+      <b>yo'qoladi</b>.
+      ⚠️ Qayta yurilsa bazaga <b>yana</b> so'rov yuboriladi
+      (o'lchandi: 2 ta). Kolleksiya — ma'lumot, yalqov
+      kolleksiya — <b>retsept</b>.
+      <span class="eg">Vakansiya::cursor()-&gt;filter(...)-&gt;take(3)</span></dd>
+    </div>
+
+    <div class="term" id="yuqori-tartibli-proksi">
+      <dt>yuqori tartibli proksi <span class="uz">— closure'siz yozuv</span></dt>
+      <dd><code>$v-&gt;sum-&gt;maosh</code> ≡
+      <code>$v-&gt;sum(fn ($x) =&gt; $x-&gt;maosh)</code>;
+      <code>$v-&gt;filter-&gt;faol</code>,
+      <code>$v-&gt;map-&gt;count()</code>.
+      🔍 O'lchandi: <code>$v-&gt;sum-&gt;maosh</code> → 9500,
+      <code>$v-&gt;filter-&gt;faol-&gt;count()</code> → 5.
+      Mexanizmi 51-darsdagi sehrli metodlar:
+      <code>-&gt;sum</code> xossa emas, <code>__get</code>
+      proksi obyekt qaytaradi.
+      ⚠️ Faqat bir nechta metodda ishlaydi va IDE ularni
+      bilmaydi.
+      <span class="eg">$vakansiyalar-&gt;sum-&gt;maosh</span></dd>
     </div>
 
     <div class="term" id="sanctum">

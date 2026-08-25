@@ -17,7 +17,7 @@
   muhit ma'lumotlari. Har dars yangi buyruq o'rgatilsa, shu yerga qo'shiladi.</p>
 
   <p class="lesson-meta">
-    <span>Qamrov: <b>1&ndash;51-darslar</b> — muhitdan API'gacha</span>
+    <span>Qamrov: <b>1&ndash;52-darslar</b> — muhitdan API'gacha</span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>💻 Amaliyotga mos</span>
   </p>
@@ -1457,6 +1457,66 @@
     <p>⚠️ IDE fasad metodlarini bilmaydi (va haqli — metod
     yo'q). <code>barryvdh/laravel-ide-helper</code> yoki
     <code>@method static</code> izohlari.</p>
+  </div>
+
+  <h2>Collections (52-darsdan)</h2>
+  <table class="sheet">
+    <tr><th>Kod</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>-&gt;values()</code></td><td class="note-cell">⚠️ <code>filter</code>/<code>sort</code> dan keyin — JSON massiv bo'lishi uchun</td></tr>
+    <tr><td><code>-&gt;pluck('nom')</code> · <code>pluck('nom', 'id')</code></td><td class="note-cell">Bitta maydonni yig'ish; ikkinchi argument — kalit</td></tr>
+    <tr><td><code>-&gt;pluck('kompaniya.nom')</code></td><td class="note-cell">Nuqta bilan <b>bog'lanish</b> ichiga kirish</td></tr>
+    <tr><td><code>-&gt;groupBy('shahar')</code></td><td class="note-cell">Kalit = qiymat. <code>values()</code> <b>kerak emas</b></td></tr>
+    <tr><td><code>-&gt;map-&gt;count()</code> · <code>-&gt;sum-&gt;maosh</code></td><td class="note-cell">Yuqori tartibli proksi — closure'siz</td></tr>
+    <tr><td><code>-&gt;reduce(fn ($jami, $x) =&gt; ..., 0)</code></td><td class="note-cell">Eng umumiy metod — tayyor metod yo'q bo'lganda</td></tr>
+    <tr><td><code>-&gt;partition(fn ($x) =&gt; ...)</code></td><td class="note-cell">[mos kelganlar, kelmaganlar]</td></tr>
+    <tr><td><code>-&gt;tap(fn ($k) =&gt; dump($k))</code></td><td class="note-cell">Zanjirni buzmasdan o'rtasiga qarash</td></tr>
+    <tr><td><code>-&gt;sole(fn ($x) =&gt; ...)</code></td><td class="note-cell">Aynan bitta bo'lishi shart, aks holda xato</td></tr>
+    <tr><td><code>Model::cursor()</code> · <code>lazy()</code></td><td class="note-cell"><code>LazyCollection</code> — bittalab o'qiydi</td></tr>
+    <tr><td><code>Model::chunk(500, fn ($qism) =&gt; ...)</code></td><td class="note-cell">Qismlab o'qish — har qismda <b>yozish</b> bo'lsa</td></tr>
+    <tr><td><code>Collection::macro('nom', fn () =&gt; ...)</code></td><td class="note-cell">O'z metodingiz (provider'ning <code>boot()</code> ida)</td></tr>
+  </table>
+  <div class="callout note">
+    <p>⚠️ <b><code>filter()</code> kalitlarni saqlaydi.</b>
+    O'lchandi:
+    <code>collect([1..6])-&gt;filter(juft)-&gt;toJson()</code> →
+    <code>{"1":2,"3":4,"5":6}</code> — JSON <b>obyekt</b>.
+    Haqiqiy API'da kalitlar <code>2, 0, 4</code> bo'lib chiqdi
+    (tartibsiz!) — mijoz uchun «ba'zan bo'sh ro'yxat».
+    <br>✅ JSON'ga ketayotgan bo'lsa <code>values()</code>:
+    <code>filter</code> · <code>reject</code> ·
+    <code>where</code> · <code>sortBy</code> ·
+    <code>sort</code> · <code>unique</code> ·
+    <code>skip</code> dan keyin.
+    <br>🔑 <code>groupBy</code> dan keyin <b>kerak emas</b> —
+    kalitlar ma'noli.
+    <br>🔍 Test: <code>expect(array_keys(...))-&gt;toBe([0,1,2])</code>.
+    <code>assertJsonCount</code> buni <b>tutmaydi</b>.</p>
+    <p>⚠️ <b><code>avg()</code> <code>null</code> larni
+    tashlaydi.</b> O'lchandi: <code>avg</code> <b>1900</b>,
+    <code>sum/count</code> <b>1583.3</b>.
+    Bo'sh kolleksiyada <code>NULL</code>.
+    Tip ham o'zgaradi (<code>1.5</code> float,
+    <code>1850</code> int) — testda <code>toEqual</code>.</p>
+    <p>⚠️ <b><code>get()-&gt;where(...)</code> SQL emas.</b>
+    <code>get()</code> qaysi tomonda turganiga qarang.
+    Kolleksiya <code>where</code> i qat'iy solishtirmaydi —
+    <code>whereStrict()</code>.
+    <br>⚠️ Zanjir ichida <code>$v-&gt;kompaniya</code> →
+    N+1. <code>with()</code> ni unutmang.</p>
+    <p>🔑 <b>Xotira (20 006 yozuv, bo'sh ilova 22 MB):</b>
+    <code>get()</code> <b>54 MB</b> ·
+    <code>cursor()</code> <b>24 MB</b> ·
+    <code>chunk(500)</code> <b>24 MB</b> ·
+    <code>lazy()</code> <b>26 MB</b>.
+    <br>Yalqov zanjir <b>erta to'xtaydi</b>:
+    <code>take(3)</code> uchun atigi <b>2510</b> yozuv.
+    ⚠️ <code>each()</code> bu foydani yo'qotadi.
+    ⚠️ Qayta yurilsa bazaga <b>yana</b> so'rov.</p>
+    <p>🔑 Kolleksiya <b>o'zgarmas</b> — har metod yangi obyekt.
+    Istisno: <code>transform()</code>.
+    <br>🔑 Qachon nima: <code>get()</code> yuzlab yozuv va
+    JSON · <code>cursor()</code> minglab va bir marta ·
+    <code>chunk()</code> minglab va yozish bor.</p>
   </div>
 
   <h2>Xatoni o'qish</h2>

@@ -1,0 +1,1275 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 52 — Collections</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 52 · MODUL G — LARAVEL ICHKI MEXANIZMI</p>
+  <h1>Collections</h1>
+  <p class="lead">Modelni <code>get()</code> qilganingizda massiv
+  emas, <b>kolleksiya</b> qaytadi. 28-darsdan beri uni
+  ishlatib kelyapmiz, lekin nima ekanini so'ramadik. Bugun
+  ochamiz — va yo'lda API javobini <b>jimgina</b> buzadigan
+  bitta xatoni tutamiz.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 17 daqiqa</span>
+    <span>💻 Amaliyot ≈ 28 daqiqa</span>
+    <span>Kerak: <a href="0051-facade.html">Dars 51</a></span>
+  </p>
+
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b>Kolleksiya nima</b>
+        <span class="nima">🔍 O'lchandi: <code>get()</code> →
+        <code>Eloquent\Collection</code>, u esa
+        <code>Support\Collection</code> dan meros
+        oladi.</span></li>
+      <li><b><code>foreach</code> va zanjir</b>
+        <span class="nima">Bir xil ishning ikki yozilishi —
+        va nega ikkinchisi tezroq o'qiladi.</span></li>
+      <li><b>⚠️ Darsning eng qimmat xatosi</b>
+        <span class="nima"><code>filter()</code> kalitlarni
+        <b>saqlaydi</b> → JSON massiv o'rniga <b>obyekt</b>
+        bo'lib qoladi. Haqiqiy API javobida
+        o'lchandi.</span></li>
+      <li><b><code>values()</code> — bir so'zlik yechim</b>
+        <span class="nima">Va nega u <code>groupBy</code> dan
+        keyin <b>kerak emas</b>.</span></li>
+      <li><b>O'zgarmaslik</b>
+        <span class="nima">Har bir metod <b>yangi</b> kolleksiya
+        qaytaradi. Asl ma'lumot tegilmaydi —
+        o'lchandi.</span></li>
+      <li><b><code>pluck</code> va nuqta</b>
+        <span class="nima"><code>pluck('kompaniya.nom')</code> —
+        bog'lanish ichiga kirish. Ikkinchi argument bilan
+        kalit ham beriladi.</span></li>
+      <li><b><code>groupBy</code>, <code>reduce</code>,
+        <code>sum</code></b>
+        <span class="nima">Haqiqiy statistika endpointi
+        yozamiz — sikl yozmasdan.</span></li>
+      <li><b>⚠️ <code>avg()</code> va <code>null</code></b>
+        <span class="nima">🔍 O'lchandi: <code>avg</code>
+        <b>1900</b>, <code>sum/count</code> esa
+        <b>1583.3</b>. Ikkalasi ham «o'rtacha»
+        deyiladi.</span></li>
+      <li><b>Yuqori tartibli proksi</b>
+        <span class="nima"><code>$v-&gt;sum-&gt;maosh</code>
+        va <code>$v-&gt;filter-&gt;faol</code> — closure'siz
+        yozuv.</span></li>
+      <li><b><code>LazyCollection</code> va xotira</b>
+        <span class="nima">🔍 20 006 yozuvda o'lchandi:
+        <code>get()</code> <b>54 MB</b>, <code>cursor()</code>
+        <b>24 MB</b>.</span></li>
+      <li><b>Yalqov zanjir erta to'xtaydi</b>
+        <span class="nima">🔍 <code>take(3)</code> uchun
+        20 006 dan atigi <b>2510</b> yozuv o'qildi.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima">Kolleksiyada <code>where</code> va
+        SQL'dagi <code>where</code> · <code>each</code> va
+        <code>map</code> · <code>cursor</code> ni qayta
+        ishlatish · qachon massiv afzal.</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Massiv emas ekan</span>
+    <p>28-darsdan beri shunday yozamiz:</p>
+    <div class="natija">$vakansiyalar = Vakansiya::get();
+
+foreach ($vakansiyalar as $v) { ... }</div>
+    <p>Massivdek ishlaydi. Lekin turini so'rasak:</p>
+    <div class="natija">get_class(Vakansiya::get())
+→  Illuminate\Database\Eloquent\Collection
+
+get_parent_class(...)
+→  Illuminate\Support\Collection</div>
+    <p>Bu <b>obyekt</b>, va unda yuzdan ortiq metod bor.
+    Ularning ba'zilarini bilmasdan ishlatgansiz ham:
+    46-darsda <code>$javob-&gt;json('data.*.maosh')</code>,
+    43-darsda <code>VakansiyaResource::collection(...)</code>,
+    51-darsda <code>Facade::defaultAliases()-&gt;merge(...)</code>.</p>
+    <p>Bugun ularni <b>ataylab</b> ishlatamiz. Va bitta
+    jimgina xatoni ham tutamiz — u aynan API javobida
+    ko'rinadi.</p>
+  </div>
+
+  <!-- ═══════════════ 2) FOREACH VA ZANJIR ═══════════════ -->
+  <h2><code>foreach</code> va zanjir</h2>
+
+  <p>Vazifa: <b>Toshkentdagi faol vakansiyalarning nomlarini
+  maosh bo'yicha kamayish tartibida</b> olish.</p>
+
+  <div class="codefile">
+    <div class="fname">foreach bilan</div>
+    <code class="cmd">$natija = [];
+
+foreach ($vakansiyalar as $v) {
+    if ($v-&gt;shahar === 'Toshkent' &amp;&amp; $v-&gt;faol) {
+        $natija[] = $v;
+    }
+}
+
+usort($natija, fn ($a, $b) =&gt; $b-&gt;maosh &lt;=&gt; $a-&gt;maosh);
+
+$nomlar = [];
+foreach ($natija as $v) {
+    $nomlar[] = $v-&gt;nom;
+}</code>
+  </div>
+
+  <div class="codefile">
+    <div class="fname">kolleksiya bilan</div>
+    <code class="cmd">$nomlar = $vakansiyalar
+    -&gt;where('shahar', 'Toshkent')
+    -&gt;where('faol', true)
+    -&gt;sortByDesc('maosh')
+    -&gt;pluck('nom')
+    -&gt;values();</code>
+  </div>
+
+  <p>Ikkalasi ham bir xil natija beradi. Farq —
+  <b>o'qishda</b>: ikkinchisi <b>nima</b> qilinayotganini
+  aytadi, birinchisi <b>qanday</b> qilinayotganini.</p>
+
+  <div class="callout tip">
+    <span class="label">🔑 Bu «qisqaroq» degani emas</span>
+    <p><code>foreach</code> yomon emas — u tushunarli va tez.
+    Kolleksiyaning foydasi <b>bosqichlarni ajratishda</b>:
+    har bir qator bitta ish qiladi va uni alohida o'qish
+    mumkin.</p>
+    <p>⚠️ Uzun zanjir esa aksincha — 8 ta metod ketma-ket
+    kelsa, <code>foreach</code> dan ham qiyin bo'lib ketadi.
+    Chegara oddiy: <b>zanjirni ovoz chiqarib o'qib
+    ko'ring</b>. Gapga o'xshamasa, bo'lib
+    yuboring.</p>
+  </div>
+
+  <!-- ═══════════════ 3) FILTER TUZOG'I ═══════════════ -->
+  <h2>⚠️ <code>filter()</code> kalitlarni saqlaydi</h2>
+
+  <p>Bu darsning eng qimmat qismi. Oddiy misoldan
+  boshlaymiz:</p>
+
+  <div class="natija">$sonlar = collect([1, 2, 3, 4, 5, 6]);
+$juft = $sonlar-&gt;filter(fn ($n) =&gt; $n % 2 === 0);
+
+$juft-&gt;toJson()   →   {"1":2,"3":4,"5":6}        ⚠️ OBYEKT</div>
+
+  <p>Kutgan narsamiz <code>[2,4,6]</code> edi. Chiqqani esa
+  <b>JSON obyekt</b> — chunki <code>filter</code> asl
+  kalitlarni (<code>1</code>, <code>3</code>, <code>5</code>)
+  <b>saqlab qoladi</b>, va nol'dan boshlanmagan
+  ketma-ketlik JSON'da massiv bo'la olmaydi.</p>
+
+  <p><code>sort()</code> ham xuddi shunday:</p>
+
+  <div class="natija">collect([3, 1, 2])-&gt;sort()-&gt;toJson()   →   {"1":1,"2":2,"0":3}</div>
+
+  <h3>Endi buni haqiqiy API'da ko'ramiz</h3>
+
+  <p>Statistika endpointi yozdik. Unda «eng yuqori maoshli
+  uchta vakansiya» bor:</p>
+
+  <div class="natija">$vakansiyalar-&gt;sortByDesc('maosh')-&gt;take(3)-&gt;map(fn ($v) =&gt; [...])</div>
+
+  <div class="natija">// javobda:
+"top_uchta": {
+    "2": { "nom": "DevOps muhandis",   "maosh": 3000 },
+    "0": { "nom": "Backend dasturchi", "maosh": 2500 },
+    "4": { "nom": "Mobil dasturchi",   "maosh": 2000 }
+}                ⚠️ massiv emas, OBYEKT — va kalitlar 2, 0, 4</div>
+
+  <p>Ikkita muammo birdan. Mijoz massiv kutgan edi — obyekt
+  oldi. Va kalitlar <b>tartibsiz</b>: <code>2, 0, 4</code>.
+  JavaScript'da obyekt kalitlarining tartibi kafolatlanmaydi,
+  ya'ni mobil ilova «eng yuqori maoshli» ro'yxatni
+  <b>boshqa tartibda</b> ko'rsatishi mumkin.</p>
+
+  <p>✅ Yechim bitta so'z:</p>
+
+  <div class="natija">-&gt;map(fn ($v) =&gt; [...])
+-&gt;values()                      ← qo'shildi
+
+"top_uchta": [
+    { "nom": "DevOps muhandis",   "maosh": 3000 },
+    { "nom": "Backend dasturchi", "maosh": 2500 },
+    { "nom": "Mobil dasturchi",   "maosh": 2000 }
+]                ✅ massiv, to'g'ri tartibda</div>
+
+  <div class="callout warn">
+    <span class="label">⚠️ Qoida</span>
+    <p>Kalitni <b>o'zgartiradigan</b> yoki yo'qotadigan har bir
+    metoddan keyin, agar natija <b>JSON'ga ketayotgan
+    bo'lsa</b>, <code>values()</code> qo'ying:</p>
+    <div class="natija">filter · reject · where · sortBy · sortByDesc · sort
+unique · skip · take (filterdan keyin) · shuffle</div>
+    <p>🔑 Bu 46-darsdagi <code>?sort=moash</code> va 47-darsdagi
+    o'lik handler bilan bir oiladan: <b>status 200, javob
+    noto'g'ri</b>.</p>
+    <p>🔍 Testda tutish oson:
+    <code>expect(array_keys($javob-&gt;json('top_uchta')))-&gt;toBe([0, 1, 2])</code>.</p>
+  </div>
+
+  <h3>Qachon <code>values()</code> KERAK EMAS</h3>
+
+  <p>Statistikaning ikkinchi qismida <code>groupBy</code>
+  bor — va u ataylab <code>values()</code> siz
+  qoldirilgan:</p>
+
+  <div class="natija">"shaharlar": {
+    "Toshkent":  { "soni": 4, "eng_yuqori_maosh": 2500 },
+    "Samarqand": { "soni": 1, "eng_yuqori_maosh": 3000 },
+    "Buxoro":    { "soni": 1, "eng_yuqori_maosh": 800 }
+}                ✅ obyekt — va bu TO'G'RI</div>
+
+  <p>Bu yerda kalitlar <b>ma'noli</b>: ular shahar nomlari.
+  Mijoz <code>shaharlar.Toshkent.soni</code> deb bemalol
+  o'qiy oladi.</p>
+
+  <p>Mezon oddiy: <b>kalit ma'lumotmi yoki tasodifmi?</b>
+  Ma'noli bo'lsa — obyekt qoldiring. Tasodifiy raqam bo'lsa —
+  <code>values()</code>.</p>
+
+  <!-- ═══════════════ 4) O'ZGARMASLIK ═══════════════ -->
+  <h2>O'zgarmaslik</h2>
+
+  <p>Kolleksiyaning har bir metodi <b>yangi</b> kolleksiya
+  qaytaradi. Asl ma'lumot tegilmaydi:</p>
+
+  <div class="natija">$asl = collect([3, 1, 2]);
+$saralangan = $asl-&gt;sort();
+
+$asl-&gt;toJson()          →  [3,1,2]        ← o'zgarmadi
+$saralangan-&gt;toJson()   →  {"1":1,"2":2,"0":3}
+$asl === $saralangan    →  YO'Q</div>
+
+  <p>Bu <code>usort()</code> dan farq qiladi — u massivni
+  <b>joyida</b> o'zgartiradi.</p>
+
+  <div class="callout tip">
+    <span class="label">🔑 Nega bu muhim</span>
+    <p>Bitta kolleksiyani bir necha marta ishlatsangiz, har
+    bir zanjir <b>mustaqil</b>:</p>
+    <div class="natija">$v = Vakansiya::get();
+
+$faollar = $v-&gt;where('faol', true);      // $v tegilmadi
+$qimmatlar = $v-&gt;sortByDesc('maosh');    // $v yana tegilmadi</div>
+    <p>⚠️ Istisno: <code>transform()</code> — u
+    <b>joyida</b> o'zgartiradi. Nomi ham shuni aytadi
+    (<code>map</code> emas).</p>
+  </div>
+
+  <!-- ═══════════════ 5) ASOSIY METODLAR ═══════════════ -->
+  <h2>Kundalik metodlar</h2>
+
+  <div class="natija">$v = Vakansiya::with('kompaniya')-&gt;get();
+
+pluck('nom')             →  ["Backend dasturchi","Frontend dasturchi",...]
+pluck('nom', 'id')       →  {"10":"Backend dasturchi","11":"Frontend dasturchi"}
+pluck('kompaniya.nom')   →  ["Uzum Tech","Alif Lab"]        ← nuqta bilan!
+
+groupBy('shahar')-&gt;keys()          →  ["Toshkent","Samarqand","Buxoro"]
+groupBy('shahar')-&gt;map-&gt;count()    →  {"Toshkent":4,"Samarqand":1,"Buxoro":1}
+
+sum('maosh')   →  9500
+max('maosh')   →  3000
+reduce(fn ($jami, $x) =&gt; $jami + (int) $x-&gt;maosh, 0)   →  9500</div>
+
+  <p><code>pluck('kompaniya.nom')</code> ga alohida e'tibor
+  bering: nuqta orqali <b>bog'lanishga</b> kiradi. Bu
+  46-darsdagi <code>assertJsonPath('meta.total', 1)</code>
+  bilan bir xil yozuv.</p>
+
+  <h3><code>reduce</code> — eng umumiy metod</h3>
+
+  <p>Qolgan hamma narsani <code>reduce</code> bilan yozsa
+  bo'ladi: u kolleksiyani <b>bitta qiymatga</b> yig'adi.</p>
+
+  <div class="natija">reduce(fn ($yigilgan, $element) =&gt; ..., $boshlangich)</div>
+
+  <p><code>sum()</code>, <code>count()</code>,
+  <code>max()</code> — hammasi shuning maxsus holatlari.
+  Amalda esa aksincha: <code>reduce</code> ni <b>faqat</b>
+  tayyor metod yo'q bo'lganda ishlating — u o'qish uchun
+  eng qiyini.</p>
+
+  <!-- ═══════════════ 6) AVG TUZOG'I ═══════════════ -->
+  <h2>⚠️ <code>avg()</code> va <code>null</code></h2>
+
+  <p>Bazamizda 6 ta vakansiya bor, bittasining maoshi
+  <code>null</code> («Kelishuv asosida»). O'rtacha maoshni
+  ikki xil yo'l bilan hisoblaymiz:</p>
+
+  <div class="natija">jami yozuv:         6
+maoshi bor yozuv:   5
+sum('maosh'):       9500
+
+avg('maosh'):       1900        ← 9500 / 5
+sum / count:        1583.3      ← 9500 / 6</div>
+
+  <p>Ikkalasi ham «o'rtacha maosh» deb ataladi, lekin
+  <b>boshqa son</b>. <code>avg()</code> <code>null</code>
+  qiymatlarni <b>hisobga olmaydi</b> — bo'luvchi 6 emas,
+  5.</p>
+
+  <p>Qaysi biri to'g'ri? <b>Savolga bog'liq:</b></p>
+
+  <div class="natija">«Maosh ko'rsatilgan vakansiyalarda o'rtacha qancha?»   →  1900   (avg)
+«Bir vakansiyaga o'rtacha qancha maosh to'g'ri keladi?» →  1583   (sum/count)</div>
+
+  <p>Muammo shundaki, kod ikkalasida ham bir xil
+  ko'rinadi. Yana ikkita o'lchangan holat:</p>
+
+  <div class="natija">collect([1, 2])-&gt;avg()               →  1.5     (float)
+collect([2500, 1200, null])-&gt;avg()   →  1850    (int — bo'linish butun chiqdi)
+collect([])-&gt;avg()                   →  NULL    ⚠️</div>
+
+  <p>Oxirgisi eng xavflisi: bo'sh kolleksiyada
+  <code>avg()</code> <code>null</code> qaytaradi. Uni
+  to'g'ridan-to'g'ri <code>round()</code> ga bersangiz
+  <code>0</code> chiqadi va «o'rtacha maosh 0» degan
+  ma'lumot ko'rsatiladi.</p>
+
+  <div class="natija">✅ round((float) $v-&gt;avg('maosh'))        // ochiq aytilgan
+✅ $v-&gt;isEmpty() ? null : round($v-&gt;avg('maosh'))   // yoki ochiq tekshiruv</div>
+
+  <!-- ═══════════════ 7) STATISTIKA ═══════════════ -->
+  <h2>Haqiqiy misol: statistika endpointi</h2>
+
+  <div class="codefile">
+    <div class="fname">app/Http/Controllers/Api/StatistikaController.php</div>
+    <code class="cmd" data-cmd="&lt;?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Models\Vakansiya;
+
+class StatistikaController extends Controller
+{
+    public function __invoke()
+    {
+        $vakansiyalar = Vakansiya::with('kompaniya')-&gt;get();
+
+        return [
+            'jami' =&gt; $vakansiyalar-&gt;count(),
+            'faol' =&gt; $vakansiyalar-&gt;where('faol', true)-&gt;count(),
+            'ortacha_maosh' =&gt; round((float) $vakansiyalar-&gt;avg('maosh')),
+            'shaharlar' =&gt; $vakansiyalar
+                -&gt;groupBy('shahar')
+                -&gt;map(fn ($guruh) =&gt; [
+                    'soni' =&gt; $guruh-&gt;count(),
+                    'eng_yuqori_maosh' =&gt; $guruh-&gt;max('maosh'),
+                ])
+                -&gt;sortByDesc('soni'),
+            'top_uchta' =&gt; $vakansiyalar
+                -&gt;sortByDesc('maosh')
+                -&gt;take(3)
+                -&gt;map(fn ($v) =&gt; [
+                    'nom' =&gt; $v-&gt;nom,
+                    'maosh' =&gt; $v-&gt;maosh,
+                    'kompaniya' =&gt; $v-&gt;kompaniya?-&gt;nom,
+                ])
+                -&gt;values(),
+        ];
+    }
+}">&lt;?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Models\Vakansiya;
+
+class StatistikaController extends Controller
+{
+    public function __invoke()
+    {
+        $vakansiyalar = Vakansiya::with('kompaniya')-&gt;get();
+
+        return [
+            'jami' =&gt; $vakansiyalar-&gt;count(),
+            'faol' =&gt; $vakansiyalar-&gt;where('faol', true)-&gt;count(),
+            'ortacha_maosh' =&gt; round((float) $vakansiyalar-&gt;avg('maosh')),
+            'shaharlar' =&gt; $vakansiyalar
+                -&gt;groupBy('shahar')
+                -&gt;map(fn ($guruh) =&gt; [
+                    'soni' =&gt; $guruh-&gt;count(),
+                    'eng_yuqori_maosh' =&gt; $guruh-&gt;max('maosh'),
+                ])
+                -&gt;sortByDesc('soni'),
+            'top_uchta' =&gt; $vakansiyalar
+                -&gt;sortByDesc('maosh')
+                -&gt;take(3)
+                -&gt;map(fn ($v) =&gt; [
+                    'nom' =&gt; $v-&gt;nom,
+                    'maosh' =&gt; $v-&gt;maosh,
+                    'kompaniya' =&gt; $v-&gt;kompaniya?-&gt;nom,
+                ])
+                -&gt;values(),
+        ];
+    }
+}</code>
+  </div>
+
+  <p>Marshrutga ulash bir qator (48-darsdagi
+  <code>v1</code> guruhi ichida):</p>
+
+  <div class="codefile">
+    <div class="fname">routes/api.php</div>
+    <code class="cmd">Route::get('/statistika', StatistikaController::class)-&gt;name('statistika');</code>
+  </div>
+
+  <p><code>__invoke()</code> — bitta ishni qiladigan
+  controller. Marshrutda metod nomini yozish kerak
+  emas.</p>
+
+  <p>Bitta <code>foreach</code> ham yo'q. Va e'tibor bering:
+  <code>where('faol', true)</code> bu yerda <b>SQL emas</b> —
+  ma'lumot allaqachon xotirada, bu kolleksiya
+  filtri.</p>
+
+  <!-- ═══════════════ 8) PROKSI ═══════════════ -->
+  <h2>Yuqori tartibli proksi</h2>
+
+  <p>Ba'zi metodlarni closure'siz yozsa bo'ladi:</p>
+
+  <div class="natija">$v-&gt;sum(fn ($x) =&gt; $x-&gt;maosh)     ≡   $v-&gt;sum-&gt;maosh
+$v-&gt;filter(fn ($x) =&gt; $x-&gt;faol)   ≡   $v-&gt;filter-&gt;faol
+$v-&gt;map(fn ($x) =&gt; $x-&gt;count())   ≡   $v-&gt;map-&gt;count()
+
+// o'lchandi:
+$v-&gt;sum-&gt;maosh                →  9500
+$v-&gt;filter-&gt;faol-&gt;count()     →  5</div>
+
+  <p>Bu ham 51-darsdagi mexanizm: <code>-&gt;sum</code>
+  <b>xossa</b> emas, u <code>__get</code> orqali proksi
+  obyekt qaytaradi va keyingi <code>-&gt;maosh</code> ni
+  ushlaydi.</p>
+
+  <p>⚠️ Faqat bir nechta metodda ishlaydi
+  (<code>map</code>, <code>filter</code>, <code>sum</code>,
+  <code>each</code>, <code>every</code>,
+  <code>reject</code>, <code>sortBy</code> va boshqalar) —
+  va IDE bularni ham bilmaydi.</p>
+
+  <!-- ═══════════════ 9) LAZY ═══════════════ -->
+  <h2><code>LazyCollection</code> va xotira</h2>
+
+  <p>Kolleksiyaning bitta kamchiligi bor: u <b>hamma
+  narsani xotiraga</b> oladi. 20 006 ta yozuv bilan
+  o'lchadik:</p>
+
+  <div class="natija">usul          xotira cho'qqisi
+──────────────────────────────
+get()         54 MB      ⚠️
+cursor()      24 MB
+chunk(500)    24 MB
+lazy()        26 MB
+
+(bo'sh ilova: 22 MB)</div>
+
+  <p>Ya'ni <code>get()</code> ~32 MB qo'shimcha oldi, yalqov
+  usullar esa 2–4 MB. Farq yozuv soniga <b>qarab
+  o'sadi</b>: 200 000 yozuvda <code>get()</code> ilovani
+  yiqitadi.</p>
+
+  <div class="natija">Vakansiya::get()      →  Illuminate\Database\Eloquent\Collection
+Vakansiya::cursor()   →  Illuminate\Support\LazyCollection
+Vakansiya::lazy()     →  Illuminate\Support\LazyCollection</div>
+
+  <p><code>LazyCollection</code> bir xil metodlarni
+  beradi — <code>map</code>, <code>filter</code>,
+  <code>take</code> — lekin yozuvlarni <b>bittalab</b>
+  o'qiydi.</p>
+
+  <h3>Yalqov zanjir erta to'xtaydi</h3>
+
+  <p>Eng chiroyli tomoni shu. 20 006 yozuvdan «maoshi 3000 dan
+  yuqori birinchi 3 tasi» ni so'raymiz va nechta yozuv
+  o'qilganini sanaymiz:</p>
+
+  <div class="natija">Vakansiya::cursor()
+    -&gt;map(...)      ← bu yerda sanadik
+    -&gt;filter(fn ($v) =&gt; $v-&gt;maosh &gt; 3000)
+    -&gt;take(3)
+    -&gt;pluck('nom')
+
+ko'rilgan yozuv:  2510 ta   (jami 20 006 dan)</div>
+
+  <p>Uchtasini topgach zanjir <b>to'xtadi</b>. Oddiy
+  kolleksiyada bunday bo'lmaydi: <code>get()</code> avval
+  20 006 tasini o'qiydi, keyin filtrlaydi.</p>
+
+  <div class="callout tip">
+    <span class="label">🔑 Qachon nima</span>
+    <div class="natija">get()      →  yuzlab yozuv, bir necha marta ishlatiladi, JSON'ga ketadi
+cursor()   →  minglab yozuv, BIR MARTA yuriladi (eksport, hisobot)
+chunk()    →  minglab yozuv, har qismda YOZISH bor (yangilash, o'chirish)
+lazy()     →  cursor kabi, lekin qismlab o'qiydi (katta jadval uchun xavfsizroq)</div>
+    <p>🔍 <code>chunk()</code> va <code>lazy()</code>
+    bazadan <b>qismlab</b> oladi (<code>limit</code>/<code>offset</code>),
+    <code>cursor()</code> esa bitta so'rov ochib qoldiradi.</p>
+  </div>
+
+  <!-- ═══════════════ 10) TESTLAR ═══════════════ -->
+  <h2>Testlar</h2>
+
+  <div class="codefile">
+    <div class="fname">tests/Feature/KolleksiyaTest.php (qisqartirilgan)</div>
+    <code class="cmd">use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Support\Collection;
+use Illuminate\Support\LazyCollection;
+
+it('filter kalitlarni saqlaydi va JSON obyektga aylanadi', function () {
+    $sonlar = collect([1, 2, 3, 4, 5, 6]);
+
+    $juft = $sonlar-&gt;filter(fn ($n) =&gt; $n % 2 === 0);
+
+    expect($juft-&gt;toJson())-&gt;toBe('{&quot;1&quot;:2,&quot;3&quot;:4,&quot;5&quot;:6}');
+    expect($juft-&gt;values()-&gt;toJson())-&gt;toBe('[2,4,6]');
+});
+
+it('avg null qiymatlarni hisobga olmaydi', function () {
+    $kompaniya = Kompaniya::factory()-&gt;create();
+
+    foreach ([2500, 1200, null] as $maosh) {
+        Vakansiya::factory()-&gt;create(['maosh' =&gt; $maosh, 'kompaniya_id' =&gt; $kompaniya-&gt;id]);
+    }
+
+    $v = Vakansiya::get();
+
+    expect($v-&gt;count())-&gt;toBe(3);
+    expect($v-&gt;sum('maosh'))-&gt;toBe(3700);
+    expect($v-&gt;avg('maosh'))-&gt;toEqual(1850);
+    expect($v-&gt;sum('maosh') / $v-&gt;count())-&gt;not-&gt;toBe($v-&gt;avg('maosh'));
+});
+
+it('kolleksiya o\'zgarmas — sort yangi obyekt qaytaradi', function () {
+    $asl = collect([3, 1, 2]);
+
+    $saralangan = $asl-&gt;sort();
+
+    expect($asl-&gt;all())-&gt;toBe([3, 1, 2]);
+    expect($saralangan)-&gt;not-&gt;toBe($asl);
+    expect($saralangan-&gt;values()-&gt;all())-&gt;toBe([1, 2, 3]);
+});
+
+it('yalqov zanjir kerakli sondan keyin to\'xtaydi', function () {
+    Vakansiya::factory()-&gt;count(20)-&gt;create();
+
+    $korilgan = 0;
+
+    $natija = Vakansiya::cursor()
+        -&gt;map(function ($v) use (&amp;$korilgan) {
+            $korilgan++;
+
+            return $v;
+        })
+        -&gt;take(3)
+        -&gt;all();
+
+    expect($natija)-&gt;toHaveCount(3);
+    expect($korilgan)-&gt;toBe(3);
+});
+
+it('statistika endpointi to\'g\'ri shakl qaytaradi', function () {
+    $kompaniya = Kompaniya::factory()-&gt;create();
+
+    foreach ([['Toshkent', 2500], ['Toshkent', 1200], ['Buxoro', 800]] as [$shahar, $maosh]) {
+        Vakansiya::factory()-&gt;create([
+            'shahar' =&gt; $shahar,
+            'maosh' =&gt; $maosh,
+            'faol' =&gt; true,
+            'kompaniya_id' =&gt; $kompaniya-&gt;id,
+        ]);
+    }
+
+    $javob = $this-&gt;getJson('/api/v1/statistika');
+
+    $javob-&gt;assertOk()
+        -&gt;assertJsonPath('jami', 3)
+        -&gt;assertJsonPath('shaharlar.Toshkent.soni', 2)
+        -&gt;assertJsonPath('shaharlar.Toshkent.eng_yuqori_maosh', 2500);
+
+    expect($javob-&gt;json('top_uchta'))-&gt;toBeArray()-&gt;toHaveCount(3);
+    expect(array_keys($javob-&gt;json('top_uchta')))-&gt;toBe([0, 1, 2]);
+});</code>
+  </div>
+
+  <div class="natija">Tests:  9 passed (26 assertions)</div>
+
+  <p>Oxirgi ikki qator — <b>eng muhimi</b>.
+  <code>array_keys(...)</code> ni <code>[0, 1, 2]</code> ga
+  solishtirish <code>values()</code> tushib qolganini
+  <b>darrov</b> tutadi. <code>assertJsonPath</code> esa
+  tutmaydi: u kalitlar bo'yicha ishlaydi va obyektda ham
+  ishlayveradi.</p>
+
+  <p>🔍 <code>avg</code> testida <code>toEqual</code>
+  ishlatilgan, <code>toBe</code> emas: <code>3700 / 2</code>
+  butun bo'lgani uchun <code>avg()</code> <code>int</code>
+  qaytardi, <code>toBe</code> esa tipni ham
+  solishtiradi.</p>
+
+  <div class="natija">To'liq to'plam:  46 passed (104 assertions)</div>
+
+  <!-- ═══════════════ 11) HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir bir
+  marta o'qib chiqing, keyin kerak bo'lganda qaytib
+  qarang.</p>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 1</span>
+    <h4>Kolleksiyadagi <code>where</code> — SQL emas</h4>
+    <div class="natija">❌ Vakansiya::get()-&gt;where('shahar', 'Toshkent')
+   →  20 006 yozuv BAZADAN olinadi, keyin xotirada filtrlanadi
+
+✅ Vakansiya::where('shahar', 'Toshkent')-&gt;get()
+   →  baza faqat keraklisini qaytaradi</div>
+    <p>Yozilishi deyarli bir xil, <b>o'rni</b> boshqa.
+    Qaysi tomonda <code>get()</code> turganiga
+    qarang.</p>
+    <p>🔑 Statistika controllerida <code>where</code> ataylab
+    kolleksiyada: ma'lumot allaqachon olingan va u
+    <b>bir necha marta</b> ishlatiladi. Ikkinchi so'rov
+    yuborish behuda bo'lardi.</p>
+    <p>⚠️ Kolleksiya <code>where</code> i SQL'nikidan
+    <b>farq qiladi</b>: u qat'iy solishtirmaydi
+    (<code>where('faol', 1)</code> va
+    <code>where('faol', true)</code> bir xil ishlaydi).
+    Qat'iylik kerak bo'lsa —
+    <code>whereStrict()</code>.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 2</span>
+    <h4><code>each</code> va <code>map</code> farqi</h4>
+    <div class="natija">map(fn ($x) =&gt; ...)    →  YANGI kolleksiya qaytaradi
+each(fn ($x) =&gt; ...)   →  o'sha kolleksiyani qaytaradi (yon ta'sir uchun)</div>
+    <p><code>each</code> — <code>foreach</code> ning
+    kolleksiyadagi ko'rinishi. Natija kerak bo'lmasa
+    ishlatiladi (log yozish, email yuborish).</p>
+    <p>⚠️ <code>each</code> ichida <code>false</code>
+    qaytarsangiz sikl <b>to'xtaydi</b> — kam ma'lum,
+    lekin foydali.</p>
+    <p>⚠️ Yalqov kolleksiyada <code>each</code>
+    <b>hammasini</b> yuradi va erta to'xtash foydasini
+    yo'qotadi. Zanjirda <code>map</code> ishlating.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 3</span>
+    <h4><code>cursor()</code> ni ikki marta ishlatish</h4>
+    <div class="natija">$k = Vakansiya::cursor();
+$k-&gt;take(5)-&gt;count();     →  5
+$k-&gt;take(5)-&gt;count();     →  5     ← ishladi
+
+// lekin so'rovlar soni:
+DB::getQueryLog()   →  2 ta so'rov  ⚠️</div>
+    <p>Ishlaydi, lekin <b>bazaga qayta boradi</b>. Oddiy
+    kolleksiya esa ma'lumotni xotirada saqlaydi — uni necha
+    marta ishlatsangiz ham qo'shimcha so'rov yo'q.</p>
+    <p>🔑 Farq shu: <b>kolleksiya — ma'lumot,
+    yalqov kolleksiya — retsept.</b></p>
+    <p>✅ Bir necha marta kerak bo'lsa
+    <code>-&gt;collect()</code> bilan oddiy kolleksiyaga
+    aylantiring (lekin unda xotira foydasi
+    yo'qoladi).</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 4</span>
+    <h4>Qachon oddiy massiv afzal</h4>
+    <div class="natija">✅ massiv:      2-3 elementli sozlama, tez qaytariladigan qiymat
+✅ kolleksiya:  ustida ish qilinadi (filtr, saralash, guruh)</div>
+    <p><code>collect([...])-&gt;first()</code> yozish uchun
+    kolleksiya yasash — ortiqcha. Massivning o'z
+    funksiyalari (<code>array_map</code>,
+    <code>array_filter</code>) ham yomon emas.</p>
+    <p>🔑 Kolleksiya <b>zanjir</b> kerak bo'lganda foyda
+    beradi. Bitta amal uchun massiv soddaroq.</p>
+    <p>🔍 <code>Arr::</code> yordamchisi ham bor —
+    <code>Arr::pluck()</code>, <code>Arr::only()</code> —
+    obyekt yasamasdan.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 5</span>
+    <h4>Foydali kam ma'lum metodlar</h4>
+    <div class="natija">partition(fn ($x) =&gt; ...)   →  [mos kelganlar, kelmaganlar]
+tap(fn ($k) =&gt; dump($k))    →  zanjirni buzmasdan qarash
+whenNotEmpty(fn ($k) =&gt; ...) →  bo'sh bo'lmasa bajar
+sole(fn ($x) =&gt; ...)        →  aynan bitta bo'lishi kerak, aks holda xato
+countBy(fn ($x) =&gt; ...)     →  {"qiymat": nechta}
+flatMap · flatten · zip · pad</div>
+    <p><code>tap()</code> — nosozlikni topishda eng
+    foydalisi: uzun zanjirning o'rtasiga qo'yib, o'sha
+    joydagi holatni ko'rasiz.</p>
+    <p><code>sole()</code> — «bitta bo'lishi shart»
+    holatlarida <code>first()</code> dan xavfsizroq: ikkita
+    bo'lsa xato beradi, jimgina birinchisini
+    olmaydi.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 6</span>
+    <h4>Zanjir ichida baza so'rovi</h4>
+    <div class="natija">❌ $vakansiyalar-&gt;map(fn ($v) =&gt; $v-&gt;kompaniya-&gt;nom)
+   →  har bir element uchun BAZAGA so'rov (N+1)
+
+✅ Vakansiya::with('kompaniya')-&gt;get()-&gt;map(fn ($v) =&gt; $v-&gt;kompaniya-&gt;nom)</div>
+    <p>Kolleksiya metodlari «xotirada ishlaydi» degan taassurot
+    beradi — lekin ichidagi <code>$v-&gt;kompaniya</code>
+    bazaga boradi.</p>
+    <p>🔑 29 va 46-darsdagi N+1 muammosi shu yerda
+    <b>yangi kiyimda</b> qaytadi:
+    <code>with()</code> ni unutmang.</p>
+    <p>🔍 <code>Model::preventLazyLoading()</code> buni
+    testda xatoga aylantiradi.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>Resource va kolleksiya</h4>
+    <div class="natija">VakansiyaResource::collection($vakansiyalar)</div>
+    <p>43-darsdagi bu yozuv ham kolleksiya ustida ishlaydi:
+    har bir modelni Resource'ga o'raydi.</p>
+    <p>⚠️ Agar unga <code>filter()</code> dan chiqqan
+    kolleksiya bersangiz, <b>o'sha kalit muammosi</b>
+    qaytadi: <code>data</code> massiv o'rniga obyekt
+    bo'ladi.</p>
+    <p>✅ Resource'ga berishdan oldin
+    <code>values()</code>.</p>
+  </div>
+
+  <!-- ═══════════════ 12) AMALIYOT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    💻 Quyida amaliyot bor. Hozir o'qish rejimidasiz — kompyuter
+    yoningizda bo'lganda <b>💻 Amaliyot</b> rejimiga o'ting va
+    shu bo'limdan davom eting.
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <b>Turini ko'ring.</b>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+php artisan tinker --execute='echo get_class(App\Models\Vakansiya::get()), PHP_EOL, get_parent_class(App\Models\Vakansiya::get()), PHP_EOL, get_class(collect([1,2])), PHP_EOL;'">cd ~/Projects/Learn/ishtop
+php artisan tinker --execute='echo get_class(App\Models\Vakansiya::get()), PHP_EOL, get_parent_class(App\Models\Vakansiya::get()), PHP_EOL, get_class(collect([1,2])), PHP_EOL;'</div>
+      </li>
+
+      <li>
+        <b>Filter tuzog'ini o'z ko'zingiz bilan ko'ring.</b>
+        <div class="cmd" data-cmd="php artisan tinker --execute='$s = collect([1,2,3,4,5,6]); echo $s->filter(fn ($n) => $n % 2 === 0)->toJson(), PHP_EOL; echo $s->filter(fn ($n) => $n % 2 === 0)->values()->toJson(), PHP_EOL; echo collect([3,1,2])->sort()->toJson(), PHP_EOL;'">php artisan tinker --execute='$s = collect([1,2,3,4,5,6]); echo $s-&gt;filter(fn ($n) =&gt; $n % 2 === 0)-&gt;toJson(), PHP_EOL; echo $s-&gt;filter(fn ($n) =&gt; $n % 2 === 0)-&gt;values()-&gt;toJson(), PHP_EOL; echo collect([3,1,2])-&gt;sort()-&gt;toJson(), PHP_EOL;'</div>
+        <p class="expect">⚠️ Birinchisi
+        <code>{"1":2,"3":4,"5":6}</code> — obyekt.</p>
+      </li>
+
+      <li>
+        <b>O'zgarmaslikni tekshiring.</b>
+        <div class="cmd" data-cmd="php artisan tinker --execute='$a = collect([3,1,2]); $b = $a->sort(); echo $a->toJson(), PHP_EOL, $b->toJson(), PHP_EOL, ($a === $b ? &quot;bir obyekt&quot; : &quot;boshqa obyekt&quot;), PHP_EOL;'">php artisan tinker --execute='$a = collect([3,1,2]); $b = $a-&gt;sort(); echo $a-&gt;toJson(), PHP_EOL, $b-&gt;toJson(), PHP_EOL, ($a === $b ? &quot;bir obyekt&quot; : &quot;boshqa obyekt&quot;), PHP_EOL;'</div>
+      </li>
+
+      <li>
+        <b><code>avg</code> tuzog'ini o'lchang.</b>
+        <div class="cmd" data-cmd="php artisan tinker --execute='$v = App\Models\Vakansiya::get(); echo &quot;count: &quot;, $v->count(), PHP_EOL, &quot;sum:   &quot;, $v->sum(&quot;maosh&quot;), PHP_EOL, &quot;avg:   &quot;, $v->avg(&quot;maosh&quot;), PHP_EOL, &quot;sum/count: &quot;, round($v->sum(&quot;maosh&quot;) / $v->count(), 1), PHP_EOL;'">php artisan tinker --execute='$v = App\Models\Vakansiya::get(); echo &quot;count: &quot;, $v-&gt;count(), PHP_EOL, &quot;sum:   &quot;, $v-&gt;sum(&quot;maosh&quot;), PHP_EOL, &quot;avg:   &quot;, $v-&gt;avg(&quot;maosh&quot;), PHP_EOL, &quot;sum/count: &quot;, round($v-&gt;sum(&quot;maosh&quot;) / $v-&gt;count(), 1), PHP_EOL;'</div>
+        <p class="expect">Maoshi <code>null</code> bo'lgan
+        yozuv bo'lsa, ikki son <b>farq qiladi</b>.</p>
+      </li>
+
+      <li>
+        <b><code>pluck</code> va <code>groupBy</code> ni
+        sinang.</b>
+        <div class="cmd" data-cmd="php artisan tinker --execute='$v = App\Models\Vakansiya::with(&quot;kompaniya&quot;)->get(); echo $v->pluck(&quot;kompaniya.nom&quot;)->unique()->values()->toJson(), PHP_EOL; echo $v->groupBy(&quot;shahar&quot;)->map->count()->toJson(), PHP_EOL;'">php artisan tinker --execute='$v = App\Models\Vakansiya::with(&quot;kompaniya&quot;)-&gt;get(); echo $v-&gt;pluck(&quot;kompaniya.nom&quot;)-&gt;unique()-&gt;values()-&gt;toJson(), PHP_EOL; echo $v-&gt;groupBy(&quot;shahar&quot;)-&gt;map-&gt;count()-&gt;toJson(), PHP_EOL;'</div>
+      </li>
+
+      <li>
+        <b>Statistika controllerini yozing.</b> Yuqoridagi
+        kodni ko'chiring (nusxa tugmasi bor) va marshrutga
+        ulang.
+        <div class="cmd" data-cmd="php -l app/Http/Controllers/Api/StatistikaController.php
+php artisan route:list --path=api/v1/statistika">php -l app/Http/Controllers/Api/StatistikaController.php
+php artisan route:list --path=api/v1/statistika</div>
+      </li>
+
+      <li>
+        <b>Javobni ko'ring.</b>
+        <div class="cmd" data-cmd="php artisan serve">php artisan serve</div>
+        <p>Boshqa terminalda:</p>
+        <div class="cmd" data-cmd="curl -s -H 'Accept: application/json' http://127.0.0.1:8000/api/v1/statistika | python3 -m json.tool">curl -s -H 'Accept: application/json' http://127.0.0.1:8000/api/v1/statistika | python3 -m json.tool</div>
+      </li>
+
+      <li>
+        <b><code>values()</code> ni olib tashlab, farqni
+        ko'ring.</b> <code>top_uchta</code> dan
+        <code>-&gt;values()</code> qatorini vaqtincha
+        o'chiring:
+        <div class="cmd" data-cmd="curl -s -H 'Accept: application/json' http://127.0.0.1:8000/api/v1/statistika | python3 -c &quot;import json,sys; d=json.load(sys.stdin); print('turi:', type(d['top_uchta']).__name__); print(json.dumps(d['top_uchta'])[:120])&quot;">curl -s -H 'Accept: application/json' http://127.0.0.1:8000/api/v1/statistika | python3 -c &quot;import json,sys; d=json.load(sys.stdin); print('turi:', type(d['top_uchta']).__name__); print(json.dumps(d['top_uchta'])[:120])&quot;</div>
+        <p class="expect">⚠️ <code>dict</code> — va kalitlar
+        <b>tartibsiz</b>. <code>values()</code> ni qaytaring
+        va yana o'lchang: <code>list</code>.</p>
+      </li>
+
+      <li>
+        <b>Xotirani o'lchang.</b> Ko'p yozuv qo'shamiz:
+        <div class="cmd" data-cmd="php artisan tinker --execute='$k = App\Models\Kompaniya::first()->id; $q = []; for ($i = 0; $i < 20000; $i++) { $q[] = [&quot;nom&quot; => &quot;Vakansiya {$i}&quot;, &quot;shahar&quot; => &quot;Shahar&quot;.($i % 7), &quot;maosh&quot; => 500 + ($i % 3000), &quot;faol&quot; => true, &quot;kompaniya_id&quot; => $k, &quot;created_at&quot; => now(), &quot;updated_at&quot; => now()]; if (count($q) === 2000) { DB::table(&quot;vakansiyalar&quot;)->insert($q); $q = []; } } if ($q) { DB::table(&quot;vakansiyalar&quot;)->insert($q); } echo App\Models\Vakansiya::count(), PHP_EOL;'">php artisan tinker --execute='$k = App\Models\Kompaniya::first()-&gt;id; $q = []; for ($i = 0; $i &lt; 20000; $i++) { $q[] = [&quot;nom&quot; =&gt; &quot;Vakansiya {$i}&quot;, &quot;shahar&quot; =&gt; &quot;Shahar&quot;.($i % 7), &quot;maosh&quot; =&gt; 500 + ($i % 3000), &quot;faol&quot; =&gt; true, &quot;kompaniya_id&quot; =&gt; $k, &quot;created_at&quot; =&gt; now(), &quot;updated_at&quot; =&gt; now()]; if (count($q) === 2000) { DB::table(&quot;vakansiyalar&quot;)-&gt;insert($q); $q = []; } } if ($q) { DB::table(&quot;vakansiyalar&quot;)-&gt;insert($q); } echo App\Models\Vakansiya::count(), PHP_EOL;'</div>
+        <p>Loyiha ildizida <code>xotira.php</code> faylini
+        yarating:</p>
+        <div class="cmd" data-cmd="cat > xotira.php <<'PHPEOF'
+&lt;?php
+require __DIR__.'/vendor/autoload.php';
+$app = require __DIR__.'/bootstrap/app.php';
+$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+
+use App\Models\Vakansiya;
+
+$usul = $argv[1] ?? 'get';
+$jami = 0;
+
+if ($usul === 'get') {
+    foreach (Vakansiya::get() as $v) { $jami += (int) $v->maosh; }
+} elseif ($usul === 'cursor') {
+    foreach (Vakansiya::cursor() as $v) { $jami += (int) $v->maosh; }
+} elseif ($usul === 'chunk') {
+    Vakansiya::chunk(500, function ($qism) use (&amp;$jami) {
+        foreach ($qism as $v) { $jami += (int) $v->maosh; }
+    });
+} elseif ($usul === 'lazy') {
+    foreach (Vakansiya::lazy() as $v) { $jami += (int) $v->maosh; }
+}
+
+printf(&quot;%-8s jami=%d  cho'qqi=%s MB\n&quot;, $usul, $jami, round(memory_get_peak_usage(true) / 1048576, 1));
+PHPEOF
+for u in get cursor chunk lazy; do php xotira.php $u; done">cat &gt; xotira.php &lt;&lt;'PHPEOF'
+&lt;?php
+require __DIR__.'/vendor/autoload.php';
+$app = require __DIR__.'/bootstrap/app.php';
+$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+
+use App\Models\Vakansiya;
+
+$usul = $argv[1] ?? 'get';
+$jami = 0;
+
+if ($usul === 'get') {
+    foreach (Vakansiya::get() as $v) { $jami += (int) $v-&gt;maosh; }
+} elseif ($usul === 'cursor') {
+    foreach (Vakansiya::cursor() as $v) { $jami += (int) $v-&gt;maosh; }
+} elseif ($usul === 'chunk') {
+    Vakansiya::chunk(500, function ($qism) use (&amp;$jami) {
+        foreach ($qism as $v) { $jami += (int) $v-&gt;maosh; }
+    });
+} elseif ($usul === 'lazy') {
+    foreach (Vakansiya::lazy() as $v) { $jami += (int) $v-&gt;maosh; }
+}
+
+printf(&quot;%-8s jami=%d  cho'qqi=%s MB\n&quot;, $usul, $jami, round(memory_get_peak_usage(true) / 1048576, 1));
+PHPEOF
+for u in get cursor chunk lazy; do php xotira.php $u; done</div>
+        <p class="expect">Menda: <b>54 · 24 · 24 · 26 MB</b>.</p>
+      </li>
+
+      <li>
+        <b>Erta to'xtashni o'lchang.</b>
+        <div class="cmd" data-cmd="php artisan tinker --execute='$n = 0; $r = App\Models\Vakansiya::cursor()->map(function ($v) use (&amp;$n) { $n++; return $v; })->filter(fn ($v) => $v->maosh > 3000)->take(3)->pluck(&quot;nom&quot;)->all(); echo &quot;ko\047rilgan: &quot;, $n, &quot; / &quot;, App\Models\Vakansiya::count(), PHP_EOL; echo json_encode($r), PHP_EOL;'">php artisan tinker --execute='$n = 0; $r = App\Models\Vakansiya::cursor()-&gt;map(function ($v) use (&amp;$n) { $n++; return $v; })-&gt;filter(fn ($v) =&gt; $v-&gt;maosh &gt; 3000)-&gt;take(3)-&gt;pluck(&quot;nom&quot;)-&gt;all(); echo &quot;ko\047rilgan: &quot;, $n, &quot; / &quot;, App\Models\Vakansiya::count(), PHP_EOL; echo json_encode($r), PHP_EOL;'</div>
+      </li>
+
+      <li>
+        <b>Tozalang va testlarni yozing.</b>
+        <div class="cmd" data-cmd="rm -f xotira.php
+php artisan tinker --execute='App\Models\Vakansiya::where(&quot;nom&quot;, &quot;like&quot;, &quot;Vakansiya %&quot;)->delete(); echo App\Models\Vakansiya::count(), &quot; ta qoldi&quot;, PHP_EOL;'">rm -f xotira.php
+php artisan tinker --execute='App\Models\Vakansiya::where(&quot;nom&quot;, &quot;like&quot;, &quot;Vakansiya %&quot;)-&gt;delete(); echo App\Models\Vakansiya::count(), &quot; ta qoldi&quot;, PHP_EOL;'</div>
+        <p>So'ng <code>tests/Feature/KolleksiyaTest.php</code>
+        ni yozing:</p>
+        <div class="cmd" data-cmd="php artisan test tests/Feature/KolleksiyaTest.php">php artisan test tests/Feature/KolleksiyaTest.php</div>
+      </li>
+
+      <li>
+        <b>To'liq to'plamni ishga tushiring.</b>
+        <div class="cmd" data-cmd="php artisan test">php artisan test</div>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><code>get()</code> kolleksiya qaytarishini ko'rdim</li>
+      <li><code>filter()</code> JSON obyektga aylantirishini
+      ko'rdim</li>
+      <li><code>values()</code> bilan tuzatdim</li>
+      <li>Kolleksiya o'zgarmasligini tekshirdim</li>
+      <li><code>avg</code> va <code>sum/count</code> farqini
+      o'lchadim</li>
+      <li>Statistika endpointi ishlaydi</li>
+      <li>Xotira farqini o'z ko'zim bilan ko'rdim</li>
+      <li>Yalqov zanjir erta to'xtashini o'lchadim</li>
+      <li>Sinov fayli va ortiqcha yozuvlar o'chirilgan</li>
+      <li><code>KolleksiyaTest</code> yashil</li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 13) SINAB KO'RAMIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Dasturchi «faqat faol vakansiyalar» endpointini
+    yozdi:</p>
+    <div class="codefile">
+      <div class="fname">app/Http/Controllers/Api/FaolController.php</div>
+      <code class="cmd" data-cmd="public function __invoke()
+{
+    return Vakansiya::get()
+        -&gt;filter(fn ($v) =&gt; $v-&gt;faol)
+        -&gt;map(fn ($v) =&gt; ['nom' =&gt; $v-&gt;nom, 'maosh' =&gt; $v-&gt;maosh]);
+}">public function __invoke()
+{
+    return Vakansiya::get()
+        -&gt;filter(fn ($v) =&gt; $v-&gt;faol)
+        -&gt;map(fn ($v) =&gt; ['nom' =&gt; $v-&gt;nom, 'maosh' =&gt; $v-&gt;maosh]);
+}</code>
+    </div>
+    <p>Testini ham yozdi va u <b>yashil</b>:</p>
+    <div class="natija">$javob = $this-&gt;getJson('/api/v1/faol');
+
+$javob-&gt;assertOk()
+    -&gt;assertJsonCount(3);        ← YASHIL</div>
+    <p>Ertasi kuni mobil ilova dasturchisi yozdi: «ro'yxat
+    ba'zan <b>bo'sh</b> ko'rinadi, ba'zan tartibi
+    o'zgaradi». Serverda xato yo'q. Nima
+    bo'lyapti?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <p><code>filter()</code> kalitlarni <b>saqlaydi</b>.
+        Agar birinchi vakansiya faol bo'lmasa, kalitlar
+        <code>0</code> dan boshlanmaydi — va JSON massiv
+        o'rniga <b>obyekt</b> bo'lib chiqadi:</p>
+        <div class="natija">// hamma faol bo'lsa:
+[ {...}, {...}, {...} ]                    ✅ massiv
+
+// birinchisi faol bo'lmasa:
+{ "1": {...}, "2": {...}, "3": {...} }     ⚠️ obyekt</div>
+        <p class="expect">⚠️ Mobil ilova
+        <code>javob.map(...)</code> yozgan bo'lsa, obyektda
+        u <b>ishlamaydi</b> — ro'yxat bo'sh
+        ko'rinadi. Va obyekt kalitlarining tartibi
+        kafolatlanmagani uchun tartib ham
+        o'zgaradi.</p>
+        <p>🔑 Nega test tutmadi?
+        <code>assertJsonCount(3)</code> massivda ham,
+        obyektda ham <b>3</b> beradi. Test
+        <b>sonini</b> tekshirgan, <b>shaklini</b>
+        emas.</p>
+        <div class="natija">✅ shaklni tekshiradigan test:
+expect(array_keys($javob-&gt;json()))-&gt;toBe([0, 1, 2]);
+// yoki
+expect($javob-&gt;json())-&gt;toBeArray();</div>
+        <p>✅ Yechim bitta so'z: zanjir oxiriga
+        <code>-&gt;values()</code>.</p>
+        <p>🔍 <b>Umumiy saboq:</b> «ba'zan ishlaydi» degan
+        shikoyat deyarli har doim <b>ma'lumotga bog'liq</b>
+        xatoni bildiradi. Bu yerda: birinchi yozuv faol
+        bo'lsa ishlaydi, bo'lmasa yo'q.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span>
+    <code>filter()</code> dan keyin JSON'da nima bo'ladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Kalitlar saqlanadi va JSON obyektga aylanib qoladi</button></li>
+      <li><button class="quiz-option">Kalitlar qayta raqamlanadi va massiv bo'lib qoladi</button></li>
+      <li><button class="quiz-option">Kolleksiya o'zgaradi va eski qiymatlar yo'qolib ketadi</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi:
+    <code>collect([1..6])-&gt;filter(juft)-&gt;toJson()</code> →
+    <code>{"1":2,"3":4,"5":6}</code>.
+    Xuddi shu narsa <code>sort</code>, <code>where</code>,
+    <code>unique</code> dan keyin ham.
+    ✅ JSON'ga ketayotgan bo'lsa —
+    <code>values()</code>.
+    🔑 <code>groupBy</code> dan keyin esa <b>kerak emas</b>:
+    u yerda kalitlar ma'noli.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span>
+    <code>avg('maosh')</code> va <code>sum/count</code> nega
+    farq qiladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">null qiymatlar hisobga olinmaydi bo'luvchi kichikroq bo'ladi</button></li>
+      <li><button class="quiz-option">null qiymatlar nol deb olinib natija pasayadi</button></li>
+      <li><button class="quiz-option">avg butun kolleksiya uchun doim null qaytaradi</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi: 6 yozuv, 1 tasining
+    maoshi <code>null</code>.
+    <code>avg</code> → <b>1900</b> (9500/5),
+    <code>sum/count</code> → <b>1583.3</b> (9500/6).
+    ⚠️ Bo'sh kolleksiyada <code>avg()</code> →
+    <code>NULL</code>.
+    🔑 Ikkalasi ham to'g'ri — savolga bog'liq.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span>
+    <code>cursor()</code> ning <code>get()</code> dan farqi
+    nimada?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Yozuvlar bittalab o'qiladi xotira ancha kam ishlatiladi</button></li>
+      <li><button class="quiz-option">So'rov tezroq bajariladi ammo xotira o'zgarmay qoladi</button></li>
+      <li><button class="quiz-option">Natija keshlanadi va ikkinchi marta so'rov yuborilmaydi</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 20 006 yozuvda o'lchandi:
+    <code>get()</code> <b>54 MB</b>, <code>cursor()</code>
+    <b>24 MB</b>.
+    Yalqov zanjir erta ham to'xtaydi:
+    <code>take(3)</code> uchun atigi <b>2510</b> yozuv
+    o'qildi.
+    ⚠️ Uchinchi variant <b>teskarisi</b>: qayta yurilganda
+    <code>cursor()</code> bazaga <b>yana</b> so'rov
+    yuboradi.</div>
+  </div>
+
+  <!-- ═══════════════ 14) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+
+    <p>Javobni ovoz chiqarib ayting, keyin ochib
+    solishtiring.</p>
+
+    <details class="recall">
+      <summary>Qaysi metodlardan keyin <code>values()</code>
+      kerak va nega?</summary>
+      <div class="answer">Kalitni o'zgartiradigan yoki
+      yo'qotadiganlardan keyin: <code>filter</code>,
+      <code>reject</code>, <code>where</code>,
+      <code>sortBy</code>, <code>sortByDesc</code>,
+      <code>sort</code>, <code>unique</code>,
+      <code>skip</code>.
+      Sabab: kalitlar <b>saqlanadi</b>, nol'dan boshlanmagan
+      ketma-ketlik esa JSON'da massiv bo'la olmaydi —
+      <b>obyekt</b> bo'lib chiqadi.
+      🔑 <code>groupBy</code> dan keyin <b>kerak emas</b>:
+      u yerda kalitlar ma'lumotning o'zi.</div>
+    </details>
+
+    <details class="recall">
+      <summary><code>avg()</code> ning tuzog'i nima?</summary>
+      <div class="answer">U <code>null</code> qiymatlarni
+      <b>hisobga olmaydi</b> — bo'luvchi jami yozuv soni
+      emas, faqat qiymati bor yozuvlar soni.
+      🔍 O'lchandi: <code>avg</code> <b>1900</b>,
+      <code>sum/count</code> <b>1583.3</b>.
+      ⚠️ Bo'sh kolleksiyada <code>NULL</code> qaytaradi,
+      <code>round()</code> esa uni <code>0</code> qiladi.
+      ✅ <code>round((float) $v-&gt;avg(...))</code> yoki
+      ochiq <code>isEmpty()</code> tekshiruvi.</div>
+    </details>
+
+    <details class="recall">
+      <summary>Kolleksiyadagi <code>where</code> va
+      Eloquent'dagi <code>where</code> farqi?</summary>
+      <div class="answer"><code>Vakansiya::where(...)-&gt;get()</code>
+      — <b>SQL</b>: baza faqat keraklisini qaytaradi.
+      <code>Vakansiya::get()-&gt;where(...)</code> —
+      <b>xotirada</b>: hamma yozuv olinadi, keyin
+      filtrlanadi.
+      🔑 <code>get()</code> qaysi tomonda turganiga qarang.
+      ⚠️ Kolleksiya <code>where</code> i qat'iy
+      solishtirmaydi — qat'iylik uchun
+      <code>whereStrict()</code>.</div>
+    </details>
+
+    <details class="recall">
+      <summary><code>cursor()</code>, <code>chunk()</code> va
+      <code>get()</code> qachon ishlatiladi?</summary>
+      <div class="answer"><code>get()</code> — yuzlab yozuv,
+      bir necha marta ishlatiladi, JSON'ga ketadi.
+      <code>cursor()</code> — minglab yozuv, <b>bir marta</b>
+      yuriladi (eksport, hisobot).
+      <code>chunk()</code> — minglab yozuv va har qismda
+      <b>yozish</b> bor.
+      🔍 O'lchandi (20 006 yozuv):
+      <b>54 · 24 · 24 · 26 MB</b>.</div>
+    </details>
+
+    <details class="recall">
+      <summary>Yalqov zanjirning eng katta foydasi nima?</summary>
+      <div class="answer"><b>Erta to'xtash.</b>
+      🔍 O'lchandi: 20 006 yozuvdan «maoshi 3000 dan yuqori
+      birinchi 3 tasi» uchun atigi <b>2510</b> yozuv
+      o'qildi.
+      Oddiy kolleksiyada bunday bo'lmaydi:
+      <code>get()</code> avval hammasini o'qiydi.
+      ⚠️ Lekin <code>each()</code> ishlatsangiz bu foyda
+      <b>yo'qoladi</b> — u hammasini yuradi.</div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 15) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Xulosa</span>
+    <ul>
+      <li><code>get()</code> massiv emas —
+      <code>Eloquent\Collection</code>, u
+      <code>Support\Collection</code> dan meros
+      oladi.</li>
+      <li>Zanjir <code>foreach</code> dan qisqa emas —
+      <b>bosqichlarga ajratilgan</b>. Ovoz chiqarib o'qib
+      bo'lmasa, bo'lib yuboring.</li>
+      <li>⚠️ <code>filter()</code> kalitlarni <b>saqlaydi</b>
+      → JSON massiv emas, <b>obyekt</b>.
+      O'lchandi: <code>{"1":2,"3":4,"5":6}</code>.</li>
+      <li>✅ JSON'ga ketayotgan bo'lsa —
+      <code>values()</code>. <code>groupBy</code> dan keyin
+      esa <b>kerak emas</b>.</li>
+      <li>⚠️ Haqiqiy API'da bu «ba'zan bo'sh ro'yxat» va
+      «tartib o'zgaradi» bo'lib ko'rinadi —
+      kalitlar <code>2, 0, 4</code> bo'lib chiqdi.</li>
+      <li>Kolleksiya <b>o'zgarmas</b>: har metod yangi obyekt
+      qaytaradi. Istisno — <code>transform()</code>.</li>
+      <li><code>pluck('kompaniya.nom')</code> — nuqta bilan
+      bog'lanishga kirish.</li>
+      <li>⚠️ <code>avg()</code> <code>null</code> larni
+      <b>hisobga olmaydi</b>: 1900 va 1583.3. Bo'sh
+      kolleksiyada <code>NULL</code>.</li>
+      <li><code>$v-&gt;sum-&gt;maosh</code> — yuqori tartibli
+      proksi, 51-darsdagi sehrli metodlar
+      mexanizmida.</li>
+      <li>⚠️ <code>get()-&gt;where(...)</code> — SQL emas,
+      xotirada. <code>get()</code> qaysi tomonda
+      turganiga qarang.</li>
+      <li><code>cursor()</code>/<code>lazy()</code> →
+      <code>LazyCollection</code>. 🔍 20 006 yozuvda
+      <b>54 MB</b> va <b>24 MB</b>.</li>
+      <li>Yalqov zanjir <b>erta to'xtaydi</b>:
+      <code>take(3)</code> uchun 20 006 dan 2510
+      yozuv.</li>
+      <li>⚠️ Zanjir ichida <code>$v-&gt;kompaniya</code>
+      yozsangiz N+1 qaytadi —
+      <code>with()</code> ni unutmang.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p>Bugungi statistika controlleri <b>bitta ish</b>
+    qildi: ma'lumotni shakllantirdi. Lekin ilovada
+    ko'pincha bitta voqea <b>bir nechta</b> ishni
+    boshlaydi.</p>
+    <p>Vakansiya yaratilganda: xabar yuborish (49-darsda
+    qo'shdik) · statistikani yangilash · qidiruv indeksiga
+    qo'shish · adminga bildirish. Hozir bularning hammasi
+    <code>store()</code> metodiga <b>yig'ilib boradi</b>.</p>
+    <p>53-darsda <b>Events va Listeners</b> bilan bu
+    zanjirni uzamiz: controller «vakansiya yaratildi» deb
+    <b>e'lon qiladi</b>, kim eshitishi esa uning ishi
+    emas.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel — Collections</b>:
+    <a href="https://laravel.com/docs/13.x/collections">barcha metodlar,
+    higher order messages</a>.<sup><a href="#fn1">1</a></sup><br>
+    <b>Laravel — Lazy Collections</b>:
+    <a href="https://laravel.com/docs/13.x/collections#lazy-collections">LazyCollection,
+    cursor</a>.<sup><a href="#fn1">1</a></sup><br>
+    <b>Laravel — Eloquent Collections</b>:
+    <a href="https://laravel.com/docs/13.x/eloquent-collections">qo'shimcha
+    metodlar</a>.<sup><a href="#fn2">2</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b>
+    «kolleksiya <code>foreach</code> dan sekinmi?»,
+    «o'z metodimni qo'sha olamanmi?»,
+    «<code>collect()</code> va <code>Arr::</code> qaysi biri
+    afzal?», «<code>groupBy</code> ni bir necha maydon
+    bo'yicha qilsa bo'ladimi?» — har qanday savol yaxshi.
+    Ikkinchisiga qisqa javob: <b>ha</b> —
+    <code>Collection::macro('nom', function () { ... })</code>
+    ni provider'ning <code>boot()</code> ida yozasiz
+    (50-dars: <code>register()</code> emas!). To'rtinchisiga:
+    <b>ha</b> — <code>groupBy(['shahar', 'faol'])</code> deb
+    massiv bersangiz ichma-ich guruh chiqadi.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0051-facade.html">Oldingi: Facade</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel 13 — <a href="https://laravel.com/docs/13.x/collections">Collections</a>.</li>
+      <li id="fn2">Laravel 13 — <a href="https://laravel.com/docs/13.x/eloquent-collections">Eloquent Collections</a>.</li>
+      <li id="fn3">Barchasi jonli o'lchangan (PHP 8.3.32, Laravel 13.26.1,
+      Pest 4.7.8, SQLite):
+      <code>Vakansiya::get()</code> →
+      <code>Illuminate\Database\Eloquent\Collection</code>,
+      ota-klass <code>Illuminate\Support\Collection</code> ·
+      ⚠️ <code>collect([1..6])-&gt;filter(juft)-&gt;toJson()</code>
+      → <code>{"1":2,"3":4,"5":6}</code>;
+      <code>values()</code> bilan <code>[2,4,6]</code>;
+      <code>collect([3,1,2])-&gt;sort()-&gt;toJson()</code> →
+      <code>{"1":1,"2":2,"0":3}</code> ·
+      ⚠️ haqiqiy API javobida <code>values()</code> siz
+      <code>top_uchta</code> — JSON <b>obyekt</b>, kalitlar
+      <code>2, 0, 4</code> (tartibsiz);
+      <code>values()</code> bilan to'g'ri massiv ·
+      o'zgarmaslik: <code>$asl !== $saralangan</code>,
+      <code>$asl</code> o'zgarmadi ·
+      <code>pluck('nom','id')</code> →
+      <code>{"10":"...","11":"..."}</code>;
+      <code>pluck('kompaniya.nom')</code> ishladi ·
+      <code>groupBy('shahar')-&gt;map-&gt;count()</code> →
+      <code>{"Toshkent":4,"Samarqand":1,"Buxoro":1}</code> ·
+      ⚠️ <code>sum('maosh')</code> <b>9500</b>,
+      <code>avg('maosh')</code> <b>1900</b> (9500/5),
+      <code>sum/count</code> <b>1583.3</b> (9500/6) —
+      <code>avg</code> <code>null</code> larni tashlaydi;
+      <code>collect([1,2])-&gt;avg()</code> → <b>1.5</b>,
+      <code>collect([2500,1200,null])-&gt;avg()</code> →
+      <b>1850</b> (int), <code>collect([])-&gt;avg()</code> →
+      <b>NULL</b> ·
+      <code>$v-&gt;sum-&gt;maosh</code> → 9500,
+      <code>$v-&gt;filter-&gt;faol-&gt;count()</code> → 5 ·
+      xotira (20 006 yozuv, bo'sh ilova 22 MB):
+      <code>get()</code> <b>54 MB</b>,
+      <code>cursor()</code> <b>24 MB</b>,
+      <code>chunk(500)</code> <b>24 MB</b>,
+      <code>lazy()</code> <b>26 MB</b> ·
+      <code>cursor()</code> va <code>lazy()</code> →
+      <code>Illuminate\Support\LazyCollection</code> ·
+      erta to'xtash: <code>take(3)</code> uchun
+      <b>2510</b> / 20 006 yozuv o'qildi;
+      filtrsiz testda aynan <b>3</b> ·
+      <code>cursor()</code> qayta yurilsa bazaga <b>2 ta</b>
+      so'rov yuboriladi ·
+      <code>KolleksiyaTest</code> — <b>9 passed (26
+      assertions)</b>, to'liq to'plam <b>46 passed (104
+      assertions), 0.56s</b>.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>
