@@ -17,7 +17,7 @@
   muhit ma'lumotlari. Har dars yangi buyruq o'rgatilsa, shu yerga qo'shiladi.</p>
 
   <p class="lesson-meta">
-    <span>Qamrov: <b>1&ndash;53-darslar</b> — muhitdan API'gacha</span>
+    <span>Qamrov: <b>1&ndash;54-darslar</b> — muhitdan API'gacha</span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>💻 Amaliyotga mos</span>
   </p>
@@ -1558,6 +1558,56 @@
     <p>🔑 Bitta reaksiya uchun hodisa <b>ortiqcha</b>:
     bog'lanish ko'rinmay qoladi. Tinglovchilar
     <b>mustaqil</b> bo'lsin — tartibga tayanmang.</p>
+  </div>
+
+  <h2>Config va .env (54-darsdan)</h2>
+  <table class="sheet">
+    <tr><th>Kod / buyruq</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>config('ishtop.sahifa_hajmi')</code></td><td class="note-cell">Sozlamani o'qish — <b>kodda faqat shu</b></td></tr>
+    <tr><td><code>env('KALIT', 'standart')</code></td><td class="note-cell">⚠️ <b>Faqat</b> <code>config/</code> ichidagi fayllarda</td></tr>
+    <tr><td><code>config(['ishtop.x' =&gt; 99])</code></td><td class="note-cell">Faqat shu jarayon uchun (testda foydali)</td></tr>
+    <tr><td><code>app()-&gt;environment()</code> · <code>isProduction()</code></td><td class="note-cell">Muhitni tekshirish (<code>env('APP_ENV')</code> emas!)</td></tr>
+    <tr><td><code>php artisan config:cache</code></td><td class="note-cell">Hamma config bitta faylga (~23 KB)</td></tr>
+    <tr><td><code>php artisan config:clear</code></td><td class="note-cell">Keshni o'chirish — <code>.env</code> yana o'qiladi</td></tr>
+    <tr><td><code>php artisan optimize</code> · <code>optimize:clear</code></td><td class="note-cell">config + route + view + event birdan</td></tr>
+    <tr><td><code>php artisan config:show ishtop</code></td><td class="note-cell">Bitta faylning <b>haqiqiy</b> qiymatlari</td></tr>
+    <tr><td><code>php artisan about</code></td><td class="note-cell">Debug Mode, drayverlar, nima keshlangani</td></tr>
+    <tr><td><code>php artisan env:encrypt</code> · <code>env:decrypt</code></td><td class="note-cell"><code>.env</code> ni shifrlab git'ga qo'yish</td></tr>
+    <tr><td><code>grep -rn "env(" app/ routes/</code></td><td class="note-cell">🔑 Natija <b>bo'sh</b> bo'lishi kerak</td></tr>
+  </table>
+  <div class="callout note">
+    <p>⚠️ <b><code>config:cache</code> dan keyin
+    <code>env()</code> → NULL.</b> O'lchandi:
+    <code>env('ISHTOP_XABAR')</code> <code>'sms'</code> dan
+    <b>NULL</b>, <code>env('APP_NAME')</code> ham
+    <b>NULL</b>.
+    <br>🔍 Haqiqiy xato: provider'da
+    <code>env('API_CHEKLOV', 60)</code> — keshsiz cheklov
+    <b>5</b>, keshdan keyin <b>60</b>. Xato <b>yo'q</b>,
+    faqat xatti-harakat boshqa — va bu <b>faqat ishlab
+    chiqarishda</b> ko'rinadi.</p>
+    <p>⚠️ <b>Eskirgan kesh.</b> <code>.env</code>
+    o'zgardi, ilova eski qiymatni berdi.
+    ✅ <code>config:clear</code>.
+    Mahalliy ishda keshlamang.</p>
+    <p>⚠️ <b>Config'da closure bo'lmaydi:</b>
+    <code>LogicException: Your configuration files could not
+    be serialized because the value at "ishtop.yolgon" is
+    non-serializable.</code>
+    Faqat satr, son, bool, null, massiv.</p>
+    <p>⚠️ <b>Testlar ham <code>.env</code> ni o'qiydi.</b>
+    O'lchandi: <code>API_CHEKLOV=5</code> qo'shilishi bilan
+    <b>2 ta test</b> qizardi (<code>-'60' +'5'</code>).
+    ✅ Muhim sozlamalarni <code>phpunit.xml</code> ga —
+    u <code>.env</code> dan <b>ustun</b>.</p>
+    <p>🔑 <code>.env</code> git'da <b>yo'q</b>, o'rniga
+    <code>.env.example</code> (kalitlar bor, qiymatlar
+    yo'q).
+    ⚠️ Bo'shliqli qiymat qo'shtirnoqda:
+    <code>APP_NAME="Mening Ilovam"</code>.
+    ⚠️ <code>APP_KEY</code> ni almashtirmang — sessiya va
+    shifrlangan ma'lumot o'qib bo'lmas holga
+    keladi.</p>
   </div>
 
   <h2>Xatoni o'qish</h2>

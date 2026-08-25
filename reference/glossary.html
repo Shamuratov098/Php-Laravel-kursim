@@ -18,7 +18,7 @@
   izoh esa o'zbekcha.</p>
 
   <p class="lesson-meta">
-    <span>Atamalar: <b>228 ta</b></span>
+    <span>Atamalar: <b>232 ta</b></span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>📱 O'qishga mos</span>
   </p>
@@ -26,7 +26,7 @@
   <div class="callout note">
     <span class="label">Bu hujjat o'sib boradi</span>
     <p>Atama faqat <b>o'z darsi yozilganda</b> qo'shiladi — oldindan emas. Hozir:
-    Modul A–G (1–53-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
+    Modul A–G (1–54-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
     bosqichida qat'iy belgilangan va 73 dars bo'ylab o'zgarmaydi).</p>
   </div>
 
@@ -2103,6 +2103,79 @@
       ⚠️ Tranzaksiya ichida —
       <code>ShouldHandleEventsAfterCommit</code>.
       <span class="eg">#[ObservedBy(VakansiyaObserver::class)]</span></dd>
+    </div>
+
+    <div class="term" id="config-env-qatlam">
+      <dt>.env → config → kod <span class="uz">— uch qatlam</span></dt>
+      <dd><code>.env</code> — <b>maxfiy</b> qiymatlar, har
+      muhitda boshqa, git'da <b>yo'q</b>.
+      <code>config/</code> — sozlama xaritasi, standart
+      qiymatlar bilan, git'da <b>bor</b>.
+      Kod — faqat <code>config()</code>.
+      🔑 Fayl nomi kalit:
+      <code>config/ishtop.php</code> →
+      <code>config('ishtop.x')</code>, ro'yxatdan
+      o'tkazish kerak emas.
+      ⚠️ <code>.env</code> dan hamma narsa <b>satr</b>
+      bo'lib keladi (<code>true</code>/<code>false</code>/
+      <code>null</code>/bo'sh dan tashqari) — config'da
+      <code>(int)</code> yozing.
+      <span class="eg">'sahifa_hajmi' =&gt; (int) env('ISHTOP_SAHIFA', 10)</span></dd>
+    </div>
+
+    <div class="term" id="config-cache-env">
+      <dt>config:cache va env() <span class="uz">— jimgina buziladigan joy</span></dt>
+      <dd>⚠️ <code>config:cache</code> dan keyin Laravel
+      <code>.env</code> ni <b>umuman o'qimaydi</b>.
+      🔍 O'lchandi: <code>env('ISHTOP_XABAR')</code>
+      <code>'sms'</code> dan <b>NULL</b> ga aylandi,
+      <code>env('APP_NAME')</code> ham <b>NULL</b>;
+      <code>config()</code> esa ishlayveradi.
+      🔍 Haqiqiy xato o'lchandi: provider'da
+      <code>env('API_CHEKLOV', 60)</code> — keshsiz cheklov
+      <b>5</b>, keshdan keyin <b>60</b>. <b>Xato yo'q</b>,
+      faqat xatti-harakat boshqa. Va bu aynan ishlab
+      chiqarishda sodir bo'ladi.
+      ✅ Tekshiruv:
+      <code>grep -rn "env(" app/ routes/</code> — natija
+      <b>bo'sh</b> bo'lsin.
+      <span class="eg">config('ishtop.api_cheklov')</span></dd>
+    </div>
+
+    <div class="term" id="config-clear">
+      <dt>config:clear va optimize <span class="uz">— eskirgan kesh</span></dt>
+      <dd>🔍 O'lchandi: <code>.env</code> da
+      <code>email</code>, ilova esa <b>sms</b> qaytardi;
+      <code>config:clear</code> dan keyin <b>email</b>.
+      «Men <code>.env</code> ni o'zgartirdim, nega
+      ishlamayapti?» — javob shu.
+      🔑 Mahalliy ishda <b>keshlamang</b>; ishlab
+      chiqarishda <code>optimize</code> <b>majburiy</b> va
+      har deploydan keyin qayta.
+      ✅ G'alati narsa ko'rsangiz birinchi urinish —
+      <code>php artisan optimize:clear</code>.
+      ⚠️ Config'da <b>closure bo'lmaydi</b>:
+      <code>LogicException: ... is non-serializable</code>.
+      <span class="eg">php artisan optimize:clear</span></dd>
+    </div>
+
+    <div class="term" id="environment-tekshirish">
+      <dt>environment() <span class="uz">— muhitni tekshirish</span></dt>
+      <dd>⚠️ <code>env('APP_ENV')</code> keshdan keyin
+      <b>NULL</b> (o'lchandi) — shartlaringiz teskari
+      ishlaydi.
+      ✅ <code>app()-&gt;environment()</code> ·
+      <code>app()-&gt;environment(['local','testing'])</code> ·
+      <code>app()-&gt;isProduction()</code> ·
+      <code>config('app.env')</code>.
+      🔑 Umuman esa kodda muhit nomini tekshirish o'rniga
+      <b>sozlama</b> qo'ying: «bu muhitga bog'liqmi yoki
+      sozlamaga?»
+      ⚠️ Testlar ham <code>.env</code> ni o'qiydi —
+      o'lchandi: bitta qator <b>2 ta testni</b> qizartirdi.
+      Muhim sozlamalarni <code>phpunit.xml</code> ga
+      (u <code>.env</code> dan ustun).
+      <span class="eg">app()-&gt;isProduction()</span></dd>
     </div>
 
     <div class="term" id="sanctum">

@@ -1,0 +1,1035 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 54 — Config, .env va cache</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 54 · MODUL G — LARAVEL ICHKI MEXANIZMI</p>
+  <h1>Config, <code>.env</code> va cache</h1>
+  <p class="lead">Kurs davomida <code>.env</code> ga ko'p marta
+  qaradik: <code>APP_DEBUG</code>, <code>CACHE_STORE</code>,
+  <code>QUEUE_CONNECTION</code>. Bugun uning qoidasini
+  ochamiz — va <b>bitta qatorda</b> ilovani ishlab
+  chiqarishda jimgina buzadigan xatoni o'lchaymiz.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 15 daqiqa</span>
+    <span>💻 Amaliyot ≈ 24 daqiqa</span>
+    <span>Kerak: <a href="0053-events-va-listeners.html">Dars 53</a></span>
+  </p>
+
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b>Uch qatlam: <code>.env</code> → config → kod</b>
+        <span class="nima">Har birining o'z vazifasi bor va
+        ular <b>bir tomonga</b> oqadi.</span></li>
+      <li><b>O'z config faylingiz</b>
+        <span class="nima"><code>config/ishtop.php</code> —
+        ilovaning barcha sozlamalari bir joyda.</span></li>
+      <li><b>⚠️ <code>config:cache</code> dan keyin
+        <code>env()</code> <code>null</code></b>
+        <span class="nima">🔍 O'lchandi:
+        <code>env('ISHTOP_XABAR')</code> <code>'sms'</code> dan
+        <b><code>NULL</code></b> ga aylandi. Hatto
+        <code>env('APP_NAME')</code> ham.</span></li>
+      <li><b>Darsning eng qimmat o'lchovi</b>
+        <span class="nima">Provider'dagi bitta
+        <code>env()</code>: cheklov <b>5</b> dan <b>60</b> ga
+        jimgina o'zgardi. Xato yo'q.</span></li>
+      <li><b>✅ Yechim: <code>config()</code></b>
+        <span class="nima">O'sha sozlama keshdan oldin ham,
+        keyin ham <b>5</b> bo'lib qoldi.</span></li>
+      <li><b>Eskirgan kesh</b>
+        <span class="nima">🔍 <code>.env</code>
+        o'zgartirildi, ilova esa <b>eski qiymatni</b>
+        qaytardi. «Nega o'zgarishim
+        ishlamayapti?»</span></li>
+      <li><b><code>config:clear</code> va
+        <code>optimize</code></b>
+        <span class="nima">Qachon keshlash kerak, qachon
+        tozalash.</span></li>
+      <li><b>⚠️ Config'da closure bo'lmaydi</b>
+        <span class="nima">🔍 Aniq xato xabari:
+        <code>could not be serialized ... non-serializable</code>.</span></li>
+      <li><b><code>environment()</code> va
+        <code>env('APP_ENV')</code></b>
+        <span class="nima">Kesh ostida biri ishlaydi,
+        ikkinchisi <b>yo'q</b>. O'lchandi.</span></li>
+      <li><b>⚠️ Testlar ham <code>.env</code> ni o'qiydi</b>
+        <span class="nima">Bitta qator qo'shdim —
+        <b>2 ta test</b> qizardi. Bu foydali
+        xabarchi.</span></li>
+      <li><b><code>config()</code> bilan qiymat qo'yish</b>
+        <span class="nima">Faqat <b>shu jarayon</b> uchun —
+        o'lchandi.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima"><code>.env</code> nima uchun
+        git'da yo'q · <code>.env.example</code> ·
+        <code>env()</code> tipi · sirlar · muhitga qarab
+        sozlama.</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Bir xil kod, boshqa sozlama</span>
+    <p>Bir xil ilova uch joyda ishlaydi va har joyda boshqacha
+    sozlanadi:</p>
+    <div class="natija">                sizning noutbukingiz   sinov serveri      ishlab chiqarish
+baza            SQLite fayl            MySQL              MySQL (boshqa parol)
+xatolar         to'liq ko'rsatiladi     ko'rsatiladi       YASHIRILADI
+kesh            fayl                   redis              redis
+email           logga yoziladi          soxta xizmat       haqiqiy pochta</div>
+    <p>Kod <b>bir xil</b> bo'lishi kerak — o'zgaradigan narsa
+    faqat sozlama. Buning uchun uch qatlam bor:</p>
+    <div class="natija">.env      →  MAXFIY qiymatlar, har muhitda BOSHQA, git'da YO'Q
+config/   →  ilovaning sozlama xaritasi, git'da BOR
+kod       →  config() dan o'qiydi, env() ni BILMAYDI</div>
+    <p>Oxirgi qator — butun darsning qoidasi. Bugun uning
+    <b>sababini</b> o'z ko'zimiz bilan ko'ramiz.</p>
+  </div>
+
+  <!-- ═══════════════ 2) O'Z CONFIG FAYLI ═══════════════ -->
+  <h2>O'z config faylingiz</h2>
+
+  <p>48-darsda cheklov raqamlarini kodga <b>qattiq</b>
+  yozgandik: <code>Limit::perMinute(60)</code>. Ularni
+  sozlamaga chiqaramiz:</p>
+
+  <div class="codefile">
+    <div class="fname">config/ishtop.php</div>
+    <code class="cmd" data-cmd="&lt;?php
+
+return [
+    'xabar_drayveri' =&gt; env('ISHTOP_XABAR', 'log'),
+    'sahifa_hajmi' =&gt; (int) env('ISHTOP_SAHIFA', 10),
+    'admin_email' =&gt; env('ISHTOP_ADMIN', 'admin@ishtop.uz'),
+    'api_cheklov' =&gt; (int) env('API_CHEKLOV', 60),
+    'kirish_cheklov' =&gt; (int) env('KIRISH_CHEKLOV', 5),
+];">&lt;?php
+
+return [
+    'xabar_drayveri' =&gt; env('ISHTOP_XABAR', 'log'),
+    'sahifa_hajmi' =&gt; (int) env('ISHTOP_SAHIFA', 10),
+    'admin_email' =&gt; env('ISHTOP_ADMIN', 'admin@ishtop.uz'),
+    'api_cheklov' =&gt; (int) env('API_CHEKLOV', 60),
+    'kirish_cheklov' =&gt; (int) env('KIRISH_CHEKLOV', 5),
+];</code>
+  </div>
+
+  <p>Fayl nomi — <b>kalit</b>: <code>config/ishtop.php</code>
+  → <code>config('ishtop.sahifa_hajmi')</code>. Hech qanday
+  ro'yxatdan o'tkazish kerak emas.</p>
+
+  <p>Har bir qatorda <b>standart qiymat</b> bor. Bu muhim:
+  <code>.env</code> da o'sha kalit bo'lmasa ham ilova
+  ishlaydi.</p>
+
+  <p><code>.env</code> ga esa faqat <b>o'zgartirmoqchi</b>
+  bo'lganingizni yozasiz:</p>
+
+  <div class="natija"># .env
+ISHTOP_XABAR=sms
+ISHTOP_SAHIFA=25</div>
+
+  <div class="natija">config('ishtop.xabar_drayveri')  →  sms                  ← .env dan
+config('ishtop.sahifa_hajmi')   →  25                   ← .env dan
+config('ishtop.admin_email')    →  admin@ishtop.uz      ← standart</div>
+
+  <div class="callout tip">
+    <span class="label">🔑 <code>(int)</code> nega kerak?</span>
+    <p><code>.env</code> — oddiy matn fayli. Undan
+    <b>hamma narsa satr</b> bo'lib keladi:
+    <code>'25'</code>, <code>'60'</code>.</p>
+    <p>Laravel ba'zilarini o'zi o'giradi
+    (<code>true</code>, <code>false</code>,
+    <code>null</code>, <code>empty</code>), lekin
+    <b>sonlarni emas</b>.</p>
+    <p>🔍 Shuning uchun <code>(int)</code> ni
+    <b>config faylida</b> yozing — kod har safar
+    o'girish bilan shug'ullanmasin.</p>
+  </div>
+
+  <!-- ═══════════════ 3) KESH VA ENV ═══════════════ -->
+  <h2>⚠️ <code>config:cache</code> dan keyin</h2>
+
+  <p>Ishlab chiqarishda har so'rovda 20+ config faylini
+  o'qish behuda. Laravel ularni <b>bitta faylga</b>
+  yig'adi:</p>
+
+  <div class="natija">php artisan config:cache
+
+INFO  Configuration cached successfully.
+
+bootstrap/cache/config.php   →   ~23 KB (bitta fayl)</div>
+
+  <p>Endi eng muhim o'lchov. Kesh <b>oldin</b> va
+  <b>keyin</b> bir xil kodni ishlatamiz:</p>
+
+  <div class="natija">                                 keshgacha      keshdan keyin
+config('ishtop.xabar_drayveri')   sms            sms          ✅
+env('ISHTOP_XABAR')               'sms'          NULL         ⚠️
+env('APP_NAME')                   'Laravel'      NULL         ⚠️
+config('app.name')                Laravel        Laravel      ✅</div>
+
+  <p><code>env()</code> <b>ishlashdan to'xtadi</b>.
+  <code>config()</code> esa ishlayveradi.</p>
+
+  <div class="callout warn">
+    <span class="label">⚠️ Nega shunday</span>
+    <p><code>config:cache</code> yasalgandan keyin Laravel
+    <code>.env</code> faylini <b>umuman o'qimaydi</b> —
+    tayyor massivni yuklaydi va shu.</p>
+    <p>Config fayllari esa kesh yasalayotgan payt
+    <b>bir marta</b> ishga tushgan, ya'ni ularning ichidagi
+    <code>env()</code> chaqiruvlari <b>o'sha payt</b>
+    natijasini bergan va massivga <b>yozib
+    qo'yilgan</b>.</p>
+    <p>🔑 Xulosa: <code>env()</code> ni faqat
+    <code>config/</code> ichidagi fayllarda yozing. Boshqa
+    hamma joyda <code>config()</code>.</p>
+  </div>
+
+  <!-- ═══════════════ 4) HAQIQIY XATO ═══════════════ -->
+  <h2>Darsning eng qimmat o'lchovi</h2>
+
+  <p>Qoidani bilish yetarli emas — <b>buzib ko'ramiz</b>.
+  48-darsdagi cheklovni <code>env()</code> bilan
+  yozamiz:</p>
+
+  <div class="codefile">
+    <div class="fname">❌ app/Providers/AppServiceProvider.php</div>
+    <code class="cmd">RateLimiter::for('api', fn (Request $request) =&gt;
+    Limit::perMinute((int) env('API_CHEKLOV', 60))
+        -&gt;by($request-&gt;user('sanctum')?-&gt;id ?: $request-&gt;ip()));</code>
+  </div>
+
+  <div class="natija"># .env
+API_CHEKLOV=5</div>
+
+  <p>Ishlaydimi? Tekshiramiz:</p>
+
+  <div class="natija">keshsiz:              maxAttempts: 5      ✅ ishladi
+
+php artisan config:cache
+keshdan keyin:        maxAttempts: 60     ⚠️⚠️</div>
+
+  <div class="callout warn">
+    <span class="label">⚠️ Xato yo'q — faqat boshqa xatti-harakat</span>
+    <p>Hech qanday xabar chiqmadi. Ilova ishlayapti. Faqat
+    cheklov <b>o'n ikki barobar</b> yumshoq bo'lib
+    qoldi.</p>
+    <p>Va bu <b>aynan ishlab chiqarishda</b> sodir bo'ladi —
+    chunki <code>config:cache</code> u yerda <b>har doim</b>
+    ishlatiladi (Modul J'da ko'ramiz). Sizning
+    noutbukingizda esa hammasi to'g'ri
+    ko'rinadi.</p>
+    <p>🔑 Naqsh tanish: 46-darsdagi <code>?sort=moash</code>,
+    47-darsdagi o'lik handler, 52-darsdagi
+    <code>filter()</code>. Hammasida bir xil — <b>xato yo'q,
+    natija noto'g'ri</b>.</p>
+  </div>
+
+  <h3>✅ Yechim</h3>
+
+  <p>Qiymatni config faylga ko'chiramiz, kod esa
+  <code>config()</code> o'qiydi:</p>
+
+  <div class="codefile">
+    <div class="fname">app/Providers/AppServiceProvider.php</div>
+    <code class="cmd">RateLimiter::for('api', fn (Request $request) =&gt;
+    Limit::perMinute(config('ishtop.api_cheklov'))
+        -&gt;by($request-&gt;user('sanctum')?-&gt;id ?: $request-&gt;ip()));
+
+RateLimiter::for('kirish', fn (Request $request) =&gt;
+    Limit::perMinute(config('ishtop.kirish_cheklov'))
+        -&gt;by($request-&gt;ip())
+        -&gt;response(...));</code>
+  </div>
+
+  <div class="natija">keshsiz:         api: 5   kirish: 5
+keshdan keyin:   api: 5   kirish: 5      ✅ bir xil</div>
+
+  <!-- ═══════════════ 5) ESKIRGAN KESH ═══════════════ -->
+  <h2>Eskirgan kesh</h2>
+
+  <p>Ikkinchi tuzoq shu. <code>.env</code> ni
+  o'zgartiramiz — kesh esa turibdi:</p>
+
+  <div class="natija"># .env
+ISHTOP_XABAR=email          ← o'zgartirdik
+
+config('ishtop.xabar_drayveri')   →   sms      ⚠️ ESKI qiymat</div>
+
+  <p>«Men <code>.env</code> ni o'zgartirdim, nega
+  ishlamayapti?» — bu savol har bir Laravel dasturchisining
+  boshidan o'tgan.</p>
+
+  <div class="natija">php artisan config:clear
+
+config('ishtop.xabar_drayveri')   →   email    ✅
+env('ISHTOP_XABAR')               →   'email'  ✅ (env ham qaytdi)</div>
+
+  <div class="callout tip">
+    <span class="label">🔑 Qachon keshlash kerak</span>
+    <div class="natija">mahalliy ish (sizning noutbukingiz)  →  keshlamang
+                                        .env ni erkin o'zgartirasiz
+
+ishlab chiqarish                     →  config:cache MAJBURIY
+                                        va har deploydan keyin qayta</div>
+    <p>⚠️ Agar mahalliy ishda bir marta
+    <code>config:cache</code> qilib qo'ysangiz, keyin
+    «g'alati» xatti-harakatlar boshlanadi.</p>
+    <p>✅ <code>php artisan optimize:clear</code> — hamma
+    keshni birdan tozalaydi (config, route, view, event).
+    G'alati narsa ko'rsangiz <b>birinchi
+    urinish</b>.</p>
+  </div>
+
+  <!-- ═══════════════ 6) CLOSURE ═══════════════ -->
+  <h2>⚠️ Config'da closure bo'lmaydi</h2>
+
+  <p>Config fayliga funksiya yozib ko'ramiz:</p>
+
+  <div class="natija">// config/ishtop.php
+'yolgon' =&gt; fn () =&gt; 'closure',</div>
+
+  <div class="natija">php artisan config:cache
+
+LogicException
+
+Your configuration files could not be serialized because
+the value at "ishtop.yolgon" is non-serializable.</div>
+
+  <p>Sabab: kesh — bu <code>var_export</code> bilan yozilgan
+  PHP massivi. Funksiyani massivga yozib bo'lmaydi.</p>
+
+  <p>🔍 Xato xabari <b>aniq kalitni</b> aytadi
+  (<code>ishtop.yolgon</code>) — shuning uchun uni topish
+  oson. Va bu xato <b>faqat keshlashda</b> chiqadi, ya'ni
+  mahalliy ishda uni sezmasligingiz mumkin.</p>
+
+  <p>✅ Config'da faqat <b>oddiy qiymatlar</b>: satr, son,
+  <code>bool</code>, <code>null</code>, massiv. Mantiq
+  kerak bo'lsa — provider'ga (50-dars).</p>
+
+  <!-- ═══════════════ 7) ENVIRONMENT ═══════════════ -->
+  <h2><code>environment()</code> va <code>env('APP_ENV')</code></h2>
+
+  <p>Kesh yoqilgan holatda o'lchaymiz:</p>
+
+  <div class="natija">app()-&gt;environment()     →  local      ✅
+env('APP_ENV')           →  NULL       ⚠️
+config('app.env')        →  local      ✅
+app()-&gt;isProduction()    →  false      ✅</div>
+
+  <p>Muhitni tekshirish uchun <b>hech qachon</b>
+  <code>env('APP_ENV')</code> yozmang — u keshdan keyin
+  <code>null</code> bo'ladi va shartlaringiz teskari
+  ishlaydi.</p>
+
+  <div class="natija">✅ app()-&gt;environment('local')
+✅ app()-&gt;environment(['local', 'testing'])
+✅ app()-&gt;isProduction()
+✅ config('app.env')</div>
+
+  <!-- ═══════════════ 8) TESTLAR VA ENV ═══════════════ -->
+  <h2>⚠️ Testlar ham <code>.env</code> ni o'qiydi</h2>
+
+  <p>Yuqoridagi tajribada <code>.env</code> ga
+  <code>API_CHEKLOV=5</code> qo'shgan edik. To'liq
+  to'plamni ishga tushirdik:</p>
+
+  <div class="natija">Tests:  2 failed, 48 passed
+
+Failed asserting that two strings are identical.
+-'60'
++'5'</div>
+
+  <p>48-darsdagi <code>CheklovTest</code>
+  <code>X-RateLimit-Limit</code> ni <code>'60'</code> deb
+  kutgan edi. <code>.env</code> dagi bitta qator uni
+  <code>'5'</code> qildi.</p>
+
+  <div class="callout tip">
+    <span class="label">🔑 Bu xato emas — bu xabarchi</span>
+    <p>Test <b>haqiqatan</b> o'zgargan xatti-harakatni
+    ko'rsatdi. Agar u qizarmaganda, siz sozlama
+    o'zgarganini <b>bilmasdan</b> commit
+    qilardingiz.</p>
+    <p>⚠️ Lekin bu jamoada muammo tug'diradi: sizning
+    <code>.env</code> ingiz hamkasbingiznikidan farq qilsa,
+    testlar <b>har xil natija</b> beradi.</p>
+    <p>✅ Yechim: muhim sozlamalarni
+    <code>phpunit.xml</code> da aniq belgilang — u
+    <code>.env</code> dan <b>ustun</b> turadi:</p>
+    <div class="natija">&lt;env name="CACHE_STORE" value="array"/&gt;
+&lt;env name="QUEUE_CONNECTION" value="sync"/&gt;
+&lt;env name="API_CHEKLOV" value="60"/&gt;      ← qo'shsangiz bo'ladi</div>
+  </div>
+
+  <!-- ═══════════════ 9) RUNTIME SET ═══════════════ -->
+  <h2>Ish paytida qiymat qo'yish</h2>
+
+  <div class="natija">config(['ishtop.sahifa_hajmi' =&gt; 99]);
+
+o'sha jarayonda:   99
+yangi jarayonda:   25      ← faylga YOZILMAYDI</div>
+
+  <p>Bu faqat <b>joriy so'rov</b> uchun. Foydali joyi —
+  testlar:</p>
+
+  <div class="natija">it('katta sahifa bilan ishlaydi', function () {
+    config(['ishtop.sahifa_hajmi' =&gt; 50]);
+
+    // ... tekshiruv
+});</div>
+
+  <p>Test tugagach qiymat o'zi qaytadi — har bir test
+  yangi ilova bilan boshlanadi.</p>
+
+  <!-- ═══════════════ 10) HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir bir
+  marta o'qib chiqing, keyin kerak bo'lganda qaytib
+  qarang.</p>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 1</span>
+    <h4><code>.env</code> git'ga tushib qolishi</h4>
+    <div class="natija">.gitignore:
+.env
+.env.backup
+.env.*.local</div>
+    <p><code>.env</code> da baza paroli, API kalitlari,
+    <code>APP_KEY</code> bor. Git'ga tushsa — <b>hammasi
+    ochiq</b>, va tarixdan o'chirish qiyin.</p>
+    <p>✅ O'rniga <code>.env.example</code> — <b>kalitlar
+    bor, qiymatlar yo'q</b>:</p>
+    <div class="natija">DB_PASSWORD=
+ISHTOP_XABAR=log
+API_CHEKLOV=60</div>
+    <p>🔍 Yangi dasturchi
+    <code>cp .env.example .env</code> qiladi va nima
+    to'ldirish kerakligini <b>ko'radi</b>.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 2</span>
+    <h4><code>env()</code> qaytaradigan tiplar</h4>
+    <div class="natija">.env da            env() qaytaradi
+─────────────────────────────────────
+KALIT=true         bool true       ← o'giradi
+KALIT=false        bool false      ← o'giradi
+KALIT=null         null            ← o'giradi
+KALIT=(empty)      ''              ← o'giradi
+KALIT=25           string '25'     ⚠️ SATR
+KALIT=            null</div>
+    <p>Sonlar <b>o'girilmaydi</b>. Shuning uchun config
+    faylida <code>(int)</code> yozamiz.</p>
+    <p>⚠️ <code>KALIT=false</code> va
+    <code>KALIT="false"</code> — <b>boshqa</b> narsa:
+    ikkinchisi <code>'false'</code> satri va u
+    <code>if</code> da <b>rost</b> bo'ladi.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 3</span>
+    <h4>Bo'shliqli qiymat</h4>
+    <div class="natija">❌ APP_NAME=Mening Ilovam        →  faqat "Mening"
+✅ APP_NAME="Mening Ilovam"      →  to'liq</div>
+    <p><code>#</code> belgisi ham izoh boshlaydi:
+    <code>PAROL=abc#123</code> → <code>abc</code>.
+    Qo'shtirnoq ichida esa muammo yo'q.</p>
+    <p>🔍 Shubha bo'lsa <code>php artisan tinker</code> da
+    <code>env('KALIT')</code> deb tekshiring — lekin
+    <b>kesh tozalangan</b> holatda.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 4</span>
+    <h4>Muhitga qarab sozlama</h4>
+    <div class="natija">❌ if (env('APP_ENV') === 'production') { ... }
+❌ if (app()-&gt;environment('production')) { ... }   // kodda shart
+
+✅ config/ishtop.php:
+   'hamkorga_yubor' =&gt; (bool) env('HAMKORGA_YUBOR', false),
+
+   .env (ishlab chiqarish):  HAMKORGA_YUBOR=true</div>
+    <p>Kodda muhit nomini tekshirish — <b>qattiq
+    bog'lanish</b>. Ertaga to'rtinchi muhit paydo
+    bo'lsa, hamma <code>if</code> ni qidirasiz.</p>
+    <p>🔑 To'g'ri savol: «bu <b>muhit</b>ga bog'liqmi yoki
+    <b>sozlama</b>ga?» Deyarli har doim —
+    sozlamaga.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 5</span>
+    <h4>Deploydan keyin keshni unutish</h4>
+    <div class="natija">git pull          →  yangi config fayllar
+(config:cache YO'Q)  →  ilova ESKI keshdan ishlaydi  ⚠️</div>
+    <p>Yangi sozlama qo'shdingiz, deploy qildingiz — lekin
+    kesh eski. Ilova yangi kalitni <b>topa
+    olmaydi</b>.</p>
+    <p>✅ Deploy skriptida <b>har doim</b>:</p>
+    <div class="natija">php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+# yoki bittada:
+php artisan optimize</div>
+    <p>🔍 Modul J'da buni to'liq deploy skriptiga
+    yig'amiz.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 6</span>
+    <h4>Sirlarni saqlash</h4>
+    <div class="natija">⚠️ .env fayli serverda ochiq matn — kim o'qiy oladi?
+✅ fayl huquqlari: 600 (faqat egasi)
+✅ katta loyihalarda: Vault, AWS Secrets Manager, .env shifrlash</div>
+    <p>Laravel'da o'rnatilgan yechim ham bor:</p>
+    <div class="natija">php artisan env:encrypt      →  .env.encrypted (git'ga qo'ysa bo'ladi)
+php artisan env:decrypt      →  kalit bilan ochiladi</div>
+    <p>⚠️ Va eng muhimi: <code>APP_KEY</code> ni
+    <b>hech qachon</b> almashtirmang — u bilan shifrlangan
+    hamma narsa (sessiya, shifrlangan ustunlar)
+    o'qib bo'lmas holga keladi.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>Config'ni tekshirish</h4>
+    <div class="natija">php artisan about                    →  umumiy holat, Debug Mode, drayverlar
+php artisan config:show ishtop       →  bitta faylning qiymatlari
+php artisan tinker --execute='...'   →  aniq kalit</div>
+    <p><code>config:show</code> — sozlamaning
+    <b>haqiqiy</b> qiymatini ko'rish uchun eng qisqa
+    yo'l: u <code>.env</code>, standart va kesh
+    aralashmasidan chiqqan natijani beradi.</p>
+    <p>🔍 47-darsdagi «hamma narsa 500 bo'lsa» tashxisi
+    ham shu yerdan boshlanadi:
+    <code>php artisan about</code> → «Debug
+    Mode».</p>
+  </div>
+
+  <!-- ═══════════════ 11) AMALIYOT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    💻 Quyida amaliyot bor. Hozir o'qish rejimidasiz — kompyuter
+    yoningizda bo'lganda <b>💻 Amaliyot</b> rejimiga o'ting va
+    shu bo'limdan davom eting.
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <b>O'z config faylingizni yarating.</b> Yuqoridagi
+        <code>config/ishtop.php</code> ni ko'chiring (nusxa
+        tugmasi bor).
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+php -l config/ishtop.php
+printf 'ISHTOP_XABAR=sms\nISHTOP_SAHIFA=25\n' >> .env
+tail -3 .env">cd ~/Projects/Learn/ishtop
+php -l config/ishtop.php
+printf 'ISHTOP_XABAR=sms\nISHTOP_SAHIFA=25\n' &gt;&gt; .env
+tail -3 .env</div>
+      </li>
+
+      <li>
+        <b>Keshsiz o'lchang.</b>
+        <div class="cmd" data-cmd="php artisan config:clear
+php artisan tinker --execute='echo &quot;config: &quot;, config(&quot;ishtop.xabar_drayveri&quot;), PHP_EOL, &quot;env:    &quot;, var_export(env(&quot;ISHTOP_XABAR&quot;), true), PHP_EOL, &quot;standart: &quot;, config(&quot;ishtop.admin_email&quot;), PHP_EOL;'">php artisan config:clear
+php artisan tinker --execute='echo &quot;config: &quot;, config(&quot;ishtop.xabar_drayveri&quot;), PHP_EOL, &quot;env:    &quot;, var_export(env(&quot;ISHTOP_XABAR&quot;), true), PHP_EOL, &quot;standart: &quot;, config(&quot;ishtop.admin_email&quot;), PHP_EOL;'</div>
+      </li>
+
+      <li>
+        <b>Keshlang va farqni ko'ring.</b>
+        <div class="cmd" data-cmd="php artisan config:cache
+wc -c bootstrap/cache/config.php
+php artisan tinker --execute='echo &quot;config: &quot;, config(&quot;ishtop.xabar_drayveri&quot;), PHP_EOL, &quot;env:    &quot;, var_export(env(&quot;ISHTOP_XABAR&quot;), true), PHP_EOL, &quot;APP_NAME env: &quot;, var_export(env(&quot;APP_NAME&quot;), true), PHP_EOL;'">php artisan config:cache
+wc -c bootstrap/cache/config.php
+php artisan tinker --execute='echo &quot;config: &quot;, config(&quot;ishtop.xabar_drayveri&quot;), PHP_EOL, &quot;env:    &quot;, var_export(env(&quot;ISHTOP_XABAR&quot;), true), PHP_EOL, &quot;APP_NAME env: &quot;, var_export(env(&quot;APP_NAME&quot;), true), PHP_EOL;'</div>
+        <p class="expect">⚠️ <code>env()</code> ikkalasi ham
+        <b>NULL</b>, <code>config()</code> esa
+        ishlayapti.</p>
+      </li>
+
+      <li>
+        <b>Eskirgan keshni ko'ring.</b>
+        <div class="cmd" data-cmd="sed -i 's/^ISHTOP_XABAR=sms/ISHTOP_XABAR=email/' .env
+grep ISHTOP_XABAR .env
+php artisan tinker --execute='echo config(&quot;ishtop.xabar_drayveri&quot;), PHP_EOL;'">sed -i 's/^ISHTOP_XABAR=sms/ISHTOP_XABAR=email/' .env
+grep ISHTOP_XABAR .env
+php artisan tinker --execute='echo config(&quot;ishtop.xabar_drayveri&quot;), PHP_EOL;'</div>
+        <p class="expect">⚠️ <code>.env</code> da
+        <code>email</code>, ilova esa <code>sms</code>
+        deydi.</p>
+        <div class="cmd" data-cmd="php artisan config:clear
+php artisan tinker --execute='echo config(&quot;ishtop.xabar_drayveri&quot;), PHP_EOL;'">php artisan config:clear
+php artisan tinker --execute='echo config(&quot;ishtop.xabar_drayveri&quot;), PHP_EOL;'</div>
+      </li>
+
+      <li>
+        <b>⚠️ Haqiqiy xatoni yasang.</b>
+        <code>AppServiceProvider</code> dagi
+        <code>Limit::perMinute(60)</code> ni vaqtincha
+        shunday qiling:
+        <div class="cmd" data-cmd="# app/Providers/AppServiceProvider.php
+Limit::perMinute((int) env('API_CHEKLOV', 60))"># app/Providers/AppServiceProvider.php
+Limit::perMinute((int) env('API_CHEKLOV', 60))</div>
+        <div class="cmd" data-cmd="echo 'API_CHEKLOV=5' >> .env
+php artisan config:clear
+php artisan tinker --execute='echo &quot;keshsiz:      &quot;, RateLimiter::limiter(&quot;api&quot;)(request())->maxAttempts, PHP_EOL;'
+php artisan config:cache
+php artisan tinker --execute='echo &quot;keshdan keyin: &quot;, RateLimiter::limiter(&quot;api&quot;)(request())->maxAttempts, PHP_EOL;'">echo 'API_CHEKLOV=5' &gt;&gt; .env
+php artisan config:clear
+php artisan tinker --execute='echo &quot;keshsiz:      &quot;, RateLimiter::limiter(&quot;api&quot;)(request())-&gt;maxAttempts, PHP_EOL;'
+php artisan config:cache
+php artisan tinker --execute='echo &quot;keshdan keyin: &quot;, RateLimiter::limiter(&quot;api&quot;)(request())-&gt;maxAttempts, PHP_EOL;'</div>
+        <p class="expect">⚠️ <b>5</b> va <b>60</b>. Xato
+        yo'q, xatti-harakat esa boshqa.</p>
+      </li>
+
+      <li>
+        <b>Tuzating.</b> Config faylga
+        <code>api_cheklov</code> va
+        <code>kirish_cheklov</code> qo'shing, provider'da
+        <code>config('ishtop.api_cheklov')</code> yozing.
+        <div class="cmd" data-cmd="php artisan config:clear
+php artisan tinker --execute='echo &quot;keshsiz:      api=&quot;, RateLimiter::limiter(&quot;api&quot;)(request())->maxAttempts, PHP_EOL;'
+php artisan config:cache
+php artisan tinker --execute='echo &quot;keshdan keyin: api=&quot;, RateLimiter::limiter(&quot;api&quot;)(request())->maxAttempts, PHP_EOL;'
+php artisan config:clear">php artisan config:clear
+php artisan tinker --execute='echo &quot;keshsiz:      api=&quot;, RateLimiter::limiter(&quot;api&quot;)(request())-&gt;maxAttempts, PHP_EOL;'
+php artisan config:cache
+php artisan tinker --execute='echo &quot;keshdan keyin: api=&quot;, RateLimiter::limiter(&quot;api&quot;)(request())-&gt;maxAttempts, PHP_EOL;'
+php artisan config:clear</div>
+        <p class="expect">✅ Ikkalasida ham bir xil son.</p>
+      </li>
+
+      <li>
+        <b>Testlar <code>.env</code> ni o'qishini
+        ko'ring.</b>
+        <div class="cmd" data-cmd="php artisan test tests/Feature/CheklovTest.php">php artisan test tests/Feature/CheklovTest.php</div>
+        <p class="expect">⚠️ <code>API_CHEKLOV=5</code> hamon
+        <code>.env</code> da bo'lsa, testlar qizaradi:
+        <code>-'60' +'5'</code>. Uni o'chiring va qayta
+        ishlating.</p>
+        <div class="cmd" data-cmd="sed -i '/^API_CHEKLOV=5$/d' .env
+php artisan test tests/Feature/CheklovTest.php">sed -i '/^API_CHEKLOV=5$/d' .env
+php artisan test tests/Feature/CheklovTest.php</div>
+      </li>
+
+      <li>
+        <b>⚠️ Config'ga closure qo'yib ko'ring.</b>
+        <div class="cmd" data-cmd="# config/ishtop.php ichiga vaqtincha:
+'yolgon' => fn () => 'closure',"># config/ishtop.php ichiga vaqtincha:
+'yolgon' =&gt; fn () =&gt; 'closure',</div>
+        <div class="cmd" data-cmd="php artisan config:cache">php artisan config:cache</div>
+        <p class="expect"><code>LogicException ... the value
+        at "ishtop.yolgon" is non-serializable</code>. Qatorni
+        o'chiring.</p>
+      </li>
+
+      <li>
+        <b>Muhitni to'g'ri tekshiring.</b>
+        <div class="cmd" data-cmd="php artisan config:cache
+php artisan tinker --execute='echo &quot;environment(): &quot;, app()->environment(), PHP_EOL, &quot;env(APP_ENV):  &quot;, var_export(env(&quot;APP_ENV&quot;), true), PHP_EOL, &quot;config(app.env): &quot;, config(&quot;app.env&quot;), PHP_EOL;'
+php artisan config:clear">php artisan config:cache
+php artisan tinker --execute='echo &quot;environment(): &quot;, app()-&gt;environment(), PHP_EOL, &quot;env(APP_ENV):  &quot;, var_export(env(&quot;APP_ENV&quot;), true), PHP_EOL, &quot;config(app.env): &quot;, config(&quot;app.env&quot;), PHP_EOL;'
+php artisan config:clear</div>
+      </li>
+
+      <li>
+        <b>Tekshirish vositalarini sinang.</b>
+        <div class="cmd" data-cmd="php artisan config:show ishtop
+php artisan about | head -20">php artisan config:show ishtop
+php artisan about | head -20</div>
+      </li>
+
+      <li>
+        <b><code>.env.example</code> ni yangilang.</b>
+        <div class="cmd" data-cmd="printf 'ISHTOP_XABAR=log\nISHTOP_SAHIFA=10\nAPI_CHEKLOV=60\nKIRISH_CHEKLOV=5\n' >> .env.example
+tail -5 .env.example">printf 'ISHTOP_XABAR=log\nISHTOP_SAHIFA=10\nAPI_CHEKLOV=60\nKIRISH_CHEKLOV=5\n' &gt;&gt; .env.example
+tail -5 .env.example</div>
+      </li>
+
+      <li>
+        <b>To'liq to'plamni ishga tushiring.</b>
+        <div class="cmd" data-cmd="php artisan test">php artisan test</div>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><code>config/ishtop.php</code> yaratildi</li>
+      <li>Keshdan keyin <code>env()</code> <b>NULL</b>
+      bo'lishini ko'rdim</li>
+      <li>Provider'dagi <code>env()</code> cheklovni
+      jimgina o'zgartirdi</li>
+      <li><code>config()</code> bilan tuzatdim — ikkala
+      holatda bir xil</li>
+      <li>Eskirgan keshni va <code>config:clear</code> ni
+      ko'rdim</li>
+      <li>Closure xatosini o'z ko'zim bilan ko'rdim</li>
+      <li><code>env('APP_ENV')</code> keshdan keyin
+      <b>NULL</b></li>
+      <li>Testlar <code>.env</code> ni o'qishini
+      ko'rdim</li>
+      <li><code>.env.example</code> yangilandi</li>
+      <li>Kesh tozalangan, to'liq to'plam yashil</li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 12) SINAB KO'RAMIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Dasturchi hamkorga yuborish funksiyasini yozdi va uni
+    faqat ishlab chiqarishda yoqmoqchi bo'ldi:</p>
+    <div class="codefile">
+      <div class="fname">app/Listeners/HamkorgaYubor.php</div>
+      <code class="cmd" data-cmd="public function handle(VakansiyaYaratildi $event): void
+{
+    if (env('HAMKORGA_YUBOR', false)) {
+        Http::post(env('HAMKOR_URL'), [...]);
+    }
+}">public function handle(VakansiyaYaratildi $event): void
+{
+    if (env('HAMKORGA_YUBOR', false)) {
+        Http::post(env('HAMKOR_URL'), [...]);
+    }
+}</code>
+    </div>
+    <div class="natija"># ishlab chiqarish .env
+HAMKORGA_YUBOR=true
+HAMKOR_URL=https://hamkor.uz/api</div>
+    <p>Mahalliy ishda sinab ko'rdi — <b>ishladi</b>
+    (<code>HAMKORGA_YUBOR=true</code> qo'yganda yuborildi,
+    olib tashlaganda yuborilmadi). Deploy qildi.</p>
+    <p>Bir hafta o'tib hamkor kompaniya qo'ng'iroq qildi:
+    «bizga <b>hech narsa kelmayapti</b>». Serverda esa
+    <code>.env</code> da ikkala qator ham turibdi. Nima
+    bo'lyapti?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <p>Ishlab chiqarishda <code>config:cache</code>
+        ishlatiladi. Undan keyin <code>.env</code>
+        <b>umuman o'qilmaydi</b>:</p>
+        <div class="natija">env('HAMKORGA_YUBOR', false)   →   false     ⚠️ standart qiymat
+env('HAMKOR_URL')              →   NULL      ⚠️</div>
+        <p class="expect">⚠️ <code>if</code> hech qachon
+        rost bo'lmaydi. Xato ham chiqmaydi — kod
+        shunchaki <b>hech nima qilmaydi</b>.</p>
+        <p>Mahalliy ishda ishlagani chalg'itdi: u yerda
+        kesh yo'q, <code>env()</code> esa
+        ishlayveradi.</p>
+        <p>🔍 Ikkinchi qatorda yanada yomoni bor: agar
+        <code>if</code> negadir rost bo'lganda,
+        <code>Http::post(NULL, ...)</code> chaqirilar va
+        boshqa, tushunarsiz xato chiqardi.</p>
+        <p>✅ Yechim — ikkalasini ham config'ga:</p>
+        <div class="natija">// config/ishtop.php
+'hamkorga_yubor' =&gt; (bool) env('HAMKORGA_YUBOR', false),
+'hamkor_url' =&gt; env('HAMKOR_URL'),
+
+// tinglovchida
+if (config('ishtop.hamkorga_yubor')) {
+    Http::post(config('ishtop.hamkor_url'), [...]);
+}</div>
+        <p>🔑 <b>Umumiy saboq:</b> «mahalliy ishda ishladi»
+        — ishlab chiqarish uchun <b>dalil emas</b>.
+        Ikkala muhitning eng katta farqi aynan shu:
+        <code>config:cache</code>.</p>
+        <p>🔍 Buni oldini oladigan oddiy tekshiruv:
+        <code>grep -rn "env(" app/ routes/</code> — natija
+        <b>bo'sh</b> bo'lishi kerak.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span>
+    <code>config:cache</code> dan keyin <code>env()</code>
+    nima qaytaradi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">null qaytaradi chunki env fayli umuman o'qilmaydi</button></li>
+      <li><button class="quiz-option">Eski qiymatni qaytaradi chunki kesh saqlab qoladi</button></li>
+      <li><button class="quiz-option">Xato beradi va ilova ishga tushmay qoladi</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi:
+    <code>env('ISHTOP_XABAR')</code> <code>'sms'</code> dan
+    <b>NULL</b> ga aylandi, <code>env('APP_NAME')</code> ham
+    <b>NULL</b>. <code>config()</code> esa ishlayveradi.
+    🔑 Config fayllari kesh yasalayotgan payt <b>bir
+    marta</b> ishlagan va natija massivga yozilgan.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span>
+    Provider'da <code>env('API_CHEKLOV', 60)</code> yozilsa
+    nima bo'ladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Keshdan keyin jimgina standart qiymat ishlatilib qoladi</button></li>
+      <li><button class="quiz-option">Ilova ishga tushmaydi va aniq xato beradi</button></li>
+      <li><button class="quiz-option">Laravel uni avtomatik config chaqiruviga aylantirib qo'yadi</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi: keshsiz cheklov
+    <b>5</b>, <code>config:cache</code> dan keyin
+    <b>60</b>. Xato <b>yo'q</b> — faqat xatti-harakat
+    boshqa.
+    ⚠️ Va bu aynan ishlab chiqarishda sodir bo'ladi.
+    ✅ <code>config('ishtop.api_cheklov')</code> bilan
+    ikkala holatda <b>5</b>.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span>
+    <code>.env</code> ni o'zgartirdingiz, ilova esa eski
+    qiymatni beryapti. Nima qilasiz?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">config clear buyrug'ini ishlataman keyin qayta tekshiraman</button></li>
+      <li><button class="quiz-option">Serverni qayta ishga tushiraman va biroz kutaman</button></li>
+      <li><button class="quiz-option">Config faylidagi standart qiymatni qo'lda yangilab qo'yaman</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi: <code>.env</code> da
+    <code>email</code>, ilova <code>sms</code> deydi;
+    <code>config:clear</code> dan keyin <code>email</code>.
+    🔑 Mahalliy ishda keshlamang.
+    ✅ G'alati narsa ko'rsangiz birinchi urinish —
+    <code>php artisan optimize:clear</code>.</div>
+  </div>
+
+  <!-- ═══════════════ 13) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+
+    <p>Javobni ovoz chiqarib ayting, keyin ochib
+    solishtiring.</p>
+
+    <details class="recall">
+      <summary>Uch qatlamning har biri nima uchun?</summary>
+      <div class="answer"><code>.env</code> — <b>maxfiy</b>
+      qiymatlar, har muhitda boshqa, git'da <b>yo'q</b>.
+      <code>config/</code> — ilovaning sozlama xaritasi,
+      standart qiymatlar bilan, git'da <b>bor</b>.
+      Kod — faqat <code>config()</code> o'qiydi,
+      <code>env()</code> ni <b>bilmaydi</b>.
+      🔑 <code>env()</code> faqat
+      <code>config/</code> ichida.</div>
+    </details>
+
+    <details class="recall">
+      <summary>Nega <code>env()</code> ni kodda yozib
+      bo'lmaydi?</summary>
+      <div class="answer"><code>config:cache</code> dan keyin
+      Laravel <code>.env</code> ni <b>umuman
+      o'qimaydi</b> — tayyor massivni yuklaydi.
+      🔍 O'lchandi: <code>env('ISHTOP_XABAR')</code>
+      <b>NULL</b>, provider'dagi cheklov <b>5</b> dan
+      <b>60</b> ga jimgina o'zgardi.
+      ⚠️ Xato chiqmaydi. Va bu <b>faqat ishlab
+      chiqarishda</b> ko'rinadi.
+      🔍 Tekshiruv:
+      <code>grep -rn "env(" app/ routes/</code> — bo'sh
+      bo'lsin.</div>
+    </details>
+
+    <details class="recall">
+      <summary>Config'da nima bo'lishi mumkin emas va nega?</summary>
+      <div class="answer"><b>Closure</b> (va boshqa
+      seriyalanmaydigan qiymatlar). Kesh —
+      <code>var_export</code> bilan yozilgan PHP massivi.
+      🔍 Aniq xato:
+      <code>LogicException: Your configuration files could
+      not be serialized because the value at
+      "ishtop.yolgon" is non-serializable.</code>
+      ⚠️ Bu xato <b>faqat keshlashda</b> chiqadi.
+      ✅ Config'da faqat satr, son, bool, null,
+      massiv.</div>
+    </details>
+
+    <details class="recall">
+      <summary>Muhitni qanday tekshirasiz?</summary>
+      <div class="answer">✅ <code>app()-&gt;environment()</code>,
+      <code>app()-&gt;environment(['local','testing'])</code>,
+      <code>app()-&gt;isProduction()</code>,
+      <code>config('app.env')</code>.
+      ❌ <code>env('APP_ENV')</code> — 🔍 o'lchandi:
+      keshdan keyin <b>NULL</b>.
+      🔑 Umuman esa kodda muhit nomini tekshirish o'rniga
+      <b>sozlama</b> qo'ying: «bu muhitga bog'liqmi yoki
+      sozlamaga?»</div>
+    </details>
+
+    <details class="recall">
+      <summary>Testlar <code>.env</code> ni o'qiydimi?</summary>
+      <div class="answer"><b>Ha.</b> 🔍 O'lchandi:
+      <code>.env</code> ga <code>API_CHEKLOV=5</code>
+      qo'shilishi bilan <b>2 ta test</b> qizardi
+      (<code>-'60' +'5'</code>).
+      🔑 Bu foydali xabarchi, lekin jamoada muammo:
+      har kimning <code>.env</code> i boshqa.
+      ✅ Muhim sozlamalarni <code>phpunit.xml</code> da
+      belgilang — u <code>.env</code> dan
+      <b>ustun</b>.</div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 14) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Xulosa</span>
+    <ul>
+      <li>Uch qatlam: <code>.env</code> (maxfiy, git'siz) →
+      <code>config/</code> (xarita, git'da) → kod (faqat
+      <code>config()</code>).</li>
+      <li>Fayl nomi kalit:
+      <code>config/ishtop.php</code> →
+      <code>config('ishtop.x')</code>. Ro'yxatdan
+      o'tkazish kerak emas.</li>
+      <li>⚠️ <code>config:cache</code> dan keyin
+      <code>env()</code> → <b>NULL</b>.
+      <code>config()</code> ishlayveradi.</li>
+      <li>⚠️ Provider'dagi <code>env()</code>: cheklov
+      <b>5</b> dan <b>60</b> ga <b>jimgina</b>
+      o'zgardi.</li>
+      <li>🔑 Tekshiruv:
+      <code>grep -rn "env(" app/ routes/</code> — natija
+      bo'sh bo'lsin.</li>
+      <li>⚠️ Eskirgan kesh: <code>.env</code>
+      o'zgardi, ilova eski qiymatni berdi.
+      <code>config:clear</code>.</li>
+      <li>Mahalliy ishda keshlamang, ishlab chiqarishda
+      <code>optimize</code> <b>majburiy</b>.</li>
+      <li>⚠️ Config'da <b>closure bo'lmaydi</b>:
+      <code>non-serializable</code>.</li>
+      <li>⚠️ <code>env('APP_ENV')</code> keshdan keyin
+      <b>NULL</b> — <code>app()-&gt;environment()</code>
+      ishlating.</li>
+      <li><code>.env</code> dan hamma narsa <b>satr</b>
+      bo'lib keladi (<code>true</code>/<code>false</code>/
+      <code>null</code> dan tashqari) — config'da
+      <code>(int)</code>.</li>
+      <li>⚠️ Testlar ham <code>.env</code> ni o'qiydi —
+      muhim sozlamalarni <code>phpunit.xml</code> ga.</li>
+      <li><code>config([...])</code> — faqat shu jarayon
+      uchun; testda foydali.</li>
+      <li>Tashxis: <code>config:show ishtop</code> ·
+      <code>about</code> · <code>optimize:clear</code>.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p><b>Modul G tugadi.</b> Uchta «sehr» ochildi —
+    container, provider, fasad — va ularning ustiga
+    kolleksiya, hodisa va sozlama qo'shildi. Endi
+    Laravel'ning ichida siz uchun <b>noma'lum joy</b>
+    deyarli qolmadi.</p>
+    <p>53-darsda <code>ShouldQueue</code> ni ishlatdik va
+    ish <code>jobs</code> jadvaliga tushganini ko'rdik.
+    Lekin navbatning o'zini ochmadik.</p>
+    <p>55-darsdan <b>Modul H</b> boshlanadi — <b>fon
+    ishlar va tezlik</b>. Birinchi dars:
+    <b>Queue va Job</b>. <code>queue:work</code> qanday
+    ishlaydi, ish nechta marta qayta uriniladi,
+    muvaffaqiyatsiz ish bilan nima qilinadi — va nega
+    sekin ish foydalanuvchini kutdirmasligi
+    kerak.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel — Configuration</b>:
+    <a href="https://laravel.com/docs/13.x/configuration">config,
+    env, config:cache, environment</a>.<sup><a href="#fn1">1</a></sup><br>
+    <b>Laravel — Deployment: Optimization</b>:
+    <a href="https://laravel.com/docs/13.x/deployment#optimization">optimize,
+    config:cache</a>.<sup><a href="#fn2">2</a></sup><br>
+    <b>Laravel — Encrypting Environment Files</b>:
+    <a href="https://laravel.com/docs/13.x/configuration#encrypting-environment-files">env:encrypt</a>.<sup><a href="#fn1">1</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b>
+    «<code>.env.testing</code> nima?», «bitta serverda ikki
+    ilova bo'lsa <code>.env</code> qanday ajratiladi?»,
+    «<code>config()</code> sekinmi?», «<code>APP_KEY</code>
+    yo'qolsa nima bo'ladi?» — har qanday savol yaxshi.
+    Birinchisiga qisqa javob: <code>APP_ENV=testing</code>
+    bo'lganda Laravel <code>.env.testing</code> ni
+    <b>o'rniga</b> o'qiydi — testlar uchun alohida baza
+    yoki kalitlar kerak bo'lganda qulay. Oxirgisiga:
+    sessiyalar, shifrlangan cookie va
+    <code>encrypted</code> ustunlar <b>o'qib bo'lmas</b>
+    holga keladi — shuning uchun uni zaxira nusxada
+    saqlang.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0053-events-va-listeners.html">Oldingi: Events</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel 13 — <a href="https://laravel.com/docs/13.x/configuration">Configuration</a>.</li>
+      <li id="fn2">Laravel 13 — <a href="https://laravel.com/docs/13.x/deployment#optimization">Deployment: Optimization</a>.</li>
+      <li id="fn3">Barchasi jonli o'lchangan (PHP 8.3.32, Laravel 13.26.1,
+      Pest 4.7.8, SQLite):
+      keshsiz — <code>config('ishtop.xabar_drayveri')</code>
+      <b>sms</b>, <code>env('ISHTOP_XABAR')</code>
+      <b>'sms'</b>, <code>config('ishtop.admin_email')</code>
+      <b>admin@ishtop.uz</b> (standart) ·
+      <code>config:cache</code> →
+      <code>bootstrap/cache/config.php</code>
+      <b>~23 KB</b> (aniq son sozlamalarga qarab
+      o'zgaradi) ·
+      ⚠️ keshdan keyin <code>env('ISHTOP_XABAR')</code>
+      <b>NULL</b>, <code>env('APP_NAME')</code>
+      <b>NULL</b>, <code>config()</code> esa ishlayveradi ·
+      ⚠️ provider'da <code>env('API_CHEKLOV', 60)</code>:
+      keshsiz <code>maxAttempts</code> <b>5</b>, keshdan
+      keyin <b>60</b> — xato yo'q ·
+      ✅ <code>config('ishtop.api_cheklov')</code> bilan
+      ikkala holatda <b>5</b> ·
+      ⚠️ eskirgan kesh: <code>.env</code> da
+      <code>email</code>, ilova <b>sms</b>;
+      <code>config:clear</code> dan keyin <b>email</b> ·
+      ⚠️ config'da closure →
+      <code>LogicException: Your configuration files could
+      not be serialized because the value at
+      "ishtop.yolgon" is non-serializable.</code> ·
+      kesh ostida: <code>app()-&gt;environment()</code>
+      <b>local</b>, <code>env('APP_ENV')</code>
+      <b>NULL</b>, <code>config('app.env')</code>
+      <b>local</b>, <code>isProduction()</code>
+      <b>false</b> ·
+      ⚠️ <code>.env</code> ga <code>API_CHEKLOV=5</code>
+      qo'shilishi bilan <b>2 failed, 48 passed</b>
+      (<code>-'60' +'5'</code>); olib tashlangach
+      <b>50 passed (110 assertions)</b> ·
+      <code>config(['ishtop.sahifa_hajmi' =&gt; 99])</code> —
+      o'sha jarayonda <b>99</b>, yangi jarayonda
+      <b>25</b>.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>
