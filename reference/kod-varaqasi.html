@@ -17,7 +17,7 @@
   muhit ma'lumotlari. Har dars yangi buyruq o'rgatilsa, shu yerga qo'shiladi.</p>
 
   <p class="lesson-meta">
-    <span>Qamrov: <b>1&ndash;48-darslar</b> — muhitdan API'gacha</span>
+    <span>Qamrov: <b>1&ndash;49-darslar</b> — muhitdan API'gacha</span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>💻 Amaliyotga mos</span>
   </p>
@@ -1300,6 +1300,61 @@
     <code>redis</code> → umumiy.
     Testda <code>CACHE_STORE=array</code> — shuning uchun har
     bir test <b>toza hisob</b> bilan boshlanadi.</p>
+  </div>
+
+  <h2>Service Container (49-darsdan)</h2>
+  <table class="sheet">
+    <tr><th>Kod</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>app(X::class)</code> · <code>app()-&gt;make(X::class)</code></td><td class="note-cell">Obyektni container'dan olish (bir xil narsa)</td></tr>
+    <tr><td><code>$this-&gt;app-&gt;bind(I::class, K::class)</code></td><td class="note-cell">Interfeysga klass ulash — <b>har safar yangi</b></td></tr>
+    <tr><td><code>$this-&gt;app-&gt;singleton(I::class, K::class)</code></td><td class="note-cell"><b>Bitta</b> obyekt (so'rov davomida)</td></tr>
+    <tr><td><code>$this-&gt;app-&gt;instance('nom', $obyekt)</code></td><td class="note-cell">Tayyor obyektni container'ga berish</td></tr>
+    <tr><td><code>$this-&gt;app-&gt;scoped('nom', fn () =&gt; ...)</code></td><td class="note-cell">Singleton, lekin «doira» tugaganda unutiladi</td></tr>
+    <tr><td><code>$this-&gt;app-&gt;when(A::class)-&gt;needs(I::class)-&gt;give(...)</code></td><td class="note-cell">Kontekstli bog'lash</td></tr>
+    <tr><td><code>app()-&gt;bound(X::class)</code></td><td class="note-cell">⚠️ <code>false</code> bo'lsa ham klass yasalishi mumkin</td></tr>
+    <tr><td><code>app()-&gt;getBindings()</code></td><td class="note-cell">Ro'yxatni ko'rish (Laravelda 217 ta)</td></tr>
+    <tr><td><code>app('router')</code> · <code>app('log')</code> · <code>app('path')</code></td><td class="note-cell">Qisqa nomlar — oldindan yozilgan bog'lanishlar</td></tr>
+    <tr><td><code>public function __construct(private I $x) {}</code></td><td class="note-cell">Konstruktor injektsiyasi — afzal shakl</td></tr>
+    <tr><td><code>app()-&gt;instance(I::class, $soxta)</code></td><td class="note-cell">Testda amalga oshiruvchini almashtirish</td></tr>
+    <tr><td><code>new class implements I { ... }</code></td><td class="note-cell">Anonim klass — faqat shu test uchun</td></tr>
+  </table>
+  <div class="callout note">
+    <p>🔑 <b>Container ning to'rt qadami</b> (15-darsdagi
+    kodingiz bilan bir xil):
+    <code>new ReflectionClass</code> →
+    <code>isInstantiable()</code> →
+    <code>getConstructor()</code> → parametrlarni
+    <b>rekursiv</b> yasab <code>new</code> ga uzatish.
+    Manba: <code>Illuminate\Container\Container::build()</code>.</p>
+    <p>⚠️ <b>Ikkita xato — ikkita <code>throw</code>:</b>
+    <br><code>Target [X] is not instantiable</code> — interfeys
+    yoki abstract klass, <code>bind</code> yozilmagan.
+    <br><code>Unresolvable dependency resolving [Parameter #0 [
+    &lt;required&gt; string $kalit ]]</code> — konstruktorda
+    oddiy tip (satr/son) bor.
+    <br>🔍 <code>while building [...]</code> — xato zanjiri;
+    oxirgi nomdan orqaga yuring.</p>
+    <p>⚠️ <b><code>singleton</code> = bitta SO'ROV davomida.</b>
+    PHP har so'rovda noldan ishga tushadi.
+    🔍 O'lchash tuzog'i: <code>spl_object_id</code> jarayon
+    ichidagi raqam va <b>qayta ishlatiladi</b> — uch so'rovda
+    ham 302 berdi. To'g'ri usul: konstruktorda
+    <code>uniqid()</code> belgisi.
+    <br>🔑 Singletonga <b>holat</b> qo'ymang — Octane'da
+    ma'lumot foydalanuvchilar orasida oqib o'tadi.</p>
+    <p>🔑 <b><code>register()</code> va <code>boot()</code>:</b>
+    <code>register()</code> — faqat bog'lash, boshqa
+    xizmatlarga tegmang; <code>boot()</code> — hamma provider
+    ro'yxatdan o'tgandan keyin.</p>
+    <p>🔑 <b>Metod argumentlari:</b>
+    <code>ResolvesRouteDependencies::transformDependency()</code>
+    → <code>container-&gt;make()</code>, lekin
+    <code>alreadyInParameters()</code> route model
+    binding'ga tegmaydi.</p>
+    <p>🔑 <b>Interfeys qachon kerak emas:</b> bitta amalga
+    oshiruvchi + almashtirish rejasi yo'q bo'lsa. Container
+    konkret klassni ham yasaydi va testda uni ham almashtirsa
+    bo'ladi.</p>
   </div>
 
   <h2>Xatoni o'qish</h2>

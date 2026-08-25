@@ -1,0 +1,1376 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 49 — Service Container</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 49 · MODUL G — LARAVEL ICHKI MEXANIZMI</p>
+  <h1>Service Container</h1>
+  <p class="lead">Modul F davomida ko'p marta «Laravel buni o'zi
+  qiladi» dedik. <code>Request $request</code> deb yozdingiz — u
+  <b>keldi</b>. <code>Vakansiya $vakansiya</code> deb yozdingiz —
+  model <b>topildi</b>. Bugun o'sha «o'zi» ning ichini ochamiz.
+  Va siz uni <b>allaqachon yozgansiz</b> — 15-darsda, 35 qatorda.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 18 daqiqa</span>
+    <span>💻 Amaliyot ≈ 30 daqiqa</span>
+    <span>Kerak: <a href="0015-mini-framework-container.html">Dars 15</a> ·
+    <a href="0048-rate-limiting-va-versiyalash.html">Dars 48</a></span>
+  </p>
+
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b><code>app()</code> nima ekani</b>
+        <span class="nima">🔍 O'lchandi:
+        <code>Illuminate\Foundation\Application</code>, u esa
+        <code>Illuminate\Container\Container</code> dan meros
+        oladi. Ya'ni <code>app()</code> — <b>container</b>.</span></li>
+      <li><b>Avtomatik yasash (autowiring)</b>
+        <span class="nima">Hech qanday <code>bind</code> qilmasdan
+        <code>app(LogXabar::class)</code> ishlaydi. Nega —
+        manbadan ko'rsatamiz.</span></li>
+      <li><b>🔑 Yonma-yon: bizniki va Laravelniki</b>
+        <span class="nima">15-darsdagi 35 qatorli
+        <code>Container</code> va Laravelning
+        <code>build()</code> metodi — <b>bir xil to'rt
+        qadam</b>.</span></li>
+      <li><b>Ikkita xato — ikkita <code>throw</code></b>
+        <span class="nima">Laravelning ikkala xato xabari
+        bizning container'imizdagi ikkita
+        <code>throw</code> ga <b>aynan</b> mos keladi.
+        O'lchandi.</span></li>
+      <li><b><code>bind</code> — interfeysni ulash</b>
+        <span class="nima">«<code>XabarYuboruvchi</code> so'ralsa
+        <code>LogXabar</code> ber» — bu Reflection hal qila
+        olmaydigan yagona narsa.</span></li>
+      <li><b><code>bind</code> va <code>singleton</code> farqi</b>
+        <span class="nima">🔍 <code>spl_object_id</code> bilan
+        o'lchandi: <code>bind</code> har safar yangi,
+        <code>singleton</code> bitta.</span></li>
+      <li><b>⚠️ «Singleton» qancha yashaydi?</b>
+        <span class="nima">Eng ko'p yanglishiladigan joy. Javob
+        <b>bitta so'rov</b>. O'lchash usuli ham
+        muhim — o'lchovning o'zi meni bir marta
+        aldadi.</span></li>
+      <li><b><code>instance</code>, <code>scoped</code>,
+        <code>bound</code></b>
+        <span class="nima"><code>bound()</code> <code>false</code>
+        bo'lsa ham klass yasaladi — «bog'langan» va
+        «yasalishi mumkin» boshqa narsa.</span></li>
+      <li><b>Kontekstli bog'lash</b>
+        <span class="nima">Bitta interfeys, ikki xil amalga
+        oshiruvchi — qaysi klass so'rayotganiga
+        qarab.</span></li>
+      <li><b>Laravelning o'z ro'yxati</b>
+        <span class="nima">🔍 O'lchandi: <b>217</b> bog'lanish,
+        <b>159</b> instance, <b>81</b> alias. Shu sababdan
+        <code>app('router')</code> ishlaydi.</span></li>
+      <li><b>Metod argumentlari qayerdan keladi</b>
+        <span class="nima">Manbada topildi: 45-darsdagi route
+        model binding bilan bir joyda hal qilinadi.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima">Singletonda holat saqlash tuzog'i ·
+        <code>app()</code> ni hamma joyda ishlatish ·
+        <code>new</code> qachon to'g'ri · testda
+        almashtirish.</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Javobsiz qolgan savol</span>
+    <p>17-darsda so'rovning yo'lini kuzatgandik. 45-darsda esa
+    shunday yozdik:</p>
+    <div class="natija">public function show(Vakansiya $vakansiya)
+{
+    return VakansiyaResource::make($vakansiya-&gt;load('kompaniya'));
+}</div>
+    <p>Bu metodni <b>hech kim</b> chaqirmaydi — hech bo'lmaganda
+    siz chaqirmaysiz. Va unga <code>$vakansiya</code> qayerdandir
+    <b>keladi</b>. 35-darsda esa <code>VakansiyaRequest $request</code>
+    deb yozdik — u ham keldi, hatto validatsiyani bajarib
+    bo'lgan holda.</p>
+    <p>Har safar biz «Laravel o'zi qiladi» dedik va davom etdik.
+    Bu <b>qarz</b> edi. Bugun to'laymiz.</p>
+    <p>Yaxshi xabar: to'lash uchun yangi tushuncha kerak emas.
+    <b>Siz buni yozgansiz.</b> 15-darsda, 35 qatorli
+    <code>Container</code> klassida. Bugun uni Laravelning
+    kodi bilan <b>yonma-yon</b> qo'yamiz.</p>
+  </div>
+
+  <!-- ═══════════════ 2) APP() NIMA ═══════════════ -->
+  <h2><code>app()</code> — bu container</h2>
+
+  <p>Avval <code>app()</code> nima qaytarishini ko'ramiz:</p>
+
+  <div class="natija">get_class(app())
+→  Illuminate\Foundation\Application
+
+class_parents(app())
+→  Illuminate\Container\Container            ← mana
+
+Container::getInstance() === app()     →  ha
+App::getFacadeRoot()    === app()      →  ha</div>
+
+  <p>Ya'ni <code>app()</code>, <code>App</code> fasadi va
+  <code>Container::getInstance()</code> — <b>bitta obyekt</b>.
+  Va u <code>Container</code> dan meros oladi.</p>
+
+  <p>Endi eng qiziq qismi. Hech qanday sozlama yozmasdan:</p>
+
+  <div class="natija">$a = app(App\Xizmatlar\LogXabar::class);
+
+→  App\Xizmatlar\LogXabar    ✅ yasaldi</div>
+
+  <p>Biz <b>hech qayerda</b> «<code>LogXabar</code> ni shunday
+  yasa» demadik. Container uni <b>o'zi</b> yasadi. Bu —
+  <b>autowiring</b>, va siz uni 15-darsda yozgansiz.</p>
+
+  <!-- ═══════════════ 3) YONMA-YON ═══════════════ -->
+  <h2>Yonma-yon: bizniki va Laravelniki</h2>
+
+  <p>Chap tomonda — 15-darsda <b>o'z qo'lingiz</b> bilan yozgan
+  kod. O'ng tomonda — Laravelning
+  <code>Container::build()</code> metodi.</p>
+
+  <div class="codefile">
+    <div class="fname">15-dars — bizning Container::make()</div>
+    <code class="cmd">$reflector = new \ReflectionClass($klass);
+
+if (! $reflector-&gt;isInstantiable()) {
+    throw new \Exception("Container yasay olmadi: {$klass}");
+}
+
+$konstruktor = $reflector-&gt;getConstructor();
+
+if ($konstruktor === null) {
+    return new $klass();
+}
+
+$argumentlar = [];
+foreach ($konstruktor-&gt;getParameters() as $parametr) {
+    $tip = $parametr-&gt;getType();
+
+    if ($tip === null || $tip-&gt;isBuiltin()) {
+        throw new \Exception("... {$parametr-&gt;getName()} parametri klass emas");
+    }
+
+    $argumentlar[] = $this-&gt;make($tip-&gt;getName());
+}
+
+return $reflector-&gt;newInstanceArgs($argumentlar);</code>
+  </div>
+
+  <div class="codefile">
+    <div class="fname">Laravel — Illuminate\Container\Container::build()</div>
+    <code class="cmd">$reflector = new ReflectionClass($concrete);
+
+if (! $reflector-&gt;isInstantiable()) {
+    return $this-&gt;notInstantiable($concrete);
+}
+
+$constructor = $reflector-&gt;getConstructor();
+
+if (is_null($constructor)) {
+    return $instance = new $concrete;
+}
+
+$dependencies = $constructor-&gt;getParameters();
+
+$instances = $this-&gt;resolveDependencies($dependencies);
+
+return $instance = new $concrete(...$instances);</code>
+  </div>
+
+  <p>To'rt qadam, <b>bir xil tartibda</b>:</p>
+
+  <div class="natija">1) ReflectionClass bilan klassni "so'roq qilish"
+2) Yasab bo'ladimi? (interfeys/abstract bo'lsa — yo'q)
+3) Konstruktor bormi? Yo'q bo'lsa — darrov new
+4) Bor bo'lsa — har bir parametrni rekursiv yasab, new ga uzatish</div>
+
+  <div class="callout tip">
+    <span class="label">🔑 «Sehr» ning haqiqiy nomi — Reflection</span>
+    <p>PHP klassdan «senga nima kerak?» deb <b>so'ray oladi</b>.
+    <code>ReflectionClass</code> — shu savolni beradigan
+    vosita.</p>
+    <p>Laravelning container'i sizning 35 qatoringizdan
+    <b>ancha uzun</b> (1000+ qator) — lekin uzunlik
+    <b>qo'shimcha imkoniyatlar</b> uchun: kontekstli bog'lash,
+    event'lar, atributlar, xatolarni chiroyli qilish. <b>Asosiy
+    g'oya</b> — o'sha to'rt qadam.</p>
+    <p>🔑 Modul G ning maqsadi shu: har safar «sehr» degan
+    joyni ochib, ichida <b>oddiy kod</b> borligini
+    ko'rsatish.</p>
+  </div>
+
+  <!-- ═══════════════ 4) IKKITA XATO ═══════════════ -->
+  <h2>Ikkita xato — ikkita <code>throw</code></h2>
+
+  <p>Bizning container'da <b>ikkita</b> <code>throw</code> bor
+  edi. Laravelda ham ikkita xato bor — va ular <b>aynan</b> o'sha
+  joylarda chiqadi.</p>
+
+  <p><b>Birinchisi</b> — interfeys so'ralsa, lekin uni qaysi
+  klass amalga oshirishi aytilmagan bo'lsa:</p>
+
+  <div class="natija">app(App\Xizmatlar\XabarYuboruvchi::class);
+
+Illuminate\Contracts\Container\BindingResolutionException
+Target [App\Xizmatlar\XabarYuboruvchi] is not instantiable
+while building [Laravel\Tinker\Console\TinkerCommand].</div>
+
+  <p>«<code>is not instantiable</code>» — bu bizning
+  <code>if (! $reflector-&gt;isInstantiable())</code> shoxi. Interfeysdan
+  obyekt yasab bo'lmaydi: unda tana yo'q.</p>
+
+  <p><code>while building [...]</code> qismi qo'shimcha —
+  Laravel <b>qurilish zanjirini</b> saqlaydi va xatoni qaysi
+  klassni yasayotganda uchratganini aytadi. Chuqur zanjirlarda
+  bu juda foydali.</p>
+
+  <p><b>Ikkinchisi</b> — konstruktorda klass emas, oddiy tip
+  (satr, son) bo'lsa:</p>
+
+  <div class="natija">class SmsXabar
+{
+    public function __construct(private string $kalit) {}
+}
+
+app(App\Xizmatlar\SmsXabar::class);
+
+BindingResolutionException
+Unresolvable dependency resolving
+[Parameter #0 [ &lt;required&gt; string $kalit ]] in class App\Xizmatlar\SmsXabar</div>
+
+  <p>Bu bizning <code>if ($tip === null || $tip-&gt;isBuiltin())</code>
+  shoxi. Container <code>string</code> ni <b>yasay olmaydi</b> —
+  «qaysi satr?» degan savolga javob yo'q.</p>
+
+  <div class="callout tip">
+    <span class="label">🔍 Laravel bizdan ko'ra bir oz ko'proq qiladi</span>
+    <p>Biz oddiy tipni ko'rsak darrov <code>throw</code> qilgandik.
+    Laravel avval to'rtta imkoniyatni sinab ko'radi
+    (<code>resolvePrimitive</code>):</p>
+    <div class="natija">1) kontekstli bog'lash bormi?     when(...)->needs('$kalit')->give(...)
+2) standart qiymat bormi?         string $nom = 'standart'   ✅ o'lchandi
+3) variadic (...$args) mi?        →  []
+4) nullable mi?                   ?string $nom   →  null     ✅ o'lchandi
+5) yo'q bo'lsa — xato</div>
+    <p>Ya'ni <code>string $nom = 'standart'</code> deb yozsangiz,
+    container hech narsa so'ramasdan yasaydi.</p>
+  </div>
+
+  <!-- ═══════════════ 5) BIND ═══════════════ -->
+  <h2><code>bind</code> — Reflection hal qila olmaydigan narsa</h2>
+
+  <p>Endi haqiqiy misol qilamiz. IshTop'da xabar yuborish kerak:
+  hozir logga, keyinchalik SMS yoki emailga. Buni
+  <b>interfeys</b> bilan yozamiz:</p>
+
+  <div class="codefile">
+    <div class="fname">app/Xizmatlar/XabarYuboruvchi.php</div>
+    <code class="cmd" data-cmd="&lt;?php
+
+namespace App\Xizmatlar;
+
+interface XabarYuboruvchi
+{
+    public function yubor(string $kimga, string $matn): string;
+}">&lt;?php
+
+namespace App\Xizmatlar;
+
+interface XabarYuboruvchi
+{
+    public function yubor(string $kimga, string $matn): string;
+}</code>
+  </div>
+
+  <div class="codefile">
+    <div class="fname">app/Xizmatlar/LogXabar.php</div>
+    <code class="cmd" data-cmd="&lt;?php
+
+namespace App\Xizmatlar;
+
+use Illuminate\Support\Facades\Log;
+
+class LogXabar implements XabarYuboruvchi
+{
+    public function yubor(string $kimga, string $matn): string
+    {
+        Log::info(&quot;Xabar: {$kimga} — {$matn}&quot;);
+
+        return 'log';
+    }
+}">&lt;?php
+
+namespace App\Xizmatlar;
+
+use Illuminate\Support\Facades\Log;
+
+class LogXabar implements XabarYuboruvchi
+{
+    public function yubor(string $kimga, string $matn): string
+    {
+        Log::info(&quot;Xabar: {$kimga} — {$matn}&quot;);
+
+        return 'log';
+    }
+}</code>
+  </div>
+
+  <p>Reflection bu yerda ojiz: <code>XabarYuboruvchi</code> dan
+  obyekt yasab bo'lmaydi, va qaysi klass uni amalga oshirishini
+  <b>faqat siz</b> bilasiz. Shuning uchun aytamiz:</p>
+
+  <div class="codefile">
+    <div class="fname">app/Providers/AppServiceProvider.php</div>
+    <code class="cmd">public function register(): void
+{
+    $this-&gt;app-&gt;singleton(XabarYuboruvchi::class, LogXabar::class);
+}</code>
+  </div>
+
+  <p>Endi controllerda shunchaki <b>so'raymiz</b>:</p>
+
+  <div class="codefile">
+    <div class="fname">app/Http/Controllers/Api/VakansiyaController.php</div>
+    <code class="cmd">class VakansiyaController extends Controller
+{
+    use AuthorizesRequests;
+
+    public function __construct(private XabarYuboruvchi $xabar) {}
+
+    public function store(VakansiyaRequest $request)
+    {
+        $vakansiya = Vakansiya::create(
+            $request-&gt;validated() + ['user_id' =&gt; $request-&gt;user()-&gt;id]
+        );
+
+        $this-&gt;xabar-&gt;yubor(
+            $request-&gt;user()-&gt;email,
+            &quot;Vakansiya e'lon qilindi: {$vakansiya-&gt;nom}&quot;
+        );
+
+        return VakansiyaResource::make($vakansiya-&gt;fresh())
+            -&gt;response()-&gt;setStatusCode(201);
+    }
+}</code>
+  </div>
+
+  <p><code>routes/api.php</code> da <b>hech narsa</b>
+  o'zgarmadi. Marshrutlar controllerni qanday yasashini
+  bilmaydi — container biladi. To'liq to'plam
+  <b>19 passed</b> bo'lib qoldi.</p>
+
+  <div class="callout tip">
+    <span class="label">🔑 Nega bu «interfeys» bilan?</span>
+    <p>Uch sabab bor, va uchalasi ham amaliy:</p>
+    <div class="natija">1) Ertaga SmsXabar yozsangiz — controller O'ZGARMAYDI
+2) Testda soxta obyekt qo'yish mumkin (haqiqiy SMS ketmaydi)
+3) Controller "log"ni emas, "xabar yuborish"ni biladi</div>
+    <p>Uchinchisi eng muhimi: controller <b>nima</b> qilish
+    kerakligini biladi, <b>qanday</b> qilishni emas.</p>
+  </div>
+
+  <!-- ═══════════════ 6) BIND VA SINGLETON ═══════════════ -->
+  <h2><code>bind</code> va <code>singleton</code></h2>
+
+  <p>Ikkalasi ham «shu so'ralsa — buni ber» deydi. Farq —
+  <b>nechta obyekt</b> yasalishida. O'lchaymiz:</p>
+
+  <div class="natija">$c-&gt;bind(XabarYuboruvchi::class, LogXabar::class);
+$a = $c-&gt;make(XabarYuboruvchi::class);
+$b = $c-&gt;make(XabarYuboruvchi::class);
+→  id 6438 va 6440    bir xilmi: YO'Q     ← har safar yangi
+
+$c-&gt;singleton('sinov', fn () =&gt; new LogXabar());
+$x = $c-&gt;make('sinov');
+$y = $c-&gt;make('sinov');
+→  id 6442 va 6442    bir xilmi: HA       ← bitta obyekt</div>
+
+  <p>Yana ikkita usul bor:</p>
+
+  <div class="natija">instance('nom', $tayyorObyekt)  →  tayyor obyektni container'ga berish
+scoped('nom', fn () => ...)     →  singleton, lekin "doira" tugaganda unutiladi</div>
+
+  <p><code>scoped</code> ni <code>singleton</code> dan ajratib
+  ko'rish uchun <code>forgetScopedInstances()</code> chaqiramiz:</p>
+
+  <div class="natija">forgetScopedInstances() dan keyin:
+   singleton  →  bir xil obyekt    HA
+   scoped     →  yangi obyekt      YO'Q</div>
+
+  <p>Oddiy PHP ilovada farq sezilmaydi. U <b>Octane</b> yoki
+  navbat ishchilarida muhim bo'ladi — u yerda bitta jarayon
+  ko'p so'rovga xizmat qiladi va «doira» har so'rovda
+  tozalanadi.</p>
+
+  <h3><code>bound()</code> — ishonchli emas</h3>
+
+  <div class="natija">$c-&gt;bound(XabarYuboruvchi::class)  →  true    (bind qilingan)
+$c-&gt;bound(LogXabar::class)        →  false   ⚠️ lekin YASALADI</div>
+
+  <p>«Bog'langan» va «yasalishi mumkin» — <b>boshqa</b> narsa.
+  Autowiring bilan yasaladigan klasslar ro'yxatda
+  <b>yo'q</b>. Shuning uchun
+  <code>if ($c-&gt;bound(X::class))</code> deb tekshirish
+  ko'pincha noto'g'ri javob beradi.</p>
+
+  <!-- ═══════════════ 7) SINGLETON UMRI ═══════════════ -->
+  <h2>⚠️ «Singleton» qancha yashaydi?</h2>
+
+  <p>Bu eng ko'p yanglishiladigan joy. «Singleton» so'zi
+  «bittagina» degani — lekin <b>nima doirasida</b>?</p>
+
+  <p>Sinov marshruti yozamiz:</p>
+
+  <div class="codefile">
+    <div class="fname">routes/api.php (vaqtinchalik)</div>
+    <code class="cmd">Route::get('/x/idlar', function (XabarYuboruvchi $x1) {
+    $x2 = app(XabarYuboruvchi::class);
+
+    return [
+        'metodga_kelgan' =&gt; spl_object_id($x1),
+        'app_dan_olingan' =&gt; spl_object_id($x2),
+        'bir_xilmi' =&gt; $x1 === $x2,
+    ];
+});</code>
+  </div>
+
+  <div class="natija">1-so'rov: {"metodga_kelgan":302,"app_dan_olingan":302,"bir_xilmi":true}
+2-so'rov: {"metodga_kelgan":302,"app_dan_olingan":302,"bir_xilmi":true}
+3-so'rov: {"metodga_kelgan":302,"app_dan_olingan":302,"bir_xilmi":true}</div>
+
+  <p>Xulosa aniqdek: <code>id</code> uchala so'rovda ham
+  <b>302</b>, demak obyekt so'rovlar orasida <b>yashaydi</b>.</p>
+
+  <p>Bu xulosa <b>noto'g'ri</b>.</p>
+
+  <div class="callout warn">
+    <span class="label">⚠️ <code>spl_object_id</code> global emas</span>
+    <p><code>spl_object_id</code> — <b>joriy jarayondagi</b>
+    raqam, va u <b>qayta ishlatiladi</b>. Har bir HTTP so'rov
+    yangi PHP jarayoni; o'sha jarayonda o'sha navbatdagi obyekt
+    yana 302 raqamini oladi.</p>
+    <p>🔑 Ya'ni o'lchov «bir xil» deb ko'rsatdi, aslida esa
+    ikki xil obyekt edi. <b>O'lchov usulining o'zi
+    aldadi.</b></p>
+  </div>
+
+  <p>To'g'ri o'lchash uchun obyektga <b>tug'ilganda</b> belgi
+  qo'yamiz:</p>
+
+  <div class="natija">class LogXabar implements XabarYuboruvchi
+{
+    public string $tugilgan;
+
+    public function __construct()
+    {
+        $this-&gt;tugilgan = uniqid('', true);
+    }
+}</div>
+
+  <div class="natija">1-so'rov: bir_xilmi: true | tugilgan: 6a8d59b19ac923.37491193
+2-so'rov: bir_xilmi: true | tugilgan: 6a8d59b19ea3e7.48516056     ← boshqa
+3-so'rov: bir_xilmi: true | tugilgan: 6a8d59b1a269d1.17584153     ← boshqa</div>
+
+  <p>Endi rasm aniq:</p>
+
+  <div class="natija">bir so'rov ICHIDA     →  bitta obyekt        (bir_xilmi: true)
+so'rovlar ORASIDA     →  har safar yangi      (tugilgan boshqa)</div>
+
+  <p>Sabab oddiy: PHP ilovasi har so'rovda <b>noldan</b> ishga
+  tushadi. Container ham yangi, singleton ham yangi.
+  <code>singleton</code> — «<b>shu so'rov davomida</b>
+  bittagina» degani.</p>
+
+  <div class="callout tip">
+    <span class="label">🔑 O'lchov qoidasi</span>
+    <p>Bu darsdagi eng qimmatli saboq kod haqida emas:
+    <b>o'lchov nimani o'lchayotganini tekshiring.</b></p>
+    <p>«Raqam bir xil» — «obyekt bir xil» degani emas. Bu
+    46-darsdagi <code>?sort=moash</code> (200, lekin
+    saralanmagan) va 47-darsdagi o'lik handler (test yashil,
+    lekin kod ishlamagan) bilan bir oiladan.</p>
+  </div>
+
+  <!-- ═══════════════ 8) KONTEKSTLI ═══════════════ -->
+  <h2>Kontekstli bog'lash</h2>
+
+  <p>Ba'zan bitta interfeysga <b>ikki xil</b> javob kerak
+  bo'ladi: web tomon logga yozsin, mobil tomon SMS
+  yuborsin.</p>
+
+  <div class="codefile">
+    <div class="fname">app/Providers/AppServiceProvider.php</div>
+    <code class="cmd">$this-&gt;app-&gt;when(MobilController::class)
+    -&gt;needs(XabarYuboruvchi::class)
+    -&gt;give(fn () =&gt; new SmsXabar(config('services.sms.kalit')));</code>
+  </div>
+
+  <div class="natija">app(Web::class)-&gt;x    →  App\Xizmatlar\LogXabar    (umumiy qoida)
+app(Mobil::class)-&gt;x  →  App\Xizmatlar\SmsXabar    (kontekstli qoida)</div>
+
+  <p>«<code>Mobil</code> klassi <code>XabarYuboruvchi</code>
+  so'rasa — unga <b>bunisini</b> ber». Qolgan hamma joyda
+  umumiy qoida ishlaydi.</p>
+
+  <p>E'tibor bering: <code>SmsXabar</code> ning konstruktorida
+  <code>string $kalit</code> bor edi — container uni yasay
+  olmasdi. <code>give()</code> ichida <b>o'zimiz</b> yasab
+  beryapmiz, shuning uchun muammo yo'q.</p>
+
+  <!-- ═══════════════ 9) LARAVELNING RO'YXATI ═══════════════ -->
+  <h2>Laravelning o'z ro'yxati</h2>
+
+  <p>Container ichida nechta narsa bor? Sanaymiz:</p>
+
+  <div class="natija">bindings         217 ta    (54 tasi qisqa nomli)
+instances        159 ta    (32 tasi qisqa nomli)
+aliases           81 ta
+abstractAliases   44 ta
+
+qisqa nomlar: events, log, router, url, redirect, env,
+              path, path.base, app, auth, blade.compiler ...</div>
+
+  <p>Mana nega bu ishlaydi:</p>
+
+  <div class="natija">app('router')   →  Illuminate\Routing\Router
+app('log')      →  Illuminate\Log\LogManager
+app('path')     →  /home/dostonbek/Projects/Learn/ishtop/app</div>
+
+  <p>Bular <b>sehr emas</b> — shunchaki oldindan yozilgan
+  bog'lanishlar. Laravel ishga tushganda service provider'lar
+  ularni container'ga qo'yadi.</p>
+
+  <p>⚠️ Aniq sonlar sizda boshqacha bo'lishi mumkin: ular
+  Laravel versiyasiga va o'rnatilgan paketlarga bog'liq
+  (bizda Sanctum ham bor). Muhimi <b>tartib</b>: bu
+  ro'yxatda yuzlab yozuv bor va ularning
+  <b>hammasi</b> shu bitta mexanizm bilan
+  ishlaydi.</p>
+
+  <p>Va fasadlar ham shu ro'yxatdan foydalanadi:
+  <code>Log::info()</code> aslida
+  <code>app('log')-&gt;info()</code> degani. Fasadlarni
+  <b>50-darsda</b> batafsil ochamiz.</p>
+
+  <!-- ═══════════════ 10) METOD ARGUMENTLARI ═══════════════ -->
+  <h2>Metod argumentlari qayerdan keladi?</h2>
+
+  <p>Konstruktor tushunarli bo'ldi. Lekin
+  <code>show(Vakansiya $vakansiya)</code> — bu
+  <b>metod</b>, konstruktor emas. U qanday to'ldiriladi?</p>
+
+  <p>Javob <code>Illuminate\Routing\ResolvesRouteDependencies</code>
+  da:</p>
+
+  <div class="natija">$className = Reflector::getParameterClassName($parameter);
+
+// If the parameter has a type-hinted class, we will check to see if it is
+// already in the list of parameters. If it is we will just skip it as it is
+// probably a model binding and we do not want to mess with those...
+
+if ($className && ! $this-&gt;alreadyInParameters($className, $parameters)) {
+    return $parameter-&gt;isDefaultValueAvailable()
+        ? ...
+        : $this-&gt;container-&gt;make($className);       ← o'sha container
+}</div>
+
+  <p>Ikkita yo'l bir joyda ko'rinadi:</p>
+
+  <div class="natija">Request $request     →  alreadyInParameters: YO'Q  →  container->make()
+Vakansiya $vakansiya →  alreadyInParameters: HA   →  tegilmaydi</div>
+
+  <p><code>$vakansiya</code> ro'yxatda <b>allaqachon bor</b>,
+  chunki uni <b>route model binding</b> qo'ygan — 45-darsdagi
+  <code>SubstituteBindings</code> middleware'i. Container esa
+  «bunga tegmayman, bu binding'niki» deydi.</p>
+
+  <div class="callout tip">
+    <span class="label">🔑 45-dars bilan bog'lanish</span>
+    <p>45-darsda parametr nomi <code>{vakansiyalar}</code> bo'lib
+    qolganda binding <b>jimgina</b> buzilgandi.
+    Endi sabab to'liq ko'rinadi: binding modelni
+    <b>nomi bo'yicha</b> parametrlar ro'yxatiga qo'yadi.
+    Nom mos kelmasa — ro'yxatga tushmaydi —
+    <code>alreadyInParameters</code> <code>false</code> qaytaradi
+    — va container <code>Vakansiya</code> ni <b>bo'sh</b> qilib
+    yasab beradi.</p>
+    <p>Shuning uchun <code>show</code> <b>200</b> qaytargan,
+    lekin ma'lumot <code>null</code> bo'lgan edi.</p>
+  </div>
+
+  <!-- ═══════════════ 11) TESTLAR ═══════════════ -->
+  <h2>Testlar</h2>
+
+  <div class="codefile">
+    <div class="fname">tests/Feature/ContainerTest.php</div>
+    <code class="cmd">use App\Models\Kompaniya;
+use App\Models\User;
+use App\Xizmatlar\LogXabar;
+use App\Xizmatlar\SmsXabar;
+use App\Xizmatlar\XabarYuboruvchi;
+use Laravel\Sanctum\Sanctum;
+
+it('interfeys so\'ralganda bog\'langan klass keladi', function () {
+    expect(app(XabarYuboruvchi::class))-&gt;toBeInstanceOf(LogXabar::class);
+});
+
+it('singleton bir so\'rov ichida bitta obyekt beradi', function () {
+    expect(app(XabarYuboruvchi::class))-&gt;toBe(app(XabarYuboruvchi::class));
+});
+
+it('bind har safar yangi obyekt beradi', function () {
+    app()-&gt;bind('sinov.bind', fn () =&gt; new LogXabar());
+
+    expect(app('sinov.bind'))-&gt;not-&gt;toBe(app('sinov.bind'));
+});
+
+it('bog\'lanmagan interfeys xato beradi', function () {
+    expect(fn () =&gt; app(SinovInterfeys::class))
+        -&gt;toThrow(Illuminate\Contracts\Container\BindingResolutionException::class);
+});
+
+it('klass emas parametr ham xato beradi', function () {
+    expect(fn () =&gt; app(SmsXabar::class))
+        -&gt;toThrow(Illuminate\Contracts\Container\BindingResolutionException::class);
+});
+
+it('testda amalga oshiruvchini almashtirib bo\'ladi', function () {
+    $soxta = new class implements XabarYuboruvchi
+    {
+        public array $yuborilgan = [];
+
+        public function yubor(string $kimga, string $matn): string
+        {
+            $this-&gt;yuborilgan[] = [$kimga, $matn];
+
+            return 'soxta';
+        }
+    };
+
+    app()-&gt;instance(XabarYuboruvchi::class, $soxta);
+
+    $user = User::factory()-&gt;create(['rol' =&gt; 'ishberuvchi']);
+    $kompaniya = Kompaniya::factory()-&gt;create();
+    Sanctum::actingAs($user, ['vakansiya:yozish']);
+
+    $this-&gt;postJson('/api/v1/vakansiyalar', [
+        'nom' =&gt; 'Backend dasturchi',
+        'maosh' =&gt; 2000,
+        'shahar' =&gt; 'Toshkent',
+        'kompaniya_id' =&gt; $kompaniya-&gt;id,
+    ])-&gt;assertStatus(201);
+
+    expect($soxta-&gt;yuborilgan)-&gt;toHaveCount(1);
+    expect($soxta-&gt;yuborilgan[0][0])-&gt;toBe($user-&gt;email);
+});
+
+it('kontekstli bog\'lash har xil klassga har xil beradi', function () {
+    app()-&gt;when(SinovMobil::class)
+        -&gt;needs(XabarYuboruvchi::class)
+        -&gt;give(fn () =&gt; new SmsXabar('kalit'));
+
+    expect(app(SinovWeb::class)-&gt;x)-&gt;toBeInstanceOf(LogXabar::class);
+    expect(app(SinovMobil::class)-&gt;x)-&gt;toBeInstanceOf(SmsXabar::class);
+});
+
+interface SinovInterfeys {}
+
+class SinovWeb
+{
+    public function __construct(public XabarYuboruvchi $x) {}
+}
+
+class SinovMobil
+{
+    public function __construct(public XabarYuboruvchi $x) {}
+}</code>
+  </div>
+
+  <div class="natija">Tests:  7 passed (10 assertions)</div>
+
+  <p>Oltinchi test — <b>butun darsning payoffi</b>. Unda
+  <code>app()-&gt;instance(...)</code> bilan haqiqiy
+  <code>LogXabar</code> o'rniga <b>soxta</b> obyekt qo'yildi.
+  Controller esa <b>o'zgarmadi</b> — u interfeysni so'raydi,
+  container nima berishini biladi.</p>
+
+  <p>Shu tufayli test haqiqiy xabar yubormaydi, lekin
+  <b>yuborilgan-yuborilmaganini</b> tekshira oladi:</p>
+
+  <div class="natija">expect($soxta-&gt;yuborilgan)-&gt;toHaveCount(1);
+expect($soxta-&gt;yuborilgan[0][0])-&gt;toBe($user-&gt;email);</div>
+
+  <p><code>new class implements XabarYuboruvchi { ... }</code> —
+  <b>anonim klass</b>. Nomi yo'q, faqat shu test uchun yashaydi.
+  10-darsdagi interfeys g'oyasining amaliy foydasi aynan
+  shu.</p>
+
+  <div class="natija">To'liq to'plam:  26 passed (62 assertions)</div>
+
+  <!-- ═══════════════ 12) HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir bir
+  marta o'qib chiqing, keyin kerak bo'lganda qaytib
+  qarang.</p>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 1</span>
+    <h4>Singletonda so'rovga tegishli holat saqlash</h4>
+    <div class="natija">class Savat
+{
+    private array $mahsulotlar = [];      ⚠️ singletonda XAVFLI
+}</div>
+    <p>Oddiy PHP-FPM da bu ko'rinmaydi: har so'rov yangi jarayon,
+    singleton ham yangi. Lekin <b>Octane</b> yoki navbat
+    ishchisida bitta jarayon <b>ko'p so'rovga</b> xizmat qiladi —
+    va bir foydalanuvchining ma'lumoti ikkinchisiga
+    <b>oqib o'tadi</b>.</p>
+    <p>✅ Qoida: <code>singleton</code> ga faqat <b>holatsiz</b>
+    xizmatlarni qo'ying (ulanish, sozlama, klient). So'rovga
+    tegishli narsalar uchun <code>bind</code> yoki
+    <code>scoped</code>.</p>
+    <p>🔍 Bizning <code>LogXabar</code> holatsiz — shuning uchun
+    <code>singleton</code> to'g'ri tanlov.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 2</span>
+    <h4><code>app()</code> ni hamma joyda ishlatish</h4>
+    <div class="natija">❌ public function store(...)
+   {
+       $xabar = app(XabarYuboruvchi::class);      // yashirin bog'liqlik
+   }
+
+✅ public function __construct(private XabarYuboruvchi $xabar) {}</div>
+    <p>Ikkalasi ham <b>ishlaydi</b>. Farq — <b>ko'rinishida</b>.
+    Konstruktorda yozilgan bog'liqlik klassning
+    <b>e'loni</b>: «menga shu kerak». <code>app()</code> esa
+    metod ichida yashiringan.</p>
+    <p>⚠️ Yashirin bog'liqlikni testda almashtirish qiyinroq va
+    klassni o'qiganda nima kerakligini bilib bo'lmaydi.</p>
+    <p>✅ <code>app()</code> ni marshrut closure'larida,
+    komandalarda va migratsiyalarda ishlating — konstruktor
+    yo'q joylarda.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 3</span>
+    <h4><code>new</code> qachon to'g'ri</h4>
+    <div class="natija">✅ new Vakansiya()          — model, ma'lumot
+✅ new DateTime('now')      — oddiy qiymat obyekti
+✅ new SmsXabar('kalit')    — give() ichida
+
+⚠️ new LogXabar()           — xizmat, container'dan olinsin</div>
+    <p>Container <b>hamma narsa</b> uchun emas. U
+    <b>xizmatlar</b> uchun: bog'liqliklari bor, almashtirilishi
+    mumkin bo'lgan obyektlar.</p>
+    <p>🔑 Oddiy qoida: obyektning <b>bog'liqligi</b> bo'lsa yoki
+    uni <b>almashtirishingiz</b> mumkin bo'lsa — container.
+    Aks holda <code>new</code> ancha soddaroq.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 4</span>
+    <h4>Testda almashtirishning uch yo'li</h4>
+    <div class="natija">app()-&gt;instance(X::class, $soxta);        // o'z obyektingiz
+$this-&gt;mock(X::class, fn ($m) =&gt; ...);   // Mockery
+$this-&gt;swap(X::class, $soxta);           // instance() ning qisqasi</div>
+    <p>Biz birinchisini ishlatdik — anonim klass bilan. U eng
+    <b>ko'rinadigan</b>: soxta obyekt nima qilishini o'zingiz
+    yozasiz.</p>
+    <p>⚠️ Muhim shart: almashtirish controller <b>yasalishidan
+    oldin</b> bo'lsin. Test ichida
+    <code>$this-&gt;postJson(...)</code> dan <b>oldin</b>
+    yozing.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 5</span>
+    <h4><code>register()</code> va <code>boot()</code> farqi</h4>
+    <div class="natija">register()  →  faqat container'ga bog'lash. Boshqa xizmatlarga TEGMANG.
+boot()      →  hamma provider register bo'lgandan keyin ishlaydi</div>
+    <p>Biz <code>singleton</code> ni <code>register()</code> ga,
+    <code>RateLimiter::for()</code> ni (48-dars)
+    <code>boot()</code> ga yozdik — va bu tasodif emas.</p>
+    <p>⚠️ <code>register()</code> ichida boshqa xizmatni
+    ishlatsangiz, u hali ro'yxatdan o'tmagan bo'lishi
+    mumkin.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 6</span>
+    <h4>Qurilish zanjiri xato xabarida</h4>
+    <div class="natija">Target [App\Xizmatlar\XabarYuboruvchi] is not instantiable
+while building [App\Http\Controllers\Api\VakansiyaController].</div>
+    <p><code>while building [...]</code> — xato <b>qayerda</b>
+    boshlanganini aytadi. Chuqur zanjirlarda bu bir necha
+    klassni sanaydi.</p>
+    <p>🔍 Tashxis: oxirgi nomdan boshlang — «bu klass nimani
+    so'radi?» deb orqaga yuring. Odatda javob bitta:
+    <code>bind</code> yozilmagan.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>Interfeysni <b>qachon</b> yozish kerak emas</h4>
+    <div class="natija">⚠️ Bitta amalga oshiruvchi + almashtirish rejasi yo'q
+   →  interfeys ortiqcha qatlam</div>
+    <p>Har bir klassga interfeys yozish — keng tarqalgan
+    ortiqchalik. Container <b>konkret klassni</b> ham
+    bemalol yasaydi va testda uni ham almashtirsa
+    bo'ladi.</p>
+    <p>✅ Interfeys yozing, agar: ikkinchi amalga oshiruvchi
+    <b>bor</b> (yoki aniq rejada), yoki tashqi xizmat bilan
+    ishlaydi (SMS, to'lov, email) va testda uni
+    <b>uzish</b> kerak.</p>
+    <p>🔑 Bizning <code>XabarYuboruvchi</code> ikkala shartga
+    ham mos: SMS rejada bor va testda uzish
+    kerak.</p>
+  </div>
+
+  <!-- ═══════════════ 13) AMALIYOT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    💻 Quyida amaliyot bor. Hozir o'qish rejimidasiz — kompyuter
+    yoningizda bo'lganda <b>💻 Amaliyot</b> rejimiga o'ting va
+    shu bo'limdan davom eting.
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <b><code>app()</code> nima ekanini ko'ring.</b>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+php artisan tinker --execute=&quot;echo get_class(app()), PHP_EOL; print_r(array_values(class_parents(app())));&quot;">cd ~/Projects/Learn/ishtop
+php artisan tinker --execute=&quot;echo get_class(app()), PHP_EOL; print_r(array_values(class_parents(app())));&quot;</div>
+        <p class="expect"><code>Illuminate\Foundation\Application</code>
+        va ota-klass <code>Illuminate\Container\Container</code>.</p>
+      </li>
+
+      <li>
+        <b>Container'da nechta narsa borligini sanang.</b>
+        <div class="cmd" data-cmd="php artisan tinker --execute=&quot;echo count(app()->getBindings()), ' ta bog\'lanish', PHP_EOL;&quot;">php artisan tinker --execute=&quot;echo count(app()-&gt;getBindings()), ' ta bog\'lanish', PHP_EOL;&quot;</div>
+        <div class="cmd" data-cmd="php artisan tinker --execute=&quot;echo get_class(app('router')), PHP_EOL; echo get_class(app('log')), PHP_EOL; echo app('path'), PHP_EOL;&quot;">php artisan tinker --execute=&quot;echo get_class(app('router')), PHP_EOL; echo get_class(app('log')), PHP_EOL; echo app('path'), PHP_EOL;&quot;</div>
+      </li>
+
+      <li>
+        <b>15-darsdagi kodingizni oching.</b>
+        <div class="cmd" data-cmd="grep -rl &quot;class Container&quot; ~/Projects/Learn/php-poydevor/">grep -rl &quot;class Container&quot; ~/Projects/Learn/php-poydevor/</div>
+        <p>Topilgan faylni oching (15-darsdagi <code>Container</code>
+        klassi).</p>
+        <p>Endi Laravelnikini yoning:</p>
+        <div class="cmd" data-cmd="sed -n '1129,1195p' vendor/laravel/framework/src/Illuminate/Container/Container.php">sed -n '1129,1195p' vendor/laravel/framework/src/Illuminate/Container/Container.php</div>
+        <p class="expect">To'rt qadamni ikkalasida ham toping:
+        <code>ReflectionClass</code> → <code>isInstantiable</code>
+        → <code>getConstructor</code> →
+        <code>getParameters</code>.</p>
+      </li>
+
+      <li>
+        <b>Xizmat klasslarini yarating.</b> Yuqoridagi
+        <code>XabarYuboruvchi</code> va <code>LogXabar</code>
+        kodlarini ko'chiring (nusxa tugmasi bor), so'ng
+        <code>SmsXabar</code> ni ham:
+        <div class="cmd" data-cmd="mkdir -p app/Xizmatlar
+# XabarYuboruvchi.php, LogXabar.php va SmsXabar.php ni yozing
+ls app/Xizmatlar/">mkdir -p app/Xizmatlar
+# XabarYuboruvchi.php, LogXabar.php va SmsXabar.php ni yozing
+ls app/Xizmatlar/</div>
+      </li>
+
+      <li>
+        <b>Avval xatoni ko'ring.</b> Hali <code>bind</code>
+        yozmadik:
+        <div class="cmd" data-cmd="php artisan tinker --execute='try { app(App\Xizmatlar\XabarYuboruvchi::class); } catch (Throwable $e) { echo get_class($e), PHP_EOL, $e->getMessage(), PHP_EOL; }'">php artisan tinker --execute='try { app(App\Xizmatlar\XabarYuboruvchi::class); } catch (Throwable $e) { echo get_class($e), PHP_EOL, $e-&gt;getMessage(), PHP_EOL; }'</div>
+        <p>⚠️ Bu yerda tashqi tirnoq <b>bir tirnoq</b> —
+        aks holda bash <code>$e</code> ni bo'sh satrga
+        aylantiradi va PHP sintaksis xatosi chiqadi.</p>
+        <p class="expect"><code>Target [...] is not instantiable</code>
+        — bu sizning <code>isInstantiable()</code>
+        shoxingiz.</p>
+      </li>
+
+      <li>
+        <b>Autowiring ishlashini ko'ring.</b> Konkret klass
+        uchun <code>bind</code> kerak emas:
+        <div class="cmd" data-cmd="php artisan tinker --execute=&quot;echo get_class(app(App\Xizmatlar\LogXabar::class)), PHP_EOL;&quot;">php artisan tinker --execute=&quot;echo get_class(app(App\Xizmatlar\LogXabar::class)), PHP_EOL;&quot;</div>
+      </li>
+
+      <li>
+        <b><code>bind</code> ni yozing.</b>
+        <code>AppServiceProvider::register()</code> ichiga:
+        <div class="cmd" data-cmd="# app/Providers/AppServiceProvider.php
+
+public function register(): void
+{
+    $this->app->singleton(
+        \App\Xizmatlar\XabarYuboruvchi::class,
+        \App\Xizmatlar\LogXabar::class
+    );
+}"># app/Providers/AppServiceProvider.php
+
+public function register(): void
+{
+    $this-&gt;app-&gt;singleton(
+        \App\Xizmatlar\XabarYuboruvchi::class,
+        \App\Xizmatlar\LogXabar::class
+    );
+}</div>
+        <div class="cmd" data-cmd="php artisan tinker --execute=&quot;echo get_class(app(App\Xizmatlar\XabarYuboruvchi::class)), PHP_EOL;&quot;">php artisan tinker --execute=&quot;echo get_class(app(App\Xizmatlar\XabarYuboruvchi::class)), PHP_EOL;&quot;</div>
+      </li>
+
+      <li>
+        <b><code>bind</code> va <code>singleton</code> farqini
+        o'lchang.</b>
+        <div class="cmd" data-cmd="php artisan tinker --execute=&quot;app()->bind('t1', fn () => new stdClass()); app()->singleton('t2', fn () => new stdClass()); echo 'bind:      ', (app('t1') === app('t1') ? 'bir xil' : 'har safar yangi'), PHP_EOL; echo 'singleton: ', (app('t2') === app('t2') ? 'bir xil' : 'har safar yangi'), PHP_EOL;&quot;">php artisan tinker --execute=&quot;app()-&gt;bind('t1', fn () =&gt; new stdClass()); app()-&gt;singleton('t2', fn () =&gt; new stdClass()); echo 'bind:      ', (app('t1') === app('t1') ? 'bir xil' : 'har safar yangi'), PHP_EOL; echo 'singleton: ', (app('t2') === app('t2') ? 'bir xil' : 'har safar yangi'), PHP_EOL;&quot;</div>
+      </li>
+
+      <li>
+        <b>Singleton umrini <b>to'g'ri</b> o'lchang.</b>
+        <code>LogXabar</code> ga tug'ilish belgisini qo'shing:
+        <div class="cmd" data-cmd="# LogXabar.php ichiga:
+    public string $tugilgan;
+
+    public function __construct()
+    {
+        $this->tugilgan = uniqid('', true);
+    }"># LogXabar.php ichiga:
+    public string $tugilgan;
+
+    public function __construct()
+    {
+        $this-&gt;tugilgan = uniqid('', true);
+    }</div>
+        <p>Sinov marshrutini qo'shing:</p>
+        <div class="cmd" data-cmd="# routes/api.php oxiriga:
+Route::get('/x/idlar', function (\App\Xizmatlar\XabarYuboruvchi $x1) {
+    $x2 = app(\App\Xizmatlar\XabarYuboruvchi::class);
+
+    return ['bir_xilmi' => $x1 === $x2, 'tugilgan' => $x1->tugilgan];
+});"># routes/api.php oxiriga:
+Route::get('/x/idlar', function (\App\Xizmatlar\XabarYuboruvchi $x1) {
+    $x2 = app(\App\Xizmatlar\XabarYuboruvchi::class);
+
+    return ['bir_xilmi' =&gt; $x1 === $x2, 'tugilgan' =&gt; $x1-&gt;tugilgan];
+});</div>
+        <div class="cmd" data-cmd="php artisan serve">php artisan serve</div>
+        <p>Boshqa terminalda uch marta:</p>
+        <div class="cmd" data-cmd="for i in 1 2 3; do curl -s -H 'Accept: application/json' http://127.0.0.1:8000/api/x/idlar; echo; done">for i in 1 2 3; do curl -s -H 'Accept: application/json' http://127.0.0.1:8000/api/x/idlar; echo; done</div>
+        <p class="expect"><code>bir_xilmi</code> har safar
+        <b>true</b>, lekin <code>tugilgan</code> har safar
+        <b>boshqa</b> — singleton bitta so'rov davomida
+        yashaydi.</p>
+      </li>
+
+      <li>
+        <b>Controllerga bog'liqlikni qo'shing.</b>
+        <code>VakansiyaController</code> ga konstruktor va
+        <code>store()</code> ga xabar yuborishni qo'shing
+        (yuqoridagi kod).
+        <div class="cmd" data-cmd="php -l app/Http/Controllers/Api/VakansiyaController.php
+php artisan test">php -l app/Http/Controllers/Api/VakansiyaController.php
+php artisan test</div>
+        <p class="expect">Marshrutlarga <b>tegmadik</b>, lekin
+        hammasi ishlaydi.</p>
+      </li>
+
+      <li>
+        <b>Testlarni yozing va sinov marshrutini
+        o'chiring.</b> Yuqoridagi
+        <code>tests/Feature/ContainerTest.php</code> ni
+        ko'chiring, so'ng <code>/x/idlar</code> ni
+        <code>routes/api.php</code> dan <b>o'chiring</b>.
+        <div class="cmd" data-cmd="php artisan test tests/Feature/ContainerTest.php">php artisan test tests/Feature/ContainerTest.php</div>
+        <p class="expect">Kutilgan: <b>7 passed</b>.</p>
+      </li>
+
+      <li>
+        <b>To'liq to'plamni ishga tushiring.</b>
+        <div class="cmd" data-cmd="php artisan test">php artisan test</div>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><code>app()</code> — <code>Container</code> dan meros
+      olishini ko'rdim</li>
+      <li>15-darsdagi to'rt qadamni Laravel kodida topdim</li>
+      <li><code>bind</code>siz interfeys xato berdi</li>
+      <li>Konkret klass <code>bind</code>siz yasaldi</li>
+      <li><code>bind</code> — yangi, <code>singleton</code> —
+      bitta</li>
+      <li><code>tugilgan</code> har so'rovda boshqa</li>
+      <li>Controller konstruktori orqali xizmat oldi</li>
+      <li>Testda soxta obyekt bilan almashtirdim</li>
+      <li>Sinov marshruti o'chirilgan</li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 14) SINAB KO'RAMIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Dasturchi «singleton so'rovlar orasida yashaydimi?» degan
+    savolga javob izlab, shunday o'lchov qildi:</p>
+    <div class="codefile">
+      <div class="fname">routes/api.php</div>
+      <code class="cmd" data-cmd="Route::get('/x/idlar', function (XabarYuboruvchi $x) {
+    return ['id' =&gt; spl_object_id($x)];
+});">Route::get('/x/idlar', function (XabarYuboruvchi $x) {
+    return ['id' =&gt; spl_object_id($x)];
+});</code>
+    </div>
+    <div class="natija">1-so'rov: {"id":302}
+2-so'rov: {"id":302}
+3-so'rov: {"id":302}</div>
+    <p>U xulosa qildi: «id bir xil — demak obyekt saqlanib
+    qolyapti, singleton butun ilova umri davomida yashaydi».
+    Va singletonga foydalanuvchi ma'lumotini keshlay
+    boshladi.</p>
+    <p>Xulosa qayerda noto'g'ri?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <p><code>spl_object_id</code> — <b>global emas</b>. U
+        joriy PHP jarayonidagi ichki raqam, va obyekt
+        o'chgandan keyin raqam <b>qayta ishlatiladi</b>.</p>
+        <p class="expect">⚠️ Har bir HTTP so'rov — yangi PHP
+        jarayoni. O'sha jarayonda o'sha navbatdagi obyekt yana
+        302 raqamini oladi. Raqam bir xil, <b>obyekt
+        boshqa</b>.</p>
+        <p>To'g'ri o'lchash — obyektga tug'ilganda belgi
+        qo'yish:</p>
+        <div class="natija">public function __construct()
+{
+    $this-&gt;tugilgan = uniqid('', true);
+}
+
+1-so'rov: 6a8d59b19ac923.37491193
+2-so'rov: 6a8d59b19ea3e7.48516056    ← boshqa
+3-so'rov: 6a8d59b1a269d1.17584153    ← boshqa</div>
+        <p>Ya'ni <code>singleton</code> — «<b>bitta so'rov
+        davomida</b> bittagina». So'rov tugadi — ilova
+        butunlay o'chadi.</p>
+        <p>🔑 Nega bu xavfli xulosa edi? Chunki dasturchi
+        singletonga <b>holat</b> saqlay boshladi. Oddiy
+        PHP-FPM da bu shunchaki <b>ishlamaydi</b> (kesh har
+        so'rovda bo'sh). Octane'ga o'tsa esa ishlaydi —
+        <b>lekin bir foydalanuvchining ma'lumoti
+        ikkinchisiga ko'rinadi</b>.</p>
+        <p>🔍 <b>Umumiy saboq:</b> o'lchov nimani
+        o'lchayotganini tekshiring. «Raqam bir xil» —
+        «obyekt bir xil» degani emas.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span>
+    <code>app(LogXabar::class)</code> nega <code>bind</code>siz
+    ishlaydi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Container konstruktorni Reflection bilan o'qib o'zi yasaydi</button></li>
+      <li><button class="quiz-option">Laravel barcha klasslarni oldindan ro'yxatga olib qo'yadi</button></li>
+      <li><button class="quiz-option">Composer autoload uni container ichiga avtomatik qo'shadi</button></li>
+    </ul>
+    <div class="quiz-explain">Bu — <b>autowiring</b>, siz uni
+    15-darsda yozgansiz: <code>ReflectionClass</code> →
+    <code>isInstantiable</code> → <code>getConstructor</code> →
+    parametrlarni rekursiv yasash.
+    🔍 O'lchandi: <code>bound(LogXabar::class)</code>
+    <b>false</b>, lekin klass baribir yasaladi.
+    ⚠️ Interfeys uchun esa <code>bind</code> shart.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span>
+    <code>bind</code> va <code>singleton</code> farqi nimada?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">bind har safar yangi singleton esa bitta</button></li>
+      <li><button class="quiz-option">singleton har safar yangi bind esa bitta</button></li>
+      <li><button class="quiz-option">ikkalasi bir xil faqat nomi boshqacha xolos</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi:
+    <code>bind</code> → id 6438 va 6440 (boshqa),
+    <code>singleton</code> → id 6442 va 6442 (bir xil).
+    Yana ikkitasi bor: <code>instance()</code> — tayyor
+    obyektni berish, <code>scoped()</code> — «doira» tugaganda
+    unutiladigan singleton.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span>
+    <code>singleton</code> qancha vaqt yashaydi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Bitta so'rov davomida keyingi so'rovda yangi obyekt</button></li>
+      <li><button class="quiz-option">Butun ilova umri davomida server o'chguncha yashaydi</button></li>
+      <li><button class="quiz-option">Bitta foydalanuvchi uchun sessiya tugaguncha saqlanib turadi</button></li>
+    </ul>
+    <div class="quiz-explain">PHP ilovasi har so'rovda noldan
+    ishga tushadi — container ham, singleton ham yangi.
+    🔍 O'lchandi: bir so'rov ichida <code>bir_xilmi: true</code>,
+    lekin <code>tugilgan</code> belgisi har so'rovda boshqa.
+    ⚠️ <code>spl_object_id</code> bilan o'lchasangiz aldanasiz:
+    u qayta ishlatiladi.</div>
+  </div>
+
+  <!-- ═══════════════ 15) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+
+    <p>Javobni ovoz chiqarib ayting, keyin ochib
+    solishtiring.</p>
+
+    <details class="recall">
+      <summary>Container klassni yasashda qaysi to'rt qadamni
+      bosib o'tadi?</summary>
+      <div class="answer">1) <code>new ReflectionClass($klass)</code>
+      — klassdan «senga nima kerak?» deb so'rash.
+      2) <code>isInstantiable()</code> — yasab bo'ladimi
+      (interfeys/abstract bo'lsa yo'q).
+      3) <code>getConstructor()</code> — konstruktor bormi; yo'q
+      bo'lsa darrov <code>new</code>.
+      4) <code>getParameters()</code> — har bir parametrni
+      <b>rekursiv</b> yasab, <code>new</code> ga uzatish.
+      Bu 15-darsdagi kodingiz bilan <b>bir xil</b>.</div>
+    </details>
+
+    <details class="recall">
+      <summary>Laravelning ikkita container xatosi bizning
+      qaysi <code>throw</code> larimizga mos keladi?</summary>
+      <div class="answer">
+      <code>Target [X] is not instantiable</code> ←
+      <code>if (! $reflector-&gt;isInstantiable())</code> —
+      interfeysdan obyekt yasab bo'lmaydi.
+      <code>Unresolvable dependency resolving [Parameter #0 ...]</code>
+      ← <code>if ($tip === null || $tip-&gt;isBuiltin())</code> —
+      <code>string</code> ni yasab bo'lmaydi.
+      🔍 Laravel qo'shimcha <code>while building [...]</code>
+      zanjirini ham ko'rsatadi.</div>
+    </details>
+
+    <details class="recall">
+      <summary><code>bound()</code> nega ishonchli tekshiruv
+      emas?</summary>
+      <div class="answer">Chunki u faqat <b>bog'langan</b>
+      nomlarni biladi. Autowiring bilan yasaladigan konkret
+      klasslar ro'yxatda <b>yo'q</b>:
+      <code>bound(LogXabar::class)</code> <b>false</b>, lekin
+      <code>app(LogXabar::class)</code> muvaffaqiyatli
+      yasaydi. «Bog'langan» va «yasalishi mumkin» boshqa
+      narsa.</div>
+    </details>
+
+    <details class="recall">
+      <summary><code>show(Vakansiya $vakansiya)</code> ga model
+      qanday keladi va nega container unga
+      tegmaydi?</summary>
+      <div class="answer">Modelni <b>route model binding</b>
+      (<code>SubstituteBindings</code> middleware'i) parametrlar
+      ro'yxatiga qo'yadi.
+      <code>ResolvesRouteDependencies::transformDependency()</code>
+      esa <code>alreadyInParameters()</code> bilan tekshiradi:
+      ro'yxatda bor bo'lsa — <b>tegmaydi</b>.
+      <code>Request $request</code> ro'yxatda yo'q, shuning
+      uchun <code>container-&gt;make()</code> ishlaydi.
+      🔑 45-darsdagi «200, lekin ma'lumot null» xatosining
+      sababi ham shu: nom mos kelmagani uchun model ro'yxatga
+      tushmagan.</div>
+    </details>
+
+    <details class="recall">
+      <summary>Singletonga nima qo'yish mumkin, nima
+      mumkin emas?</summary>
+      <div class="answer">✅ <b>Holatsiz</b> xizmatlar: ulanish,
+      sozlama, klient, formatlovchi.
+      ⚠️ So'rovga tegishli <b>holat</b> — mumkin emas.
+      Oddiy PHP-FPM da bu ko'rinmaydi (har so'rov yangi
+      jarayon), lekin Octane yoki navbat ishchisida bitta
+      jarayon ko'p so'rovga xizmat qiladi va ma'lumot bir
+      foydalanuvchidan ikkinchisiga <b>oqib o'tadi</b>.
+      Bunday holatlar uchun <code>bind</code> yoki
+      <code>scoped</code>.</div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 16) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Xulosa</span>
+    <ul>
+      <li><code>app()</code> — bu <b>container</b>:
+      <code>Illuminate\Foundation\Application extends
+      Illuminate\Container\Container</code>.</li>
+      <li>Autowiring — <code>ReflectionClass</code> bilan
+      konstruktorni o'qib, parametrlarni <b>rekursiv</b>
+      yasash. Siz buni 15-darsda yozgansiz.</li>
+      <li>Laravelning <code>build()</code> metodi va sizning
+      <code>make()</code> ingiz — <b>bir xil to'rt
+      qadam</b>.</li>
+      <li>Ikkita xato — ikkita <code>throw</code>:
+      <code>is not instantiable</code> (interfeys) va
+      <code>Unresolvable dependency</code> (oddiy tip).</li>
+      <li><code>bind</code> Reflection hal qila olmaydigan
+      yagona narsani hal qiladi: <b>interfeys → klass</b>.</li>
+      <li><code>bind</code> har safar yangi ·
+      <code>singleton</code> bitta · <code>instance</code>
+      tayyor obyekt · <code>scoped</code> doira
+      tugaganda unutiladi.</li>
+      <li>⚠️ <code>singleton</code> = <b>bitta so'rov
+      davomida</b>. So'rov tugadi — ilova o'chadi.</li>
+      <li>⚠️ <code>spl_object_id</code> bilan obyekt
+      tengligini <b>so'rovlar orasida</b> o'lchab
+      bo'lmaydi — u qayta ishlatiladi.</li>
+      <li>⚠️ <code>bound()</code> <code>false</code> bo'lsa ham
+      klass yasalishi mumkin.</li>
+      <li>Kontekstli bog'lash: <code>when()-&gt;needs()-&gt;give()</code>
+      — bitta interfeys, har xil javob.</li>
+      <li>Laravelning o'zida <b>217</b> bog'lanish,
+      <b>159</b> instance bor —
+      <code>app('router')</code> shundan.</li>
+      <li>Metod argumentlari ham shu container'dan:
+      <code>alreadyInParameters()</code> route model
+      binding'ga tegmaydi.</li>
+      <li>Testda <code>app()-&gt;instance()</code> bilan
+      almashtirish — DI ning asosiy foydasi.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p>Bugun ko'rdik: container'da <b>217</b> ta bog'lanish
+    tayyor turibdi — <code>router</code>, <code>log</code>,
+    <code>db</code>, <code>cache</code>… Lekin ularni u yerga
+    <b>kim</b> qo'ydi?</p>
+    <p>Biz o'z bog'lanishimizni
+    <code>AppServiceProvider::register()</code> ga yozdik va
+    HOLAT 5 da <code>register()</code> bilan
+    <code>boot()</code> farqiga <b>tegib</b> o'tdik — lekin
+    sababini aytmadik.</p>
+    <p>50-darsda <b>Service Provider</b>larni ochamiz: ilova
+    ishga tushganda aynan nima sodir bo'ladi, provider'lar
+    qanday tartibda yuklanadi, <code>register()</code> va
+    <code>boot()</code> nega ikkiga bo'lingan, va
+    <code>deferred</code> provider nima uchun kerak.</p>
+    <p>Undan keyingi darsda esa <code>Log::info()</code> da
+    <code>Log</code> degan klass <b>yo'q</b> ekanini
+    ko'rsatamiz. Javob bugungi ro'yxatda yashiringan:
+    <code>app('log')</code>.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel — Service Container</b>:
+    <a href="https://laravel.com/docs/13.x/container">bind, singleton,
+    scoped, instance, contextual binding</a>.<sup><a href="#fn1">1</a></sup><br>
+    <b>PHP — Reflection</b>:
+    <a href="https://www.php.net/manual/en/book.reflection.php">php.net/reflection</a>.<sup><a href="#fn2">2</a></sup><br>
+    <b>Laravel — Service Providers</b>:
+    <a href="https://laravel.com/docs/13.x/providers">register va boot farqi</a>.<sup><a href="#fn3">3</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b> «container
+    o'zi qanday yasaladi — birinchi obyekt qayerdan keladi?»,
+    «<code>tag()</code> nima qiladi?», «bir nechta interfeysni
+    bitta klassga bog'lasa bo'ladimi?», «<code>#[Inject]</code>
+    kabi atributlar bormi?» — har qanday savol yaxshi.
+    Birinchisiga qisqa javob: <code>public/index.php</code> da
+    <code>require bootstrap/app.php</code> — o'sha yerda
+    <code>new Application(...)</code> deb <b>qo'lda</b>
+    yasaladi. Container'ning o'zi container'dan kelmaydi.
+    Uchinchisiga: <b>ha</b> — bir klass ko'p interfeysni amalga
+    oshirsa, har biriga alohida <code>bind</code>
+    yozaverasiz.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0048-rate-limiting-va-versiyalash.html">Oldingi: Rate limiting</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel 13 — <a href="https://laravel.com/docs/13.x/container">Service Container</a>.</li>
+      <li id="fn2">PHP — <a href="https://www.php.net/manual/en/book.reflection.php">Reflection</a>.</li>
+      <li id="fn3">Laravel 13 — <a href="https://laravel.com/docs/13.x/providers">Service Providers</a>.</li>
+      <li id="fn4">Barchasi jonli o'lchangan (PHP 8.3.32, Laravel 13.26.1,
+      Pest 4.7.8, SQLite):
+      <code>get_class(app())</code> →
+      <code>Illuminate\Foundation\Application</code>,
+      ota-klass <code>Illuminate\Container\Container</code>;
+      <code>Container::getInstance() === app()</code> va
+      <code>App::getFacadeRoot() === app()</code> — <b>ha</b> ·
+      <code>bind</code>siz <code>app(LogXabar::class)</code>
+      yasaldi, ikki chaqiruv <b>boshqa</b> obyekt ·
+      <code>app(XabarYuboruvchi::class)</code> →
+      <code>BindingResolutionException: Target [...] is not
+      instantiable while building [...]</code> ·
+      <code>app(SmsXabar::class)</code> →
+      <code>Unresolvable dependency resolving [Parameter #0 [
+      &lt;required&gt; string $kalit ]]</code> ·
+      manba: <code>Container::build()</code> (1129-qator) —
+      <code>new ReflectionClass</code> →
+      <code>isInstantiable()</code> →
+      <code>getConstructor()</code> →
+      <code>resolveDependencies()</code> →
+      <code>new $concrete(...$instances)</code> ·
+      <code>resolvePrimitive</code> o'lchandi: standart qiymatli
+      <code>string $nom = 'standart'</code> yasaldi,
+      <code>?string $nom</code> → <code>null</code> ·
+      <code>bind</code> → id <b>6438</b> va <b>6440</b>;
+      <code>singleton</code> → <b>6442</b> va <b>6442</b>;
+      <code>instance()</code> → aynan berilgan obyekt ·
+      <code>bound(XabarYuboruvchi)</code> <b>true</b>,
+      <code>bound(LogXabar)</code> <b>false</b> (lekin
+      yasaladi) ·
+      <code>forgetScopedInstances()</code> dan keyin:
+      singleton <b>o'zgarmadi</b>, scoped <b>qayta
+      yasaldi</b> ·
+      ⚠️ <code>spl_object_id</code> uch so'rovda ham
+      <b>302</b> berdi (jarayon ichida qayta ishlatiladi);
+      <code>uniqid()</code> belgisi bilan o'lchanganda
+      <code>tugilgan</code> har so'rovda <b>boshqa</b> ·
+      kontekstli bog'lash: <code>Web</code> →
+      <code>LogXabar</code>, <code>Mobil</code> →
+      <code>SmsXabar</code> ·
+      container ro'yxati: <b>217</b> bindings, <b>159</b>
+      instances, <b>81</b> aliases, <b>44</b> abstractAliases;
+      qisqa nomlar orasida <code>events</code>,
+      <code>log</code>, <code>router</code>, <code>url</code>,
+      <code>path</code>, <code>app</code>, <code>auth</code> ·
+      metod injektsiyasi manbada:
+      <code>ResolvesRouteDependencies::transformDependency()</code>
+      → <code>$this-&gt;container-&gt;make($className)</code>,
+      <code>alreadyInParameters()</code> route model
+      binding'ni chetlab o'tadi ·
+      controllerga konstruktor injektsiyasi qo'shilgach
+      marshrutlar <b>o'zgarmadi</b> va to'plam
+      <b>19 passed</b> bo'lib qoldi ·
+      <code>ContainerTest</code> — <b>7 passed (10
+      assertions)</b>, to'liq to'plam <b>26 passed (62
+      assertions), 0.33s</b>.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

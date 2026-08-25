@@ -18,7 +18,7 @@
   izoh esa o'zbekcha.</p>
 
   <p class="lesson-meta">
-    <span>Atamalar: <b>200 ta</b></span>
+    <span>Atamalar: <b>207 ta</b></span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>📱 O'qishga mos</span>
   </p>
@@ -26,7 +26,7 @@
   <div class="callout note">
     <span class="label">Bu hujjat o'sib boradi</span>
     <p>Atama faqat <b>o'z darsi yozilganda</b> qo'shiladi — oldindan emas. Hozir:
-    Modul A–F (1–48-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
+    Modul A–G (1–49-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
     bosqichida qat'iy belgilangan va 73 dars bo'ylab o'zgarmaydi).</p>
   </div>
 
@@ -1642,6 +1642,111 @@
       <code>Object of class Closure could not be converted to
       string</code>.
       <span class="eg">$javob-&gt;headers-&gt;set('Sunset', '...');</span></dd>
+    </div>
+
+    <div class="term" id="service-container">
+      <dt>service container <span class="uz">— obyektlarni yasab beruvchi</span></dt>
+      <dd><code>app()</code> — aynan shu.
+      🔍 O'lchandi: <code>Illuminate\Foundation\Application</code>,
+      ota-klassi <code>Illuminate\Container\Container</code>;
+      <code>Container::getInstance() === app()</code> — <b>ha</b>.
+      Laravelning o'zida <b>217</b> bog'lanish va <b>159</b>
+      instance tayyor turadi — shu sababdan
+      <code>app('router')</code>, <code>app('log')</code>
+      ishlaydi.
+      🔑 15-darsdagi 35 qatorli <code>Container</code> bilan
+      <b>bir xil to'rt qadam</b>ni bosadi.
+      <span class="eg">app(XabarYuboruvchi::class)</span></dd>
+    </div>
+
+    <div class="term" id="autowiring">
+      <dt>autowiring <span class="uz">— avtomatik yasash</span></dt>
+      <dd><code>bind</code> qilmasdan ham konkret klass yasaladi.
+      Mexanizmi (<code>Container::build()</code>):
+      <code>new ReflectionClass</code> →
+      <code>isInstantiable()</code> →
+      <code>getConstructor()</code> → parametrlarni
+      <b>rekursiv</b> yasash → <code>new $klass(...)</code>.
+      ⚠️ Interfeys uchun ishlamaydi — u yerda
+      <code>bind</code> shart.
+      🔍 <code>resolvePrimitive</code>: oddiy tip uchun
+      kontekstli qoida → standart qiymat → variadic →
+      nullable → xato.
+      <span class="eg">string $nom = 'standart'  →  yasaladi</span></dd>
+    </div>
+
+    <div class="term" id="bind-singleton">
+      <dt>bind, singleton, instance, scoped <span class="uz">— to'rt usul</span></dt>
+      <dd>🔍 O'lchandi: <code>bind</code> → har chaqiruvda
+      <b>yangi</b> obyekt; <code>singleton</code> →
+      <b>bitta</b>; <code>instance</code> → siz bergan aynan
+      o'sha obyekt; <code>scoped</code> → singleton, lekin
+      <code>forgetScopedInstances()</code> dan keyin qayta
+      yasaladi (Octane va navbat ishchilari uchun).
+      ⚠️ <code>bound()</code> ishonchli emas:
+      <code>bound(LogXabar::class)</code> <b>false</b>, lekin
+      klass baribir yasaladi.
+      <span class="eg">$this-&gt;app-&gt;singleton(X::class, Y::class);</span></dd>
+    </div>
+
+    <div class="term" id="singleton-umri">
+      <dt>singleton umri <span class="uz">— bitta so'rov davomida</span></dt>
+      <dd>⚠️ Eng ko'p yanglishiladigan joy. PHP ilovasi har
+      so'rovda <b>noldan</b> ishga tushadi — container ham,
+      singleton ham yangi.
+      🔍 O'lchandi: bir so'rov ichida bir xil obyekt, so'rovlar
+      orasida <b>boshqa</b> (obyektga <code>uniqid()</code>
+      belgisi qo'yib tekshirildi).
+      ⚠️ <b>O'lchov tuzog'i:</b> <code>spl_object_id</code> uch
+      so'rovda ham <b>302</b> berdi — u jarayon ichidagi raqam
+      va <b>qayta ishlatiladi</b>. «Raqam bir xil» —
+      «obyekt bir xil» degani emas.
+      🔑 Singletonga <b>holat</b> qo'ymang: Octane'da bir
+      foydalanuvchining ma'lumoti ikkinchisiga oqib o'tadi.
+      <span class="eg">tugilgan: 6a8d...23  →  6a8d...e7</span></dd>
+    </div>
+
+    <div class="term" id="kontekstli-boglash">
+      <dt>kontekstli bog'lash <span class="uz">— kim so'rayotganiga qarab</span></dt>
+      <dd><code>when(A::class)-&gt;needs(I::class)-&gt;give(...)</code>
+      — «<code>A</code> klassi <code>I</code> so'rasa, unga
+      <b>bunisini</b> ber». Qolgan joyda umumiy qoida ishlaydi.
+      🔍 O'lchandi: <code>Web</code> → <code>LogXabar</code>,
+      <code>Mobil</code> → <code>SmsXabar</code>.
+      🔑 Konstruktorda oddiy tip bo'lsa
+      (<code>string $kalit</code>) ham shu yerda hal qilinadi —
+      <code>give()</code> ichida o'zingiz yasaysiz.
+      <span class="eg">-&gt;give(fn () =&gt; new SmsXabar('kalit'))</span></dd>
+    </div>
+
+    <div class="term" id="metod-injeksiyasi">
+      <dt>metod injektsiyasi <span class="uz">— argumentlar qayerdan keladi</span></dt>
+      <dd>Controller metodining argumentlari ham container'dan.
+      Manba: <code>ResolvesRouteDependencies::transformDependency()</code>
+      → <code>$this-&gt;container-&gt;make($className)</code>.
+      🔑 <code>alreadyInParameters()</code> tekshiruvi
+      <b>route model binding</b> qo'ygan parametrlarga
+      tegmaydi: <code>Request $request</code> container'dan,
+      <code>Vakansiya $vakansiya</code> binding'dan.
+      ⚠️ 45-darsdagi «200, lekin ma'lumot null» sababi ham
+      shu: nom mos kelmagani uchun model ro'yxatga tushmagan
+      va container uni <b>bo'sh</b> yasab bergan.
+      <span class="eg">public function show(Vakansiya $vakansiya)</span></dd>
+    </div>
+
+    <div class="term" id="testda-almashtirish">
+      <dt>testda almashtirish <span class="uz">— DI ning asosiy foydasi</span></dt>
+      <dd><code>app()-&gt;instance(X::class, $soxta)</code> —
+      controllerga tegmasdan amalga oshiruvchini almashtirish.
+      Anonim klass bilan eng ko'rinadigan shakl:
+      <code>new class implements X { ... }</code>.
+      Muqobillari: <code>$this-&gt;mock()</code> (Mockery),
+      <code>$this-&gt;swap()</code>.
+      ⚠️ Almashtirish so'rov yuborilishidan <b>oldin</b>
+      bo'lsin.
+      🔑 Shu sababdan tashqi xizmatlar (SMS, to'lov, email)
+      interfeys ortida turadi.
+      <span class="eg">app()-&gt;instance(XabarYuboruvchi::class, $soxta);</span></dd>
     </div>
 
     <div class="term" id="sanctum">
