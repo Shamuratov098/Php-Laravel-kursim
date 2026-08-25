@@ -17,7 +17,7 @@
   muhit ma'lumotlari. Har dars yangi buyruq o'rgatilsa, shu yerga qo'shiladi.</p>
 
   <p class="lesson-meta">
-    <span>Qamrov: <b>1&ndash;61-darslar</b> — muhitdan API'gacha</span>
+    <span>Qamrov: <b>1&ndash;62-darslar</b> — muhitdan API'gacha</span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>💻 Amaliyotga mos</span>
   </p>
@@ -1826,6 +1826,48 @@
     <code>database</code> · <code>redis</code> (ishlab
     chiqarish, teglar bor).
     Redis nafaqat kesh: navbat, sessiya va cheklov ham.</p>
+  </div>
+
+  <h2>Service va Action (62-darsdan)</h2>
+  <table class="sheet">
+    <tr><th>Kod</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>app/Actions/VakansiyaYarat.php</code></td><td class="note-cell">Bitta ish · fe'l bilan nomlanadi</td></tr>
+    <tr><td><code>app/Services/StatistikaXizmati.php</code></td><td class="note-cell">Bir mavzu · bir necha metod · ot bilan</td></tr>
+    <tr><td><code>app/Queries/VakansiyaQidiruvi.php</code></td><td class="note-cell">So'rov <b>quradi</b>, bajarmaydi</td></tr>
+    <tr><td><code>function index(Request $r, Qidiruvi $q)</code></td><td class="note-cell">Konteyner o'zi yasab beradi (DI)</td></tr>
+    <tr><td><code>soRov(): Builder</code> · <code>bajar(): Paginator</code></td><td class="note-cell">Qurish va bajarishni ajratish</td></tr>
+    <tr><td><code>$q-&gt;soRov([...])-&gt;toSql()</code></td><td class="note-cell">✅ So'rovni <b>bajarmasdan</b> tekshirish</td></tr>
+    <tr><td><code>Rule::in(array_keys(Qidiruvi::TARTIBLAR))</code></td><td class="note-cell">Ruxsat etilgan qiymatlar — <b>bitta manba</b></td></tr>
+    <tr><td><code>DB::transaction(fn () =&gt; ...)</code> Action ichida</td><td class="note-cell">«Bo'linmas amal» — biznes qoidasi</td></tr>
+    <tr><td><code>$this-&gt;app-&gt;bind(X::class, fn () =&gt; ...)</code></td><td class="note-cell">Konstruktorda oddiy qiymat bo'lsa</td></tr>
+  </table>
+  <div class="callout note">
+    <p>🔍 <b>Refaktor natijasi:</b> <code>index()</code>
+    <b>28 → 6</b> qator · controller <b>77 → 58</b> ·
+    statistika <b>42 → 14</b> — va <b>85 ta test
+    o'zgarmasdan yashil</b>. Testlar o'zgarmasa —
+    bu haqiqiy refaktoring.</p>
+    <p>🔍 <b>Asosiy foyda:</b> beshta tartibni tekshirish —
+    HTTP orqali <b>0.13s</b>, <code>toSql()</code> orqali
+    <b>0.01s</b> (13 barobar).</p>
+    <p>⭐ ⚠️ <b>Singleton + holat = jim xato.</b>
+    O'lchandi: <code>bind</code> → alohida
+    (<code>{"shahar":"Toshkent"}</code> /
+    <code>{"q":"php"}</code>); <code>singleton</code> →
+    <b>ikkalasi ham</b>
+    <code>{"shahar":"Toshkent","q":"php"}</code>.
+    Xato yo'q, 200 OK, natija noto'g'ri.
+    <br>✅ Xizmatlar <b>holatsiz</b> bo'lsin: kirish
+    argumentda, chiqish qaytariladigan qiymatda,
+    <code>$this</code> ga hech narsa yozilmasin.</p>
+    <p>⚠️ <code>tests/Unit</code> ilovani yuklamaydi:
+    <code>Call to a member function connection() on
+    null</code>. «Unit» = bitta narsani tekshiradi,
+    freymvorksiz degani emas.</p>
+    <p>✅ <b>Ajratish chegarasi</b> — bulardan kamida
+    bittasi: bir nechta qadam · boshqa joydan ham
+    chaqiriladi · alohida testlash kerak.
+    Aks holda controllerda qolsin.</p>
   </div>
 
   <h2>SQLite'dan MySQL'ga (61-darsdan)</h2>

@@ -1,0 +1,1569 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 62 — Semiz controller: Service va Action</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 62 · MODUL I — ISHLAB CHIQARISHGA TAYYORGARLIK</p>
+  <h1>Semiz controller muammosi — Service va Action</h1>
+  <p class="lead">45-darsda yozgan <code>VakansiyaController</code>
+  ni oching. U o'shandan beri filtr, saralash, hodisa va huquq
+  tekshiruvini yutdi — <b>77 qator</b>, faqat
+  <code>index()</code> ning o'zi <b>28 qator</b>. Bugun uni
+  <b>6 qatorga</b> tushiramiz. Va bitta tuzoqni
+  o'lchaymiz: <b>xato yo'q, natija noto'g'ri</b>.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 17 daqiqa</span>
+    <span>💻 Amaliyot ≈ 33 daqiqa</span>
+    <span>Kerak: <a href="0061-sqlite-dan-mysql-ga.html">Dars 61</a></span>
+  </p>
+
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b>Semiz controller belgilari</b>
+        <span class="nima">Uchta savol — kodingiz
+        javob beradi.</span></li>
+      <li><b>Action sinfi</b>
+        <span class="nima">Bitta ish qiladi.
+        🔍 <code>VakansiyaYarat</code> — <b>19</b>
+        qator.</span></li>
+      <li><b>Query sinfi</b>
+        <span class="nima">So'rov qurish mantiqi.
+        🔍 <code>index()</code> <b>28 → 6</b>
+        qator.</span></li>
+      <li><b>Service sinfi</b>
+        <span class="nima">🔍
+        <code>StatistikaController</code>
+        <b>42 → 14</b> qator.</span></li>
+      <li><b>DI bilan ulash</b>
+        <span class="nima">49-darsdagi konteyner —
+        <code>new</code> yozish <b>shart
+        emas</b>.</span></li>
+      <li><b>🔍 Testlar o'zgarmadi</b>
+        <span class="nima">Refaktordan keyin ham
+        <b>85 ta yashil</b> — kod
+        <b>ishlashi</b> o'zgarmadi.</span></li>
+      <li><b>Asosiy foyda: alohida test</b>
+        <span class="nima">🔍 HTTP orqali <b>0.13s</b>,
+        to'g'ridan <b>0.01s</b> — 13
+        barobar.</span></li>
+      <li><b>⚠️ <code>tests/Unit</code> tuzog'i</b>
+        <span class="nima">🔍
+        <code>Call to a member function connection()
+        on null</code>.</span></li>
+      <li><b>⭐ Singleton + holat = jim xato</b>
+        <span class="nima">🔍 O'lchandi: 2-so'rov
+        1-so'rovning filtrlarini <b>ko'rdi</b>.</span></li>
+      <li><b>Holatsizlik qoidasi</b>
+        <span class="nima">Nega bizning sinfimiz bu
+        tuzoqqa <b>tushmaydi</b>.</span></li>
+      <li><b>Nomlash</b>
+        <span class="nima">Action · Service · Query ·
+        Repository — qaysi biri qachon.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima">Tranzaksiya · qaytish tipi ·
+        <code>__invoke</code> · haddan oshirmaslik.</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Controller nima qilishi kerak?</span>
+    <p>Controllerning <b>bitta</b> vazifasi bor:
+    <b>HTTP so'rovini javobga aylantirish</b>. Ya'ni:</p>
+    <div class="natija">so'rovni qabul qil  →  kerakli ishni CHAQIR  →  javob qaytar</div>
+    <p>O'rtadagi «ishni» <b>o'zi bajarish</b> — uning
+    vazifasi emas. Lekin biz aynan shuni qilib kelgan
+    edik.</p>
+    <p>Hozirgi <code>index()</code> ga qarang — u
+    <b>to'rtta</b> ish qilyapti:</p>
+    <div class="natija">1) tekshirish qoidalari       (5 qator)
+2) tartib xaritasi            (7 qator)
+3) so'rov qurish              (9 qator)
+4) resursga o'rash            (1 qator)</div>
+    <p>Bu <b>xato emas</b> — kod ishlaydi, testlar
+    yashil. Lekin uchta savolga javob bering:</p>
+    <div class="natija">1) Tartib mantiqini konsol buyrug'ida ham ishlatmoqchisiz. Qanday?
+2) Faqat saralashni testlamoqchisiz. HTTP so'rovisiz qanday?
+3) Yangi dasturchi "vakansiya yaratilganda nima bo'ladi?" deb so'radi.
+   Qaysi faylni ochib ko'rsatasiz?</div>
+    <p>Uchalasiga ham javob bir xil: <b>hozircha
+    hech qanday</b>. Chunki mantiq controllerga
+    <b>yopishib qolgan</b>.</p>
+  </div>
+
+  <!-- ═══════════════ 2) UCHTA SINF ═══════════════ -->
+  <h2>Uchta sinf — uchta rol</h2>
+
+  <p>Bu nomlar Laravel'da <b>majburiy emas</b> —
+  jamoalar kelishuvi. Lekin ma'nolari
+  farqlanadi:</p>
+
+  <div class="natija">ACTION    →  BITTA ish bajaradi. Fe'l bilan nomlanadi.
+             VakansiyaYarat · ParolniTikla · HisobniYop
+
+SERVICE   →  Bir mavzu atrofidagi bir necha ish. Ot bilan.
+             StatistikaXizmati · TolovXizmati
+
+QUERY     →  So'rov QURADI, bajarmaydi. Filtr va saralash.
+             VakansiyaQidiruvi</div>
+
+  <div class="callout tip">
+    <span class="label">🔑 Qaysi birini tanlash?</span>
+    <p>Oddiy savol: <b>sinfning ichida nechta ommaviy
+    metod bo'ladi?</b></p>
+    <div class="natija">bitta          →  Action
+bir nechtasi   →  Service
+so'rov quradi  →  Query</div>
+    <p>⚠️ Nomni <b>haddan tashqari</b> o'ylab
+    o'tirmang. Eng muhimi — mantiq controllerdan
+    <b>chiqishi</b>. Nomni keyin ham
+    o'zgartirasiz.</p>
+  </div>
+
+  <!-- ═══════════════ 3) ACTION ═══════════════ -->
+  <h2>Action — bitta ish</h2>
+
+  <p>Hozirgi <code>store()</code>:</p>
+
+  <div class="natija">public function store(VakansiyaRequest $request)
+{
+    $vakansiya = Vakansiya::create(
+        $request->validated() + ['user_id' => $request->user()->id]
+    );
+    VakansiyaYaratildi::dispatch($vakansiya);
+
+    return VakansiyaResource::make($vakansiya->fresh())
+        ->response()->setStatusCode(201);
+}</div>
+
+  <p>Ikkita ish aralashgan: <b>yaratish qoidasi</b>
+  (egasini biriktirish, hodisa yuborish) va
+  <b>HTTP javob</b> (201, resurs).</p>
+
+  <div class="codefile">
+    <div class="fname">app/Actions/VakansiyaYarat.php</div>
+    <code class="cmd">&lt;?php
+
+namespace App\Actions;
+
+use App\Events\VakansiyaYaratildi;
+use App\Models\User;
+use App\Models\Vakansiya;
+
+class VakansiyaYarat
+{
+    public function bajar(array $malumot, User $egasi): Vakansiya
+    {
+        $vakansiya = Vakansiya::create($malumot + ['user_id' =&gt; $egasi-&gt;id]);
+
+        VakansiyaYaratildi::dispatch($vakansiya);
+
+        return $vakansiya-&gt;fresh();
+    }
+}</code>
+  </div>
+
+  <p>Controller endi:</p>
+
+  <div class="natija">public function store(VakansiyaRequest $request, VakansiyaYarat $yarat)
+{
+    $vakansiya = $yarat->bajar($request->validated(), $request->user());
+
+    return VakansiyaResource::make($vakansiya)
+        ->response()->setStatusCode(201);
+}</div>
+
+  <div class="callout tip">
+    <span class="label">🔑 <code>VakansiyaYarat $yarat</code> — bu qayerdan keldi?</span>
+    <p>Hech qayerdan «kelmadi». <b>49-darsdagi
+    konteyner</b> uni o'zi yasab berdi.</p>
+    <p>Laravel controller metodini chaqirishdan oldin
+    parametr tiplariga qaraydi: <code>VakansiyaYarat</code>
+    — sinf. Konstruktori bo'sh. Demak
+    <code>new VakansiyaYarat</code> qilib
+    uzatadi.</p>
+    <p>🔍 O'lchandi — konteyner har chaqiruvda
+    <b>yangi nusxa</b> beradi:</p>
+    <div class="natija">expect(app(VakansiyaYarat::class))
+    ->not->toBe(app(VakansiyaYarat::class));   ✅ o'tdi</div>
+    <p>Bu «metod orqali inyeksiya» (method injection).
+    Ro'yxatdan o'tkazish <b>shart emas</b>.</p>
+  </div>
+
+  <!-- ═══════════════ 4) QUERY ═══════════════ -->
+  <h2>Query — so'rov qurish</h2>
+
+  <p>28 qatorlik <code>index()</code> ni ikkiga
+  bo'lamiz.</p>
+
+  <p>Avval <b>tekshirish</b> qoidalari o'z joyiga
+  (39-darsdagi <code>FormRequest</code>):</p>
+
+  <div class="codefile">
+    <div class="fname">app/Http/Requests/VakansiyaQidiruvRequest.php</div>
+    <code class="cmd">class VakansiyaQidiruvRequest extends FormRequest
+{
+    public function rules(): array
+    {
+        return [
+            'q' =&gt; ['nullable', 'string', 'max:60'],
+            'shahar' =&gt; ['nullable', 'string', 'max:60'],
+            'faqat_faol' =&gt; ['nullable', 'boolean'],
+            'sort' =&gt; ['nullable', Rule::in(array_keys(VakansiyaQidiruvi::TARTIBLAR))],
+            'per_page' =&gt; ['nullable', 'integer', 'min:1', 'max:50'],
+        ];
+    }
+}</code>
+  </div>
+
+  <p>🔑 <code>Rule::in(array_keys(...TARTIBLAR))</code> ga
+  e'tibor bering. Ilgari ruxsat etilgan tartiblar
+  <b>ikki joyda</b> yozilgan edi — tekshiruvda va
+  xaritada. Endi <b>bitta manba</b>: yangi tartib
+  qo'shsangiz, tekshiruv <b>o'zi</b> biladi.</p>
+
+  <div class="codefile">
+    <div class="fname">app/Queries/VakansiyaQidiruvi.php</div>
+    <code class="cmd">class VakansiyaQidiruvi
+{
+    public const TARTIBLAR = [
+        'nom' =&gt; ['nom', 'asc'],
+        '-nom' =&gt; ['nom', 'desc'],
+        'maosh' =&gt; ['maosh', 'asc'],
+        '-maosh' =&gt; ['maosh', 'desc'],
+        'yangi' =&gt; ['created_at', 'desc'],
+    ];
+
+    public function bajar(array $filtr): LengthAwarePaginator
+    {
+        return $this-&gt;soRov($filtr)
+            -&gt;paginate($filtr['per_page'] ?? config('ishtop.sahifa_hajmi'));
+    }
+
+    public function soRov(array $filtr): Builder
+    {
+        $tartib = self::TARTIBLAR[$filtr['sort'] ?? 'yangi'];
+
+        return Vakansiya::query()
+            -&gt;with('kompaniya')
+            -&gt;when(filled($filtr['q'] ?? null),
+                fn (Builder $s) =&gt; $s-&gt;whereLike('nom', '%'.$filtr['q'].'%'))
+            -&gt;when(filled($filtr['shahar'] ?? null),
+                fn (Builder $s) =&gt; $s-&gt;where('shahar', $filtr['shahar']))
+            -&gt;when($filtr['faqat_faol'] ?? false,
+                fn (Builder $s) =&gt; $s-&gt;faol())
+            -&gt;orderBy(...$tartib);
+    }
+}</code>
+  </div>
+
+  <p>⚠️ Ikkita metod ataylab: <code>soRov()</code>
+  <b>quradi</b> (<code>Builder</code> qaytaradi),
+  <code>bajar()</code> <b>bajaradi</b>. Bu ajratish
+  testda juda qo'l keladi — quyida
+  ko'ramiz.</p>
+
+  <p>Va controller:</p>
+
+  <div class="natija">public function index(VakansiyaQidiruvRequest $request, VakansiyaQidiruvi $qidiruv)
+{
+    return VakansiyaResource::collection(
+        $qidiruv->bajar($request->validated())->withQueryString()
+    );
+}</div>
+
+  <div class="natija">                              AVVAL   KEYIN
+index() metodi                  28      6   qator
+VakansiyaController.php         77     58   qator
+StatistikaController.php        42     14   qator</div>
+
+  <!-- ═══════════════ 5) TESTLAR ═══════════════ -->
+  <h2>🔍 Eng muhim tekshiruv: testlar o'zgarmadi</h2>
+
+  <p>Refaktordan keyin <b>birorta testni ham
+  o'zgartirmadik</b>:</p>
+
+  <div class="natija">php artisan test
+
+Tests:  85 passed (173 assertions)
+Duration: 0.76s</div>
+
+  <div class="callout tip">
+    <span class="label">🔑 Refaktoring ta'rifi</span>
+    <p><b>Refaktoring</b> — kodning <b>ichki
+    tuzilishini</b> o'zgartirib, <b>tashqi
+    xulqini</b> saqlash.</p>
+    <div class="natija">xulq o'zgardi        →  bu refaktoring EMAS, bu yangi funksiya
+testlar o'zgardi     →  ehtimol xulq ham o'zgargan
+testlar o'zgarmadi   →  ✅ haqiqiy refaktoring</div>
+    <p>Shuning uchun 40-darsdan beri test yozib
+    kelganmiz. Testlarsiz refaktoring —
+    <b>umid</b>, o'lchov emas.</p>
+  </div>
+
+  <h3>Endi asosiy foyda</h3>
+
+  <p>Saralash mantiqini <b>HTTP siz</b> testlash
+  mumkin bo'ldi:</p>
+
+  <div class="codefile">
+    <div class="fname">tests/Feature/QidiruvTest.php</div>
+    <code class="cmd">it('bo\'sh filtrda yangi tartibda saralaydi', function () {
+    $sql = (new VakansiyaQidiruvi)-&gt;soRov([])-&gt;toSql();
+
+    expect($sql)-&gt;toContain('order by "created_at" desc');
+    expect($sql)-&gt;not-&gt;toContain('where');
+});
+
+it('har bir filtr SQL ga qo\'shiladi', function () {
+    $sql = (new VakansiyaQidiruvi)-&gt;soRov([
+        'q' =&gt; 'php',
+        'shahar' =&gt; 'Toshkent',
+        'faqat_faol' =&gt; true,
+        'sort' =&gt; '-maosh',
+    ])-&gt;toSql();
+
+    expect($sql)-&gt;toContain('"nom" like ?');
+    expect($sql)-&gt;toContain('"shahar" = ?');
+    expect($sql)-&gt;toContain('"faol" = ?');
+    expect($sql)-&gt;toContain('order by "maosh" desc');
+});</code>
+  </div>
+
+  <p>Bu testda <b>HTTP yo'q</b>, <b>baza yozuvi
+  yo'q</b>, <b>fabrika yo'q</b> —
+  <code>toSql()</code> so'rovni bajarmasdan
+  <b>ko'rsatadi</b>.</p>
+
+  <p>🔍 Farqni o'lchadik. Bir xil ish — beshta
+  tartibni tekshirish:</p>
+
+  <div class="natija">HTTP orqali (5 ta so'rov + fabrika):   0.13s
+to'g'ridan (toSql):                    0.01s
+
+                              →  13 BAROBAR</div>
+
+  <p>Bitta testda bu ko'p emas. 200 ta testda — bu
+  sizning har commit'da kutadigan vaqtingiz.</p>
+
+  <!-- ═══════════════ 6) UNIT TUZOQ ═══════════════ -->
+  <h2>⚠️ <code>tests/Unit</code> tuzog'i</h2>
+
+  <p>Tabiiy fikr: «bu <b>unit</b> test-ku, uni
+  <code>tests/Unit</code> ga qo'yay». Qo'yib
+  ko'ramiz:</p>
+
+  <div class="natija">Error
+
+  Call to a member function connection() on null
+
+  at vendor/laravel/framework/src/Illuminate/Database/Eloquent/Model.php:2235
+  ➜ 2235▕   return static::$resolver->connection($connection);</div>
+
+  <p>Sabab <code>tests/Pest.php</code> da:</p>
+
+  <div class="codefile">
+    <div class="fname">tests/Pest.php</div>
+    <code class="cmd">pest()-&gt;extend(Tests\TestCase::class)
+    -&gt;use(Illuminate\Foundation\Testing\RefreshDatabase::class)
+    -&gt;in('Feature');          // &lt;-- faqat Feature</code>
+  </div>
+
+  <p><code>tests/Unit</code> dagi testlar
+  <b>Laravel ilovasini yuklamaydi</b>. Ular oddiy
+  PHPUnit testlari. Eloquent esa ilova
+  <b>bo'lmasa</b> ulanishni topa olmaydi —
+  <code>$resolver</code> hali
+  <code>null</code>.</p>
+
+  <div class="callout warn">
+    <span class="label">🔑 «Unit» nimani anglatadi?</span>
+    <div class="natija">❌ noto'g'ri tushuncha:  unit = freymvorksiz
+✅ amaliy ta'rif:      unit = BITTA narsani tekshiradi</div>
+    <p>Bizning <code>QidiruvTest</code> —
+    <b>bitta</b> narsani tekshiradi (so'rov qurish), ya'ni
+    ruhan unit test. Lekin u Eloquent'ga tayanadi,
+    demak ilova kerak → <code>tests/Feature</code>
+    ga qo'yiladi.</p>
+    <p>✅ Papka nomi emas, <b>tezlik va aniqlik</b>
+    muhim: HTTP yo'q, baza yozuvi yo'q, bitta
+    mavzu.</p>
+    <p>🔍 Haqiqatan freymvorksiz testlanadigan narsalar
+    ham bor — masalan <code>TARTIBLAR</code>
+    konstantasining o'zi:</p>
+    <div class="natija">// tests/Unit/QidiruvTartibTest.php — ilova YUKLANMAYDI
+foreach (VakansiyaQidiruvi::TARTIBLAR as $tartib) {
+    expect($tartib)->toHaveCount(2)
+        ->and($tartib[1])->toBeIn(['asc', 'desc']);
+}
+
+Tests: 2 passed (12 assertions)   Duration: 0.03s</div>
+  </div>
+
+  <!-- ═══════════════ 7) ⭐ SINGLETON TUZOQ ═══════════════ -->
+  <h2>⭐ Singleton + holat = jim xato</h2>
+
+  <p>Endi darsning eng qimmatli qismi. Xizmat sinflari
+  bilan ishlashda eng ko'p uchraydigan
+  <b>jim</b> xato.</p>
+
+  <p>Tabiiy ko'rinadigan naqsh — «zanjirli»
+  qidiruv:</p>
+
+  <div class="natija">class YomonQidiruv
+{
+    private array $shartlar = [];
+
+    public function filtr(string $k, $v): static
+    {
+        $this->shartlar[$k] = $v;      // ← HOLAT saqlanyapti
+        return $this;
+    }
+}</div>
+
+  <p>Chiroyli ko'rinadi. Endi uni 50-darsdagi
+  provayderda ro'yxatdan o'tkazamiz. Ikki
+  variant:</p>
+
+  <div class="natija">app()->bind(YomonQidiruv::class, ...)        →  har chaqiruvda YANGI
+app()->singleton(YomonQidiruv::class, ...)   →  HAR DOIM bitta</div>
+
+  <p>Ikkalasini ham sinab ko'rdik. Ikki so'rovni
+  taqlid qilamiz: birinchisi shahar bo'yicha,
+  ikkinchisi matn bo'yicha filtrlaydi.</p>
+
+  <div class="natija">1) bind() — har chaqiruvda YANGI nusxa:
+   1-so'rov shartlari: {"shahar":"Toshkent"}
+   2-so'rov shartlari: {"q":"php"}
+   bir xil obyektmi? YO'Q                            ✅
+
+2) singleton() — HAR DOIM bitta nusxa:
+   1-so'rov shartlari: {"shahar":"Toshkent","q":"php"}
+   2-so'rov shartlari: {"shahar":"Toshkent","q":"php"}
+   bir xil obyektmi? HA                              ⚠️</div>
+
+  <div class="callout warn">
+    <span class="label">⚠️ Nima bo'ldi?</span>
+    <p><code>singleton</code> holatida ikkinchi so'rov
+    birinchisining filtrini <b>meros qilib
+    oldi</b>.</p>
+    <p>Foydalanuvchi «php» deb qidirdi — natijada
+    faqat <b>Toshkentdagi</b> php vakansiyalari
+    chiqdi. U buni <b>hech qachon
+    so'ramagan</b>.</p>
+    <div class="natija">Xato yo'q.  Ogohlantirish yo'q.  Log toza.  200 OK.
+Faqat natija — NOTO'G'RI.</div>
+    <p>⚠️ Va bu <b>mahalliy ishda ko'rinmaydi</b>:
+    <code>artisan serve</code> har so'rovda PHP
+    jarayonini qayta boshlaydi, ya'ni singleton ham
+    yangilanadi.</p>
+    <p>Ishlab chiqarishda esa (Octane, Swoole, uzoq
+    yashaydigan worker) — jarayon
+    <b>saqlanadi</b>. Va xato <b>o'sha yerda</b>
+    boshlanadi.</p>
+  </div>
+
+  <h3>✅ Nega bizning sinfimiz xavfsiz?</h3>
+
+  <div class="natija">$bir = app(VakansiyaQidiruvi::class);
+
+$bir->soRov(['shahar' => 'Toshkent'])->toSql()
+   →  select * from "vakansiyalar" where "shahar" = ? order by "created_at" desc
+
+$bir->soRov(['q' => 'php'])->toSql()
+   →  select * from "vakansiyalar" where "nom" like ? order by "created_at" desc
+
+                                        ✅ ikkinchisida "shahar" YO'Q</div>
+
+  <p>Chunki <code>VakansiyaQidiruvi</code> da
+  <b>hech qanday <code>private $holat</code>
+  yo'q</b>. Har chaqiruv o'z argumentidan
+  o'z natijasini quradi.</p>
+
+  <div class="callout tip">
+    <span class="label">🔑 Oltin qoida</span>
+    <div class="natija">Xizmat sinflari HOLATSIZ bo'lsin.
+
+Kirish  →  argument orqali
+Chiqish →  qaytariladigan qiymat orqali
+Orasida →  $this ga HECH NARSA yozilmasin</div>
+    <p>Shunda <code>bind</code> yoki
+    <code>singleton</code> — <b>farqi yo'q</b>.
+    Kod ikkalasida ham to'g'ri ishlaydi.</p>
+    <p>✅ Konstruktorda saqlanadigan
+    <b>bog'liqliklar</b> (boshqa xizmatlar,
+    sozlamalar) — bu holat emas. Ular
+    <b>o'zgarmaydi</b>. Muammo —
+    <b>so'rovga oid</b> ma'lumotni
+    saqlash.</p>
+  </div>
+
+  <!-- ═══════════════ 8) HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir
+  bir marta o'qing, keyin kerak bo'lganda qaytib
+  qarang.</p>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 1</span>
+    <h4>Action ichida tranzaksiya</h4>
+    <div class="natija">public function bajar(array $malumot, User $egasi): Vakansiya
+{
+    return DB::transaction(function () use ($malumot, $egasi) {
+        $vakansiya = Vakansiya::create($malumot + ['user_id' => $egasi->id]);
+        $vakansiya->konikmalar()->sync($malumot['konikmalar'] ?? []);
+
+        VakansiyaYaratildi::dispatch($vakansiya);
+
+        return $vakansiya->fresh();
+    });
+}</div>
+    <p>✅ Bir necha jadvalga yozilsa — tranzaksiya
+    Action <b>ichida</b> bo'lsin, controllerda
+    emas.</p>
+    <p>🔑 Sabab: «bu amal bo'linmas» — bu
+    <b>biznes qoidasi</b>, HTTP qoidasi emas.
+    Demak u Action bilan birga
+    ko'chishi kerak.</p>
+    <p>⚠️ 61-darsdan eslang: MySQL'da DDL tranzaksiyaga
+    bo'ysunmaydi. Oddiy
+    <code>insert</code>/<code>update</code> esa —
+    bo'ysunadi.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 2</span>
+    <h4><code>__invoke</code> bilan yozish</h4>
+    <div class="natija">class VakansiyaYarat
+{
+    public function __invoke(array $malumot, User $egasi): Vakansiya { ... }
+}
+
+// chaqirish:
+$vakansiya = $yarat($malumot, $egasi);       // metod nomi YO'Q</div>
+    <p>Ba'zi jamoalar buni afzal ko'radi: sinfning
+    <b>bitta</b> ishi borligi kodda ko'rinadi.</p>
+    <p>⚠️ Kamchiligi: <code>$yarat(...)</code> deb
+    yozilganda <b>nima</b> bo'layotgani noaniq —
+    <code>$yarat-&gt;bajar(...)</code> o'qishga
+    osonroq.</p>
+    <p>🔑 Ikkalasi ham to'g'ri. Muhimi —
+    <b>jamoada bir xil</b> bo'lsin.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 3</span>
+    <h4>Action ichida HTTP narsalari</h4>
+    <div class="natija">❌ public function bajar(Request $request): JsonResponse
+   {
+       $v = Vakansiya::create($request->validated());
+       return response()->json($v, 201);
+   }</div>
+    <p>Bu Action emas — bu <b>ko'chirilgan
+    controller</b>. Endi uni konsol buyrug'idan
+    yoki navbatdan chaqira olmaysiz.</p>
+    <p>✅ Action <code>Request</code> ni ham,
+    <code>Response</code> ni ham
+    <b>bilmasin</b>:</p>
+    <div class="natija">kirish  →  array, model, oddiy tiplar
+chiqish →  model, array, oddiy tiplar</div>
+    <p>🔑 Sinov: «bu sinfni <code>artisan</code>
+    buyrug'idan chaqira olamanmi?» Javob «yo'q»
+    bo'lsa — u hali controller.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 4</span>
+    <h4>Xizmatni ro'yxatdan o'tkazish kerakmi?</h4>
+    <div class="natija">class VakansiyaYarat { }                    →  kerak EMAS, konteyner o'zi yasaydi
+
+class TolovXizmati {
+    public function __construct(private string $kalit) { }
+}                                            →  KERAK — konteyner $kalit ni bilmaydi</div>
+    <p>50-darsdagi provayderda:</p>
+    <div class="natija">$this->app->bind(TolovXizmati::class,
+    fn () => new TolovXizmati(config('services.tolov.kalit')));</div>
+    <p>✅ Qoida: konstruktor <b>faqat sinflardan</b>
+    iborat bo'lsa — hech narsa yozmang. Oddiy qiymat
+    (matn, son, massiv) bo'lsa — bog'lang.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 5</span>
+    <h4>Haddan oshirish</h4>
+    <div class="natija">❌ class VakansiyaOchir
+   {
+       public function bajar(Vakansiya $v): void { $v->delete(); }
+   }</div>
+    <p>Bitta qatorli amal uchun alohida sinf —
+    <b>foyda emas, shovqin</b>. Endi o'quvchi bitta
+    <code>delete()</code> ni ko'rish uchun ikki fayl
+    ochadi.</p>
+    <p>✅ Chegara qayerda? Mantiq quyidagilardan
+    <b>kamida bittasini</b> qilsa,
+    ajratishga arziydi:</p>
+    <div class="natija">1) bir nechta qadam bor          (yaratish + hodisa + sinxronlash)
+2) boshqa joydan ham chaqiriladi (konsol, navbat, boshqa controller)
+3) alohida testlash kerak        (murakkab shart yoki hisob)</div>
+    <p>🔑 <code>destroy()</code> bizda controllerda
+    <b>qoldi</b> — va bu to'g'ri qaror.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 6</span>
+    <h4>Repository kerakmi?</h4>
+    <div class="natija">class VakansiyaRepository
+{
+    public function topId(int $id): ?Vakansiya { return Vakansiya::find($id); }
+    public function saqla(Vakansiya $v): void { $v->save(); }
+}</div>
+    <p>Repository naqshining maqsadi — bazani
+    <b>almashtirish</b> mumkin qilish. Lekin
+    Eloquent <b>o'zi</b> allaqachon shu:
+    61-darsda SQLite'dan MySQL'ga
+    <b>bitta qator</b> o'zgartirib
+    o'tdik.</p>
+    <p>⚠️ Shunday Repository — Eloquent ustiga
+    yopishtirilgan <b>ikkinchi qatlam</b>. U
+    <code>with()</code>, <code>paginate()</code>,
+    <code>when()</code> larni ham qayta
+    yozishga majbur qiladi.</p>
+    <p>✅ Laravel'da odatiy yo'l — <b>Query
+    sinfi</b> (biz qilgandek): so'rovni
+    <b>quradi</b>, Eloquent'ni
+    <b>yashirmaydi</b>.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>Qayerdan boshlash</h4>
+    <div class="natija">1) ENG UZUN metodni toping    →  grep -c '' yoki IDE
+2) Testlari bormi?             →  yo'q bo'lsa, AVVAL test yozing
+3) Bir bo'lakni ko'chiring     →  hammasini birdan emas
+4) Testlarni ishga tushiring   →  yashilmi?
+5) Commit                      →  keyingi bo'lakka o'ting</div>
+    <p>⚠️ Eng ko'p uchraydigan xato — hammasini
+    birdan qayta yozish. Shunda test qizarganda
+    <b>qaysi qadam</b> buzganini bilmaysiz.</p>
+    <p>🔑 Bizda ham shunday bo'ldi: avval
+    <code>store()</code>, keyin <code>index()</code>,
+    keyin statistika. Har qadamdan keyin —
+    <b>85 ta yashil</b>.</p>
+  </div>
+
+  <!-- ═══════════════ 9) AMALIYOT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    💻 Quyida amaliyot bor. Hozir o'qish rejimidasiz — kompyuter
+    yoningizda bo'lganda <b>💻 Amaliyot</b> rejimiga o'ting va
+    shu bo'limdan davom eting.
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <b>Avvalgi holatni o'lchang.</b>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+wc -l app/Http/Controllers/Api/*.php
+awk '/public function index/,/^    }$/' app/Http/Controllers/Api/VakansiyaController.php | wc -l
+php artisan test 2>&amp;1 | tail -3">cd ~/Projects/Learn/ishtop
+wc -l app/Http/Controllers/Api/*.php
+awk '/public function index/,/^    }$/' app/Http/Controllers/Api/VakansiyaController.php | wc -l
+php artisan test 2&gt;&amp;1 | tail -3</div>
+        <p class="expect">Menda <b>77</b> qator va
+        <code>index()</code> <b>28</b> qator.</p>
+      </li>
+
+      <li>
+        <b>Papkalarni yarating.</b>
+        <div class="cmd" data-cmd="mkdir -p app/Actions app/Queries app/Services
+ls app">mkdir -p app/Actions app/Queries app/Services
+ls app</div>
+        <p>⚠️ Laravel'da bu papkalar <b>standart
+        emas</b> — <code>make:</code> buyrug'i ham
+        yo'q. Ular shunchaki
+        <code>App\</code> ostidagi oddiy
+        sinflar (48-darsdagi autoload
+        qoidasi).</p>
+      </li>
+
+      <li>
+        <b>Action yozing.</b>
+        <div class="cmd" data-cmd="cat > app/Actions/VakansiyaYarat.php <<'PHPEOF'
+&lt;?php
+
+namespace App\Actions;
+
+use App\Events\VakansiyaYaratildi;
+use App\Models\User;
+use App\Models\Vakansiya;
+
+class VakansiyaYarat
+{
+    public function bajar(array $malumot, User $egasi): Vakansiya
+    {
+        $vakansiya = Vakansiya::create($malumot + ['user_id' => $egasi->id]);
+
+        VakansiyaYaratildi::dispatch($vakansiya);
+
+        return $vakansiya->fresh();
+    }
+}
+PHPEOF
+php -l app/Actions/VakansiyaYarat.php">cat &gt; app/Actions/VakansiyaYarat.php &lt;&lt;'PHPEOF'
+&lt;?php
+
+namespace App\Actions;
+
+use App\Events\VakansiyaYaratildi;
+use App\Models\User;
+use App\Models\Vakansiya;
+
+class VakansiyaYarat
+{
+    public function bajar(array $malumot, User $egasi): Vakansiya
+    {
+        $vakansiya = Vakansiya::create($malumot + ['user_id' =&gt; $egasi-&gt;id]);
+
+        VakansiyaYaratildi::dispatch($vakansiya);
+
+        return $vakansiya-&gt;fresh();
+    }
+}
+PHPEOF
+php -l app/Actions/VakansiyaYarat.php</div>
+      </li>
+
+      <li>
+        <b><code>store()</code> ni qisqartiring va
+        testlang.</b> Controllerda:
+        <div class="cmd" data-cmd="# use App\Actions\VakansiyaYarat;   qo'shing
+
+public function store(VakansiyaRequest $request, VakansiyaYarat $yarat)
+{
+    $vakansiya = $yarat->bajar($request->validated(), $request->user());
+
+    return VakansiyaResource::make($vakansiya)
+        ->response()->setStatusCode(201);
+}"># use App\Actions\VakansiyaYarat;   qo'shing
+
+public function store(VakansiyaRequest $request, VakansiyaYarat $yarat)
+{
+    $vakansiya = $yarat-&gt;bajar($request-&gt;validated(), $request-&gt;user());
+
+    return VakansiyaResource::make($vakansiya)
+        -&gt;response()-&gt;setStatusCode(201);
+}</div>
+        <div class="cmd" data-cmd="php artisan test 2>&amp;1 | tail -3">php artisan test 2&gt;&amp;1 | tail -3</div>
+        <p class="expect">Hech narsa o'zgarmasligi
+        kerak — <b>85 passed</b>.</p>
+      </li>
+
+      <li>
+        <b>Query sinfini yozing.</b>
+        <div class="cmd" data-cmd="cat > app/Queries/VakansiyaQidiruvi.php <<'PHPEOF'
+&lt;?php
+
+namespace App\Queries;
+
+use App\Models\Vakansiya;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
+
+class VakansiyaQidiruvi
+{
+    public const TARTIBLAR = [
+        'nom' => ['nom', 'asc'],
+        '-nom' => ['nom', 'desc'],
+        'maosh' => ['maosh', 'asc'],
+        '-maosh' => ['maosh', 'desc'],
+        'yangi' => ['created_at', 'desc'],
+    ];
+
+    public function bajar(array $filtr): LengthAwarePaginator
+    {
+        return $this->soRov($filtr)
+            ->paginate($filtr['per_page'] ?? config('ishtop.sahifa_hajmi'));
+    }
+
+    public function soRov(array $filtr): Builder
+    {
+        $tartib = self::TARTIBLAR[$filtr['sort'] ?? 'yangi'];
+
+        return Vakansiya::query()
+            ->with('kompaniya')
+            ->when(filled($filtr['q'] ?? null), fn (Builder $s) => $s->whereLike('nom', '%'.$filtr['q'].'%'))
+            ->when(filled($filtr['shahar'] ?? null), fn (Builder $s) => $s->where('shahar', $filtr['shahar']))
+            ->when($filtr['faqat_faol'] ?? false, fn (Builder $s) => $s->faol())
+            ->orderBy(...$tartib);
+    }
+}
+PHPEOF
+php -l app/Queries/VakansiyaQidiruvi.php">cat &gt; app/Queries/VakansiyaQidiruvi.php &lt;&lt;'PHPEOF'
+&lt;?php
+
+namespace App\Queries;
+
+use App\Models\Vakansiya;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
+
+class VakansiyaQidiruvi
+{
+    public const TARTIBLAR = [
+        'nom' =&gt; ['nom', 'asc'],
+        '-nom' =&gt; ['nom', 'desc'],
+        'maosh' =&gt; ['maosh', 'asc'],
+        '-maosh' =&gt; ['maosh', 'desc'],
+        'yangi' =&gt; ['created_at', 'desc'],
+    ];
+
+    public function bajar(array $filtr): LengthAwarePaginator
+    {
+        return $this-&gt;soRov($filtr)
+            -&gt;paginate($filtr['per_page'] ?? config('ishtop.sahifa_hajmi'));
+    }
+
+    public function soRov(array $filtr): Builder
+    {
+        $tartib = self::TARTIBLAR[$filtr['sort'] ?? 'yangi'];
+
+        return Vakansiya::query()
+            -&gt;with('kompaniya')
+            -&gt;when(filled($filtr['q'] ?? null), fn (Builder $s) =&gt; $s-&gt;whereLike('nom', '%'.$filtr['q'].'%'))
+            -&gt;when(filled($filtr['shahar'] ?? null), fn (Builder $s) =&gt; $s-&gt;where('shahar', $filtr['shahar']))
+            -&gt;when($filtr['faqat_faol'] ?? false, fn (Builder $s) =&gt; $s-&gt;faol())
+            -&gt;orderBy(...$tartib);
+    }
+}
+PHPEOF
+php -l app/Queries/VakansiyaQidiruvi.php</div>
+      </li>
+
+      <li>
+        <b>Qidiruv uchun <code>FormRequest</code>.</b>
+        <div class="cmd" data-cmd="php artisan make:request VakansiyaQidiruvRequest">php artisan make:request VakansiyaQidiruvRequest</div>
+        <div class="cmd" data-cmd="# rules() ichiga:
+'q' => ['nullable', 'string', 'max:60'],
+'shahar' => ['nullable', 'string', 'max:60'],
+'faqat_faol' => ['nullable', 'boolean'],
+'sort' => ['nullable', Rule::in(array_keys(VakansiyaQidiruvi::TARTIBLAR))],
+'per_page' => ['nullable', 'integer', 'min:1', 'max:50'],"># rules() ichiga:
+'q' =&gt; ['nullable', 'string', 'max:60'],
+'shahar' =&gt; ['nullable', 'string', 'max:60'],
+'faqat_faol' =&gt; ['nullable', 'boolean'],
+'sort' =&gt; ['nullable', Rule::in(array_keys(VakansiyaQidiruvi::TARTIBLAR))],
+'per_page' =&gt; ['nullable', 'integer', 'min:1', 'max:50'],</div>
+        <p>⚠️ <code>make:request</code>
+        <code>authorize()</code> ni
+        <code>true</code> qaytaradigan qilib yaratadi —
+        tekshirib chiqing.</p>
+      </li>
+
+      <li>
+        <b><code>index()</code> ni 6 qatorga
+        tushiring.</b>
+        <div class="cmd" data-cmd="public function index(VakansiyaQidiruvRequest $request, VakansiyaQidiruvi $qidiruv)
+{
+    return VakansiyaResource::collection(
+        $qidiruv->bajar($request->validated())->withQueryString()
+    );
+}">public function index(VakansiyaQidiruvRequest $request, VakansiyaQidiruvi $qidiruv)
+{
+    return VakansiyaResource::collection(
+        $qidiruv-&gt;bajar($request-&gt;validated())-&gt;withQueryString()
+    );
+}</div>
+        <div class="cmd" data-cmd="php artisan test 2>&amp;1 | tail -3
+wc -l app/Http/Controllers/Api/VakansiyaController.php">php artisan test 2&gt;&amp;1 | tail -3
+wc -l app/Http/Controllers/Api/VakansiyaController.php</div>
+        <p class="expect"><b>85 passed</b> va
+        <b>58</b> qator.</p>
+      </li>
+
+      <li>
+        <b>Statistikani Service ga ko'chiring.</b>
+        <code>hisobla()</code> metodini
+        <code>app/Services/StatistikaXizmati.php</code>
+        ga oling, controllerda esa:
+        <div class="cmd" data-cmd="public function __invoke(StatistikaXizmati $statistika)
+{
+    return $statistika->ol();
+}">public function __invoke(StatistikaXizmati $statistika)
+{
+    return $statistika-&gt;ol();
+}</div>
+        <div class="cmd" data-cmd="php artisan test 2>&amp;1 | tail -3
+wc -l app/Http/Controllers/Api/StatistikaController.php">php artisan test 2&gt;&amp;1 | tail -3
+wc -l app/Http/Controllers/Api/StatistikaController.php</div>
+        <p class="expect"><b>42 → 14</b> qator.</p>
+      </li>
+
+      <li>
+        <b>⭐ Singleton tuzog'ini o'z ko'zingiz
+        bilan ko'ring.</b>
+        <div class="cmd" data-cmd="cat > zond.php <<'PHPEOF'
+&lt;?php
+require __DIR__.'/vendor/autoload.php';
+$app = require __DIR__.'/bootstrap/app.php';
+$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+
+class YomonQidiruv
+{
+    private array $shartlar = [];
+
+    public function filtr(string $k, $v): static
+    {
+        $this->shartlar[$k] = $v;
+        return $this;
+    }
+
+    public function shartlar(): array
+    {
+        return $this->shartlar;
+    }
+}
+
+echo '1) bind() — har chaqiruvda YANGI nusxa:', PHP_EOL;
+app()->bind(YomonQidiruv::class, fn () => new YomonQidiruv);
+$a = app(YomonQidiruv::class)->filtr('shahar', 'Toshkent');
+$b = app(YomonQidiruv::class)->filtr('q', 'php');
+echo '   1-so\'rov: ', json_encode($a->shartlar()), PHP_EOL;
+echo '   2-so\'rov: ', json_encode($b->shartlar()), PHP_EOL;
+
+echo PHP_EOL, '2) singleton() — HAR DOIM bitta nusxa:', PHP_EOL;
+app()->forgetInstance(YomonQidiruv::class);
+app()->singleton(YomonQidiruv::class, fn () => new YomonQidiruv);
+$a = app(YomonQidiruv::class)->filtr('shahar', 'Toshkent');
+$b = app(YomonQidiruv::class)->filtr('q', 'php');
+echo '   1-so\'rov: ', json_encode($a->shartlar()), PHP_EOL;
+echo '   2-so\'rov: ', json_encode($b->shartlar()), PHP_EOL;
+
+echo PHP_EOL, '3) HOLATSIZ sinf — singleton bo\'lsa ham xavfsiz:', PHP_EOL;
+$bir = app(App\Queries\VakansiyaQidiruvi::class);
+echo '   ', $bir->soRov(['shahar' => 'Toshkent'])->toSql(), PHP_EOL;
+echo '   ', $bir->soRov(['q' => 'php'])->toSql(), PHP_EOL;
+PHPEOF
+php zond.php">cat &gt; zond.php &lt;&lt;'PHPEOF'
+&lt;?php
+require __DIR__.'/vendor/autoload.php';
+$app = require __DIR__.'/bootstrap/app.php';
+$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+
+class YomonQidiruv
+{
+    private array $shartlar = [];
+
+    public function filtr(string $k, $v): static
+    {
+        $this-&gt;shartlar[$k] = $v;
+        return $this;
+    }
+
+    public function shartlar(): array
+    {
+        return $this-&gt;shartlar;
+    }
+}
+
+echo '1) bind() — har chaqiruvda YANGI nusxa:', PHP_EOL;
+app()-&gt;bind(YomonQidiruv::class, fn () =&gt; new YomonQidiruv);
+$a = app(YomonQidiruv::class)-&gt;filtr('shahar', 'Toshkent');
+$b = app(YomonQidiruv::class)-&gt;filtr('q', 'php');
+echo '   1-so\'rov: ', json_encode($a-&gt;shartlar()), PHP_EOL;
+echo '   2-so\'rov: ', json_encode($b-&gt;shartlar()), PHP_EOL;
+
+echo PHP_EOL, '2) singleton() — HAR DOIM bitta nusxa:', PHP_EOL;
+app()-&gt;forgetInstance(YomonQidiruv::class);
+app()-&gt;singleton(YomonQidiruv::class, fn () =&gt; new YomonQidiruv);
+$a = app(YomonQidiruv::class)-&gt;filtr('shahar', 'Toshkent');
+$b = app(YomonQidiruv::class)-&gt;filtr('q', 'php');
+echo '   1-so\'rov: ', json_encode($a-&gt;shartlar()), PHP_EOL;
+echo '   2-so\'rov: ', json_encode($b-&gt;shartlar()), PHP_EOL;
+
+echo PHP_EOL, '3) HOLATSIZ sinf — singleton bo\'lsa ham xavfsiz:', PHP_EOL;
+$bir = app(App\Queries\VakansiyaQidiruvi::class);
+echo '   ', $bir-&gt;soRov(['shahar' =&gt; 'Toshkent'])-&gt;toSql(), PHP_EOL;
+echo '   ', $bir-&gt;soRov(['q' =&gt; 'php'])-&gt;toSql(), PHP_EOL;
+PHPEOF
+php zond.php</div>
+        <p class="expect">⚠️ 2-bo'limda ikkala
+        so'rov ham
+        <code>{"shahar":"Toshkent","q":"php"}</code>.
+        3-bo'limda esa ikkinchi SQL'da
+        <code>shahar</code> <b>yo'q</b>.</p>
+      </li>
+
+      <li>
+        <b>⚠️ <code>tests/Unit</code> tuzog'ini
+        ko'ring.</b> Avval <b>ataylab</b> noto'g'ri
+        joyga qo'ying:
+        <div class="cmd" data-cmd="cat > tests/Unit/ZondTest.php <<'PHPEOF'
+&lt;?php
+
+use App\Queries\VakansiyaQidiruvi;
+
+it('so\'rov quradi', function () {
+    expect((new VakansiyaQidiruvi)->soRov([])->toSql())
+        ->toContain('order by');
+});
+PHPEOF
+php artisan test tests/Unit/ZondTest.php 2>&amp;1 | head -8
+rm tests/Unit/ZondTest.php">cat &gt; tests/Unit/ZondTest.php &lt;&lt;'PHPEOF'
+&lt;?php
+
+use App\Queries\VakansiyaQidiruvi;
+
+it('so\'rov quradi', function () {
+    expect((new VakansiyaQidiruvi)-&gt;soRov([])-&gt;toSql())
+        -&gt;toContain('order by');
+});
+PHPEOF
+php artisan test tests/Unit/ZondTest.php 2&gt;&amp;1 | head -8
+rm tests/Unit/ZondTest.php</div>
+        <p class="expect">⚠️ <code>Call to a member
+        function connection() on null</code>.</p>
+      </li>
+
+      <li>
+        <b>Testlarni to'g'ri joyga yozing.</b>
+        <div class="cmd" data-cmd="cat > tests/Feature/QidiruvTest.php <<'PHPEOF'
+&lt;?php
+
+use App\Queries\VakansiyaQidiruvi;
+
+it('bo\'sh filtrda yangi tartibda saralaydi', function () {
+    $sql = (new VakansiyaQidiruvi)->soRov([])->toSql();
+
+    expect($sql)->toContain('order by &quot;created_at&quot; desc');
+    expect($sql)->not->toContain('where');
+});
+
+it('har bir filtr SQL ga qo\'shiladi', function () {
+    $sql = (new VakansiyaQidiruvi)->soRov([
+        'q' => 'php',
+        'shahar' => 'Toshkent',
+        'faqat_faol' => true,
+        'sort' => '-maosh',
+    ])->toSql();
+
+    expect($sql)->toContain('&quot;nom&quot; like ?');
+    expect($sql)->toContain('&quot;shahar&quot; = ?');
+    expect($sql)->toContain('&quot;faol&quot; = ?');
+    expect($sql)->toContain('order by &quot;maosh&quot; desc');
+});
+
+it('noma\'lum tartib uchun xato beradi', function () {
+    (new VakansiyaQidiruvi)->soRov(['sort' => 'yoq_tartib']);
+})->throws(ErrorException::class);
+PHPEOF
+cat > tests/Unit/QidiruvTartibTest.php <<'PHPEOF'
+&lt;?php
+
+use App\Queries\VakansiyaQidiruvi;
+
+it('barcha tartiblar ustun va yo\'nalishdan iborat', function () {
+    foreach (VakansiyaQidiruvi::TARTIBLAR as $kalit => $tartib) {
+        expect($tartib)->toHaveCount(2)
+            ->and($tartib[1])->toBeIn(['asc', 'desc']);
+    }
+});
+
+it('standart tartib yangi ekanini bildiradi', function () {
+    expect(VakansiyaQidiruvi::TARTIBLAR)->toHaveKey('yangi')
+        ->and(VakansiyaQidiruvi::TARTIBLAR['yangi'])->toBe(['created_at', 'desc']);
+});
+PHPEOF
+php artisan test tests/Feature/QidiruvTest.php tests/Unit/QidiruvTartibTest.php 2>&amp;1 | tail -5">cat &gt; tests/Feature/QidiruvTest.php &lt;&lt;'PHPEOF'
+&lt;?php
+
+use App\Queries\VakansiyaQidiruvi;
+
+it('bo\'sh filtrda yangi tartibda saralaydi', function () {
+    $sql = (new VakansiyaQidiruvi)-&gt;soRov([])-&gt;toSql();
+
+    expect($sql)-&gt;toContain('order by &quot;created_at&quot; desc');
+    expect($sql)-&gt;not-&gt;toContain('where');
+});
+
+it('har bir filtr SQL ga qo\'shiladi', function () {
+    $sql = (new VakansiyaQidiruvi)-&gt;soRov([
+        'q' =&gt; 'php',
+        'shahar' =&gt; 'Toshkent',
+        'faqat_faol' =&gt; true,
+        'sort' =&gt; '-maosh',
+    ])-&gt;toSql();
+
+    expect($sql)-&gt;toContain('&quot;nom&quot; like ?');
+    expect($sql)-&gt;toContain('&quot;shahar&quot; = ?');
+    expect($sql)-&gt;toContain('&quot;faol&quot; = ?');
+    expect($sql)-&gt;toContain('order by &quot;maosh&quot; desc');
+});
+
+it('noma\'lum tartib uchun xato beradi', function () {
+    (new VakansiyaQidiruvi)-&gt;soRov(['sort' =&gt; 'yoq_tartib']);
+})-&gt;throws(ErrorException::class);
+PHPEOF
+cat &gt; tests/Unit/QidiruvTartibTest.php &lt;&lt;'PHPEOF'
+&lt;?php
+
+use App\Queries\VakansiyaQidiruvi;
+
+it('barcha tartiblar ustun va yo\'nalishdan iborat', function () {
+    foreach (VakansiyaQidiruvi::TARTIBLAR as $kalit =&gt; $tartib) {
+        expect($tartib)-&gt;toHaveCount(2)
+            -&gt;and($tartib[1])-&gt;toBeIn(['asc', 'desc']);
+    }
+});
+
+it('standart tartib yangi ekanini bildiradi', function () {
+    expect(VakansiyaQidiruvi::TARTIBLAR)-&gt;toHaveKey('yangi')
+        -&gt;and(VakansiyaQidiruvi::TARTIBLAR['yangi'])-&gt;toBe(['created_at', 'desc']);
+});
+PHPEOF
+php artisan test tests/Feature/QidiruvTest.php tests/Unit/QidiruvTartibTest.php 2&gt;&amp;1 | tail -5</div>
+        <p class="expect"><b>5 passed</b>.</p>
+      </li>
+
+      <li>
+        <b>Action uchun test va yakuniy tekshiruv.</b>
+        <div class="cmd" data-cmd="rm -f zond.php
+php artisan test 2>&amp;1 | tail -3
+wc -l app/Http/Controllers/Api/*.php app/Actions/*.php app/Queries/*.php app/Services/*.php">rm -f zond.php
+php artisan test 2&gt;&amp;1 | tail -3
+wc -l app/Http/Controllers/Api/*.php app/Actions/*.php app/Queries/*.php app/Services/*.php</div>
+        <p class="expect">Menda <b>93 passed (198
+        assertions)</b>.</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li>Avvalgi holat o'lchandi (77 / 28 qator)</li>
+      <li><code>VakansiyaYarat</code> yozildi va
+      ulandi</li>
+      <li><code>VakansiyaQidiruvi</code> +
+      <code>VakansiyaQidiruvRequest</code></li>
+      <li><code>index()</code> <b>6</b> qatorga
+      tushdi</li>
+      <li><code>StatistikaXizmati</code> ajratildi
+      (42 → 14)</li>
+      <li>Har qadamdan keyin testlar yashil
+      qoldi</li>
+      <li>⭐ Singleton + holat tuzog'ini
+      ko'rdim</li>
+      <li>⚠️ <code>tests/Unit</code> xatosini
+      ko'rdim</li>
+      <li>Qidiruv testlari HTTP siz yozildi</li>
+      <li>To'liq to'plam yashil</li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 10) SINAB KO'RAMIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Jamoa <code>NarxXizmati</code> yozdi — u
+    vakansiya e'lonining narxini hisoblaydi:</p>
+    <div class="natija">class NarxXizmati
+{
+    private float $chegirma = 0;
+
+    public function chegirmaBer(float $foiz): static
+    {
+        $this->chegirma = $foiz;
+        return $this;
+    }
+
+    public function hisobla(int $kun): int
+    {
+        return (int) round($kun * 1000 * (1 - $this->chegirma));
+    }
+}</div>
+    <p>Provayderda:</p>
+    <div class="natija">$this->app->singleton(NarxXizmati::class);</div>
+    <p>Controller:</p>
+    <div class="natija">public function narx(Request $request, NarxXizmati $narx)
+{
+    if ($request->user()->rol === 'admin') {
+        $narx->chegirmaBer(0.5);
+    }
+
+    return ['narx' => $narx->hisobla($request->integer('kun'))];
+}</div>
+    <p>Testlar yashil. Mahalliy ishda ham to'g'ri
+    ishlaydi. Serverga chiqarildi.</p>
+    <p>Bir hafta o'tib buxgalter shikoyat qildi:
+    <b>ba'zi oddiy foydalanuvchilar ham 50% chegirma
+    olibdi</b>. Lekin hammasi emas — taxminan
+    o'ndan biri. Nima bo'lyapti?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <p><code>singleton</code> + <b>holat</b>
+        (<code>$chegirma</code>).</p>
+        <p>Admin bir marta so'rov yuborsa,
+        <code>$chegirma</code> <b>0.5</b> bo'lib
+        <b>o'sha nusxada qoladi</b>. Undan keyingi
+        <b>har bir</b> so'rov — kim yuborishidan
+        qat'i nazar — 50% chegirma oladi.</p>
+        <div class="natija">1-so'rov  admin      →  chegirma = 0.5  →  narx to'g'ri
+2-so'rov  oddiy      →  chegirma HALI HAM 0.5  →  narx NOTO'G'RI  ⚠️
+3-so'rov  oddiy      →  chegirma HALI HAM 0.5  →  narx NOTO'G'RI  ⚠️</div>
+        <p class="expect">🔑 Va «taxminan o'ndan biri»
+        ham tushunarli: server bir necha
+        <b>jarayonda</b> ishlaydi. Faqat admin
+        so'rovi tushgan jarayon «zaharlanadi»,
+        boshqalari toza qoladi.</p>
+        <p>⚠️ Nega testlar tutmadi? Chunki har test
+        <b>toza ilova</b> bilan boshlanadi — singleton
+        har testda yangi. Muammo faqat
+        <b>ketma-ket kelgan so'rovlarda</b>
+        ko'rinadi.</p>
+        <p>✅ To'g'ri yechim — <b>holatni
+        yo'qotish</b>:</p>
+        <div class="natija">class NarxXizmati
+{
+    public function hisobla(int $kun, float $chegirma = 0): int
+    {
+        return (int) round($kun * 1000 * (1 - $chegirma));
+    }
+}
+
+// controller:
+$chegirma = $request->user()->rol === 'admin' ? 0.5 : 0;
+return ['narx' => $narx->hisobla($request->integer('kun'), $chegirma)];</div>
+        <p>Endi <code>singleton</code> bo'lsa ham
+        farqi yo'q.</p>
+        <p>🔑 <b>Umumiy saboq:</b> obyektni bir necha
+        so'rov <b>baham ko'rishi</b> mumkin bo'lsa,
+        unga <b>so'rovga oid</b> ma'lumot
+        yozmang. Ma'lumot argumentda kelsin,
+        javobda ketsin.</p>
+        <p>🔍 Bunday xatoni testda tutish uchun ikki
+        marta chaqiring: <b>bir xil nusxada</b>
+        ikkinchi natija birinchisiga
+        bog'liqmi?</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span>
+    Holat saqlaydigan xizmat <code>singleton</code>
+    qilib bog'langan. Nima bo'ladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Ikkinchi so'rov birinchi so'rovning eski filtrlarini ham ko'rib qoladi</button></li>
+      <li><button class="quiz-option">Ikkinchi so'rov xato beradi va javob umuman qaytmay qoladi</button></li>
+      <li><button class="quiz-option">Hech narsa bo'lmaydi chunki Laravel buni o'zi tozalab yuboradi</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi:
+    <code>singleton</code> bilan ikkala so'rov ham
+    <code>{"shahar":"Toshkent","q":"php"}</code> ko'rdi;
+    <code>bind</code> bilan esa alohida
+    (<code>{"shahar":"Toshkent"}</code> va
+    <code>{"q":"php"}</code>).
+    ⚠️ Xato yo'q, log toza, 200 OK — faqat natija
+    noto'g'ri.
+    ✅ Yechim: xizmat <b>holatsiz</b> bo'lsin —
+    shunda <code>bind</code> yoki
+    <code>singleton</code> farq qilmaydi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span>
+    Eloquent ishlatadigan testni
+    <code>tests/Unit</code> ga qo'ysangiz nima
+    bo'ladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Ilova yuklanmagan Eloquent esa ulanishni topa olmadi</button></li>
+      <li><button class="quiz-option">Sinf nomi xato yozilgan shuning uchun topilmadi</button></li>
+      <li><button class="quiz-option">Baza migratsiya qilinmagan jadval hali mavjud emas</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi:
+    <code>Call to a member function connection() on
+    null</code>.
+    Sabab: <code>tests/Pest.php</code> da
+    <code>-&gt;in('Feature')</code> — ya'ni
+    <code>Tests\TestCase</code> faqat Feature'ga
+    qo'llanadi.
+    🔑 «Unit» = <b>bitta narsani tekshiradi</b>, «freymvorksiz»
+    degani emas. 🔍 Freymvorksiz testlanadigan qism ham
+    bor: <code>TARTIBLAR</code> konstantasi —
+    <b>0.03s</b>.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span>
+    Xizmat sinfini xavfsiz qiladigan asosiy qoida
+    nima?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Holatni saqlamaslik ya'ni har chaqiruvda yangi natija</button></li>
+      <li><button class="quiz-option">Har doim singleton sifatida konteynerga ro'yxatdan o'tkazish</button></li>
+      <li><button class="quiz-option">Xizmat sinfini umuman ishlatmaslik va controllerda qoldirish</button></li>
+    </ul>
+    <div class="quiz-explain">🔑 Kirish — argument
+    orqali, chiqish — qaytariladigan qiymat orqali,
+    orasida <code>$this</code> ga hech narsa
+    yozilmasin.
+    🔍 O'lchandi: bitta
+    <code>VakansiyaQidiruvi</code> nusxasini ikki marta
+    chaqirdik — ikkinchi SQL'da birinchisining
+    <code>shahar</code> sharti <b>yo'q</b>.
+    ✅ Konstruktorda saqlanadigan <b>bog'liqliklar</b>
+    holat emas — ular o'zgarmaydi.</div>
+  </div>
+
+  <!-- ═══════════════ 11) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+
+    <p>Javobni ovoz chiqarib ayting, keyin ochib
+    solishtiring.</p>
+
+    <details class="recall">
+      <summary>Action, Service va Query — farqi
+      nima?</summary>
+      <div class="answer"><b>Action</b> — bitta ish, fe'l
+      bilan nomlanadi (<code>VakansiyaYarat</code>).
+      <b>Service</b> — bir mavzu atrofidagi bir necha ish,
+      ot bilan (<code>StatistikaXizmati</code>).
+      <b>Query</b> — so'rov <b>quradi</b>, bajarmaydi
+      (<code>VakansiyaQidiruvi</code>).
+      🔑 Tanlash oson: ommaviy metod
+      <b>bitta</b> → Action, <b>bir nechta</b> →
+      Service.
+      ⚠️ Nomlar Laravel'da majburiy emas — bu jamoa
+      kelishuvi. Muhimi mantiq controllerdan
+      <b>chiqishi</b>.</div>
+    </details>
+
+    <details class="recall">
+      <summary>Refaktoring muvaffaqiyatli
+      bo'lganini qanday bilasiz?</summary>
+      <div class="answer"><b>Testlar o'zgarmadi va
+      yashil qoldi.</b>
+      Refaktoring — ichki tuzilishni o'zgartirib,
+      <b>tashqi xulqni saqlash</b>.
+      🔍 O'lchandi: <code>index()</code>
+      <b>28 → 6</b>, controller <b>77 → 58</b>,
+      statistika <b>42 → 14</b> — va
+      <b>85 ta test</b> hech o'zgarmasdan yashil
+      qoldi.
+      🔑 Bir bo'lakni ko'chiring → test → commit →
+      keyingisi. Hammasini birdan emas.</div>
+    </details>
+
+    <details class="recall">
+      <summary>Ajratishning asosiy foydasi
+      nima?</summary>
+      <div class="answer">Mantiqni <b>alohida</b>
+      testlash mumkin bo'ladi.
+      🔍 O'lchandi: beshta tartibni tekshirish —
+      HTTP orqali <b>0.13s</b>, to'g'ridan
+      (<code>toSql()</code>) <b>0.01s</b> — <b>13
+      barobar</b>.
+      Va boshqa foydalar: mantiqni konsol
+      buyrug'idan ham chaqirish, «bu yerda nima
+      bo'ladi?» degan savolga <b>bitta fayl</b>
+      ko'rsatish.
+      🔑 <code>soRov()</code> va <code>bajar()</code> ni
+      ajratish shuning uchun —
+      <code>Builder</code> ni bajarmasdan
+      tekshirish mumkin.</div>
+    </details>
+
+    <details class="recall">
+      <summary>⭐ Singleton bilan qanday jim xato
+      bo'ladi?</summary>
+      <div class="answer">Xizmat <b>holat saqlasa</b>
+      (<code>private $shartlar</code>) va
+      <code>singleton</code> bo'lsa — keyingi
+      so'rovlar <b>oldingisining</b> holatini
+      meros oladi.
+      🔍 O'lchandi: ikkala so'rov ham
+      <code>{"shahar":"Toshkent","q":"php"}</code>
+      ko'rdi.
+      ⚠️ Xato yo'q, log toza, 200 OK.
+      ⚠️ Mahalliy ishda <b>ko'rinmaydi</b>
+      (<code>artisan serve</code> har so'rovda
+      qayta boshlanadi) va testda ham tutilmaydi
+      (har test toza ilova bilan boshlanadi).
+      ✅ Yechim: holatni yo'qotish — ma'lumot
+      argumentda kelsin, javobda ketsin.</div>
+    </details>
+
+    <details class="recall">
+      <summary>Qachon ajratmaslik kerak?</summary>
+      <div class="answer">Mantiq quyidagilardan
+      <b>hech birini</b> qilmasa:
+      <b>1)</b> bir nechta qadamdan iborat emas,
+      <b>2)</b> boshqa joydan chaqirilmaydi,
+      <b>3)</b> alohida testlash kerak emas.
+      Masalan bizdagi <code>destroy()</code> — bitta
+      <code>delete()</code>, controllerda
+      <b>qoldi</b>.
+      ⚠️ Bitta qatorli amal uchun alohida sinf —
+      foyda emas, <b>shovqin</b>.
+      🔑 Va Repository ham odatda shunday: Eloquent
+      allaqachon abstraksiya — 61-darsda bazani
+      <b>bitta qator</b> bilan
+      almashtirdik.</div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 12) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Xulosa</span>
+    <ul>
+      <li>Controllerning vazifasi: so'rovni qabul qil →
+      ishni <b>chaqir</b> → javob qaytar.</li>
+      <li><b>Action</b> bitta ish · <b>Service</b> bir
+      mavzu · <b>Query</b> so'rov quradi.</li>
+      <li>🔍 <code>index()</code> <b>28 → 6</b>,
+      controller <b>77 → 58</b>, statistika
+      <b>42 → 14</b> qator.</li>
+      <li>🔍 Refaktordan keyin <b>85 ta test</b>
+      o'zgarmasdan yashil — bu haqiqiy
+      refaktoringning ta'rifi.</li>
+      <li>Konteyner sinflarni <b>o'zi</b> yasaydi —
+      ro'yxatdan o'tkazish shart emas
+      (konstruktor faqat sinflardan iborat
+      bo'lsa).</li>
+      <li>🔍 Asosiy foyda — alohida test: HTTP orqali
+      <b>0.13s</b>, to'g'ridan <b>0.01s</b>.</li>
+      <li><code>soRov()</code> <code>Builder</code>
+      qaytaradi — <code>toSql()</code> bilan
+      bajarmasdan tekshiriladi.</li>
+      <li>⚠️ <code>tests/Unit</code> ilovani
+      yuklamaydi:
+      <code>connection() on null</code>.</li>
+      <li>«Unit» = <b>bitta narsani tekshiradi</b>,
+      «freymvorksiz» degani emas.</li>
+      <li>⭐ <b>Singleton + holat = jim xato</b>:
+      2-so'rov 1-so'rovning filtrlarini
+      ko'rdi.</li>
+      <li>✅ Xizmatlar <b>holatsiz</b> bo'lsin —
+      shunda bog'lash usuli farq qilmaydi.</li>
+      <li>⚠️ Haddan oshirmang: bitta qatorli amal uchun
+      alohida sinf — shovqin.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p>Bugun mantiqni <b>joyiga qo'ydik</b>. Lekin
+    bir savol ochiq qoldi: <b>qaysi mantiq qayerga
+    tegishli</b> — buni qanday hal qilamiz?</p>
+    <p>«Sezgi bilan» degan javob katta loyihada
+    ishlamaydi. Buning uchun tayyor <b>tamoyillar</b>
+    bor — va biz ularni bugun bilmasdan
+    <b>qo'lladik</b>.</p>
+    <p>63-darsda <b>SOLID</b> ni ko'rib chiqamiz.
+    Ta'riflarni yodlamaymiz — <b>o'z
+    kodimizdan</b> misol topamiz: qaysi tamoyil
+    bugungi refaktorda ishladi, qaysi biri hali
+    buzilgan.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel — Service Container</b>:
+    <a href="https://laravel.com/docs/13.x/container#automatic-injection">avtomatik
+    inyeksiya, <code>bind</code> va
+    <code>singleton</code></a>.<sup><a href="#fn1">1</a></sup><br>
+    <b>Laravel — Controllers</b>:
+    <a href="https://laravel.com/docs/13.x/controllers#single-action-controllers">bitta
+    amalli controller,
+    <code>__invoke</code></a>.<sup><a href="#fn2">2</a></sup><br>
+    <b>Martin Fowler — Refactoring</b>:
+    <a href="https://refactoring.com/">«xulqni
+    o'zgartirmasdan tuzilishni
+    yaxshilash»</a>.<sup><a href="#fn3">3</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b>
+    «har controller uchun Action kerakmi?», «Service va
+    Action ni qanday nomlayman?», «Repository haqiqatan
+    keraksizmi?» — har qanday savol yaxshi. Birinchisiga
+    qisqa javob: <b>yo'q</b> — faqat mantiq bir nechta
+    qadamdan iborat bo'lsa yoki boshqa joydan
+    chaqirilsa. Oddiy CRUD controllerda qolaversin.
+    Uchinchisiga: Repository <b>keraksiz emas</b>, lekin
+    Laravel'da uning odatiy sababi yo'q — Eloquent
+    allaqachon bazani abstraksiya qiladi.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0061-sqlite-dan-mysql-ga.html">Oldingi: SQLite'dan MySQL'ga</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel 13 — <a href="https://laravel.com/docs/13.x/container#automatic-injection">Service Container: Automatic Injection</a>.</li>
+      <li id="fn2">Laravel 13 — <a href="https://laravel.com/docs/13.x/controllers#single-action-controllers">Controllers</a>.</li>
+      <li id="fn3">Martin Fowler — <a href="https://refactoring.com/">Refactoring</a>.</li>
+      <li id="fn4">Barchasi jonli o'lchangan (PHP 8.3.32,
+      Laravel 13.26.1, Pest 4.7.8):
+      <b>avval</b> <code>VakansiyaController.php</code>
+      <b>77</b> qator, <code>index()</code> <b>28</b> qator,
+      <code>StatistikaController.php</code> <b>42</b> qator ·
+      <b>keyin</b> controller <b>58</b>,
+      <code>index()</code> <b>6</b>,
+      <code>store()</code> <b>7</b>, statistika
+      <b>14</b> qator; yangi sinflar:
+      <code>VakansiyaQidiruvi</code> <b>36</b>,
+      <code>StatistikaXizmati</code> <b>41</b>,
+      <code>VakansiyaQidiruvRequest</code> <b>21</b>,
+      <code>VakansiyaYarat</code> <b>19</b> qator ·
+      refaktorning har qadamidan keyin
+      <b>85 passed (173 assertions)</b> — birorta test
+      o'zgartirilmadi ·
+      ⚠️ <code>tests/Unit</code> da Eloquent:
+      <code>Error: Call to a member function connection()
+      on null</code>
+      (<code>Model.php:2235</code>), sabab
+      <code>tests/Pest.php</code> dagi
+      <code>-&gt;in('Feature')</code> ·
+      beshta tartibni tekshirish: HTTP orqali
+      <b>0.13s</b>, <code>toSql()</code> orqali
+      <b>0.01s</b>; freymvorksiz
+      <code>TARTIBLAR</code> testi
+      <b>2 passed (12 assertions), 0.03s</b> ·
+      ⭐ singleton tuzog'i: <code>bind</code> bilan
+      <code>{"shahar":"Toshkent"}</code> va
+      <code>{"q":"php"}</code> (alohida),
+      <code>singleton</code> bilan <b>ikkalasi ham</b>
+      <code>{"shahar":"Toshkent","q":"php"}</code> ·
+      holatsiz <code>VakansiyaQidiruvi</code>: bitta
+      nusxada ikki chaqiruv →
+      <code>where "shahar" = ?</code> va
+      <code>where "nom" like ?</code> (birinchisining
+      sharti <b>qolmadi</b>);
+      <code>app(VakansiyaQidiruvi::class)</code> har
+      chaqiruvda <b>yangi nusxa</b> beradi ·
+      yakuniy to'plam: <b>93 passed (198 assertions),
+      0.81s</b>.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

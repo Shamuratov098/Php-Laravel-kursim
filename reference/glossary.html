@@ -18,7 +18,7 @@
   izoh esa o'zbekcha.</p>
 
   <p class="lesson-meta">
-    <span>Atamalar: <b>261 ta</b></span>
+    <span>Atamalar: <b>264 ta</b></span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>📱 O'qishga mos</span>
   </p>
@@ -26,7 +26,7 @@
   <div class="callout note">
     <span class="label">Bu hujjat o'sib boradi</span>
     <p>Atama faqat <b>o'z darsi yozilganda</b> qo'shiladi — oldindan emas. Hozir:
-    Modul A–I (1–61-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
+    Modul A–I (1–62-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
     bosqichida qat'iy belgilangan va 73 dars bo'ylab o'zgarmaydi).</p>
   </div>
 
@@ -2609,6 +2609,80 @@
       uchraydigan xato — <code>EXPLAIN</code> ni
       o'tkazib yuborish.
       <span class="eg">DB::select("EXPLAIN QUERY PLAN $sql", $bog)</span></dd>
+    </div>
+
+    <div class="term" id="action-service-query">
+      <dt>Action · Service · Query <span class="uz">— mantiqni controllerdan chiqarish</span></dt>
+      <dd>Laravel'da <b>majburiy emas</b> — jamoa
+      kelishuvi, oddiy <code>App\</code> sinflari
+      (<code>make:</code> buyrug'i yo'q).
+      <b>Action</b> — bitta ish, fe'l bilan
+      (<code>VakansiyaYarat</code>) ·
+      <b>Service</b> — bir mavzu, bir necha metod, ot
+      bilan (<code>StatistikaXizmati</code>) ·
+      <b>Query</b> — so'rov <b>quradi</b>, bajarmaydi
+      (<code>VakansiyaQidiruvi</code>).
+      🔍 O'lchandi: <code>index()</code>
+      <b>28 → 6</b> qator, controller <b>77 → 58</b>,
+      statistika <b>42 → 14</b> — va <b>85 ta test
+      o'zgarmasdan yashil</b> qoldi.
+      ✅ Ajratishga arziydi, agar: bir nechta qadam bor ·
+      boshqa joydan ham chaqiriladi · alohida testlash
+      kerak.
+      ⚠️ Bitta qatorli amal uchun alohida sinf —
+      shovqin.
+      🔑 Sinov: «bu sinfni <code>artisan</code>
+      buyrug'idan chaqira olamanmi?»
+      <span class="eg">$yarat->bajar($request->validated(), $request->user())</span></dd>
+    </div>
+
+    <div class="term" id="holatsizlik">
+      <dt>holatsizlik (stateless) <span class="uz">— singleton tuzog'idan qutulish</span></dt>
+      <dd>⭐ ⚠️ Xizmat <b>holat saqlasa</b>
+      (<code>private $shartlar</code>) va konteynerda
+      <code>singleton</code> bo'lsa — keyingi so'rov
+      <b>oldingisining</b> holatini meros oladi.
+      🔍 O'lchandi: <code>bind</code> bilan
+      <code>{"shahar":"Toshkent"}</code> va
+      <code>{"q":"php"}</code> (alohida);
+      <code>singleton</code> bilan <b>ikkalasi ham</b>
+      <code>{"shahar":"Toshkent","q":"php"}</code>.
+      ⚠️ Xato yo'q, log toza, 200 OK — <b>faqat natija
+      noto'g'ri</b>. Mahalliy ishda ko'rinmaydi
+      (<code>artisan serve</code> har so'rovda qayta
+      boshlanadi) va testda tutilmaydi (har test toza
+      ilova bilan).
+      ✅ Qoida: kirish — <b>argument</b>, chiqish —
+      <b>qaytariladigan qiymat</b>, orasida
+      <code>$this</code> ga hech narsa yozilmasin.
+      Shunda <code>bind</code> va
+      <code>singleton</code> farq qilmaydi.
+      🔑 Konstruktordagi <b>bog'liqliklar</b> holat emas
+      — ular o'zgarmaydi.
+      <span class="eg">public function hisobla(int $kun, float $chegirma = 0): int</span></dd>
+    </div>
+
+    <div class="term" id="tests-unit-tuzogi">
+      <dt>tests/Unit va tests/Feature <span class="uz">— «unit» nimani anglatadi</span></dt>
+      <dd>⚠️ <code>tests/Unit</code> Laravel ilovasini
+      <b>yuklamaydi</b> — <code>tests/Pest.php</code> da
+      <code>-&gt;in('Feature')</code> yozilgan.
+      🔍 O'lchandi: Eloquent ishlatgan unit test →
+      <code>Error: Call to a member function
+      connection() on null</code>
+      (<code>Model.php:2235</code>).
+      🔑 «Unit» = <b>bitta narsani tekshiradi</b>,
+      «freymvorksiz» degani emas. Eloquent'ga tayangan
+      test <code>Feature</code> ga qo'yiladi — u
+      baribir HTTP siz va tez.
+      🔍 O'lchandi: beshta tartib — HTTP orqali
+      <b>0.13s</b>, <code>toSql()</code> orqali
+      <b>0.01s</b> (13 barobar); freymvorksiz
+      konstanta testi <b>0.03s</b>.
+      ✅ <code>soRov()</code> <code>Builder</code>
+      qaytarsin — <code>toSql()</code> so'rovni
+      bajarmasdan ko'rsatadi.
+      <span class="eg">expect($sql)->toContain('order by "maosh" desc')</span></dd>
     </div>
 
     <div class="term" id="kollatsiya">
