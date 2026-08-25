@@ -1,0 +1,1026 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 57 — Notifications</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 57 · MODUL H — FON ISHLAR VA TEZLIK</p>
+  <h1>Notifications</h1>
+  <p class="lead">56-darsda email yozdik. Endi ish beruvchi
+  saytga kirganda ham xabarni <b>ko'rishi</b> kerak —
+  qo'ng'iroq belgisi va o'qilmagan ro'yxat. Email kodini
+  nusxalash kerakmi? Yo'q. Bitta klass, ikkita kanal — va
+  bitta <code>notify()</code> chaqiruvi <b>ikkita ish</b>
+  yaratadi.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 15 daqiqa</span>
+    <span>💻 Amaliyot ≈ 24 daqiqa</span>
+    <span>Kerak: <a href="0056-mail.html">Dars 56</a></span>
+  </p>
+
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b>Xat va bildirishnoma farqi</b>
+        <span class="nima">Mailable — <b>bitta kanal</b>
+        uchun xat. Notification — <b>bir xabar, ko'p
+        kanal</b>.</span></li>
+      <li><b><code>via()</code> — kanallar ro'yxati</b>
+        <span class="nima">Bitta metod butun yo'nalishni
+        boshqaradi: <code>['mail', 'database']</code>.</span></li>
+      <li><b>🔍 Bitta <code>notify()</code> — ikkita ish</b>
+        <span class="nima">O'lchandi: <code>jobs</code>
+        jadvalida <b>2</b> ta yozuv. Har kanal
+        alohida.</span></li>
+      <li><b><code>notifications</code> jadvali</b>
+        <span class="nima">8 ta ustun,
+        <code>notifiable_type</code>/<code>notifiable_id</code>
+        — polimorf bog'lanish.</span></li>
+      <li><b><code>toMail()</code> va <code>toDatabase()</code></b>
+        <span class="nima">Bir xil ma'lumot, ikki xil
+        shakl. Email uchun matn, baza uchun
+        massiv.</span></li>
+      <li><b><code>MailMessage</code> — shablonsiz xat</b>
+        <span class="nima"><code>greeting</code>,
+        <code>line</code>, <code>action</code> — Blade fayl
+        yozmasdan.</span></li>
+      <li><b><code>Notifiable</code> traiti</b>
+        <span class="nima">U <code>User</code> modelida
+        <b>boshidan</b> bor edi —
+        <code>notify()</code>,
+        <code>unreadNotifications</code>.</span></li>
+      <li><b>O'qilgan deb belgilash</b>
+        <span class="nima">🔍 O'lchandi:
+        <code>markAsRead()</code> dan keyin
+        <code>read_at</code> to'ldi, unread
+        <b>0</b>.</span></li>
+      <li><b>⚠️ Ko'pchilikka yuborish</b>
+        <span class="nima">🔍 3 foydalanuvchi → <b>6</b>
+        ta ish. Son <b>ko'payib</b> ketadi.</span></li>
+      <li><b><code>Notification::fake()</code></b>
+        <span class="nima"><code>assertSentTo</code> ·
+        <code>assertNotSentTo</code> · kanallar
+        ro'yxatini ham tekshirish.</span></li>
+      <li><b>⚠️ <code>render()</code> satr emas</b>
+        <span class="nima">Test qizardi:
+        <code>HtmlString</code> qaytadi, uni
+        <code>(string)</code> qilish kerak.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima">O'z kanalingiz ·
+        <code>routeNotificationFor</code> ·
+        <code>notifyNow</code> · afzalliklar ·
+        tozalash.</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Bitta xabar, ikki joy</span>
+    <p>56-darsda email yozdik. Endi talab kengaydi:</p>
+    <div class="natija">1) ish beruvchiga email ketsin
+2) saytda ham ko'rinsin — qo'ng'iroq belgisi va o'qilmagan ro'yxat
+3) kelajakda SMS ham qo'shilsin</div>
+    <p>Birinchi fikr — <code>EmailXabar</code> yonida
+    <code>BazaXabar</code> yozish. Lekin unda
+    <b>xabarning mazmuni</b> ikki joyda takrorlanadi:
+    vakansiya nomi, shahar, maosh.</p>
+    <p>Ertaga matn o'zgarsa — ikki joyda tuzatasiz. Uchinchi
+    kanal qo'shilsa — uch joyda.</p>
+    <p>Laravel'ning yechimi boshqacha: <b>bitta klass</b>,
+    ichida <b>kanallar ro'yxati</b> va har kanal uchun
+    alohida metod.</p>
+    <div class="natija">Mailable       →  bitta kanal (email) uchun XAT
+Notification   →  bitta XABAR, ko'p kanal</div>
+  </div>
+
+  <!-- ═══════════════ 2) BILDIRISHNOMA ═══════════════ -->
+  <h2>Bildirishnoma yozish</h2>
+
+  <div class="natija">php artisan make:notification VakansiyaEloniBildirishnomasi
+php artisan make:notifications-table
+php artisan migrate</div>
+
+  <div class="codefile">
+    <div class="fname">app/Notifications/VakansiyaEloniBildirishnomasi.php</div>
+    <code class="cmd" data-cmd="&lt;?php
+
+namespace App\Notifications;
+
+use App\Models\Vakansiya;
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Notifications\Messages\MailMessage;
+use Illuminate\Notifications\Notification;
+
+class VakansiyaEloniBildirishnomasi extends Notification implements ShouldQueue
+{
+    use Queueable;
+
+    public function __construct(public Vakansiya $vakansiya) {}
+
+    public function via(object $notifiable): array
+    {
+        return ['mail', 'database'];
+    }
+
+    public function toMail(object $notifiable): MailMessage
+    {
+        return (new MailMessage)
+            -&gt;subject(&quot;Yangi vakansiya: {$this-&gt;vakansiya-&gt;nom}&quot;)
+            -&gt;greeting('Assalomu alaykum!')
+            -&gt;line(&quot;**{$this-&gt;vakansiya-&gt;nom}** vakansiyangiz saytda paydo bo'ldi.&quot;)
+            -&gt;line(&quot;Shahar: {$this-&gt;vakansiya-&gt;shahar}&quot;)
+            -&gt;line(&quot;Maosh: {$this-&gt;vakansiya-&gt;maoshFormat()}&quot;)
+            -&gt;action('Vakansiyani ko\'rish', url('/vakansiyalar/'.$this-&gt;vakansiya-&gt;id))
+            -&gt;line('Rahmat!');
+    }
+
+    public function toDatabase(object $notifiable): array
+    {
+        return [
+            'vakansiya_id' =&gt; $this-&gt;vakansiya-&gt;id,
+            'nom' =&gt; $this-&gt;vakansiya-&gt;nom,
+            'shahar' =&gt; $this-&gt;vakansiya-&gt;shahar,
+        ];
+    }
+}">&lt;?php
+
+namespace App\Notifications;
+
+use App\Models\Vakansiya;
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Notifications\Messages\MailMessage;
+use Illuminate\Notifications\Notification;
+
+class VakansiyaEloniBildirishnomasi extends Notification implements ShouldQueue
+{
+    use Queueable;
+
+    public function __construct(public Vakansiya $vakansiya) {}
+
+    public function via(object $notifiable): array
+    {
+        return ['mail', 'database'];
+    }
+
+    public function toMail(object $notifiable): MailMessage
+    {
+        return (new MailMessage)
+            -&gt;subject(&quot;Yangi vakansiya: {$this-&gt;vakansiya-&gt;nom}&quot;)
+            -&gt;greeting('Assalomu alaykum!')
+            -&gt;line(&quot;**{$this-&gt;vakansiya-&gt;nom}** vakansiyangiz saytda paydo bo'ldi.&quot;)
+            -&gt;line(&quot;Shahar: {$this-&gt;vakansiya-&gt;shahar}&quot;)
+            -&gt;line(&quot;Maosh: {$this-&gt;vakansiya-&gt;maoshFormat()}&quot;)
+            -&gt;action('Vakansiyani ko\'rish', url('/vakansiyalar/'.$this-&gt;vakansiya-&gt;id))
+            -&gt;line('Rahmat!');
+    }
+
+    public function toDatabase(object $notifiable): array
+    {
+        return [
+            'vakansiya_id' =&gt; $this-&gt;vakansiya-&gt;id,
+            'nom' =&gt; $this-&gt;vakansiya-&gt;nom,
+            'shahar' =&gt; $this-&gt;vakansiya-&gt;shahar,
+        ];
+    }
+}</code>
+  </div>
+
+  <div class="natija">via()          →  qaysi kanallarga yuborilsin
+toMail()       →  email ko'rinishi
+toDatabase()   →  bazaga yoziladigan massiv</div>
+
+  <p><code>via()</code> — butun darsning yuragi. Uchinchi
+  kanal kerak bo'lsa, ro'yxatga <b>bitta so'z</b>
+  qo'shasiz va <code>toSms()</code> yozasiz. Qolgan kod
+  tegilmaydi.</p>
+
+  <div class="callout tip">
+    <span class="label">🔑 <code>MailMessage</code> — Blade fayl kerak emas</span>
+    <p>56-darsda Markdown shablon yozgandik. Bu yerda
+    <code>greeting</code>, <code>line</code>,
+    <code>action</code> yetarli — Laravel ularni o'zining
+    standart shabloniga joylaydi.</p>
+    <p>🔍 Natijasi <b>12 143 belgi</b> HTML — bir xil
+    dizayn, faqat siz uni yozmadingiz.</p>
+    <p>⚠️ Murakkab dizayn kerak bo'lsa
+    <code>-&gt;markdown('mail.x', [...])</code> yoki
+    <code>-&gt;view(...)</code> ham bor.</p>
+  </div>
+
+  <!-- ═══════════════ 3) IKKITA ISH ═══════════════ -->
+  <h2>🔍 Bitta <code>notify()</code> — ikkita ish</h2>
+
+  <p>Yuboramiz:</p>
+
+  <div class="natija">$user-&gt;notify(new VakansiyaEloniBildirishnomasi($vakansiya));
+
+jobs: 2      notifications: 0</div>
+
+  <p>Ikkita ish. Sabab: <code>via()</code> ikkita kanal
+  qaytardi va Laravel <b>har biriga alohida ish</b>
+  yaratdi.</p>
+
+  <p>Ishchini ishlatamiz:</p>
+
+  <div class="natija">App\Notifications\VakansiyaEloniBildirishnomasi ... 44.54ms DONE
+App\Notifications\VakansiyaEloniBildirishnomasi ...  8.55ms DONE
+
+notifications: 1
+type:    App\Notifications\VakansiyaEloniBildirishnomasi
+data:    {"vakansiya_id":10,"nom":"Backend dasturchi","shahar":"Toshkent"}
+read_at: NULL</div>
+
+  <p>Va email ham logga tushdi (<code>MAIL_MAILER=log</code>
+  — 56-dars).</p>
+
+  <div class="callout tip">
+    <span class="label">🔑 Nega alohida ish?</span>
+    <p>Chunki kanallar <b>mustaqil</b>. Email serveri
+    ishlamasa, bazaga yozish <b>baribir bajariladi</b> —
+    foydalanuvchi saytda xabarni ko'radi.</p>
+    <p>Bitta ish bo'lganda email yiqilsa, baza yozuvi ham
+    yo'qolardi.</p>
+    <p>🔍 Vaqtlarga qarang: <b>44.54ms</b> (email) va
+    <b>8.55ms</b> (baza). Email sekinroq — shuning uchun
+    ham u navbatda.</p>
+  </div>
+
+  <!-- ═══════════════ 4) JADVAL ═══════════════ -->
+  <h2><code>notifications</code> jadvali</h2>
+
+  <div class="natija">id · type · notifiable_type · notifiable_id · data · read_at · created_at · updated_at</div>
+
+  <p><code>notifiable_type</code> va
+  <code>notifiable_id</code> — <b>polimorf</b>
+  bog'lanish: bildirishnoma faqat
+  <code>User</code> ga emas, <b>istalgan</b> modelga
+  yuborilishi mumkin (masalan <code>Kompaniya</code> ga).</p>
+
+  <p><code>Notifiable</code> traiti esa
+  <code>User</code> modelida <b>boshidan</b> bor edi —
+  Laravel uni skeletda beradi:</p>
+
+  <div class="natija">use HasApiTokens, HasFactory, Notifiable;</div>
+
+  <p>U uchta narsa beradi:</p>
+
+  <div class="natija">$user-&gt;notify($xabar)              →  yuborish
+$user-&gt;notifications               →  hammasi (yangidan eskiga)
+$user-&gt;unreadNotifications         →  faqat o'qilmaganlar</div>
+
+  <h3>O'qilgan deb belgilash</h3>
+
+  <div class="natija">unreadNotifications:  1
+data['nom']:          Backend dasturchi
+
+$xabar-&gt;markAsRead();
+
+unreadNotifications:  0
+read_at:              2026-08-25 18:59:22
+notifications:        1        ← o'chmadi, faqat belgilandi</div>
+
+  <p>Saytdagi qo'ng'iroq belgisi shu ikki so'rov bilan
+  yasaladi: son uchun
+  <code>unreadNotifications()-&gt;count()</code>, ro'yxat
+  uchun <code>notifications</code>.</p>
+
+  <!-- ═══════════════ 5) KO'PCHILIKKA ═══════════════ -->
+  <h2>⚠️ Ko'pchilikka yuborish</h2>
+
+  <div class="natija">$users = User::limit(3)-&gt;get();
+Notification::send($users, new VakansiyaEloniBildirishnomasi($v));
+
+3 foydalanuvchi  →  6 ta ish</div>
+
+  <p>Son <b>ko'payadi</b>: foydalanuvchilar × kanallar.
+  200 xodim va 3 kanal bo'lsa — <b>600</b> ta ish.</p>
+
+  <div class="callout warn">
+    <span class="label">⚠️ 56-darsdagi predict shu yerda ham</span>
+    <p>56-darsda siklda <code>Mail::send()</code> yozish
+    xavfli ekanini ko'rgandik.
+    <code>Notification::send()</code> esa siklni
+    <b>o'zi</b> yozadi — va har biri navbatga
+    tushadi.</p>
+    <p>Bu <b>yaxshi</b>: so'rov darrov tugaydi. Lekin
+    navbat <b>to'lib ketishi</b> mumkin.</p>
+    <p>✅ Katta ro'yxatlar uchun:</p>
+    <div class="natija">1) alohida navbat: -&gt;onQueue('bildirishnoma')  (55-dars)
+2) bo'lib yuborish: $users-&gt;chunk(100)          (52-dars)
+3) faqat kerakli kanal: via() ichida shart</div>
+    <p>🔍 Uchinchisi eng foydalisi:</p>
+    <div class="natija">public function via(object $notifiable): array
+{
+    return $notifiable-&gt;email_xohlaydi
+        ? ['mail', 'database']
+        : ['database'];
+}</div>
+  </div>
+
+  <!-- ═══════════════ 6) TESTLAR ═══════════════ -->
+  <h2>Testlar</h2>
+
+  <div class="codefile">
+    <div class="fname">tests/Feature/BildirishnomaTest.php</div>
+    <code class="cmd">use App\Models\User;
+use App\Models\Vakansiya;
+use App\Notifications\VakansiyaEloniBildirishnomasi;
+use Illuminate\Support\Facades\Notification;
+
+it('bildirishnoma yuboriladi', function () {
+    Notification::fake();
+
+    $user = User::factory()-&gt;create();
+    $vakansiya = Vakansiya::factory()-&gt;create();
+
+    $user-&gt;notify(new VakansiyaEloniBildirishnomasi($vakansiya));
+
+    Notification::assertSentTo($user, VakansiyaEloniBildirishnomasi::class);
+});
+
+it('ikkala kanal ham ishlatiladi', function () {
+    Notification::fake();
+
+    $user = User::factory()-&gt;create();
+    $vakansiya = Vakansiya::factory()-&gt;create();
+
+    $user-&gt;notify(new VakansiyaEloniBildirishnomasi($vakansiya));
+
+    Notification::assertSentTo(
+        $user,
+        VakansiyaEloniBildirishnomasi::class,
+        fn ($xabar, array $kanallar) =&gt; $kanallar === ['mail', 'database']
+    );
+});
+
+it('boshqa foydalanuvchiga yuborilmaydi', function () {
+    Notification::fake();
+
+    $ali = User::factory()-&gt;create();
+    $vali = User::factory()-&gt;create();
+
+    $ali-&gt;notify(new VakansiyaEloniBildirishnomasi(Vakansiya::factory()-&gt;create()));
+
+    Notification::assertNotSentTo($vali, VakansiyaEloniBildirishnomasi::class);
+});
+
+it('bazaga yoziladigan ma\'lumot to\'g\'ri', function () {
+    $user = User::factory()-&gt;create();
+    $vakansiya = Vakansiya::factory()-&gt;create(['nom' =&gt; 'Backend dasturchi', 'shahar' =&gt; 'Toshkent']);
+
+    $malumot = (new VakansiyaEloniBildirishnomasi($vakansiya))-&gt;toDatabase($user);
+
+    expect($malumot)-&gt;toBe([
+        'vakansiya_id' =&gt; $vakansiya-&gt;id,
+        'nom' =&gt; 'Backend dasturchi',
+        'shahar' =&gt; 'Toshkent',
+    ]);
+});
+
+it('email mavzusi va mazmuni to\'g\'ri', function () {
+    $user = User::factory()-&gt;create();
+    $vakansiya = Vakansiya::factory()-&gt;create(['nom' =&gt; 'Backend dasturchi', 'maosh' =&gt; 2500]);
+
+    $xat = (new VakansiyaEloniBildirishnomasi($vakansiya))-&gt;toMail($user);
+
+    expect($xat-&gt;subject)-&gt;toBe('Yangi vakansiya: Backend dasturchi');
+    expect((string) $xat-&gt;render())-&gt;toContain(&quot;2 500 so'm&quot;);
+});
+
+it('o\'qilgan deb belgilash ishlaydi', function () {
+    $user = User::factory()-&gt;create();
+    $vakansiya = Vakansiya::factory()-&gt;create();
+
+    $user-&gt;notifyNow(new VakansiyaEloniBildirishnomasi($vakansiya));
+
+    expect($user-&gt;unreadNotifications()-&gt;count())-&gt;toBe(1);
+
+    $user-&gt;unreadNotifications-&gt;first()-&gt;markAsRead();
+
+    expect($user-&gt;unreadNotifications()-&gt;count())-&gt;toBe(0);
+    expect($user-&gt;notifications()-&gt;count())-&gt;toBe(1);
+});</code>
+  </div>
+
+  <div class="natija">Tests:  6 passed (9 assertions)</div>
+
+  <p>Ikkinchi test <code>via()</code> ni mixlaydi: kimdir
+  kanalni olib tashlasa yoki tartibni o'zgartirsa, test
+  darrov aytadi.</p>
+
+  <p>Oxirgisida <code>notifyNow()</code> ishlatilgan —
+  u navbatni <b>chetlab o'tadi</b> va darrov bajaradi.
+  Bazadagi yozuvni tekshirish uchun aynan shu
+  kerak.</p>
+
+  <div class="callout warn">
+    <span class="label">⚠️ Bitta test qizardi: <code>render()</code> satr emas</span>
+    <p>Beshinchi testni birinchi urinishda shunday
+    yozgandim:</p>
+    <div class="natija">expect($xat-&gt;render())-&gt;toContain("2 500 so'm");   →  FAILED</div>
+    <p>Tekshirdim — matn HTML ichida <b>bor</b> edi.
+    Sabab boshqa joyda:</p>
+    <div class="natija">get_debug_type($xat-&gt;render())   →   Illuminate\Support\HtmlString</div>
+    <p><code>render()</code> <b>satr emas</b>, obyekt
+    qaytaradi. <code>toContain</code> esa obyekt bilan
+    boshqacha ishlaydi.</p>
+    <p>✅ <code>(string) $xat-&gt;render()</code> — va test
+    yashil.</p>
+    <p>🔑 Saboq: «matn ichida bor, lekin test topmayapti»
+    holatida birinchi savol — <b>tekshirilayotgan narsa
+    haqiqatan satrmi?</b></p>
+  </div>
+
+  <div class="natija">To'liq to'plam:  67 passed (138 assertions)</div>
+
+  <!-- ═══════════════ 7) HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir bir
+  marta o'qib chiqing, keyin kerak bo'lganda qaytib
+  qarang.</p>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 1</span>
+    <h4>Tayyor kanallar</h4>
+    <div class="natija">mail       →  email (56-dars)
+database   →  notifications jadvali
+broadcast  →  real vaqtda brauzerga (WebSocket)
+vonage     →  SMS
+slack      →  Slack kanaliga</div>
+    <p>Har biri uchun mos metod:
+    <code>toMail</code>, <code>toDatabase</code>,
+    <code>toBroadcast</code>, <code>toVonage</code>,
+    <code>toSlack</code>.</p>
+    <p>🔍 Jamoa ichidagi ogohlantirishlar uchun
+    <code>slack</code> juda qulay: tizim xatosi darrov
+    ko'rinadi.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 2</span>
+    <h4>O'z kanalingiz</h4>
+    <div class="natija">class TelegramKanali
+{
+    public function send(object $notifiable, Notification $xabar): void
+    {
+        $matn = $xabar-&gt;toTelegram($notifiable);
+        Http::post("https://api.telegram.org/bot{$token}/sendMessage", [...]);
+    }
+}
+
+// bildirishnomada:
+public function via($notifiable): array
+{
+    return ['database', TelegramKanali::class];
+}</div>
+    <p>Kanal — <code>send()</code> metodli oddiy klass.
+    O'zbekistonda Telegram eng ko'p ishlatiladigan
+    kanal, va uni shunday qo'shasiz.</p>
+    <p>🔑 E'tibor bering: bildirishnomaning qolgan qismi
+    <b>tegilmaydi</b>. Bu 49-darsdagi interfeys
+    g'oyasining o'zi.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 3</span>
+    <h4>Manzilni o'zgartirish</h4>
+    <div class="natija">// User modelida
+public function routeNotificationForMail(): string
+{
+    return $this-&gt;bildirishnoma_email ?? $this-&gt;email;
+}
+
+public function routeNotificationForVonage(): string
+{
+    return $this-&gt;telefon;
+}</div>
+    <p>Standart holda <code>mail</code> kanali
+    <code>email</code> ustunini oladi. Boshqa ustun kerak
+    bo'lsa — shu metod.</p>
+    <p>🔍 Modelga tegishli bo'lmagan manzilga yuborish
+    ham mumkin:
+    <code>Notification::route('mail', 'admin@ishtop.uz')-&gt;notify(...)</code>.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 4</span>
+    <h4><code>notify</code> va <code>notifyNow</code></h4>
+    <div class="natija">$user-&gt;notify($xabar)      →  ShouldQueue bo'lsa NAVBATGA
+$user-&gt;notifyNow($xabar)   →  DARROV, navbatni chetlab o'tib</div>
+    <p><code>notifyNow</code> ikki joyda foydali:
+    <b>testlarda</b> (bazadagi yozuvni darrov tekshirish)
+    va <b>konsol buyruqlarida</b> (ishchi
+    kutilmasin).</p>
+    <p>⚠️ Foydalanuvchi so'rovida <code>notifyNow</code>
+    ishlatmang — 53-darsdagi «500, lekin yozuv bazada»
+    holati qaytadi.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 5</span>
+    <h4>Jadval o'sib ketishi</h4>
+    <div class="natija">⚠️ notifications jadvali HECH QACHON tozalanmaydi
+   markAsRead() faqat read_at ni to'ldiradi, yozuvni o'chirmaydi</div>
+    <p>Yiliga million bildirishnoma bo'lsa, jadval
+    sekinlashadi.</p>
+    <p>✅ Eskilarini tozalash — rejalashtirilgan
+    buyruq bilan:</p>
+    <div class="natija">DB::table('notifications')
+    -&gt;whereNotNull('read_at')
+    -&gt;where('created_at', '&lt;', now()-&gt;subMonths(3))
+    -&gt;delete();</div>
+    <p>🔍 Buni har kecha avtomatik ishlatishni 58-darsda
+    o'rganamiz.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 6</span>
+    <h4>Foydalanuvchi tanlovi</h4>
+    <div class="natija">public function via(object $notifiable): array
+{
+    $kanallar = ['database'];              // har doim
+
+    if ($notifiable-&gt;email_bildirishnoma) {
+        $kanallar[] = 'mail';
+    }
+
+    return $kanallar;
+}</div>
+    <p>Bu HOLAT 5 ning ham yechimi: kerak bo'lmagan
+    kanalga ish yaratilmaydi.</p>
+    <p>🔑 Foydalanuvchiga tanlov berish — nafaqat
+    hurmat, balki <b>spam shikoyatlaridan</b>
+    himoya.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>Bildirishnoma yoki hodisa?</h4>
+    <div class="natija">Hodisa (53-dars)  →  «nima sodir bo'ldi» — bir necha REAKSIYA
+Bildirishnoma     →  «kimga xabar berish» — bir necha KANAL</div>
+    <p>Ular <b>raqobatchi emas</b>, birga ishlaydi:</p>
+    <div class="natija">VakansiyaYaratildi (hodisa)
+   ⇂ XabarYubor (tinglovchi)  →  $user-&gt;notify(...)  →  mail + database
+   ⇂ StatistikaniYangila (tinglovchi)</div>
+    <p>🔑 Hodisa — <b>ichki</b> aloqa (ilova qismlari
+    orasida). Bildirishnoma — <b>tashqi</b> aloqa
+    (ilovadan odamga).</p>
+  </div>
+
+  <!-- ═══════════════ 8) AMALIYOT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    💻 Quyida amaliyot bor. Hozir o'qish rejimidasiz — kompyuter
+    yoningizda bo'lganda <b>💻 Amaliyot</b> rejimiga o'ting va
+    shu bo'limdan davom eting.
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <b>Bildirishnoma va jadvalni yarating.</b>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+php artisan make:notification VakansiyaEloniBildirishnomasi
+php artisan make:notifications-table
+php artisan migrate">cd ~/Projects/Learn/ishtop
+php artisan make:notification VakansiyaEloniBildirishnomasi
+php artisan make:notifications-table
+php artisan migrate</div>
+      </li>
+
+      <li>
+        <b>Jadval ustunlarini ko'ring.</b>
+        <div class="cmd" data-cmd="php artisan tinker --execute='print_r(Schema::getColumnListing(&quot;notifications&quot;));'
+grep -n Notifiable app/Models/User.php">php artisan tinker --execute='print_r(Schema::getColumnListing(&quot;notifications&quot;));'
+grep -n Notifiable app/Models/User.php</div>
+        <p class="expect"><code>Notifiable</code> traiti
+        <code>User</code> da <b>boshidan</b> bor.</p>
+      </li>
+
+      <li>
+        <b>Kodini yozing.</b> Yuqoridagi bildirishnoma
+        kodini ko'chiring (nusxa tugmasi bor).
+        <div class="cmd" data-cmd="php -l app/Notifications/VakansiyaEloniBildirishnomasi.php">php -l app/Notifications/VakansiyaEloniBildirishnomasi.php</div>
+      </li>
+
+      <li>
+        <b>🔍 Bitta chaqiruv — nechta ish?</b>
+        <div class="cmd" data-cmd="rm -f storage/logs/laravel.log
+php artisan tinker --execute='DB::table(&quot;jobs&quot;)->delete(); DB::table(&quot;notifications&quot;)->delete(); App\Models\User::first()->notify(new App\Notifications\VakansiyaEloniBildirishnomasi(App\Models\Vakansiya::first())); echo &quot;jobs: &quot;, DB::table(&quot;jobs&quot;)->count(), &quot;  notifications: &quot;, DB::table(&quot;notifications&quot;)->count(), PHP_EOL;'">rm -f storage/logs/laravel.log
+php artisan tinker --execute='DB::table(&quot;jobs&quot;)-&gt;delete(); DB::table(&quot;notifications&quot;)-&gt;delete(); App\Models\User::first()-&gt;notify(new App\Notifications\VakansiyaEloniBildirishnomasi(App\Models\Vakansiya::first())); echo &quot;jobs: &quot;, DB::table(&quot;jobs&quot;)-&gt;count(), &quot;  notifications: &quot;, DB::table(&quot;notifications&quot;)-&gt;count(), PHP_EOL;'</div>
+        <p class="expect"><b>jobs: 2</b> — har kanal uchun
+        bittadan.</p>
+      </li>
+
+      <li>
+        <b>Ishchini ishlating.</b>
+        <div class="cmd" data-cmd="php artisan queue:work --stop-when-empty
+php artisan tinker --execute='$n = DB::table(&quot;notifications&quot;)->first(); echo &quot;type: &quot;, $n->type, PHP_EOL, &quot;data: &quot;, $n->data, PHP_EOL, &quot;read_at: &quot;, var_export($n->read_at, true), PHP_EOL;'
+grep -cE '^Subject:' storage/logs/laravel.log">php artisan queue:work --stop-when-empty
+php artisan tinker --execute='$n = DB::table(&quot;notifications&quot;)-&gt;first(); echo &quot;type: &quot;, $n-&gt;type, PHP_EOL, &quot;data: &quot;, $n-&gt;data, PHP_EOL, &quot;read_at: &quot;, var_export($n-&gt;read_at, true), PHP_EOL;'
+grep -cE '^Subject:' storage/logs/laravel.log</div>
+        <p class="expect">Ikkita <code>DONE</code>, bazada
+        yozuv va logda email.</p>
+      </li>
+
+      <li>
+        <b>O'qilgan deb belgilang.</b>
+        <div class="cmd" data-cmd="php artisan tinker --execute='$u = App\Models\User::first(); echo &quot;unread: &quot;, $u->unreadNotifications()->count(), PHP_EOL; $u->unreadNotifications->first()->markAsRead(); echo &quot;keyin unread: &quot;, $u->unreadNotifications()->count(), &quot;  jami: &quot;, $u->notifications()->count(), PHP_EOL;'">php artisan tinker --execute='$u = App\Models\User::first(); echo &quot;unread: &quot;, $u-&gt;unreadNotifications()-&gt;count(), PHP_EOL; $u-&gt;unreadNotifications-&gt;first()-&gt;markAsRead(); echo &quot;keyin unread: &quot;, $u-&gt;unreadNotifications()-&gt;count(), &quot;  jami: &quot;, $u-&gt;notifications()-&gt;count(), PHP_EOL;'</div>
+        <p class="expect"><code>1 → 0</code>, lekin
+        <b>jami 1</b> — yozuv o'chmadi.</p>
+      </li>
+
+      <li>
+        <b>⚠️ Ko'pchilikka yuborishni o'lchang.</b>
+        <div class="cmd" data-cmd="php artisan tinker --execute='DB::table(&quot;jobs&quot;)->delete(); $users = App\Models\User::limit(3)->get(); Notification::send($users, new App\Notifications\VakansiyaEloniBildirishnomasi(App\Models\Vakansiya::first())); echo count($users), &quot; foydalanuvchi -> &quot;, DB::table(&quot;jobs&quot;)->count(), &quot; ta ish&quot;, PHP_EOL; DB::table(&quot;jobs&quot;)->delete();'">php artisan tinker --execute='DB::table(&quot;jobs&quot;)-&gt;delete(); $users = App\Models\User::limit(3)-&gt;get(); Notification::send($users, new App\Notifications\VakansiyaEloniBildirishnomasi(App\Models\Vakansiya::first())); echo count($users), &quot; foydalanuvchi -&gt; &quot;, DB::table(&quot;jobs&quot;)-&gt;count(), &quot; ta ish&quot;, PHP_EOL; DB::table(&quot;jobs&quot;)-&gt;delete();'</div>
+        <p class="expect">3 → <b>6</b>. Son
+        ko'payadi.</p>
+      </li>
+
+      <li>
+        <b>⚠️ <code>render()</code> tuzog'ini
+        ko'ring.</b>
+        <div class="cmd" data-cmd="php artisan tinker --execute='$r = (new App\Notifications\VakansiyaEloniBildirishnomasi(App\Models\Vakansiya::first()))->toMail(App\Models\User::first())->render(); echo &quot;turi: &quot;, get_debug_type($r), PHP_EOL, &quot;uzunlik: &quot;, strlen((string) $r), PHP_EOL;'">php artisan tinker --execute='$r = (new App\Notifications\VakansiyaEloniBildirishnomasi(App\Models\Vakansiya::first()))-&gt;toMail(App\Models\User::first())-&gt;render(); echo &quot;turi: &quot;, get_debug_type($r), PHP_EOL, &quot;uzunlik: &quot;, strlen((string) $r), PHP_EOL;'</div>
+        <p class="expect">⚠️ <code>HtmlString</code> —
+        satr <b>emas</b>. Testda
+        <code>(string)</code> kerak.</p>
+      </li>
+
+      <li>
+        <b>Testlarni yozing.</b> Yuqoridagi
+        <code>tests/Feature/BildirishnomaTest.php</code> ni
+        ko'chiring:
+        <div class="cmd" data-cmd="php artisan test tests/Feature/BildirishnomaTest.php">php artisan test tests/Feature/BildirishnomaTest.php</div>
+        <p class="expect">Kutilgan: <b>6 passed</b>.</p>
+      </li>
+
+      <li>
+        <b>Tozalang va to'liq to'plamni ishga
+        tushiring.</b>
+        <div class="cmd" data-cmd="php artisan tinker --execute='DB::table(&quot;notifications&quot;)->delete(); DB::table(&quot;jobs&quot;)->delete(); echo &quot;tozalandi&quot;, PHP_EOL;'
+rm -f storage/logs/laravel.log
+php artisan test">php artisan tinker --execute='DB::table(&quot;notifications&quot;)-&gt;delete(); DB::table(&quot;jobs&quot;)-&gt;delete(); echo &quot;tozalandi&quot;, PHP_EOL;'
+rm -f storage/logs/laravel.log
+php artisan test</div>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><code>notifications</code> jadvali yaratildi</li>
+      <li><code>Notifiable</code> traiti <code>User</code> da
+      borligini ko'rdim</li>
+      <li>🔍 Bitta <code>notify()</code> → <b>2</b> ta
+      ish</li>
+      <li>Email logda, yozuv bazada</li>
+      <li><code>markAsRead()</code> yozuvni
+      <b>o'chirmasligini</b> ko'rdim</li>
+      <li>⚠️ 3 foydalanuvchi → 6 ta ish</li>
+      <li>⚠️ <code>render()</code> <code>HtmlString</code>
+      qaytarishini ko'rdim</li>
+      <li>Ma'lumotlar tozalangan</li>
+      <li><code>BildirishnomaTest</code> — 6 test yashil</li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 9) SINAB KO'RAMIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Dasturchi bildirishnomani yozdi va testda tekshirdi:</p>
+    <div class="codefile">
+      <div class="fname">tests/Feature/BildirishnomaTest.php</div>
+      <code class="cmd" data-cmd="it('bildirishnoma bazaga yoziladi', function () {
+    Notification::fake();
+
+    $user = User::factory()-&gt;create();
+    $user-&gt;notify(new VakansiyaEloniBildirishnomasi(Vakansiya::factory()-&gt;create()));
+
+    expect($user-&gt;notifications()-&gt;count())-&gt;toBe(1);
+});">it('bildirishnoma bazaga yoziladi', function () {
+    Notification::fake();
+
+    $user = User::factory()-&gt;create();
+    $user-&gt;notify(new VakansiyaEloniBildirishnomasi(Vakansiya::factory()-&gt;create()));
+
+    expect($user-&gt;notifications()-&gt;count())-&gt;toBe(1);
+});</code>
+    </div>
+    <p>Test <b>qizardi</b>: <code>0</code> chiqdi,
+    <code>1</code> emas. Dasturchi
+    <code>toDatabase()</code> ni tekshirdi — to'g'ri.
+    Migratsiyani tekshirdi — jadval bor. Qo'lda
+    <code>tinker</code> da sinab ko'rdi — <b>ishladi</b>.</p>
+    <p>Nega test qizaryapti?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <p><code>Notification::fake()</code> bildirishnomalarni
+        <b>ushlab qoladi</b> — ular hech qayerga
+        <b>yuborilmaydi</b>.</p>
+        <div class="natija">Notification::fake()  →  kanallar ISHLAMAYDI
+                      →  toDatabase() chaqirilmaydi
+                      →  bazada yozuv YO'Q</div>
+        <p class="expect">⚠️ Bu 53-darsdagi
+        <code>Event::fake()</code> bilan <b>bir xil</b>
+        naqsh: fake tinglovchilarni ham
+        ishlatmaydi.</p>
+        <p>✅ Ikki xil test, ikki xil maqsad:</p>
+        <div class="natija">Notification::fake() BILAN:
+   "yuborildimi?" — assertSentTo(), kanallar ro'yxati
+
+Notification::fake() SIZ (notifyNow):
+   "natija to'g'rimi?" — bazadagi yozuv, data mazmuni</div>
+        <p>Bizning testlarimizda aynan shunday: dastlabki
+        uchtasi <code>fake()</code> bilan
+        «yuborildimi» ni, oxirgisi esa
+        <code>notifyNow()</code> bilan bazadagi
+        <b>haqiqiy</b> yozuvni tekshiradi.</p>
+        <p>🔍 Nega <code>notifyNow</code>, oddiy
+        <code>notify</code> emas? Chunki bildirishnoma
+        <code>ShouldQueue</code> — testda navbat
+        <code>sync</code> bo'lgani uchun ishlardi, lekin
+        <code>notifyNow</code> <b>niyatni ochiq
+        aytadi</b>: «men buni darrov bajarilishini
+        xohlayman».</p>
+        <p>🔑 <b>Umumiy saboq:</b> har bir
+        <code>fake()</code> uchun savol bering — «bu
+        nimani o'chiradi?» <code>Event::fake</code>
+        tinglovchilarni, <code>Mail::fake</code> yuborishni,
+        <code>Notification::fake</code> kanallarni.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span> Bitta
+    <code>notify()</code> nechta ish yaratadi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Har bir kanal uchun bittadan alohida ish yaratiladi</button></li>
+      <li><button class="quiz-option">Kanallar sonidan qat'i nazar doim bitta ish yaratiladi</button></li>
+      <li><button class="quiz-option">Faqat mail kanali uchun ish qolganlari darrov bajariladi</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi:
+    <code>via()</code> <code>['mail', 'database']</code>
+    qaytardi → <code>jobs</code> jadvalida <b>2</b> ta
+    yozuv, ishchi ikkita <code>DONE</code> berdi
+    (<b>44.54ms</b> va <b>8.55ms</b>).
+    🔑 Sabab: kanallar <b>mustaqil</b> — email yiqilsa,
+    bazaga yozish baribir bajariladi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span>
+    <code>markAsRead()</code> nima qiladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">read_at ustunini to'ldiradi lekin yozuvni esa o'chirmaydi</button></li>
+      <li><button class="quiz-option">Yozuvni notifications jadvalidan butunlay olib tashlab yuboradi</button></li>
+      <li><button class="quiz-option">Faqat xotirada belgilaydi bazaga hech narsa yozmaydi</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi:
+    <code>unread</code> <b>1 → 0</b>, lekin
+    <code>notifications</code> hamon <b>1</b>;
+    <code>read_at</code> to'ldi.
+    ⚠️ Shuning uchun jadval o'sib boradi — eski
+    o'qilganlarni rejalashtirilgan buyruq bilan
+    tozalash kerak.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span>
+    <code>Notification::fake()</code> bilan bazada yozuv
+    paydo bo'ladimi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Yo'q chunki kanallar umuman ishlatilmay qoladi shunda ham</button></li>
+      <li><button class="quiz-option">Ha database kanali fake bo'lsa ham ishlayveradi shunda</button></li>
+      <li><button class="quiz-option">Faqat queue ishchisi ishga tushirilgandan keyin paydo bo'ladi</button></li>
+    </ul>
+    <div class="quiz-explain"><code>fake()</code>
+    bildirishnomani <b>ushlab qoladi</b> —
+    <code>toDatabase()</code> ham chaqirilmaydi.
+    🔑 53-darsdagi <code>Event::fake()</code> bilan bir
+    xil naqsh.
+    ✅ Bazadagi yozuvni tekshirish uchun
+    <code>fake()</code> <b>siz</b> va
+    <code>notifyNow()</code> bilan.</div>
+  </div>
+
+  <!-- ═══════════════ 10) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+
+    <p>Javobni ovoz chiqarib ayting, keyin ochib
+    solishtiring.</p>
+
+    <details class="recall">
+      <summary>Mailable va Notification farqi nima?</summary>
+      <div class="answer">Mailable — <b>bitta kanal</b>
+      (email) uchun xat.
+      Notification — <b>bitta xabar, ko'p kanal</b>:
+      <code>via()</code> ro'yxat qaytaradi va har kanal
+      uchun alohida metod bo'ladi
+      (<code>toMail</code>, <code>toDatabase</code>).
+      🔑 Foyda: matn <b>bir joyda</b> turadi. Uchinchi
+      kanal qo'shsangiz — ro'yxatga bitta so'z va
+      bitta metod.</div>
+    </details>
+
+    <details class="recall">
+      <summary>Bitta <code>notify()</code> nechta ish
+      yaratadi va nega?</summary>
+      <div class="answer"><b>Har kanal uchun bittadan.</b>
+      🔍 O'lchandi: 2 kanal → <code>jobs</code> da
+      <b>2</b> ta yozuv.
+      Sabab: kanallar <b>mustaqil</b> bo'lishi kerak —
+      email serveri ishlamasa ham bazaga yozish
+      bajariladi.
+      ⚠️ Ko'pchilikka: 3 foydalanuvchi × 2 kanal =
+      <b>6</b> ta ish.</div>
+    </details>
+
+    <details class="recall">
+      <summary><code>Notifiable</code> traiti nima
+      beradi?</summary>
+      <div class="answer">U <code>User</code> modelida
+      Laravel skeletida <b>boshidan</b> bor.
+      Uchta narsa: <code>$user-&gt;notify($xabar)</code> ·
+      <code>$user-&gt;notifications</code> (hammasi) ·
+      <code>$user-&gt;unreadNotifications</code>.
+      🔑 <code>notifications</code> jadvali
+      <b>polimorf</b>: <code>notifiable_type</code> va
+      <code>notifiable_id</code> — istalgan modelga
+      yuborsa bo'ladi.</div>
+    </details>
+
+    <details class="recall">
+      <summary><code>notify</code> va <code>notifyNow</code>
+      qachon?</summary>
+      <div class="answer"><code>notify</code> —
+      <code>ShouldQueue</code> bo'lsa navbatga.
+      <code>notifyNow</code> — darrov, navbatni chetlab
+      o'tib.
+      ✅ <code>notifyNow</code> testlarda (bazadagi
+      yozuvni darrov tekshirish) va konsol
+      buyruqlarida.
+      ⚠️ Foydalanuvchi so'rovida ishlatmang —
+      53-darsdagi «500, lekin yozuv bazada» qaytadi.</div>
+    </details>
+
+    <details class="recall">
+      <summary>Testda «matn bor, lekin
+      <code>toContain</code> topmayapti» — nima
+      qilasiz?</summary>
+      <div class="answer">Tekshirilayotgan narsa
+      <b>haqiqatan satrmi</b> deb so'rang.
+      🔍 O'lchandi:
+      <code>MailMessage::render()</code>
+      <code>Illuminate\Support\HtmlString</code>
+      qaytaradi, satr <b>emas</b>.
+      ✅ <code>(string) $xat-&gt;render()</code>.
+      🔍 Tashxis: <code>get_debug_type($qiymat)</code>.</div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 11) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Xulosa</span>
+    <ul>
+      <li>Mailable — bitta kanal uchun xat. Notification —
+      <b>bitta xabar, ko'p kanal</b>.</li>
+      <li><code>via()</code> — kanallar ro'yxati; har kanal
+      uchun <code>toMail</code>, <code>toDatabase</code>
+      va h.k.</li>
+      <li>🔍 Bitta <code>notify()</code> → <b>har kanal
+      uchun bittadan ish</b> (o'lchandi: 2).</li>
+      <li>Kanallar <b>mustaqil</b>: biri yiqilsa,
+      ikkinchisi bajariladi.</li>
+      <li><code>MailMessage</code> — Blade fayl yozmasdan
+      xat (<code>greeting</code>, <code>line</code>,
+      <code>action</code>).</li>
+      <li><code>Notifiable</code> traiti
+      <code>User</code> da <b>boshidan</b> bor.</li>
+      <li><code>notifications</code> jadvali
+      <b>polimorf</b> — istalgan modelga.</li>
+      <li>🔍 <code>markAsRead()</code> faqat
+      <code>read_at</code> ni to'ldiradi, yozuv
+      <b>qoladi</b>.</li>
+      <li>⚠️ Jadval o'sib boradi — eskilarini
+      tozalash kerak.</li>
+      <li>⚠️ Ko'pchilikka: foydalanuvchi × kanal
+      (o'lchandi: 3 → 6).</li>
+      <li><code>via()</code> ichida shart — foydalanuvchi
+      tanlovi va navbatni tejash.</li>
+      <li>⚠️ <code>Notification::fake()</code> kanallarni
+      <b>ishlatmaydi</b> — bazadagi yozuvni tekshirish
+      uchun <code>notifyNow()</code>.</li>
+      <li>⚠️ <code>render()</code> <code>HtmlString</code>
+      qaytaradi — <code>(string)</code> qiling.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p>HOLAT 5 da savol qoldi: <code>notifications</code>
+    jadvali o'sib boradi, eskilarini <b>kim</b>
+    tozalaydi?</p>
+    <p>Va yana bir talab kutmoqda: muddati o'tgan
+    vakansiyalar saytda turaverishi kerak emas — ular
+    har kecha <b>o'zi</b> yopilsin.</p>
+    <p>Ikkalasi ham bitta narsani talab qiladi:
+    <b>belgilangan vaqtda o'zi ishlaydigan kod</b>.</p>
+    <p>58-darsda <b>Task Scheduling</b>:
+    <code>make:command</code> bilan o'z buyrug'ingizni
+    yozamiz, <code>schedule</code> bilan uni rejaga
+    qo'yamiz va <code>schedule:list</code> bilan
+    tekshiramiz. Serverdagi <b>bitta</b> cron
+    qatori esa hammasini boshqaradi.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel — Notifications</b>:
+    <a href="https://laravel.com/docs/13.x/notifications">via,
+    toMail, toDatabase, Notifiable</a>.<sup><a href="#fn1">1</a></sup><br>
+    <b>Laravel — Database Notifications</b>:
+    <a href="https://laravel.com/docs/13.x/notifications#database-notifications">notifications
+    jadvali, markAsRead</a>.<sup><a href="#fn1">1</a></sup><br>
+    <b>Laravel — Notifications: Testing</b>:
+    <a href="https://laravel.com/docs/13.x/notifications#testing">Notification::fake,
+    assertSentTo</a>.<sup><a href="#fn2">2</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b>
+    «Telegram kanalini qanday yozaman?», «real vaqtda
+    qo'ng'iroq belgisini yangilash mumkinmi?»,
+    «bildirishnomani guruhlab yuborsa bo'ladimi?»,
+    «foydalanuvchi obunani bekor qilsa?» — har qanday
+    savol yaxshi. Ikkinchisiga qisqa javob: <b>ha</b> —
+    <code>broadcast</code> kanali va Laravel Echo bilan;
+    lekin oddiyroq yo'l ham bor — sahifada har 30
+    soniyada <code>unreadNotifications</code> sonini
+    so'rab turish. Uchinchisiga: <b>ha</b>, lekin
+    Laravel'da tayyor emas — odatda bildirishnomalarni
+    bazaga yig'ib, kuniga bir marta
+    <b>yig'ma</b> xat yuboriladi (58-darsdagi
+    rejalashtirish bilan).
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0056-mail.html">Oldingi: Mail</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel 13 — <a href="https://laravel.com/docs/13.x/notifications">Notifications</a>.</li>
+      <li id="fn2">Laravel 13 — <a href="https://laravel.com/docs/13.x/notifications#testing">Notifications: Testing</a>.</li>
+      <li id="fn3">Barchasi jonli o'lchangan (PHP 8.3.32, Laravel 13.26.1,
+      Pest 4.7.8, SQLite):
+      <code>notifications</code> jadvali: id, type,
+      notifiable_type, notifiable_id, data, read_at,
+      created_at, updated_at ·
+      <code>Notifiable</code> traiti <code>User</code>
+      modelida <b>boshidan</b> bor
+      (<code>use HasApiTokens, HasFactory, Notifiable;</code>) ·
+      🔍 bitta <code>notify()</code> →
+      <code>jobs: 2  notifications: 0</code>; ishchidan
+      keyin ikkita <code>DONE</code>
+      (<b>44.54ms</b> va <b>8.55ms</b>),
+      <code>notifications: 1</code>,
+      <code>data: {"vakansiya_id":10,"nom":"Backend
+      dasturchi","shahar":"Toshkent"}</code>,
+      <code>read_at: NULL</code>, email logda ·
+      <code>markAsRead()</code>: unread <b>1 → 0</b>,
+      <code>read_at</code> to'ldi,
+      <code>notifications</code> hamon <b>1</b> ·
+      ⚠️ <code>Notification::send($users, ...)</code>:
+      <b>3</b> foydalanuvchi → <b>6</b> ta ish ·
+      <code>toMail(...)-&gt;render()</code> →
+      <code>Illuminate\Support\HtmlString</code>
+      (<b>12 143</b> belgi), satr <b>emas</b> — test
+      qizardi, <code>(string)</code> bilan yashil ·
+      <code>BildirishnomaTest</code> — <b>6 passed (9
+      assertions)</b>, to'liq to'plam <b>67 passed (138
+      assertions), 0.59s</b>.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

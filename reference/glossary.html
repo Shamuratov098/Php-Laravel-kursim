@@ -18,7 +18,7 @@
   izoh esa o'zbekcha.</p>
 
   <p class="lesson-meta">
-    <span>Atamalar: <b>240 ta</b></span>
+    <span>Atamalar: <b>243 ta</b></span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>📱 O'qishga mos</span>
   </p>
@@ -26,7 +26,7 @@
   <div class="callout note">
     <span class="label">Bu hujjat o'sib boradi</span>
     <p>Atama faqat <b>o'z darsi yozilganda</b> qo'shiladi — oldindan emas. Hozir:
-    Modul A–H (1–56-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
+    Modul A–H (1–57-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
     bosqichida qat'iy belgilangan va 73 dars bo'ylab o'zgarmaydi).</p>
   </div>
 
@@ -2319,6 +2319,62 @@
       ⚠️ Siklda <code>Mail::send()</code> yozmang — har
       xatni <b>alohida ish</b> qiling.
       <span class="eg">&lt;x-mail::button :url="..."&gt;</span></dd>
+    </div>
+
+    <div class="term" id="notification">
+      <dt>Notification <span class="uz">— bitta xabar, ko'p kanal</span></dt>
+      <dd>Mailable bitta kanal uchun xat; Notification esa
+      <code>via()</code> da <b>kanallar ro'yxatini</b>
+      qaytaradi va har kanal uchun alohida metod bo'ladi
+      (<code>toMail</code>, <code>toDatabase</code>,
+      <code>toBroadcast</code>, <code>toVonage</code>).
+      🔍 O'lchandi: bitta <code>notify()</code> →
+      <code>jobs</code> da <b>2</b> ta ish (har kanal
+      uchun bittadan), ishchi ikkita <code>DONE</code>
+      berdi (44.54ms va 8.55ms).
+      🔑 Kanallar <b>mustaqil</b>: email yiqilsa ham
+      bazaga yozish bajariladi.
+      ⚠️ Ko'pchilikka: foydalanuvchi × kanal
+      (o'lchandi: 3 → <b>6</b>).
+      <span class="eg">$user-&gt;notify(new VakansiyaEloniBildirishnomasi($v));</span></dd>
+    </div>
+
+    <div class="term" id="notifiable">
+      <dt>Notifiable va notifications jadvali <span class="uz">— saytdagi qo'ng'iroq</span></dt>
+      <dd>Trait <code>User</code> modelida Laravel
+      skeletida <b>boshidan</b> bor.
+      Uchtasi: <code>notify()</code> ·
+      <code>notifications</code> ·
+      <code>unreadNotifications</code>.
+      Jadval <b>polimorf</b>
+      (<code>notifiable_type</code>/<code>notifiable_id</code>)
+      — istalgan modelga yuborsa bo'ladi.
+      🔍 <code>markAsRead()</code> faqat
+      <code>read_at</code> ni to'ldiradi; yozuv
+      <b>qoladi</b> (unread 1 → 0, jami hamon 1).
+      ⚠️ Jadval o'sib boradi — eskilarini
+      rejalashtirilgan buyruq bilan tozalang.
+      <span class="eg">$user-&gt;unreadNotifications()-&gt;count()</span></dd>
+    </div>
+
+    <div class="term" id="notification-fake">
+      <dt>Notification::fake() <span class="uz">— kanallarni o'chiradi</span></dt>
+      <dd>Bildirishnomani <b>ushlab qoladi</b> — kanallar
+      ishlamaydi, ya'ni <code>toDatabase()</code> ham
+      chaqirilmaydi va <b>bazada yozuv paydo
+      bo'lmaydi</b>.
+      🔑 53-darsdagi <code>Event::fake()</code> bilan bir
+      xil naqsh.
+      ✅ Ikki xil test: <code>fake()</code> bilan
+      «yuborildimi» (<code>assertSentTo</code>,
+      kanallar ro'yxati), <code>fake()</code> <b>siz</b>
+      va <code>notifyNow()</code> bilan «natija
+      to'g'rimi».
+      ⚠️ <code>MailMessage::render()</code> satr emas —
+      <code>Illuminate\Support\HtmlString</code>;
+      <code>(string)</code> qiling
+      (<code>get_debug_type()</code> bilan tekshiring).
+      <span class="eg">Notification::assertSentTo($u, X::class, fn ($x, $k) =&gt; $k === ['mail','database'])</span></dd>
     </div>
 
     <div class="term" id="sanctum">

@@ -17,7 +17,7 @@
   muhit ma'lumotlari. Har dars yangi buyruq o'rgatilsa, shu yerga qo'shiladi.</p>
 
   <p class="lesson-meta">
-    <span>Qamrov: <b>1&ndash;56-darslar</b> — muhitdan API'gacha</span>
+    <span>Qamrov: <b>1&ndash;57-darslar</b> — muhitdan API'gacha</span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>💻 Amaliyotga mos</span>
   </p>
@@ -1700,6 +1700,46 @@
     <p>🔑 Ishlab chiqarishda SPF/DKIM/DMARC va
     <code>MAIL_FROM_ADDRESS</code> <b>o'z</b>
     domeningizda bo'lsin.</p>
+  </div>
+
+  <h2>Notifications (57-darsdan)</h2>
+  <table class="sheet">
+    <tr><th>Kod / buyruq</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>make:notification X</code> · <code>make:notifications-table</code></td><td class="note-cell">Klass va <code>notifications</code> jadvali</td></tr>
+    <tr><td><code>public function via($n): array</code></td><td class="note-cell">Kanallar ro'yxati — darsning yuragi</td></tr>
+    <tr><td><code>toMail()</code> · <code>toDatabase()</code></td><td class="note-cell">Har kanal uchun alohida shakl</td></tr>
+    <tr><td><code>(new MailMessage)-&gt;greeting()-&gt;line()-&gt;action()</code></td><td class="note-cell">Blade fayl yozmasdan xat</td></tr>
+    <tr><td><code>$user-&gt;notify($x)</code> · <code>notifyNow($x)</code></td><td class="note-cell">Navbatga · darrov (test va konsol uchun)</td></tr>
+    <tr><td><code>Notification::send($users, $x)</code></td><td class="note-cell">Ko'pchilikka (⚠️ foydalanuvchi × kanal)</td></tr>
+    <tr><td><code>$user-&gt;unreadNotifications</code> · <code>notifications</code></td><td class="note-cell">Qo'ng'iroq belgisi va ro'yxat</td></tr>
+    <tr><td><code>$xabar-&gt;markAsRead()</code></td><td class="note-cell">⚠️ Faqat <code>read_at</code> — yozuv <b>qoladi</b></td></tr>
+    <tr><td><code>routeNotificationForMail()</code></td><td class="note-cell">Boshqa ustundagi manzilga yuborish</td></tr>
+    <tr><td><code>Notification::route('mail', 'a@b.uz')</code></td><td class="note-cell">Modelsiz manzilga</td></tr>
+    <tr><td><code>Notification::fake()</code> + <code>assertSentTo()</code></td><td class="note-cell">⚠️ Kanallarni <b>o'chiradi</b> — bazada yozuv yo'q</td></tr>
+  </table>
+  <div class="callout note">
+    <p>🔑 <b>Bitta <code>notify()</code> → har kanal uchun
+    bittadan ish.</b> O'lchandi: 2 kanal → <code>jobs</code>
+    da 2 ta yozuv (44.54ms va 8.55ms).
+    Sabab: kanallar <b>mustaqil</b> bo'lishi kerak.</p>
+    <p>⚠️ <b>Ko'pchilikka:</b> 3 foydalanuvchi × 2 kanal =
+    <b>6</b> ta ish. Katta ro'yxatlar uchun alohida navbat,
+    <code>chunk()</code> yoki <code>via()</code> ichida
+    shart.</p>
+    <p>⚠️ <b><code>markAsRead()</code> yozuvni
+    o'chirmaydi</b> — jadval o'sib boradi.
+    Eski o'qilganlarni tozalash kerak.</p>
+    <p>⚠️ <b><code>Notification::fake()</code> kanallarni
+    o'chiradi</b> — <code>toDatabase()</code> ham
+    chaqirilmaydi, bazada yozuv <b>yo'q</b>.
+    ✅ Bazani tekshirish uchun <code>fake()</code> siz va
+    <code>notifyNow()</code> bilan.</p>
+    <p>⚠️ <b><code>render()</code> satr emas</b> —
+    <code>HtmlString</code>. Testda <code>(string)</code>
+    qiling. Tashxis: <code>get_debug_type($qiymat)</code>.</p>
+    <p>🔑 Hodisa (53-dars) — <b>ichki</b> aloqa (ilova
+    qismlari orasida). Bildirishnoma — <b>tashqi</b> aloqa
+    (ilovadan odamga). Birga ishlaydi.</p>
   </div>
 
   <h2>Xatoni o'qish</h2>
