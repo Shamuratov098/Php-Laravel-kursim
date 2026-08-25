@@ -17,7 +17,7 @@
   muhit ma'lumotlari. Har dars yangi buyruq o'rgatilsa, shu yerga qo'shiladi.</p>
 
   <p class="lesson-meta">
-    <span>Qamrov: <b>1&ndash;59-darslar</b> — muhitdan API'gacha</span>
+    <span>Qamrov: <b>1&ndash;60-darslar</b> — muhitdan API'gacha</span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>💻 Amaliyotga mos</span>
   </p>
@@ -1826,6 +1826,52 @@
     <code>database</code> · <code>redis</code> (ishlab
     chiqarish, teglar bor).
     Redis nafaqat kesh: navbat, sessiya va cheklov ham.</p>
+  </div>
+
+  <h2>N+1, indeks va Telescope (60-darsdan) ⭐</h2>
+  <table class="sheet">
+    <tr><th>Kod / buyruq</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>Model::with(['a', 'b'])</code></td><td class="note-cell">Oldindan yuklash — N+1 ni yo'q qiladi</td></tr>
+    <tr><td><code>$lar-&gt;load('a')</code></td><td class="note-cell">Kolleksiya olingandan <b>keyin</b></td></tr>
+    <tr><td><code>Model::withCount('a')</code></td><td class="note-cell"><b>1</b> so'rov — yozuvlarni olmaydi, sanaydi</td></tr>
+    <tr><td><code>with('kompaniya:id,nom')</code></td><td class="note-cell">Faqat kerakli ustunlar (⚠️ <code>id</code> shart)</td></tr>
+    <tr><td><code>Model::preventLazyLoading(! app()-&gt;isProduction())</code></td><td class="note-cell">N+1 ni <b>xatoga</b> aylantiradi</td></tr>
+    <tr><td><code>DB::enableQueryLog()</code> + <code>count(DB::getQueryLog())</code></td><td class="note-cell">So'rovlarni sanash</td></tr>
+    <tr><td><code>DB::listen(fn ($q) =&gt; logger()-&gt;info($q-&gt;sql))</code></td><td class="note-cell">Telescope'siz eng yengil kuzatuv</td></tr>
+    <tr><td><code>DB::select("EXPLAIN QUERY PLAN $sql", $bog)</code></td><td class="note-cell">Bazaning rejasi (SQLite)</td></tr>
+    <tr><td><code>$table-&gt;index(['shahar', 'faol'])</code></td><td class="note-cell">Qo'shma indeks — <b>chapdan</b> ishlaydi</td></tr>
+    <tr><td><code>Model::chunkById(1000, ...)</code></td><td class="note-cell">Siklda yozish bo'lsa — <code>chunk</code> emas</td></tr>
+    <tr><td><code>composer require laravel/telescope --dev</code></td><td class="note-cell">So'rov, kesh, navbat, xatni ko'rish</td></tr>
+    <tr><td><code>telescope:prune --hours=48</code></td><td class="note-cell">Eski yozuvlarni tozalash (rejaga qo'ying)</td></tr>
+    <tr><td><code>expect($soni)-&gt;toBeLessThanOrEqual(6)</code></td><td class="note-cell">🔑 So'rov <b>byudjeti</b> testi</td></tr>
+  </table>
+  <div class="callout note">
+    <p>🔍 <b>N+1 raqamda</b> (200 yozuv): N+1
+    <b>201 so'rov / 22.9 ms</b> · <code>with()</code>
+    <b>2 / 2.5 ms</b> · <code>withCount</code>
+    <b>1</b> so'rov.</p>
+    <p>🔑 <b>Indeks TOPISHNI tezlashtiradi, O'QIB
+    BERISHNI emas.</b> O'lchandi:
+    <code>shahar = ?</code> (7000 yozuv)
+    <b>7.71 → 7.29 ms</b>; <code>nom = ?</code>
+    (1 yozuv) <b>1.868 → 0.043 ms</b>.
+    <br><b>Tanlovchanlik</b>: <code>email</code> zo'r ·
+    <code>shahar</code> o'rtacha · <code>faol</code>
+    befoyda.
+    <br>⚠️ Narxi: yozish sekinlashadi, joy oladi.
+    ⚠️ <code>LIKE '%...%'</code> → <code>SCAN</code>.</p>
+    <p>🔍 <b><code>preventLazyLoading</code> nozikligi:</b>
+    bitta modelda <b>ishlamaydi</b>, kolleksiyada
+    <b>ishlaydi</b> — N+1 siklda tug'iladi.</p>
+    <p>⚠️ <b>Telescope narxi:</b> yoqilgan <b>~1.52s</b>,
+    o'chirilgan <b>~1.32s</b> (~15%).
+    Ishlab chiqarishda o'chiring.</p>
+    <p>🔑 <b>Tartib:</b> o'lchang → eng sekinini toping →
+    <code>EXPLAIN</code> → tuzating → qayta o'lchang →
+    <b>test yozing</b>.
+    <br>⚠️ N+1 <b>qaytib keladi</b> (Resource, Blade,
+    yangi qator) — test bilan mixlanmagan tuzatish
+    vaqtinchalik.</p>
   </div>
 
   <h2>Xatoni o'qish</h2>

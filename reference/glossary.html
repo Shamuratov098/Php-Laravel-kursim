@@ -18,7 +18,7 @@
   izoh esa o'zbekcha.</p>
 
   <p class="lesson-meta">
-    <span>Atamalar: <b>251 ta</b></span>
+    <span>Atamalar: <b>256 ta</b></span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>📱 O'qishga mos</span>
   </p>
@@ -26,7 +26,7 @@
   <div class="callout note">
     <span class="label">Bu hujjat o'sib boradi</span>
     <p>Atama faqat <b>o'z darsi yozilganda</b> qo'shiladi — oldindan emas. Hozir:
-    Modul A–H (1–59-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
+    Modul A–H (1–60-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
     bosqichida qat'iy belgilangan va 73 dars bo'ylab o'zgarmaydi).</p>
   </div>
 
@@ -2527,6 +2527,107 @@
       kesh bosqinchiligiga qarshi: eski qiymat darrov
       beriladi, yangilash <b>fonda</b>.
       <span class="eg">if (Cache::add("eksport:{$id}", true, 300)) { ... }</span></dd>
+    </div>
+
+    <div class="term" id="n-plus-1-olchov">
+      <dt>N+1 — raqamda <span class="uz">— nihoyat o'lchandi</span></dt>
+      <dd>🔍 O'lchandi (200 yozuv):
+      N+1 <b>201 so'rov / 22.9 ms</b> ·
+      <code>with()</code> <b>2 / 2.5 ms</b> ·
+      <code>load()</code> <b>2 / 2.4 ms</b> ·
+      <code>withCount</code> <b>1 / 13.0 ms</b>.
+      <code>with</code> — oldindan, <code>load</code> —
+      kolleksiya olingandan keyin, <code>withCount</code>
+      — bog'liq yozuvlarni <b>olmaydi</b>, sanaydi.
+      🔑 22 ms kichik ko'rinadi, lekin masshtab (2000
+      yozuv), masofa (alohida baza serveri) va yuklama
+      (100 foydalanuvchi) uni ko'paytiradi.
+      O'lchash: <code>DB::enableQueryLog()</code>,
+      <code>DB::listen()</code> yoki Telescope.
+      <span class="eg">Vakansiya::with('kompaniya')-&gt;get()</span></dd>
+    </div>
+
+    <div class="term" id="prevent-lazy-loading">
+      <dt>preventLazyLoading <span class="uz">— N+1 ni xatoga aylantirish</span></dt>
+      <dd><code>Model::preventLazyLoading(! app()-&gt;isProduction())</code>
+      — <code>AppServiceProvider::boot()</code> da.
+      🔍 Nozik jihat o'lchandi: <b>bitta modelda
+      ishlamaydi</b>
+      (<code>Vakansiya::first()-&gt;kompaniya</code> —
+      xato yo'q), <b>kolleksiyada ishlaydi</b> →
+      <code>LazyLoadingViolationException</code>.
+      🔑 Laravel «har qanday lazy loading yomon» demaydi
+      — u aynan <b>N+1 naqshini</b> tutadi (N+1 siklda
+      tug'iladi).
+      ⚠️ N+1 <b>qaytib keladi</b>: Resource, Blade yoki
+      yangi qator orqali. Ikki qatlamli himoya kerak —
+      <code>preventLazyLoading</code> (darrov aytadi) va
+      <b>so'rov byudjeti testi</b> (eslab qoladi).
+      <span class="eg">expect($soni)-&gt;toBeLessThanOrEqual(6);</span></dd>
+    </div>
+
+    <div class="term" id="indeks-tanlovchanlik">
+      <dt>indeks va tanlovchanlik <span class="uz">— eng keng tarqalgan noto'g'ri tushuncha</span></dt>
+      <dd>🔑 Indeks <b>topishni</b> tezlashtiradi,
+      <b>o'qib berishni</b> emas.
+      🔍 O'lchandi: <code>shahar = ?</code> (~7000 yozuv
+      qaytaradi) <b>7.71 → 7.29 ms</b> — reja
+      <code>SEARCH</code> ga o'zgardi, vaqt deyarli
+      o'zgarmadi. <code>nom = ?</code> (1 yozuv)
+      <b>1.868 → 0.043 ms</b> — <b>43 barobar</b>.
+      <b>Tanlovchanlik</b>: ustunda qancha har xil qiymat
+      bo'lsa shuncha foydali
+      (<code>email</code> zo'r · <code>shahar</code>
+      o'rtacha · <code>faol</code> befoyda).
+      ⚠️ Narxi: <code>insert</code>/<code>update</code>
+      sekinlashadi, jadval hajmining 10–30% i.
+      ⚠️ <code>LIKE '%...%'</code> indeksdan
+      <b>foydalanmaydi</b> (o'lchandi:
+      <code>SCAN</code>).
+      🔍 <code>count(*)</code> indeks bilan
+      <b>0.170 ms</b> — baza yozuvlarga tegmaydi.
+      <span class="eg">EXPLAIN QUERY PLAN select ... where nom = ?</span></dd>
+    </div>
+
+    <div class="term" id="explain">
+      <dt>EXPLAIN <span class="uz">— bazaning rejasi</span></dt>
+      <dd>SQLite: <code>SCAN vakansiyalar</code> (hamma
+      qator) yoki
+      <code>SEARCH ... USING INDEX ... (shahar=?)</code>.
+      MySQL: <code>EXPLAIN</code> — <code>type</code>
+      (<code>ALL</code> yomon), <code>key</code>,
+      <code>rows</code>.
+      PostgreSQL: <code>EXPLAIN ANALYZE</code> —
+      <code>Seq Scan</code> / <code>Index Scan</code> va
+      haqiqiy vaqt.
+      ⚠️ Rejalar bazadan bazaga <b>farq qiladi</b> —
+      tezlikni ishlab chiqarish bazasi bilan
+      o'lchang.
+      🔑 Tartib: o'lchang → eng sekinini toping →
+      <code>EXPLAIN</code> → tuzating → qayta
+      o'lchang → <b>test yozing</b>. Eng ko'p
+      uchraydigan xato — <code>EXPLAIN</code> ni
+      o'tkazib yuborish.
+      <span class="eg">DB::select("EXPLAIN QUERY PLAN $sql", $bog)</span></dd>
+    </div>
+
+    <div class="term" id="telescope">
+      <dt>Telescope <span class="uz">— hammasini ko'rish</span></dt>
+      <dd><code>composer require laravel/telescope --dev</code>.
+      Har so'rov ortidagi SQL, kesh, model, navbat, xat va
+      xatolarni brauzerda ko'rsatadi.
+      🔍 O'lchandi: bitta <code>/api/v1/statistika</code>
+      so'rovi ortida <b>14 ta SQL</b>, 4 ta kesh amali,
+      2 ta model hodisasi.
+      ⚠️ <b>Narxi bor:</b> yoqilgan <b>~1.52s</b>,
+      o'chirilgan <b>~1.32s</b> (~15%), va katta joy
+      oladi.
+      ✅ <code>TELESCOPE_ENABLED=false</code> va
+      <code>telescope:prune --hours=48</code> ni rejaga
+      qo'ying (58-dars).
+      🔑 Ishlab chiqarish uchun yengilroq: Laravel Pulse
+      yoki APM xizmatlari.
+      <span class="eg">php artisan telescope:install</span></dd>
     </div>
 
     <div class="term" id="sanctum">

@@ -1,0 +1,1147 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 60 — N+1, indeks va Telescope</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 60 · MODUL H — FON ISHLAR VA TEZLIK</p>
+  <h1>⭐ N+1, indeks va Telescope</h1>
+  <p class="lead">29 va 52-darslarda N+1 haqida gapirdik,
+  58-darsda indeks qo'shdik, 59-darsda keshladik — lekin
+  hech qachon <b>o'lchamadik</b>. Bugun taxmin qilishni
+  to'xtatamiz. Va indeks haqidagi eng keng tarqalgan
+  noto'g'ri tushunchani <b>raqam bilan</b>
+  buzamiz.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 19 daqiqa</span>
+    <span>💻 Amaliyot ≈ 32 daqiqa</span>
+    <span>Kerak: <a href="0059-cache-va-redis.html">Dars 59</a></span>
+  </p>
+
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b>🔍 N+1 raqamda</b>
+        <span class="nima">200 ta yozuv:
+        <b>201 so'rov / 22.9 ms</b> va
+        <b>2 so'rov / 2.5 ms</b>.</span></li>
+      <li><b><code>with</code>, <code>load</code>,
+        <code>withCount</code></b>
+        <span class="nima">Uchtasi ham o'lchandi.
+        <code>withCount</code> — <b>bitta</b>
+        so'rov.</span></li>
+      <li><b><code>preventLazyLoading</code></b>
+        <span class="nima">N+1 ni <b>xatoga</b>
+        aylantiradi. 🔍 Nozik jihati: bitta modelda
+        <b>ishlamaydi</b>, kolleksiyada
+        <b>ishlaydi</b>.</span></li>
+      <li><b><code>EXPLAIN QUERY PLAN</code></b>
+        <span class="nima">Bazaning <b>rejasi</b>:
+        <code>SCAN</code> yoki <code>SEARCH USING
+        INDEX</code>.</span></li>
+      <li><b>⚠️ Indeks haqidagi noto'g'ri tushuncha</b>
+        <span class="nima">🔍 O'lchandi: reja
+        <code>SEARCH</code> ga o'zgardi, vaqt esa
+        <b>deyarli o'zgarmadi</b> —
+        7.71 → 7.29 ms.</span></li>
+      <li><b>Indeks nima qiladi va nima qilmaydi</b>
+        <span class="nima">🔍 Tanlovchan so'rovda esa
+        <b>1.868 → 0.043 ms</b> (43 barobar).</span></li>
+      <li><b>⚠️ <code>LIKE '%...%'</code> indeksdan
+        foydalanmaydi</b>
+        <span class="nima">46-darsdagi qidiruvimiz
+        <code>SCAN</code> qilar ekan.</span></li>
+      <li><b><code>count(*)</code> indeks bilan</b>
+        <span class="nima">🔍 <b>0.170 ms</b> — baza
+        yozuvlarga <b>tegmaydi</b>.</span></li>
+      <li><b>Telescope o'rnatish</b>
+        <span class="nima">So'rovlar, kesh, model,
+        navbat — hammasi brauzerda
+        ko'rinadi.</span></li>
+      <li><b>⚠️ Telescope o'zi ham sekinlashtiradi</b>
+        <span class="nima">🔍 O'lchandi:
+        <b>~1.52s</b> va <b>~1.32s</b>. Ishlab
+        chiqarishda yoqmang.</span></li>
+      <li><b>Tezlikni test bilan mixlash</b>
+        <span class="nima">So'rovlar sonini
+        <b>test</b> tekshiradi — N+1 qaytib
+        kelmaydi.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima">Qo'shma indeks · indeks narxi ·
+        <code>select()</code> · <code>chunkById</code> ·
+        <code>SQLite</code> va MySQL farqi.</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Taxmin qilishni to'xtatish</span>
+    <p>59-darsda statistika endpointini kesh bilan
+    tezlashtirdik. Lekin bu <b>yamoq</b> edi: asosiy
+    so'rov hamon sekin, biz uni faqat kamroq
+    chaqiryapmiz.</p>
+    <p>Va bir necha savol javobsiz qoldi:</p>
+    <div class="natija">N+1 qanchalik yomon?          — "yomon" deb bilamiz, lekin QANCHA?
+indeks qanchalik yordam beradi? — 58-darsda qo'shdik, tekshirmadik
+qaysi so'rov sekin?            — umuman ko'rmaymiz</div>
+    <p>Tezlik bilan ishlashning birinchi qoidasi:
+    <b>o'lchamasdan tuzatmang</b>. Bugun uchta vosita
+    o'rganamiz — so'rovlarni sanash,
+    <code>EXPLAIN</code> va Telescope.</p>
+    <p>Bazada <b>50 009</b> ta vakansiya bor —
+    o'lchov ko'rinadigan bo'lishi uchun.</p>
+  </div>
+
+  <!-- ═══════════════ 2) N+1 ═══════════════ -->
+  <h2>N+1 — nihoyat raqamda</h2>
+
+  <p>29-darsdan tanish kod. 200 ta vakansiyani olib, har
+  birining kompaniyasini so'raymiz:</p>
+
+  <div class="natija">foreach (Vakansiya::limit(200)-&gt;get() as $v) {
+    $x = $v-&gt;kompaniya-&gt;nom;
+}</div>
+
+  <p>So'rovlarni sanaymiz:</p>
+
+  <div class="natija">usul                          so'rov       vaqt
+──────────────────────────────────────────────
+N+1 (with YO'Q)                 201     22.9 ms
+with() bilan                      2      2.5 ms
+load() bilan                      2      2.4 ms
+withCount                         1     13.0 ms</div>
+
+  <p>Nomi shundan: <b>1</b> ta so'rov ro'yxat uchun va
+  <b>N</b> ta (200) har bir element uchun.</p>
+
+  <div class="callout tip">
+    <span class="label">🔑 Nega 22.9 ms «yomon» hisoblanadi?</span>
+    <p>22 millisekund kichik ko'rinadi. Lekin uchta narsa
+    bor:</p>
+    <div class="natija">1) MASSHTAB: 200 emas, 2000 yozuv bo'lsa — 2001 so'rov
+2) MASOFA:   bizda baza bir faylda. Alohida serverda
+             har so'rov ~1 ms tarmoq vaqti — 200 ms qo'shiladi
+3) YUKLAMA:  100 foydalanuvchi = 20 100 so'rov</div>
+    <p>🔍 <code>load()</code> — <code>with()</code> ning
+    kech ko'rinishi: kolleksiya <b>allaqachon</b>
+    olingan bo'lsa ishlatiladi. Natija bir xil:
+    <b>2 so'rov</b>.</p>
+    <p><code>withCount</code> esa <b>1</b> so'rov —
+    u bog'liq yozuvlarni <b>olmaydi</b>, faqat
+    sanaydi (SQL'ning ichida sanaladi).</p>
+  </div>
+
+  <!-- ═══════════════ 3) PREVENTLAZYLOADING ═══════════════ -->
+  <h2><code>preventLazyLoading</code> — N+1 ni xatoga aylantirish</h2>
+
+  <p>29-darsda tilga olgandik, endi ishlatamiz:</p>
+
+  <div class="codefile">
+    <div class="fname">app/Providers/AppServiceProvider.php</div>
+    <code class="cmd">use Illuminate\Database\Eloquent\Model;
+
+public function boot(): void
+{
+    Model::preventLazyLoading(! app()-&gt;isProduction());
+
+    // ... qolgan kod
+}</code>
+  </div>
+
+  <p><code>! app()-&gt;isProduction()</code> — mahalliy ishda
+  va testda <b>yoqiq</b>, ishlab chiqarishda
+  <b>o'chiq</b> (54-dars: muhitni to'g'ri
+  tekshirish).</p>
+
+  <p>Endi N+1 <b>xato</b> beradi:</p>
+
+  <div class="natija">foreach (Vakansiya::limit(3)-&gt;get() as $v) { echo $v-&gt;kompaniya-&gt;nom; }
+
+Illuminate\Database\LazyLoadingViolationException:
+Attempted to lazy load [kompaniya] on model [App\Models\Vakansiya]
+but lazy loading is disabled.</div>
+
+  <div class="callout tip">
+    <span class="label">🔍 Nozik jihat: bitta modelda ishlamaydi</span>
+    <div class="natija">$v = Vakansiya::first();
+echo $v-&gt;kompaniya-&gt;nom;        →  "Uzum Tech"   ✅ xato YO'Q
+
+foreach (Vakansiya::get() as $v) { ... }
+                               →  LazyLoadingViolationException  ⚠️</div>
+    <p>Bu <b>ataylab</b> shunday. N+1 muammosi
+    <b>siklda</b> tug'iladi — bitta model uchun
+    qo'shimcha so'rov muammo emas.</p>
+    <p>🔑 Ya'ni Laravel «har qanday lazy loading yomon»
+    demaydi, u aynan <b>N+1 naqshini</b> tutadi.</p>
+  </div>
+
+  <p>Va bu <b>o'chirib qo'yiladigan</b> narsa emas —
+  82 ta testimiz u yoqilgan holda ham yashil qoldi, ya'ni
+  kodimizda N+1 yo'q.</p>
+
+  <!-- ═══════════════ 4) EXPLAIN ═══════════════ -->
+  <h2><code>EXPLAIN QUERY PLAN</code> — baza nima qilyapti</h2>
+
+  <p>Baza so'rovni qanday bajarishini <b>aytib
+  beradi</b>:</p>
+
+  <div class="natija">EXPLAIN QUERY PLAN select * from vakansiyalar where shahar = ?
+
+SCAN vakansiyalar</div>
+
+  <p><code>SCAN</code> — «<b>hamma qatorni</b> boshdan
+  oxirigacha o'qidim». 50 000 yozuvda bu 50 000
+  tekshiruv.</p>
+
+  <p>Indeks qo'shamiz:</p>
+
+  <div class="natija">create index vakansiyalar_shahar_index on vakansiyalar (shahar);
+
+EXPLAIN QUERY PLAN select * from vakansiyalar where shahar = ?
+
+SEARCH vakansiyalar USING INDEX vakansiyalar_shahar_index (shahar=?)</div>
+
+  <p><code>SEARCH ... USING INDEX</code> — «indeksdan
+  <b>topib oldim</b>». Reja o'zgardi. Vaqt-chi?</p>
+
+  <!-- ═══════════════ 5) INDEKS NOTO'G'RI TUSHUNCHASI ═══════════════ -->
+  <h2>⚠️ Indeks haqidagi eng keng tarqalgan noto'g'ri tushuncha</h2>
+
+  <div class="natija">shahar = ? (indekssiz)     7.71 ms
+shahar = ? (indeksli)      7.29 ms      ⚠️ deyarli bir xil</div>
+
+  <p>Indeks qo'shdik, reja <code>SEARCH</code> ga
+  o'zgardi — <b>tezlik esa deyarli o'zgarmadi</b>.
+  Nega?</p>
+
+  <p>Chunki bu so'rov <b>~7000 ta yozuv</b> qaytaradi
+  (50 000 ning yettidan biri). Indeks ularni tez
+  <b>topdi</b>, lekin baribir hammasini
+  <b>o'qib berish</b> kerak.</p>
+
+  <p>Endi <b>tanlovchan</b> so'rov — bitta yozuv
+  qaytaradi:</p>
+
+  <div class="natija">nom = 'Vakansiya 49999'
+
+indekssiz:   SCAN vakansiyalar                      1.868 ms
+indeksli:    SEARCH ... USING INDEX (nom=?)         0.043 ms
+
+                                        →  43 BAROBAR tez</div>
+
+  <div class="callout warn">
+    <span class="label">🔑 Qoida</span>
+    <div class="natija">Indeks TOPISHNI tezlashtiradi, O'QIB BERISHNI emas.
+
+Foyda katta:   so'rov OZ yozuv qaytarsa (id, email, slug bo'yicha)
+Foyda kichik:  so'rov KO'P yozuv qaytarsa (jadvalning yarmi)</div>
+    <p>Buni «<b>tanlovchanlik</b>» deyiladi: ustunda
+    qancha <b>har xil</b> qiymat bo'lsa, indeks
+    shuncha foydali.</p>
+    <div class="natija">email      →  har bir yozuvda boshqa   →  indeks ZO'R
+shahar     →  7 xil qiymat             →  indeks o'rtacha
+faol       →  2 xil qiymat (true/false) →  indeks deyarli BEFOYDA</div>
+    <p>⚠️ Shuning uchun «har ustunga indeks qo'yaman»
+    — <b>yomon</b> strategiya: har indeks yozishni
+    sekinlashtiradi va joy oladi.</p>
+  </div>
+
+  <h3>Yana ikkita o'lchov</h3>
+
+  <div class="natija">count(*) where shahar = ?  (indeksli)     0.170 ms
+select * where shahar = ?  (indeksli)     7.397 ms</div>
+
+  <p>Bir xil shart, <b>43 barobar</b> farq. Sabab:
+  <code>count(*)</code> uchun baza <b>yozuvlarga
+  tegmaydi</b> — javob indeksning o'zida bor.</p>
+
+  <div class="natija">EXPLAIN QUERY PLAN select * from vakansiyalar where nom like '%dasturchi%'
+
+SCAN vakansiyalar        ⚠️</div>
+
+  <p>Va 46-darsdagi qidiruvimiz —
+  <code>whereLike('nom', "%{$matn}%")</code> — indeksdan
+  <b>foydalana olmaydi</b>. Indeks alifbo tartibida
+  saqlanadi, «ichida» qidirish esa tartibga tayana
+  olmaydi.</p>
+
+  <p>🔍 Bu haqiqiy cheklov, va yechimi boshqa
+  vositalarda: <b>to'liq matnli qidiruv</b> (MySQL
+  FULLTEXT, PostgreSQL <code>tsvector</code>) yoki
+  qidiruv xizmatlari (Meilisearch, Algolia).</p>
+
+  <!-- ═══════════════ 6) TELESCOPE ═══════════════ -->
+  <h2>Telescope — hammasini ko'rish</h2>
+
+  <div class="natija">composer require laravel/telescope --dev
+php artisan telescope:install
+php artisan migrate</div>
+
+  <p><code>--dev</code> muhim: Telescope faqat ishlab
+  chiqish uchun.</p>
+
+  <p>Brauzerda <code>/telescope</code> ni oching. Bitta
+  so'rovdan keyin u nima yozib olganini
+  ko'ramiz:</p>
+
+  <div class="natija">GET /api/v1/statistika
+
+telescope_entries:
+   request      1
+   query       14
+   cache        4
+   model        2
+   command      1</div>
+
+  <p>Ya'ni <b>bitta</b> so'rov ortida 14 ta SQL, 4 ta
+  kesh amali va 2 ta model hodisasi bor. Telescope
+  ularning <b>har birini</b> vaqti bilan
+  ko'rsatadi.</p>
+
+  <div class="natija">Telescope'da nimalar bor:
+   Requests   →  har so'rov, davomiyligi, javob
+   Queries    →  har SQL, vaqti, qayerdan chaqirilgan
+   Models     →  yaratilgan/yangilangan yozuvlar
+   Jobs       →  navbat (55-dars)
+   Mail       →  xatlar, ko'rinishi bilan (56-dars)
+   Cache      →  hit/miss (59-dars)
+   Exceptions →  xatolar (47-dars)</div>
+
+  <div class="callout warn">
+    <span class="label">⚠️ Telescope o'zi ham sekinlashtiradi</span>
+    <div class="natija">Telescope YOQILGAN:     1.544s   1.511s
+Telescope O'CHIRILGAN:  1.391s   1.201s   1.381s</div>
+    <p>Har so'rovni bazaga yozish bepul emas — o'lchandi:
+    ~<b>15%</b> qo'shimcha.</p>
+    <p>⚠️ Va u <b>joy oladi</b>: har so'rov o'nlab
+    yozuv qoldiradi. Bir kunda gigabaytlarga
+    yetishi mumkin.</p>
+    <p>✅ <code>.env</code> da:</p>
+    <div class="natija">TELESCOPE_ENABLED=false     ← kerak bo'lmaganda o'chiring
+php artisan telescope:prune --hours=48    ← eskilarini tozalash (58-dars!)</div>
+    <p>🔑 Ishlab chiqarishda Telescope o'rniga
+    yengilroq vositalar: log, APM xizmatlari yoki
+    Laravel Pulse.</p>
+  </div>
+
+  <!-- ═══════════════ 7) TESTLAR ═══════════════ -->
+  <h2>Tezlikni test bilan mixlash</h2>
+
+  <p>Eng muhim qismi shu. N+1 ni bir marta tuzatish oson —
+  qiyini uni <b>qaytib kelmasligini</b> ta'minlash.</p>
+
+  <div class="codefile">
+    <div class="fname">tests/Feature/TezlikTest.php</div>
+    <code class="cmd">use App\Models\Kompaniya;
+use App\Models\Vakansiya;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\LazyLoadingViolationException;
+use Illuminate\Support\Facades\DB;
+
+function sorovlarniSana(callable $ish): int
+{
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+    $ish();
+
+    return count(DB::getQueryLog());
+}
+
+it('with() N+1 ni yo\'q qiladi', function () {
+    Model::preventLazyLoading(false);
+
+    $kompaniya = Kompaniya::factory()-&gt;create();
+    Vakansiya::factory()-&gt;count(10)-&gt;create(['kompaniya_id' =&gt; $kompaniya-&gt;id]);
+
+    $nPlusBir = sorovlarniSana(function () {
+        foreach (Vakansiya::get() as $v) {
+            $x = $v-&gt;kompaniya-&gt;nom;
+        }
+    });
+
+    $eagerBilan = sorovlarniSana(function () {
+        foreach (Vakansiya::with('kompaniya')-&gt;get() as $v) {
+            $x = $v-&gt;kompaniya-&gt;nom;
+        }
+    });
+
+    expect($nPlusBir)-&gt;toBe(11);
+    expect($eagerBilan)-&gt;toBe(2);
+});
+
+it('kolleksiyada lazy loading taqiqlangan', function () {
+    Model::preventLazyLoading(true);
+
+    $kompaniya = Kompaniya::factory()-&gt;create();
+    Vakansiya::factory()-&gt;count(3)-&gt;create(['kompaniya_id' =&gt; $kompaniya-&gt;id]);
+
+    expect(function () {
+        foreach (Vakansiya::get() as $v) {
+            $x = $v-&gt;kompaniya-&gt;nom;
+        }
+    })-&gt;toThrow(LazyLoadingViolationException::class);
+});
+
+it('withCount bitta so\'rovda sanaydi', function () {
+    Model::preventLazyLoading(false);
+
+    $kompaniya = Kompaniya::factory()-&gt;create();
+    Vakansiya::factory()-&gt;count(5)-&gt;create(['kompaniya_id' =&gt; $kompaniya-&gt;id]);
+
+    $soni = sorovlarniSana(function () {
+        foreach (Kompaniya::withCount('vakansiyalar')-&gt;get() as $k) {
+            $x = $k-&gt;vakansiyalar_count;
+        }
+    });
+
+    expect($soni)-&gt;toBe(1);
+});
+
+it('statistika endpointi belgilangan sondan ko\'p so\'rov yubormaydi', function () {
+    Model::preventLazyLoading(false);
+    Kompaniya::factory()-&gt;count(2)-&gt;create();
+    Vakansiya::factory()-&gt;count(20)-&gt;create();
+
+    Cache::flush();
+
+    $soni = sorovlarniSana(function () {
+        $this-&gt;getJson('/api/v1/statistika')-&gt;assertOk();
+    });
+
+    expect($soni)-&gt;toBeLessThanOrEqual(6);
+});</code>
+  </div>
+
+  <div class="natija">Tests:  5 passed (8 assertions)</div>
+
+  <p>Birinchi test N+1 ni <b>ikkala holatda</b>
+  o'lchaydi: <code>11</code> va <code>2</code>. Bu
+  shunchaki tekshiruv emas — u <b>hujjat</b>: kim
+  o'qisa, farqni ko'radi.</p>
+
+  <p>Oxirgisi eng amaliysi: endpoint uchun <b>so'rovlar
+  byudjeti</b> qo'yadi. Kimdir <code>with()</code> ni
+  olib tashlasa yoki siklga so'rov qo'shsa, test
+  <b>darrov</b> qizaradi.</p>
+
+  <div class="callout tip">
+    <span class="label">🔑 Nega <code>toBeLessThanOrEqual</code>?</span>
+    <p>Aniq son (<code>toBe(4)</code>) juda mo'rt bo'ladi:
+    Laravel yangilanganda yoki kesh drayveri
+    o'zgarganda bir-ikki so'rov qo'shilishi
+    mumkin.</p>
+    <p><b>Byudjet</b> esa muhim narsani tutadi: son
+    <b>keskin</b> oshsa (4 → 25), demak N+1
+    qaytdi.</p>
+  </div>
+
+  <div class="natija">To'liq to'plam:  82 passed (168 assertions)</div>
+
+  <!-- ═══════════════ 8) HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir bir
+  marta o'qib chiqing, keyin kerak bo'lganda qaytib
+  qarang.</p>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 1</span>
+    <h4>Qo'shma indeks va tartib</h4>
+    <div class="natija">$table-&gt;index(['shahar', 'faol']);      →  bitta indeks, ikki ustun
+
+where shahar = ? and faol = ?    →  ISHLAYDI
+where shahar = ?                 →  ISHLAYDI (chapdan boshlanadi)
+where faol = ?                   →  ISHLAMAYDI  ⚠️</div>
+    <p>Qo'shma indeks — <b>telefon kitobi</b> kabi:
+    familiya+ism bo'yicha tartiblangan. Familiya bilan
+    topasiz, faqat ism bilan — yo'q.</p>
+    <p>🔑 Shuning uchun tartib muhim: eng ko'p
+    ishlatiladigan (va eng tanlovchan) ustun
+    <b>oldinda</b>.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 2</span>
+    <h4>Indeksning narxi</h4>
+    <div class="natija">indeks TEZLASHTIRADI:  select ... where
+indeks SEKINLASHTIRADI: insert · update · delete
+indeks JOY OLADI:       jadval hajmining 10-30% i</div>
+    <p>Har <code>insert</code> da baza <b>hamma</b>
+    indeksni yangilashi kerak. Beshta indeksli jadvalga
+    yozish beshta qo'shimcha ish.</p>
+    <p>✅ Qoida: indeksni <b>o'lchov asosida</b> qo'shing,
+    «ehtimol kerak bo'lar» deb emas.</p>
+    <p>🔍 Ishlatilmayotgan indekslarni topish: MySQL'da
+    <code>sys.schema_unused_indexes</code>,
+    PostgreSQL'da <code>pg_stat_user_indexes</code>.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 3</span>
+    <h4>Faqat kerakli ustunlarni olish</h4>
+    <div class="natija">❌ Vakansiya::with('kompaniya')-&gt;get()
+✅ Vakansiya::with('kompaniya:id,nom')-&gt;select('id','nom','kompaniya_id')-&gt;get()</div>
+    <p>Katta jadvalda (uzun matn ustunlari bilan) farq
+    sezilarli: baza kamroq o'qiydi, PHP kamroq
+    xotira oladi.</p>
+    <p>⚠️ <code>with('kompaniya:id,nom')</code> da
+    <code>id</code> ni <b>albatta</b> qo'shing — usiz
+    Laravel bog'lanishni ulay olmaydi va
+    <code>kompaniya</code> <code>null</code>
+    bo'ladi.</p>
+    <p>🔍 <code>select</code> da esa
+    <code>kompaniya_id</code> kerak — aks holda
+    <code>with</code> ishlamaydi.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 4</span>
+    <h4><code>chunkById</code> va <code>cursor</code></h4>
+    <div class="natija">Vakansiya::chunk(1000, ...)       →  limit/offset — chuqurda SEKIN (46-dars)
+Vakansiya::chunkById(1000, ...)  →  where id &gt; ? — har doim tez ✅
+Vakansiya::cursor()              →  bitta so'rov, bittalab o'qish (52-dars)</div>
+    <p>⚠️ <code>chunk</code> bilan siklda yozuvlarni
+    <b>yangilasangiz</b> yoki <b>o'chirsangiz</b>,
+    <code>offset</code> siljiydi va ba'zi yozuvlar
+    <b>o'tkazib yuboriladi</b>.</p>
+    <p>✅ Yozish bor bo'lsa — har doim
+    <code>chunkById</code>.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 5</span>
+    <h4>Yashirin N+1: <code>Resource</code> ichida</h4>
+    <div class="natija">// VakansiyaResource
+'kompaniya' =&gt; $this-&gt;kompaniya-&gt;nom,      ⚠️ har element uchun so'rov
+
+// to'g'risi (43-dars):
+'kompaniya' =&gt; KompaniyaResource::make($this-&gt;whenLoaded('kompaniya')),</div>
+    <p>N+1 controllerda emas, <b>Resource</b> da yoki
+    <b>Blade</b> da tug'ilishi mumkin — kod
+    boshqa faylda bo'lgani uchun ko'zga
+    tashlanmaydi.</p>
+    <p>✅ <code>whenLoaded()</code> (43-dars) va
+    <code>preventLazyLoading</code> — ikkalasi birga
+    ishlaydi: birinchisi yashiradi, ikkinchisi
+    <b>xato beradi</b>.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 6</span>
+    <h4>SQLite va MySQL farqi</h4>
+    <div class="natija">SQLite:      EXPLAIN QUERY PLAN   →  SCAN / SEARCH USING INDEX
+MySQL:       EXPLAIN               →  type: ALL / ref / const, rows, key
+PostgreSQL:  EXPLAIN ANALYZE       →  Seq Scan / Index Scan, haqiqiy vaqt</div>
+    <p>Tushuncha bir xil, chiqish shakli boshqacha.
+    MySQL'da eng muhim ustunlar:
+    <code>type</code> (<code>ALL</code> — yomon),
+    <code>key</code> (qaysi indeks) va
+    <code>rows</code> (nechta qator ko'rildi).</p>
+    <p>⚠️ Va rejalar <b>farq qiladi</b>: SQLite'da tez
+    so'rov MySQL'da sekin bo'lishi mumkin. Shuning
+    uchun tezlikni <b>ishlab chiqarishdagi</b> baza
+    bilan o'lchash kerak (61-darsda MySQL'ga
+    o'tamiz).</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>Sekin so'rovlarni topish tartibi</h4>
+    <div class="natija">1) O'LCHANG        →  Telescope yoki DB::listen bilan sanang
+2) ENG SEKININI TOPING  →  odatda bitta so'rov 80% vaqtni oladi
+3) EXPLAIN qiling  →  SCAN mi? nechta qator ko'rildi?
+4) TUZATING        →  with() / indeks / select() / kesh
+5) QAYTA O'LCHANG  →  haqiqatan yordam berdimi?
+6) TEST YOZING     →  qaytib kelmasin</div>
+    <p>⚠️ Eng ko'p uchraydigan xato — 3-qadamni
+    o'tkazib yuborish: «sekin ekan, indeks
+    qo'yaman». Biz bugun ko'rdik: indeks
+    <b>har doim</b> yordam bermaydi.</p>
+    <p>🔑 <code>DB::listen()</code> — Telescope'siz
+    sanashning eng yengil yo'li:</p>
+    <div class="natija">DB::listen(fn ($q) =&gt; logger()-&gt;info($q-&gt;sql, ['ms' =&gt; $q-&gt;time]));</div>
+  </div>
+
+  <!-- ═══════════════ 9) AMALIYOT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    💻 Quyida amaliyot bor. Hozir o'qish rejimidasiz — kompyuter
+    yoningizda bo'lganda <b>💻 Amaliyot</b> rejimiga o'ting va
+    shu bo'limdan davom eting.
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <b>Ko'p yozuv qo'shing.</b>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+php artisan tinker --execute='$k = App\Models\Kompaniya::all()->pluck(&quot;id&quot;)->all(); $q = []; for ($i = 0; $i < 50000; $i++) { $q[] = [&quot;nom&quot; => &quot;Vakansiya {$i}&quot;, &quot;shahar&quot; => &quot;Shahar&quot;.($i % 7), &quot;maosh&quot; => 500 + ($i % 3000), &quot;faol&quot; => true, &quot;kompaniya_id&quot; => $k[$i % count($k)], &quot;created_at&quot; => now(), &quot;updated_at&quot; => now()]; if (count($q) === 5000) { DB::table(&quot;vakansiyalar&quot;)->insert($q); $q = []; } } if ($q) { DB::table(&quot;vakansiyalar&quot;)->insert($q); } echo App\Models\Vakansiya::count(), PHP_EOL;'">cd ~/Projects/Learn/ishtop
+php artisan tinker --execute='$k = App\Models\Kompaniya::all()-&gt;pluck(&quot;id&quot;)-&gt;all(); $q = []; for ($i = 0; $i &lt; 50000; $i++) { $q[] = [&quot;nom&quot; =&gt; &quot;Vakansiya {$i}&quot;, &quot;shahar&quot; =&gt; &quot;Shahar&quot;.($i % 7), &quot;maosh&quot; =&gt; 500 + ($i % 3000), &quot;faol&quot; =&gt; true, &quot;kompaniya_id&quot; =&gt; $k[$i % count($k)], &quot;created_at&quot; =&gt; now(), &quot;updated_at&quot; =&gt; now()]; if (count($q) === 5000) { DB::table(&quot;vakansiyalar&quot;)-&gt;insert($q); $q = []; } } if ($q) { DB::table(&quot;vakansiyalar&quot;)-&gt;insert($q); } echo App\Models\Vakansiya::count(), PHP_EOL;'</div>
+      </li>
+
+      <li>
+        <b>N+1 ni o'lchang.</b> Loyiha ildizida
+        <code>olch.php</code> yarating:
+        <div class="cmd" data-cmd="cat > olch.php <<'PHPEOF'
+&lt;?php
+require __DIR__.'/vendor/autoload.php';
+$app = require __DIR__.'/bootstrap/app.php';
+$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+
+use App\Models\Vakansiya;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
+
+Model::preventLazyLoading(false);   // N+1 ni ATAYLAB o'lchayapmiz
+
+function olch(string $nom, callable $f): void {
+    DB::flushQueryLog(); DB::enableQueryLog();
+    $b = microtime(true);
+    $f();
+    printf(&quot;%-24s %5d so'rov  %8.1f ms\n&quot;, $nom, count(DB::getQueryLog()), (microtime(true) - $b) * 1000);
+}
+
+olch('N+1 (with yo\'q)', function () {
+    foreach (Vakansiya::limit(200)->get() as $v) { $x = $v->kompaniya->nom; }
+});
+olch('with() bilan', function () {
+    foreach (Vakansiya::with('kompaniya')->limit(200)->get() as $v) { $x = $v->kompaniya->nom; }
+});
+olch('withCount', function () {
+    foreach (App\Models\Kompaniya::withCount('vakansiyalar')->get() as $k) { $x = $k->vakansiyalar_count; }
+});
+PHPEOF
+php olch.php">cat &gt; olch.php &lt;&lt;'PHPEOF'
+&lt;?php
+require __DIR__.'/vendor/autoload.php';
+$app = require __DIR__.'/bootstrap/app.php';
+$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+
+use App\Models\Vakansiya;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
+
+Model::preventLazyLoading(false);   // N+1 ni ATAYLAB o'lchayapmiz
+
+function olch(string $nom, callable $f): void {
+    DB::flushQueryLog(); DB::enableQueryLog();
+    $b = microtime(true);
+    $f();
+    printf(&quot;%-24s %5d so'rov  %8.1f ms\n&quot;, $nom, count(DB::getQueryLog()), (microtime(true) - $b) * 1000);
+}
+
+olch('N+1 (with yo\'q)', function () {
+    foreach (Vakansiya::limit(200)-&gt;get() as $v) { $x = $v-&gt;kompaniya-&gt;nom; }
+});
+olch('with() bilan', function () {
+    foreach (Vakansiya::with('kompaniya')-&gt;limit(200)-&gt;get() as $v) { $x = $v-&gt;kompaniya-&gt;nom; }
+});
+olch('withCount', function () {
+    foreach (App\Models\Kompaniya::withCount('vakansiyalar')-&gt;get() as $k) { $x = $k-&gt;vakansiyalar_count; }
+});
+PHPEOF
+php olch.php</div>
+        <p class="expect">Menda: <b>201 / 2 / 1</b>
+        so'rov.</p>
+      </li>
+
+      <li>
+        <b><code>EXPLAIN</code> ni sinang.</b>
+        <div class="cmd" data-cmd="php artisan tinker --execute='foreach (DB::select(&quot;EXPLAIN QUERY PLAN select * from vakansiyalar where shahar = ?&quot;, [&quot;Shahar3&quot;]) as $r) { echo $r->detail, PHP_EOL; }'">php artisan tinker --execute='foreach (DB::select(&quot;EXPLAIN QUERY PLAN select * from vakansiyalar where shahar = ?&quot;, [&quot;Shahar3&quot;]) as $r) { echo $r-&gt;detail, PHP_EOL; }'</div>
+        <p class="expect"><code>SCAN vakansiyalar</code> —
+        hamma qator o'qiladi.</p>
+      </li>
+
+      <li>
+        <b>⚠️ Indeks har doim yordam bermasligini
+        ko'ring.</b>
+        <div class="cmd" data-cmd="php artisan tinker --execute='
+$urin = function ($sql, $bog) { DB::select($sql, $bog); $b = microtime(true); for ($i = 0; $i < 20; $i++) { DB::select($sql, $bog); } return round(((microtime(true) - $b) * 1000) / 20, 2); };
+echo &quot;indekssiz: &quot;, $urin(&quot;select * from vakansiyalar where shahar = ?&quot;, [&quot;Shahar3&quot;]), &quot; ms&quot;, PHP_EOL;
+DB::statement(&quot;create index if not exists vakansiyalar_shahar_index on vakansiyalar (shahar)&quot;);
+foreach (DB::select(&quot;EXPLAIN QUERY PLAN select * from vakansiyalar where shahar = ?&quot;, [&quot;Shahar3&quot;]) as $r) { echo $r->detail, PHP_EOL; }
+echo &quot;indeksli:  &quot;, $urin(&quot;select * from vakansiyalar where shahar = ?&quot;, [&quot;Shahar3&quot;]), &quot; ms&quot;, PHP_EOL;'">php artisan tinker --execute='
+$urin = function ($sql, $bog) { DB::select($sql, $bog); $b = microtime(true); for ($i = 0; $i &lt; 20; $i++) { DB::select($sql, $bog); } return round(((microtime(true) - $b) * 1000) / 20, 2); };
+echo &quot;indekssiz: &quot;, $urin(&quot;select * from vakansiyalar where shahar = ?&quot;, [&quot;Shahar3&quot;]), &quot; ms&quot;, PHP_EOL;
+DB::statement(&quot;create index if not exists vakansiyalar_shahar_index on vakansiyalar (shahar)&quot;);
+foreach (DB::select(&quot;EXPLAIN QUERY PLAN select * from vakansiyalar where shahar = ?&quot;, [&quot;Shahar3&quot;]) as $r) { echo $r-&gt;detail, PHP_EOL; }
+echo &quot;indeksli:  &quot;, $urin(&quot;select * from vakansiyalar where shahar = ?&quot;, [&quot;Shahar3&quot;]), &quot; ms&quot;, PHP_EOL;'</div>
+        <p class="expect">⚠️ Reja <code>SEARCH</code> ga
+        o'zgardi, vaqt esa deyarli
+        <b>o'zgarmadi</b> (menda 7.71 → 7.29 ms).</p>
+      </li>
+
+      <li>
+        <b>Tanlovchan so'rovda o'lchang.</b>
+        <div class="cmd" data-cmd="php artisan tinker --execute='
+$urin = function ($sql, $bog) { DB::select($sql, $bog); $b = microtime(true); for ($i = 0; $i < 50; $i++) { DB::select($sql, $bog); } return round(((microtime(true) - $b) * 1000) / 50, 3); };
+DB::statement(&quot;drop index if exists vakansiyalar_nom_index&quot;);
+echo &quot;indekssiz: &quot;, $urin(&quot;select * from vakansiyalar where nom = ?&quot;, [&quot;Vakansiya 49999&quot;]), &quot; ms&quot;, PHP_EOL;
+DB::statement(&quot;create index vakansiyalar_nom_index on vakansiyalar (nom)&quot;);
+echo &quot;indeksli:  &quot;, $urin(&quot;select * from vakansiyalar where nom = ?&quot;, [&quot;Vakansiya 49999&quot;]), &quot; ms&quot;, PHP_EOL;
+echo &quot;count(*):  &quot;, $urin(&quot;select count(*) from vakansiyalar where shahar = ?&quot;, [&quot;Shahar3&quot;]), &quot; ms&quot;, PHP_EOL;'">php artisan tinker --execute='
+$urin = function ($sql, $bog) { DB::select($sql, $bog); $b = microtime(true); for ($i = 0; $i &lt; 50; $i++) { DB::select($sql, $bog); } return round(((microtime(true) - $b) * 1000) / 50, 3); };
+DB::statement(&quot;drop index if exists vakansiyalar_nom_index&quot;);
+echo &quot;indekssiz: &quot;, $urin(&quot;select * from vakansiyalar where nom = ?&quot;, [&quot;Vakansiya 49999&quot;]), &quot; ms&quot;, PHP_EOL;
+DB::statement(&quot;create index vakansiyalar_nom_index on vakansiyalar (nom)&quot;);
+echo &quot;indeksli:  &quot;, $urin(&quot;select * from vakansiyalar where nom = ?&quot;, [&quot;Vakansiya 49999&quot;]), &quot; ms&quot;, PHP_EOL;
+echo &quot;count(*):  &quot;, $urin(&quot;select count(*) from vakansiyalar where shahar = ?&quot;, [&quot;Shahar3&quot;]), &quot; ms&quot;, PHP_EOL;'</div>
+        <p class="expect">Menda <b>1.868 → 0.043 ms</b>
+        (43 barobar) va <code>count(*)</code>
+        <b>0.170 ms</b>.</p>
+      </li>
+
+      <li>
+        <b>⚠️ <code>LIKE '%...%'</code> ni tekshiring.</b>
+        <div class="cmd" data-cmd="php artisan tinker --execute='foreach (DB::select(&quot;EXPLAIN QUERY PLAN select * from vakansiyalar where nom like ?&quot;, [&quot;%dasturchi%&quot;]) as $r) { echo $r->detail, PHP_EOL; }'">php artisan tinker --execute='foreach (DB::select(&quot;EXPLAIN QUERY PLAN select * from vakansiyalar where nom like ?&quot;, [&quot;%dasturchi%&quot;]) as $r) { echo $r-&gt;detail, PHP_EOL; }'</div>
+        <p class="expect">⚠️ <code>SCAN</code> — indeks bor
+        bo'lsa ham ishlatilmaydi.</p>
+      </li>
+
+      <li>
+        <b><code>preventLazyLoading</code> ni yoqing.</b>
+        <code>AppServiceProvider::boot()</code> ga
+        qo'shing:
+        <div class="cmd" data-cmd="# app/Providers/AppServiceProvider.php
+use Illuminate\Database\Eloquent\Model;
+
+// boot() boshiga:
+Model::preventLazyLoading(! app()->isProduction());"># app/Providers/AppServiceProvider.php
+use Illuminate\Database\Eloquent\Model;
+
+// boot() boshiga:
+Model::preventLazyLoading(! app()-&gt;isProduction());</div>
+        <div class="cmd" data-cmd="php artisan tinker --execute='
+echo &quot;-- bitta model --&quot;, PHP_EOL;
+try { echo &quot;  &quot;, App\Models\Vakansiya::first()->kompaniya->nom, PHP_EOL; } catch (\Throwable $e) { echo &quot;  &quot;, get_class($e), PHP_EOL; }
+echo &quot;-- kolleksiya --&quot;, PHP_EOL;
+try { foreach (App\Models\Vakansiya::limit(3)->get() as $v) { echo &quot;  &quot;, $v->kompaniya->nom, PHP_EOL; } } catch (\Throwable $e) { echo &quot;  &quot;, get_class($e), PHP_EOL; }'">php artisan tinker --execute='
+echo &quot;-- bitta model --&quot;, PHP_EOL;
+try { echo &quot;  &quot;, App\Models\Vakansiya::first()-&gt;kompaniya-&gt;nom, PHP_EOL; } catch (\Throwable $e) { echo &quot;  &quot;, get_class($e), PHP_EOL; }
+echo &quot;-- kolleksiya --&quot;, PHP_EOL;
+try { foreach (App\Models\Vakansiya::limit(3)-&gt;get() as $v) { echo &quot;  &quot;, $v-&gt;kompaniya-&gt;nom, PHP_EOL; } } catch (\Throwable $e) { echo &quot;  &quot;, get_class($e), PHP_EOL; }'</div>
+        <p class="expect">Bitta modelda <b>ishlaydi</b>,
+        kolleksiyada
+        <code>LazyLoadingViolationException</code>.</p>
+      </li>
+
+      <li>
+        <b>Telescope o'rnating.</b>
+        <div class="cmd" data-cmd="composer require laravel/telescope --dev
+php artisan telescope:install
+php artisan migrate">composer require laravel/telescope --dev
+php artisan telescope:install
+php artisan migrate</div>
+      </li>
+
+      <li>
+        <b>Telescope nima yozayotganini ko'ring.</b>
+        <div class="cmd" data-cmd="php artisan serve">php artisan serve</div>
+        <div class="cmd" data-cmd="php artisan tinker --execute='Cache::flush(); DB::table(&quot;telescope_entries&quot;)->delete();'
+curl -s -o /dev/null -w 'statistika: %{http_code}  %{time_total}s\n' -H 'Accept: application/json' http://127.0.0.1:8000/api/v1/statistika
+php artisan tinker --execute='foreach (DB::table(&quot;telescope_entries&quot;)->selectRaw(&quot;type, count(*) as soni&quot;)->groupBy(&quot;type&quot;)->get() as $r) { echo &quot;  &quot;, str_pad($r->type, 12), $r->soni, PHP_EOL; }'">php artisan tinker --execute='Cache::flush(); DB::table(&quot;telescope_entries&quot;)-&gt;delete();'
+curl -s -o /dev/null -w 'statistika: %{http_code}  %{time_total}s\n' -H 'Accept: application/json' http://127.0.0.1:8000/api/v1/statistika
+php artisan tinker --execute='foreach (DB::table(&quot;telescope_entries&quot;)-&gt;selectRaw(&quot;type, count(*) as soni&quot;)-&gt;groupBy(&quot;type&quot;)-&gt;get() as $r) { echo &quot;  &quot;, str_pad($r-&gt;type, 12), $r-&gt;soni, PHP_EOL; }'</div>
+        <p>Brauzerda <code>http://127.0.0.1:8000/telescope</code>
+        ni oching va <b>Queries</b> bo'limiga
+        qarang.</p>
+      </li>
+
+      <li>
+        <b>⚠️ Telescope narxini o'lchang.</b>
+        <div class="cmd" data-cmd="echo 'TELESCOPE_ENABLED=false' >> .env">echo 'TELESCOPE_ENABLED=false' &gt;&gt; .env</div>
+        <p>Serverni qayta ishga tushiring va o'lchang —
+        menda <b>~1.52s</b> va <b>~1.32s</b> edi. So'ng
+        o'sha qatorni <b>o'chiring</b>.</p>
+      </li>
+
+      <li>
+        <b>Testlarni yozing.</b> Yuqoridagi
+        <code>tests/Feature/TezlikTest.php</code> ni
+        ko'chiring:
+        <div class="cmd" data-cmd="php artisan test tests/Feature/TezlikTest.php">php artisan test tests/Feature/TezlikTest.php</div>
+        <p class="expect">Kutilgan: <b>5 passed</b>.</p>
+      </li>
+
+      <li>
+        <b>Tozalang va to'liq to'plamni ishga
+        tushiring.</b>
+        <div class="cmd" data-cmd="rm -f olch.php
+php artisan tinker --execute='App\Models\Vakansiya::where(&quot;nom&quot;,&quot;like&quot;,&quot;Vakansiya %&quot;)->delete(); DB::statement(&quot;drop index if exists vakansiyalar_nom_index&quot;); DB::table(&quot;telescope_entries&quot;)->delete(); Cache::flush(); echo App\Models\Vakansiya::count(), &quot; ta qoldi&quot;, PHP_EOL;'
+php artisan test">rm -f olch.php
+php artisan tinker --execute='App\Models\Vakansiya::where(&quot;nom&quot;,&quot;like&quot;,&quot;Vakansiya %&quot;)-&gt;delete(); DB::statement(&quot;drop index if exists vakansiyalar_nom_index&quot;); DB::table(&quot;telescope_entries&quot;)-&gt;delete(); Cache::flush(); echo App\Models\Vakansiya::count(), &quot; ta qoldi&quot;, PHP_EOL;'
+php artisan test</div>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li>N+1 ni raqamda ko'rdim (201 / 2 / 1)</li>
+      <li><code>EXPLAIN</code> bilan <code>SCAN</code> va
+      <code>SEARCH</code> ni ko'rdim</li>
+      <li>⚠️ Indeks ko'p yozuvli so'rovga yordam
+      bermasligini o'lchadim</li>
+      <li>Tanlovchan so'rovda 43 barobar farqni
+      ko'rdim</li>
+      <li>⚠️ <code>LIKE '%...%'</code> indeksdan
+      foydalanmasligini ko'rdim</li>
+      <li><code>preventLazyLoading</code> yoqildi</li>
+      <li>Bitta model va kolleksiya farqini ko'rdim</li>
+      <li>Telescope o'rnatildi va ishladi</li>
+      <li>⚠️ Telescope narxini o'lchadim</li>
+      <li><code>TezlikTest</code> — 5 test yashil</li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 10) SINAB KO'RAMIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Vakansiyalar ro'yxati sahifasi sekin ishlayapti.
+    Dasturchi Telescope'ni ochdi va ko'rdi: bitta
+    so'rovda <b>153 ta SQL</b>.</p>
+    <p>Sababni topdi — Blade shablonida:</p>
+    <div class="natija">@foreach ($vakansiyalar as $v)
+    {{ $v-&gt;kompaniya-&gt;nom }}
+    {{ $v-&gt;konikmalar-&gt;count() }} ta ko'nikma
+@endforeach</div>
+    <p>Tuzatdi:</p>
+    <div class="natija">Vakansiya::with(['kompaniya', 'konikmalar'])-&gt;paginate(50)</div>
+    <p>Telescope'da qayta tekshirdi: <b>153 → 3</b>
+    so'rov. Sahifa tezlashdi. Commit qildi.</p>
+    <p>Ikki hafta o'tib sahifa <b>yana sekin</b> bo'ldi.
+    Telescope'da yana <b>153</b> ta so'rov. Kod esa
+    o'zgarmagan — <code>with([...])</code> hamon
+    joyida. Nima bo'lgan?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <p>Kod <b>haqiqatan</b> o'zgarmagan — lekin
+        <b>shablon</b> o'zgargan. Kimdir yangi ustun
+        qo'shgan:</p>
+        <div class="natija">@foreach ($vakansiyalar as $v)
+    {{ $v-&gt;kompaniya-&gt;nom }}
+    {{ $v-&gt;konikmalar-&gt;count() }} ta ko'nikma
+    {{ $v-&gt;egasi-&gt;name }}              ← YANGI, with() da YO'Q
+@endforeach</div>
+        <p class="expect">⚠️ N+1 <b>qaytdi</b>, faqat
+        boshqa bog'lanish orqali. Va uni
+        <b>hech kim sezmadi</b>, chunki:</p>
+        <div class="natija">1) testlar YASHIL edi — ular so'rov sonini tekshirmasdi
+2) mahalliy ishda 5 ta vakansiya bor — sekinlik ko'rinmaydi
+3) code review'da bir qator qo'shilgan — normal ko'rinadi</div>
+        <p>🔑 Bu N+1 ning eng muhim xususiyati:
+        <b>u qaytib keladi</b>. Bir marta tuzatish
+        yetarli emas.</p>
+        <p>✅ Ikki qatlamli himoya:</p>
+        <div class="natija">1) preventLazyLoading  →  mahalliy ishda XATO beradi
+                          (kod yozilayotgan payt tutiladi)
+
+2) so'rov byudjeti testi:
+   $soni = sorovlarniSana(fn () => $this->get('/vakansiyalar'));
+   expect($soni)->toBeLessThanOrEqual(6);
+                          →  CI'da tutiladi</div>
+        <p>Birinchisi <b>darrov</b> aytadi, ikkinchisi
+        <b>eslab qoladi</b>. Ikkalasi ham kerak: birinchisi
+        ishlab chiqarishda o'chiq, ikkinchisi esa har
+        commit'da ishlaydi.</p>
+        <p>🔍 <b>Umumiy saboq:</b> tezlik tuzatishi
+        <b>test bilan mixlanmasa</b>, u vaqtinchalik.
+        Har «tezlashtirdim» dan keyin savol bering —
+        <b>qaytib kelsa, kim aytadi?</b></p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span> 200 ta
+    yozuv uchun N+1 nechta so'rov yuboradi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">201 ta bittasi ro'yxat uchun qolgani har element uchun</button></li>
+      <li><button class="quiz-option">200 ta har bir element uchun aniq bittadan so'rov</button></li>
+      <li><button class="quiz-option">2 ta chunki Laravel buni o'zi avtomatik optimallashtirib beradi</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi: <b>201 so'rov,
+    22.9 ms</b>. <code>with()</code> bilan <b>2 so'rov,
+    2.5 ms</b>, <code>withCount</code> bilan
+    <b>1 so'rov</b>.
+    🔑 Nomi shundan: <b>1</b> ta ro'yxat uchun,
+    <b>N</b> ta elementlar uchun.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span> Indeks
+    qo'shdingiz, reja <code>SEARCH</code> ga o'zgardi,
+    vaqt esa o'zgarmadi. Nega?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">So'rov ko'p yozuv qaytaradi indeks topishni tezlashtiradi</button></li>
+      <li><button class="quiz-option">Indeks noto'g'ri ustunga qo'yilgan va umuman ishlatilmayapti</button></li>
+      <li><button class="quiz-option">SQLite indekslarni umuman qo'llab-quvvatlamaydi shuning uchun shunday</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi:
+    <code>shahar</code> bo'yicha (7000 yozuv)
+    <b>7.71 → 7.29 ms</b>; <code>nom</code> bo'yicha
+    (1 yozuv) <b>1.868 → 0.043 ms</b>.
+    🔑 Indeks <b>topishni</b> tezlashtiradi, <b>o'qib
+    berishni</b> emas. Ustunda qancha har xil qiymat
+    bo'lsa (tanlovchanlik), indeks shuncha
+    foydali.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span>
+    <code>preventLazyLoading</code> bitta modelda nega
+    xato bermaydi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">N+1 siklda tug'iladi bitta so'rov muammo emas ekan</button></li>
+      <li><button class="quiz-option">Xato beradi lekin faqat ishlab chiqarish muhitida ko'rinadi</button></li>
+      <li><button class="quiz-option">Bitta model uchun Laravel eager loading o'zi qo'llaydi</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi:
+    <code>Vakansiya::first()-&gt;kompaniya</code> →
+    <b>ishladi</b>;
+    <code>foreach (Vakansiya::get() ...)</code> →
+    <code>LazyLoadingViolationException</code>.
+    🔑 Laravel «har qanday lazy loading yomon» demaydi —
+    u aynan <b>N+1 naqshini</b> tutadi.</div>
+  </div>
+
+  <!-- ═══════════════ 11) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+
+    <p>Javobni ovoz chiqarib ayting, keyin ochib
+    solishtiring.</p>
+
+    <details class="recall">
+      <summary>N+1 nima va uni qanday o'lchaysiz?</summary>
+      <div class="answer"><b>1</b> ta so'rov ro'yxat
+      uchun + <b>N</b> ta har element uchun.
+      🔍 O'lchandi (200 yozuv): <b>201 so'rov / 22.9 ms</b>
+      va <code>with()</code> bilan <b>2 / 2.5 ms</b>.
+      O'lchash: <code>DB::enableQueryLog()</code> +
+      <code>count(DB::getQueryLog())</code>, yoki
+      Telescope, yoki <code>DB::listen()</code>.
+      <code>withCount</code> — <b>1</b> so'rov (yozuvlarni
+      olmaydi, sanaydi).</div>
+    </details>
+
+    <details class="recall">
+      <summary>Indeks nima qiladi va nima qilmaydi?</summary>
+      <div class="answer">Indeks <b>topishni</b>
+      tezlashtiradi, <b>o'qib berishni</b> emas.
+      🔍 O'lchandi: 7000 yozuv qaytaradigan so'rovda
+      <b>7.71 → 7.29 ms</b> (deyarli farqsiz);
+      1 yozuv qaytaradiganida
+      <b>1.868 → 0.043 ms</b> (43 barobar).
+      🔑 <b>Tanlovchanlik</b>: ustunda qancha har xil
+      qiymat bo'lsa shuncha foydali
+      (<code>email</code> zo'r, <code>faol</code>
+      befoyda).
+      ⚠️ Narxi: <code>insert</code>/<code>update</code>
+      sekinlashadi va joy oladi.</div>
+    </details>
+
+    <details class="recall">
+      <summary><code>EXPLAIN</code> nimani ko'rsatadi?</summary>
+      <div class="answer">Bazaning <b>rejasini</b>.
+      SQLite'da: <code>SCAN</code> (hamma qator) yoki
+      <code>SEARCH ... USING INDEX</code>.
+      MySQL'da: <code>type</code>, <code>key</code>,
+      <code>rows</code>.
+      🔍 O'lchandi: <code>LIKE '%...%'</code> hamon
+      <code>SCAN</code> — indeks alifbo tartibida
+      saqlanadi, «ichida» qidirish tartibga tayana
+      olmaydi.
+      ⚠️ Rejalar bazadan bazaga farq qiladi.</div>
+    </details>
+
+    <details class="recall">
+      <summary>Telescope nima beradi va narxi
+      nima?</summary>
+      <div class="answer">Har so'rov ortidagi SQL, kesh,
+      model, navbat, xat va xatolarni brauzerda
+      ko'rsatadi.
+      🔍 O'lchandi: bitta statistika so'rovi ortida
+      <b>14 ta SQL</b>, 4 ta kesh amali, 2 ta model
+      hodisasi.
+      ⚠️ Narxi: <b>~15%</b> sekinlashuv
+      (<b>~1.52s</b> va <b>~1.32s</b>) va katta joy.
+      ✅ <code>--dev</code> bilan o'rnating,
+      <code>TELESCOPE_ENABLED=false</code> bilan
+      o'chiring, <code>telescope:prune</code> ni
+      rejaga qo'ying (58-dars).</div>
+    </details>
+
+    <details class="recall">
+      <summary>Sekin so'rovni tuzatish tartibi
+      qanday?</summary>
+      <div class="answer"><b>1)</b> O'lchang
+      <b>2)</b> Eng sekinini toping
+      <b>3)</b> <code>EXPLAIN</code> qiling
+      <b>4)</b> Tuzating (<code>with()</code> / indeks /
+      <code>select()</code> / kesh)
+      <b>5)</b> Qayta o'lchang
+      <b>6)</b> <b>Test yozing</b>.
+      ⚠️ Eng ko'p uchraydigan xato — 3-qadamni
+      o'tkazib yuborish.
+      🔑 Oxirgisi eng muhimi: test bilan mixlanmagan
+      tuzatish <b>qaytib keladi</b>.</div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 12) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Xulosa</span>
+    <ul>
+      <li>🔍 N+1 raqamda: <b>201 so'rov / 22.9 ms</b> va
+      <code>with()</code> bilan <b>2 / 2.5 ms</b>.</li>
+      <li><code>with</code> (oldindan) ·
+      <code>load</code> (keyin) ·
+      <code>withCount</code> (<b>1</b> so'rov).</li>
+      <li><code>preventLazyLoading(! isProduction())</code>
+      — N+1 ni <b>xatoga</b> aylantiradi.</li>
+      <li>🔍 U bitta modelda <b>ishlamaydi</b>,
+      kolleksiyada <b>ishlaydi</b> — N+1 siklda
+      tug'iladi.</li>
+      <li><code>EXPLAIN QUERY PLAN</code>:
+      <code>SCAN</code> yoki <code>SEARCH USING
+      INDEX</code>.</li>
+      <li>⚠️ Indeks <b>topishni</b> tezlashtiradi,
+      <b>o'qib berishni</b> emas:
+      7.71 → 7.29 ms va 1.868 → 0.043 ms.</li>
+      <li><b>Tanlovchanlik</b> muhim: <code>email</code>
+      zo'r, <code>faol</code> befoyda.</li>
+      <li>⚠️ Indeksning narxi bor: yozish sekinlashadi,
+      joy oladi.</li>
+      <li>⚠️ <code>LIKE '%...%'</code> indeksdan
+      foydalanmaydi — to'liq matnli qidiruv
+      kerak.</li>
+      <li>🔍 <code>count(*)</code> indeks bilan
+      <b>0.170 ms</b> — baza yozuvlarga
+      tegmaydi.</li>
+      <li>Telescope: bitta so'rov ortida <b>14 SQL</b>.
+      ⚠️ Narxi ~<b>15%</b>, ishlab chiqarishda
+      o'chiring.</li>
+      <li>🔑 Tuzatishni <b>test bilan mixlang</b> —
+      so'rovlar byudjeti
+      (<code>toBeLessThanOrEqual</code>).</li>
+      <li>Tartib: o'lchang → toping →
+      <code>EXPLAIN</code> → tuzating → qayta
+      o'lchang → test yozing.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p>Bugun HOLAT 6 da muhim gap aytildi: <b>rejalar
+    bazadan bazaga farq qiladi</b>. SQLite'da tez
+    so'rov MySQL'da sekin bo'lishi mumkin.</p>
+    <p>Va boshqa farqlar ham bor: SQLite ustun tipini
+    qat'iy tekshirmaydi, <code>ALTER TABLE</code> ni
+    cheklangan qo'llab-quvvatlaydi, bir vaqtda yozishda
+    qulflanadi.</p>
+    <p>22-darsda «SQLite tayyorlov uchun» degandik.
+    46-darsda uning bir «yashiruvchi» xatti-harakatini
+    ko'rdik. Endi <b>ishlab chiqarish bazasiga</b>
+    o'tish vaqti.</p>
+    <p>61-darsda <b>SQLite'dan MySQL'ga ko'chamiz</b>:
+    <code>php8.3-mysql</code>, <code>DB_*</code>
+    sozlamalari, <code>migrate:fresh</code> — va eng
+    muhimi, ikkalasi orasidagi <b>haqiqiy
+    farqlar</b>.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel — Eager Loading</b>:
+    <a href="https://laravel.com/docs/13.x/eloquent-relationships#eager-loading">with,
+    load, withCount, preventLazyLoading</a>.<sup><a href="#fn1">1</a></sup><br>
+    <b>Laravel Telescope</b>:
+    <a href="https://laravel.com/docs/13.x/telescope">o'rnatish,
+    sozlash, prune</a>.<sup><a href="#fn2">2</a></sup><br>
+    <b>SQLite — Query Planning</b>:
+    <a href="https://www.sqlite.org/optoverview.html">EXPLAIN QUERY PLAN
+    va indekslar</a>.<sup><a href="#fn3">3</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b>
+    «nechta indeks normal?», «Telescope o'rniga nima
+    ishlatsam bo'ladi?», «qidiruv uchun nima kerak?»,
+    «<code>select *</code> yomonmi?» — har qanday savol
+    yaxshi. Birinchisiga qisqa javob: <b>o'lchov
+    aytadi</b> — odatda jadvalga 3–5 ta indeks
+    yetarli, va ularning har biri <b>haqiqiy
+    so'rov</b> uchun bo'lishi kerak. Ikkinchisiga:
+    ishlab chiqarish uchun <b>Laravel Pulse</b>
+    (yengil, doimiy ishlaydi) yoki tashqi APM
+    xizmatlari.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0059-cache-va-redis.html">Oldingi: Cache va Redis</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel 13 — <a href="https://laravel.com/docs/13.x/eloquent-relationships#eager-loading">Eager Loading</a>.</li>
+      <li id="fn2">Laravel 13 — <a href="https://laravel.com/docs/13.x/telescope">Telescope</a>.</li>
+      <li id="fn3">SQLite — <a href="https://www.sqlite.org/optoverview.html">Query Optimizer Overview</a>.</li>
+      <li id="fn4">Barchasi jonli o'lchangan (PHP 8.3.32, Laravel 13.26.1,
+      Pest 4.7.8, SQLite, 50 009 vakansiya):
+      200 yozuv uchun — N+1 <b>201 so'rov / 22.9 ms</b>,
+      <code>with()</code> <b>2 / 2.5 ms</b>,
+      <code>load()</code> <b>2 / 2.4 ms</b>,
+      <code>withCount</code> <b>1 / 13.0 ms</b> ·
+      <code>EXPLAIN QUERY PLAN</code>: indekssiz
+      <code>SCAN vakansiyalar</code>, indeksli
+      <code>SEARCH vakansiyalar USING INDEX
+      vakansiyalar_shahar_index (shahar=?)</code> ·
+      ⚠️ <code>shahar = ?</code> (~7000 yozuv):
+      <b>7.71 → 7.29 ms</b> — reja o'zgardi, vaqt
+      deyarli o'zgarmadi ·
+      <code>nom = ?</code> (1 yozuv):
+      <b>1.868 → 0.043 ms</b> (<b>43 barobar</b>) ·
+      <code>count(*) where shahar = ?</code> (indeksli):
+      <b>0.170 ms</b>, o'sha shart bilan
+      <code>select *</code> <b>7.397 ms</b> ·
+      ⚠️ <code>nom like '%dasturchi%'</code> →
+      <code>SCAN vakansiyalar</code> ·
+      <code>preventLazyLoading(true)</code>:
+      <code>Vakansiya::first()-&gt;kompaniya</code>
+      <b>ishladi</b>,
+      <code>foreach (Vakansiya::get() ...)</code> →
+      <code>Illuminate\Database\LazyLoadingViolationException:
+      Attempted to lazy load [kompaniya] on model
+      [App\Models\Vakansiya] but lazy loading is
+      disabled.</code> ·
+      Telescope: bitta <code>/api/v1/statistika</code>
+      so'rovi ortida <code>query</code> <b>14</b>,
+      <code>cache</code> <b>4</b>, <code>model</code>
+      <b>2</b>, <code>request</code> <b>1</b>,
+      <code>command</code> <b>1</b> ·
+      ⚠️ Telescope narxi: yoqilgan <b>1.544s · 1.511s</b>,
+      o'chirilgan <b>1.391s · 1.201s · 1.381s</b> ·
+      <code>TezlikTest</code> — <b>5 passed (8
+      assertions)</b>, to'liq to'plam <b>82 passed (168
+      assertions), 0.75s</b>.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>
