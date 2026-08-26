@@ -18,7 +18,7 @@
   izoh esa o'zbekcha.</p>
 
   <p class="lesson-meta">
-    <span>Atamalar: <b>286 ta</b></span>
+    <span>Atamalar: <b>289 ta</b></span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>📱 O'qishga mos</span>
   </p>
@@ -26,7 +26,7 @@
   <div class="callout note">
     <span class="label">Bu hujjat o'sib boradi</span>
     <p>Atama faqat <b>o'z darsi yozilganda</b> qo'shiladi — oldindan emas. Hozir:
-    Modul A–J (1–68-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
+    Modul A–J (1–69-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
     bosqichida qat'iy belgilangan va 73 dars bo'ylab o'zgarmaydi).</p>
   </div>
 
@@ -916,6 +916,97 @@
       <b>majburiy</b>. Xato ko'rinishi: <code>no such table: vakansiyas</code>.
       Tekshirish: <code>(new Vakansiya)-&gt;getTable()</code>.
       <span class="eg">protected $table = 'vakansiyalar';</span></dd>
+    </div>
+
+    <div class="term" id="chiqarish">
+      <dt>chiqarish (deploy) <span class="uz">— o'n bir qadam, tartibi muhim</span></dt>
+      <dd><code>down --secret</code> →
+      <code>git pull --ff-only</code> →
+      <code>composer install --no-dev
+      --optimize-autoloader</code> →
+      <code>migrate --force</code> →
+      <code>optimize:clear</code> →
+      <code>optimize</code> →
+      <code>storage:link</code> → PHP-FPM reload →
+      <code>queue:restart</code> → <code>up</code> →
+      <code>about</code>.
+      🔑 Skript boshida <b><code>set -e</code></b> —
+      usiz migratsiya yiqilsa ham <code>up</code>
+      bajariladi va <b>buzuq ilova</b> ochiq qoladi.
+      ⚠️ Tartib muhim: migratsiya <b>koddan keyin</b>,
+      aks holda eski kod yangi ustunni bilmaydi.
+      🔍 <code>optimize</code> o'lchandi:
+      <b>13.23 → 8.65 ms</b> (35%) — lekin ⚠️ farq
+      <b>tebranadi</b>, bir o'lchovda umuman
+      ko'rinmadi. Bitta o'lchov yetarli emas.
+      🔍 <code>--no-dev</code>: <b>133 → 78</b> paket
+      (Pest, Pint, Telescope, Sail tushmaydi) — tezlik
+      ham, <b>xavfsizlik</b> ham.
+      🔍 <code>down --secret="X" --retry=60</code> →
+      <b>503</b> + <code>Retry-After: 60</code>;
+      <code>/X</code> → <b>302</b> (cookie o'rnatadi);
+      keyin <b>200</b>.
+      <span class="eg">php artisan optimize:clear &amp;&amp; php artisan optimize</span></dd>
+    </div>
+
+    <div class="term" id="deploy-xatolari">
+      <dt>chiqarishdagi besh xato <span class="uz">— aniq ko'rinishi bilan</span></dt>
+      <dd><b>1)</b>
+      <code>MissingAppKeyException: No application
+      encryption key has been specified.</code> →
+      <code>key:generate --force</code>
+      (⚠️ ishlayotgan saytda <b>emas</b> — shifrlangan
+      hamma narsa o'qib bo'lmaydigan bo'ladi).
+      <b>2)</b> ⭐ <code>config:cache</code> tuzog'i —
+      🔍 o'lchandi: <code>.env</code> da
+      <code>APP_NAME=IshTopYangi</code>, lekin
+      <code>config('app.name')</code> hamon
+      <b>Laravel</b>. <b>Xato yo'q, qiymat eski.</b>
+      Keshdan keyin Laravel <code>.env</code> ni
+      <b>umuman o'qimaydi</b> — <code>env()</code>
+      <code>null</code> beradi.
+      <b>3)</b> <code>WARN Command cancelled.</code> —
+      <code>APP_ENV=production</code> da
+      <code>migrate</code>, <code>migrate:fresh</code>,
+      <code>db:wipe</code> tasdiq so'raydi →
+      <code>--force</code>.
+      <b>4)</b>
+      <code>UnexpectedValueException: ... could not be
+      opened in append mode: Permission denied</code> →
+      <code>chown -R www-data:www-data storage
+      bootstrap/cache</code> (faqat shu ikkitasi
+      yoziladigan).
+      <b>5)</b> Hujjat ildizi noto'g'ri →
+      <code>curl -I https://sayt/.env</code> <b>200</b>
+      qaytadi. ☠️ Darrov tuzating <b>va sirlarni
+      almashtiring</b>.
+      <span class="eg">root /var/www/ishtop/public;</span></dd>
+    </div>
+
+    <div class="term" id="rollback">
+      <dt>orqaga qaytish (rollback) <span class="uz">— reja OLDINDAN</span></dt>
+      <dd><b>Kod</b> oson:
+      <code>git checkout &lt;commit&gt;</code> +
+      <code>composer install</code> +
+      <code>optimize</code>.
+      <b>Migratsiya</b> qiyin:
+      <code>migrate:rollback --force</code> — lekin
+      <code>down()</code> to'g'ri yozilganmi? Ustun
+      o'chsa <b>ma'lumot ham ketadi</b>.
+      <b>Ma'lumot</b> — faqat <b>zaxira nusxadan</b>
+      (deploy'dan <b>oldin</b>).
+      ✅ Xavfsiz naqsh —
+      <b>kengaytir–ko'chir–toraytir</b>:
+      <b>1)</b> yangi ustun qo'sh (eski qoladi),
+      ikkalasiga yoz · <b>2)</b> ma'lumotni ko'chir,
+      kodni o'tkaz · <b>3)</b> eski ustunni o'chir.
+      Uch alohida deploy, har biri qaytariladi.
+      🔑 Nol to'xtash: <code>releases/</code> +
+      <code>shared/</code> + <code>current</code>
+      simvolik havolasi (Deployer, Envoy, Forge).
+      ⚠️ 61-darsdan: MySQL'da DDL tranzaksiyaga
+      bo'ysunmaydi.
+      <span class="eg">mysqldump ... &gt; zaxira-$(date +%F-%H%M).sql</span></dd>
     </div>
 
     <div class="term" id="docker-sail">

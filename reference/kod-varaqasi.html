@@ -17,7 +17,7 @@
   muhit ma'lumotlari. Har dars yangi buyruq o'rgatilsa, shu yerga qo'shiladi.</p>
 
   <p class="lesson-meta">
-    <span>Qamrov: <b>1&ndash;68-darslar</b> — muhitdan API'gacha</span>
+    <span>Qamrov: <b>1&ndash;69-darslar</b> — muhitdan API'gacha</span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>💻 Amaliyotga mos</span>
   </p>
@@ -1826,6 +1826,54 @@
     <code>database</code> · <code>redis</code> (ishlab
     chiqarish, teglar bor).
     Redis nafaqat kesh: navbat, sessiya va cheklov ham.</p>
+  </div>
+
+  <h2>Serverga chiqarish (69-darsdan)</h2>
+  <table class="sheet">
+    <tr><th>Qadam</th><th class="note-cell">Buyruq</th></tr>
+    <tr><td>0</td><td class="note-cell"><code>set -e</code> — 🔑 skriptning eng muhim qatori</td></tr>
+    <tr><td>1</td><td class="note-cell"><code>php artisan down --secret="$X" --retry=60</code></td></tr>
+    <tr><td>2</td><td class="note-cell"><code>git pull --ff-only origin main</code></td></tr>
+    <tr><td>3</td><td class="note-cell"><code>composer install --no-dev --optimize-autoloader</code></td></tr>
+    <tr><td>4</td><td class="note-cell"><code>php artisan migrate --force</code></td></tr>
+    <tr><td>5–6</td><td class="note-cell"><code>optimize:clear</code> <b>keyin</b> <code>optimize</code></td></tr>
+    <tr><td>7</td><td class="note-cell"><code>php artisan storage:link</code></td></tr>
+    <tr><td>8–9</td><td class="note-cell">PHP-FPM reload · <code>php artisan queue:restart</code></td></tr>
+    <tr><td>10–11</td><td class="note-cell"><code>php artisan up</code> · <code>php artisan about</code></td></tr>
+  </table>
+  <table class="sheet">
+    <tr><th>Xato</th><th class="note-cell">Ko'rinishi va yechimi</th></tr>
+    <tr><td><code>APP_KEY</code> yo'q</td><td class="note-cell"><code>MissingAppKeyException</code> → <code>key:generate --force</code></td></tr>
+    <tr><td>⭐ <code>config:cache</code></td><td class="note-cell"><b>Xato yo'q</b>, qiymat eski → <code>config:clear</code></td></tr>
+    <tr><td><code>--force</code> yo'q</td><td class="note-cell"><code>WARN Command cancelled.</code></td></tr>
+    <tr><td>Huquqlar</td><td class="note-cell"><code>could not be opened in append mode</code></td></tr>
+    <tr><td>Hujjat ildizi</td><td class="note-cell"><code>curl -I https://sayt/.env</code> → <b>404</b> bo'lsin</td></tr>
+  </table>
+  <div class="callout note">
+    <p>🔍 <b>O'lchangan:</b> <code>optimize</code> →
+    <b>13.23 → 8.65 ms</b> (35%), config keshi
+    <b>26 642</b> bayt.
+    ⚠️ Farq <b>tebranadi</b> — bir o'lchovda umuman
+    ko'rinmadi. <b>Bitta o'lchov yetarli emas.</b></p>
+    <p>🔍 <code>--no-dev</code>: <b>133 → 78</b> paket
+    (Pest, Pint, Telescope, Sail tushmaydi).
+    <code>vendor/</code> <b>102 MB</b>.</p>
+    <p>🔍 <b>Ta'mirlash rejimi:</b> oddiy so'rov
+    <b>503</b> + <code>Retry-After: 60</code>;
+    maxfiy kalit URL <b>302</b> (cookie);
+    keyin <b>200</b>.</p>
+    <p>⚠️ <b>nginx:</b> <code>root
+    /var/www/ishtop/public;</code> — noto'g'ri
+    bo'lsa <code>/.env</code> internetga
+    ochiladi.
+    <br>Faqat <code>storage</code> va
+    <code>bootstrap/cache</code> yoziladigan
+    bo'lsin.</p>
+    <p>🔑 <b>Kengaytir–ko'chir–toraytir</b> — xavfsiz
+    migratsiya: yangi ustun qo'sh → ma'lumotni
+    ko'chir va kodni o'tkaz → eskisini o'chir.
+    Uch alohida deploy.</p>
+    <p>⚠️ <b>Juma kuni chiqarmang.</b></p>
   </div>
 
   <h2>Docker va Sail (68-darsdan)</h2>

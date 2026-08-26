@@ -1,0 +1,1350 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 69 — Real serverga chiqarish</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 69 · MODUL J — ISHGA TUSHIRISH VA KASBGA KIRISH</p>
+  <h1>Real serverga chiqarish</h1>
+  <p class="lead">Kod tayyor, muhit ko'chma. Endi eng
+  hayajonli va eng xavfli qadam: <b>haqiqiy
+  serverga chiqarish</b>. Bugun to'liq tartibni
+  yozamiz — va beshta eng ko'p uchraydigan xatoni
+  <b>ataylab chaqirib</b>, ularning aniq
+  ko'rinishini o'lchaymiz.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 21 daqiqa</span>
+    <span>💻 Amaliyot ≈ 40 daqiqa</span>
+    <span>Kerak: <a href="0068-docker-va-sail.html">Dars 68</a></span>
+  </p>
+
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b>Server nima qiladi</b>
+        <span class="nima">nginx → PHP-FPM →
+        Laravel. Hujjat ildizi
+        <b>muhim</b>.</span></li>
+      <li><b>Chiqarish tartibi</b>
+        <span class="nima">O'n bir qadam, aniq
+        ketma-ketlikda.</span></li>
+      <li><b>🔍 <code>optimize</code></b>
+        <span class="nima">O'lchandi:
+        <b>13.23 → 8.65 ms</b> — ⚠️ lekin farq
+        <b>tebranadi</b>.</span></li>
+      <li><b>🔍 <code>--no-dev</code></b>
+        <span class="nima"><b>133</b> paketdan
+        <b>78</b> tasi qoladi.</span></li>
+      <li><b>Ta'mirlash rejimi</b>
+        <span class="nima">🔍 <b>503</b> +
+        <code>Retry-After</code>, va
+        <b>maxfiy kalit</b>.</span></li>
+      <li><b>⚠️ XATO 1: <code>APP_KEY</code>
+        yo'q</b>
+        <span class="nima">🔍
+        <code>MissingAppKeyException</code>.</span></li>
+      <li><b>⭐ ⚠️ XATO 2: <code>config:cache</code>
+        tuzog'i</b>
+        <span class="nima">🔍 <code>.env</code>
+        o'zgardi, <code>config()</code>
+        <b>eskisini</b> berdi.</span></li>
+      <li><b>⚠️ XATO 3: <code>migrate</code>
+        <code>--force</code> siz</b>
+        <span class="nima">🔍 <code>Command
+        cancelled</code> — deploy
+        to'xtaydi.</span></li>
+      <li><b>⚠️ XATO 4: huquqlar</b>
+        <span class="nima">🔍
+        <code>could not be opened in append
+        mode</code>.</span></li>
+      <li><b>⚠️ XATO 5: hujjat ildizi</b>
+        <span class="nima">Butun kod
+        <b>internetga ochiladi</b>.</span></li>
+      <li><b>Orqaga qaytish (rollback)</b>
+        <span class="nima">Reja <b>oldindan</b>
+        bo'lsin.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima">HTTPS · nol to'xtash ·
+        <code>.env</code> boshqaruvi ·
+        monitoring.</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Chiqarish — bu ko'chirish emas</span>
+    <p>Ko'p yangi dasturchi buni «fayllarni serverga
+    nusxalash» deb tasavvur qiladi. Aslida
+    kamida <b>o'n bir</b> ish bor va ularning
+    <b>tartibi</b> muhim.</p>
+    <div class="natija">Noto'g'ri tartib:
+   1) migratsiya   →  yangi ustun qo'shildi
+   2) kod          →  eski kod hali ishlab turibdi
+                      va u ustunni bilmaydi        ⚠️
+
+To'g'ri tartib:
+   1) ta'mirlash rejimi
+   2) kod
+   3) bog'liqliklar
+   4) migratsiya
+   5) kesh
+   6) ta'mirlash rejimidan chiqish</div>
+    <p>🔑 Va eng muhimi: <b>orqaga qaytish rejasi</b>
+    chiqarishdan <b>oldin</b> tayyor
+    bo'lsin.</p>
+    <p>Bugun har qadamni o'lchaymiz va beshta
+    eng ko'p uchraydigan xatoni <b>ataylab</b>
+    chaqiramiz — shunda serverda ularni
+    <b>tanib olasiz</b>.</p>
+  </div>
+
+  <!-- ═══════════════ 2) SERVER ═══════════════ -->
+  <h2>Serverda nima ishlaydi</h2>
+
+  <div class="natija">Brauzer
+   ↓  HTTPS (443)
+nginx                          ← statik fayllar, sertifikat, marshrutlash
+   ↓  fastcgi (9000 yoki soket)
+PHP-FPM                        ← PHP jarayonlari havzasi
+   ↓
+public/index.php               ← Laravel shu yerdan boshlanadi
+   ↓
+MySQL · Redis                  ← alohida xizmatlar</div>
+
+  <div class="callout warn">
+    <span class="label">⚠️ Hujjat ildizi — eng ko'p qilinadigan xato</span>
+    <div class="natija">❌ root /var/www/ishtop;
+✅ root /var/www/ishtop/public;</div>
+    <p>Noto'g'ri qo'ysangiz, <b>butun loyiha
+    internetga ochiladi</b>:</p>
+    <div class="natija">https://ishtop.uz/.env               ← sirlaringiz
+https://ishtop.uz/composer.json      ← paket versiyalari (66-dars: zaifliklar)
+https://ishtop.uz/storage/logs/laravel.log</div>
+    <p>🔑 Laravel <b>ataylab</b> shunday qurilgan:
+    <code>public/</code> dan tashqarida hech narsa
+    veb orqali ko'rinmasligi kerak.</p>
+    <p>🔍 Va <code>public/index.php</code> ning birinchi
+    ishi — ta'mirlash rejimini tekshirish:</p>
+    <div class="natija">if (file_exists($maintenance = __DIR__.'/../storage/framework/maintenance.php')) {
+    require $maintenance;
+}</div>
+  </div>
+
+  <h3>nginx sozlamasi</h3>
+
+  <div class="codefile">
+    <div class="fname">/etc/nginx/sites-available/ishtop</div>
+    <code class="cmd">server {
+    listen 80;
+    server_name ishtop.uz www.ishtop.uz;
+    root /var/www/ishtop/public;          # ← public/
+
+    index index.php;
+    charset utf-8;
+
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    location ~ \.php$ {
+        fastcgi_pass unix:/var/run/php/php8.3-fpm.sock;
+        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+        include fastcgi_params;
+    }
+
+    location ~ /\.(?!well-known).* {     # .env, .git — YOPIQ
+        deny all;
+    }
+
+    client_max_body_size 20M;            # fayl yuklash (66-dars)
+}</code>
+  </div>
+
+  <!-- ═══════════════ 3) TARTIB ═══════════════ -->
+  <h2>Chiqarish tartibi — o'n bir qadam</h2>
+
+  <div class="codefile">
+    <div class="fname">deploy.sh</div>
+    <code class="cmd">#!/usr/bin/env bash
+set -e                                   # xato bo'lsa DARROV to'xta
+
+cd /var/www/ishtop
+
+php artisan down --secret="$DEPLOY_SECRET" --retry=60   # 1
+
+git pull --ff-only origin main                          # 2
+
+composer install --no-dev --optimize-autoloader \
+    --no-interaction --prefer-dist                      # 3
+
+php artisan migrate --force                             # 4
+
+php artisan optimize:clear                              # 5
+php artisan optimize                                    # 6
+
+php artisan storage:link                                # 7
+
+sudo systemctl reload php8.3-fpm                        # 8
+php artisan queue:restart                               # 9
+
+php artisan up                                          # 10
+
+php artisan about                                       # 11</code>
+  </div>
+
+  <div class="callout tip">
+    <span class="label">🔑 <code>set -e</code> — eng muhim qator</span>
+    <p>Usiz: migratsiya yiqilsa ham skript davom etadi
+    va <code>artisan up</code> ni bajaradi. Natijada
+    <b>buzuq ilova</b> ochiq qoladi.</p>
+    <p><code>set -e</code> bilan: birinchi xatoda
+    to'xtaydi va ilova <b>ta'mirlash rejimida</b>
+    qoladi.</p>
+    <p>✅ Va shuning uchun 1-qadam <code>down</code>,
+    oxirgisi <code>up</code>.</p>
+  </div>
+
+  <!-- ═══════════════ 4) OPTIMIZE ═══════════════ -->
+  <h2>🔍 <code>optimize</code> — nima keshlanadi</h2>
+
+  <div class="natija">php artisan optimize
+
+  config ......................................... 5.81ms DONE
+  events ......................................... 0.62ms DONE
+  routes ......................................... 7.24ms DONE
+  views ......................................... 11.30ms DONE
+
+jami: 0.14 s</div>
+
+  <p>Yaratilgan fayllar:</p>
+
+  <div class="natija">bootstrap/cache/config.php        26 642 bayt    ← barcha config/*.php bitta faylda
+bootstrap/cache/routes-v7.php     22 096 bayt    ← marshrutlar
+bootstrap/cache/services.php      23 488 bayt    ← provayderlar
+bootstrap/cache/packages.php       1 501 bayt
+bootstrap/cache/events.php           277 bayt</div>
+
+  <p>Foydasi bormi? <b>O'lchadik</b> — bir xil
+  endpointga 30 ta so'rov, uch marta
+  takrorlab:</p>
+
+  <div class="natija">              optimize-siz    optimize-bilan
+1-o'lchov        13.23 ms         8.65 ms      → 35% tezroq
+2-o'lchov        13.42 ms        10.83 ms      → 19% tezroq
+3-o'lchov        10.70 ms        10.60 ms      → farq YO'Q   ⚠️</div>
+
+  <p>⚠️ E'tibor bering: <b>uchinchi o'lchovda farq
+  ko'rinmadi</b>. Sabab — ilovamiz kichik va
+  o'lchov <b>shovqinli</b>: birinchi so'rovlar
+  «isitish», disk keshi, boshqa jarayonlar.</p>
+
+  <p>🔑 Bu ham dars: <b>bitta o'lchov yetarli
+  emas</b>. 60-darsda ham shunday qilgandik —
+  o'nlab marta takrorlab, o'rtachasini
+  olgandik.</p>
+
+  <div class="callout tip">
+    <span class="label">🔑 Nega tezroq?</span>
+    <p>Keshsiz Laravel <b>har so'rovda</b>:
+    <code>config/</code> dagi 15+ faylni o'qiydi,
+    <code>routes/</code> ni tahlil qiladi,
+    provayderlarni aniqlaydi.</p>
+    <p>Kesh bilan — <b>bitta</b> tayyor
+    <code>.php</code> faylni yuklaydi.</p>
+    <p>⚠️ Shuning uchun mahalliy ishda
+    <code>config:cache</code> <b>ishlatmang</b>:
+    <code>.env</code> ni o'zgartirsangiz, ilova
+    buni <b>sezmaydi</b> (quyida
+    o'lchaymiz).</p>
+  </div>
+
+  <!-- ═══════════════ 5) NO-DEV ═══════════════ -->
+  <h2>🔍 <code>--no-dev --optimize-autoloader</code></h2>
+
+  <div class="natija">composer show            →  133 ta paket
+composer show --no-dev  →   78 ta paket
+
+                        →  55 ta paket serverga TUSHMAYDI</div>
+
+  <p>Nimalar tushmaydi? Pest, Pint, Telescope, Faker,
+  Mockery, Sail — hammasi <b>ishlab chiqish</b>
+  vositalari.</p>
+
+  <div class="natija">vendor/ hajmi (dev bilan):   102 MB
+autoload classmap:         7 828 ta sinf, ~1 MB</div>
+
+  <div class="callout warn">
+    <span class="label">⚠️ Nega bu XAVFSIZLIK masalasi ham</span>
+    <p>66-darsdan eslang: har paket —
+    <b>hujum yuzasi</b>. Telescope ishlab
+    chiqarishda ochiq qolsa, u
+    <b>hamma so'rovni</b>, jumladan
+    tokenlarni ko'rsatadi.</p>
+    <p>✅ <code>--optimize-autoloader</code> — sinf
+    nomlarini oldindan xaritaga soladi, shunda
+    PHP har sinf uchun fayl <b>qidirmaydi</b>.</p>
+    <p>🔑 Ikkalasi ham <b>faqat serverda</b>. Mahalliy
+    ishda <code>composer install</code> oddiy
+    holicha.</p>
+  </div>
+
+  <!-- ═══════════════ 6) TA'MIRLASH REJIMI ═══════════════ -->
+  <h2>Ta'mirlash rejimi</h2>
+
+  <div class="natija">php artisan down --secret="sirli-kalit-123" --retry=60
+
+INFO  You may bypass maintenance mode via [http://localhost:8000/sirli-kalit-123].</div>
+
+  <p>O'lchadik:</p>
+
+  <div class="natija">oddiy so'rov              →  503
+javob sarlavhasida        →  Retry-After: 60
+
+/sirli-kalit-123 ni ochish →  302   (cookie o'rnatib, / ga yo'naltiradi)
+keyin oddiy so'rov         →  200   ✅ siz ko'rasiz, boshqalar yo'q
+
+php artisan up             →  200</div>
+
+  <div class="callout tip">
+    <span class="label">🔑 Maxfiy kalit nima uchun</span>
+    <p>Chiqarishdan keyin <b>tekshirish</b> kerak:
+    sayt ishlayaptimi? Lekin foydalanuvchilarga
+    hali ko'rsatmaslik kerak.</p>
+    <p>Maxfiy kalit aynan shuni beradi: siz
+    <b>ichkarida</b>, qolganlar <b>503</b>
+    ko'radi.</p>
+    <p>🔍 <code>Retry-After: 60</code> — bu qidiruv
+    tizimlariga «60 soniyadan keyin qayting»
+    degan signal. Usiz Google sahifani
+    <b>o'chirilgan</b> deb hisoblashi
+    mumkin.</p>
+    <p>⚠️ Kalit <code>.env</code> da bo'lsin, deploy
+    skriptida <b>ochiq yozilmasin</b>.</p>
+  </div>
+
+  <!-- ═══════════════ 7) BESHTA XATO ═══════════════ -->
+  <h2>⚠️ Beshta eng ko'p uchraydigan xato</h2>
+
+  <p>Har birini <b>ataylab chaqirdik</b>. Serverda
+  ularni <b>tanib olasiz</b>.</p>
+
+  <h3>⚠️ XATO 1: <code>APP_KEY</code> yo'q</h3>
+
+  <div class="natija">Illuminate\Encryption\MissingAppKeyException
+No application encryption key has been specified.</div>
+
+  <p>Sabab: <code>.env</code> serverga yangi
+  ko'chirilgan va <code>APP_KEY</code>
+  bo'sh.</p>
+
+  <div class="natija">php artisan key:generate --force</div>
+
+  <p>⚠️ Lekin diqqat: kalitni <b>o'zgartirsangiz</b>,
+  shifrlangan hamma narsa — sessiyalar,
+  shifrlangan ustunlar — <b>o'qib bo'lmaydigan</b>
+  bo'lib qoladi. Ishlayotgan saytda
+  <code>key:generate</code> ni <b>ishlatmang</b>.</p>
+
+  <h3>⭐ ⚠️ XATO 2: <code>config:cache</code> tuzog'i</h3>
+
+  <p>54-darsda tilga olgandik. Endi
+  <b>o'lchaymiz</b>:</p>
+
+  <div class="natija">php artisan config:cache
+config('app.name')                    →  Laravel
+
+# .env ni o'zgartiramiz: APP_NAME=IshTopYangi
+config('app.name')                    →  Laravel        ⚠️  ESKISI!
+
+php artisan config:clear
+config('app.name')                    →  IshTopYangi    ✅</div>
+
+  <div class="callout warn">
+    <span class="label">⚠️ Xato yo'q, qiymat eski</span>
+    <p>Bu 62 va 66-darslardagi bilan bir xil naqsh:
+    <b>xato yo'q, natija noto'g'ri</b>.</p>
+    <p>Serverda bu shunday ko'rinadi: parolni
+    o'zgartirdingiz, deploy qildingiz — ilova
+    hamon <b>eski parol</b> bilan ulanmoqchi.</p>
+    <p class="expect">🔑 Sabab: <code>config:cache</code>
+    dan keyin Laravel <code>.env</code> ni
+    <b>umuman o'qimaydi</b>. Va
+    <code>env()</code> funksiyasi
+    <b>null</b> qaytaradi.</p>
+    <p>✅ Shuning uchun deploy skriptida
+    <code>optimize:clear</code> <b>keyin</b>
+    <code>optimize</code> — shu tartibda.</p>
+    <p>⚠️ Va shuning uchun <code>env()</code> ni faqat
+    <code>config/</code> fayllarida ishlating —
+    controllerda yoki modelda <b>hech
+    qachon</b>.</p>
+  </div>
+
+  <h3>⚠️ XATO 3: <code>migrate</code> <code>--force</code> siz</h3>
+
+  <div class="natija">APP_ENV=production
+php artisan migrate
+
+WARN  Command cancelled.</div>
+
+  <p>Laravel ishlab chiqarish muhitida
+  <b>tasdiq so'raydi</b>. Deploy skriptida
+  klaviatura yo'q — javob kelmaydi va buyruq
+  <b>bekor qilinadi</b>.</p>
+
+  <div class="natija">php artisan migrate --force        →  INFO  Nothing to migrate.  ✅</div>
+
+  <p>🔍 Xuddi shu himoya
+  <code>migrate:fresh</code>,
+  <code>db:wipe</code>,
+  <code>migrate:rollback</code> da ham bor — va
+  66-darsdan eslang, <code>--force</code>
+  <b>himoyani o'chiradi</b>.</p>
+
+  <h3>⚠️ XATO 4: fayl huquqlari</h3>
+
+  <div class="natija">chmod 555 storage/logs
+Log::error('zond');
+
+UnexpectedValueException: The stream or file ".../laravel.log"
+could not be opened in append mode: Failed to open stream: Permission denied</div>
+
+  <p>Sabab: nginx/PHP-FPM <code>www-data</code>
+  foydalanuvchisi sifatida ishlaydi, sizning
+  fayllaringiz esa <b>siznikida</b>.</p>
+
+  <div class="natija">sudo chown -R www-data:www-data storage bootstrap/cache
+sudo chmod -R 775 storage bootstrap/cache</div>
+
+  <p>🔑 <b>Faqat shu ikkitasi</b> yoziladigan
+  bo'lishi kerak. Qolgan hamma narsa —
+  <b>o'qish uchun</b>.</p>
+
+  <h3>⚠️ XATO 5: hujjat ildizi</h3>
+
+  <p>Yuqorida ko'rdik. Tekshirish
+  <b>bir buyruq</b>:</p>
+
+  <div class="natija">curl -I https://ishtop.uz/.env
+
+404  yoki  403   ✅  to'g'ri
+200              ☠️  DARROV tuzating va sirlarni ALMASHTIRING (66-dars)</div>
+
+  <!-- ═══════════════ 8) ORQAGA QAYTISH ═══════════════ -->
+  <h2>Orqaga qaytish (rollback)</h2>
+
+  <p>Chiqarish <b>muvaffaqiyatsiz</b> bo'lishi mumkin.
+  Reja <b>oldindan</b> bo'lsin.</p>
+
+  <div class="natija">1) KOD — oson
+   git log --oneline -5
+   git checkout <oldingi-commit>
+   composer install --no-dev -o && php artisan optimize
+
+2) MIGRATSIYA — QIYIN
+   php artisan migrate:rollback --force
+   ⚠️ down() metodi TO'G'RI yozilganmi? Sinaganmisiz?
+   ⚠️ Ustun o'chirilsa — MA'LUMOT ham ketadi
+
+3) MA'LUMOT — faqat ZAXIRA NUSXADAN
+   mysqldump ... > zaxira-$(date +%F-%H%M).sql   ← deploy dan OLDIN</div>
+
+  <div class="callout warn">
+    <span class="label">🔑 Xavfsiz migratsiya naqshi</span>
+    <p>Ustun nomini o'zgartirish kerak deylik.
+    <b>Bir qadamda</b> qilmang:</p>
+    <div class="natija">❌ bitta deploy:
+   rename column  →  eski kod darrov buziladi
+
+✅ uch deploy:
+   1) YANGI ustun qo'sh (eski qoladi) — ikkalasiga yoz
+   2) ma'lumotni ko'chir, kodni yangi ustunga o'tkaz
+   3) eski ustunni o'chir</div>
+    <p>Bu <b>kengaytir–ko'chir–toraytir</b> naqshi.
+    Har qadam <b>orqaga qaytariladi</b> va
+    hech qachon eski kod bilan
+    to'qnashmaydi.</p>
+    <p>⚠️ 61-darsdan eslang: MySQL'da DDL
+    tranzaksiyaga bo'ysunmaydi — yarim
+    bajarilgan migratsiya <b>qoladi</b>.</p>
+  </div>
+
+  <!-- ═══════════════ 9) HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir
+  bir marta o'qing, keyin chiqarish paytida
+  qaytib qarang.</p>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 1</span>
+    <h4>HTTPS — Let's Encrypt</h4>
+    <div class="natija">sudo apt install certbot python3-certbot-nginx
+sudo certbot --nginx -d ishtop.uz -d www.ishtop.uz
+sudo certbot renew --dry-run          ← avtomatik yangilanishni sinash</div>
+    <p>Certbot nginx sozlamasini <b>o'zi</b>
+    yangilaydi va 80 → 443 yo'naltirish
+    qo'shadi.</p>
+    <p>✅ Laravel tomonida:</p>
+    <div class="natija"># .env
+APP_URL=https://ishtop.uz
+
+# AppServiceProvider::boot()
+if (app()->isProduction()) {
+    URL::forceScheme('https');
+}</div>
+    <p>⚠️ Usiz <code>route()</code> va
+    <code>asset()</code> <code>http://</code>
+    qaytaradi — brauzer «aralash mazmun»
+    ogohlantirishini beradi.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 2</span>
+    <h4>Nol to'xtashli chiqarish</h4>
+    <div class="natija">/var/www/ishtop/
+    releases/
+        2026-08-26-1200/     ← eski
+        2026-08-26-1430/     ← yangi
+    shared/
+        .env                 ← BITTA nusxa
+        storage/             ← BITTA nusxa
+    current -> releases/2026-08-26-1430    ← SIMVOLIK HAVOLA</div>
+    <p>Yangi versiya <b>yonida</b> tayyorlanadi, so'ng
+    <code>current</code> havolasi <b>bir
+    lahzada</b> almashadi.</p>
+    <p>✅ Orqaga qaytish ham bir lahzada: havolani
+    eski papkaga qaytarasiz.</p>
+    <p>🔑 Tayyor vositalar: <b>Deployer</b>,
+    <b>Laravel Envoy</b>, <b>Laravel Forge</b>.
+    Qo'lda yozish shart emas.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 3</span>
+    <h4><code>.env</code> ni qanday boshqarmaslik</h4>
+    <div class="natija">❌ git ga qo'shish                    (66-dars)
+❌ Slack orqali yuborish
+❌ har deploy da qo'lda tahrirlash
+❌ .env.example ni eskirgan qoldirish   (68-dars predict)</div>
+    <p>✅ Yo'llar:</p>
+    <div class="natija">1) Serverda BIR MARTA yaratiladi, shared/ da yashaydi
+2) Sirlar boshqaruvchisi (Vault, AWS Secrets Manager)
+3) CI/CD sirlar ombori (GitHub Secrets — Modul J'da)</div>
+    <p>🔑 Va <code>.env.example</code> ni <b>har
+    yangi o'zgaruvchi qo'shilganda</b>
+    yangilang — u hujjat.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 4</span>
+    <h4><code>storage:link</code> nima qiladi</h4>
+    <div class="natija">php artisan storage:link
+
+public/storage  →  storage/app/public</div>
+    <p>Yuklangan fayllar
+    <code>storage/app/public</code> da yotadi
+    (veb orqali <b>ko'rinmaydi</b>), simvolik
+    havola ularni <code>public/</code> ga
+    <b>ochadi</b>.</p>
+    <p>⚠️ Havola git'da <b>saqlanmaydi</b> — har
+    deploy'da qayta yaratiladi.</p>
+    <p>🔑 66-darsdagi qoida: yuklangan fayllarni
+    <b>bajariladigan</b> papkada saqlamang.
+    Bu naqsh aynan shuning uchun.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 5</span>
+    <h4>Chiqarishdan keyingi tekshiruv</h4>
+    <div class="natija">php artisan about                       ← muhit, kesh, drayverlar
+curl -I https://ishtop.uz/              ← 200 mi?
+curl -I https://ishtop.uz/.env          ← 404/403 bo'lishi SHART
+curl -s https://ishtop.uz/api/v1/vakansiyalar | head -c 200
+tail -f storage/logs/laravel.log        ← yangi xatolar bormi?</div>
+    <p>🔍 <code>php artisan about</code> bir qarashda
+    hammasini ko'rsatadi:</p>
+    <div class="natija">Environment ... production      ← local BO'LMASIN
+Debug Mode .......... OFF       ← ON BO'LMASIN (66-dars: 877 560 bayt)
+Config ........... CACHED       ← CACHED bo'lsin
+Routes ........... CACHED
+Database ........... mysql</div>
+    <p>✅ Beshta qator — va deploy to'g'ri
+    bo'lganini bilasiz.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 6</span>
+    <h4>Log fayli o'sib ketmasin</h4>
+    <div class="natija"># .env
+LOG_CHANNEL=daily
+LOG_DAILY_DAYS=14</div>
+    <p><code>single</code> kanali <b>bitta</b> faylga
+    yozadi — u oylar davomida gigabaytlarga
+    yetadi va diskni to'ldiradi (68-darsdan:
+    disk to'lsa hamma narsa to'xtaydi).</p>
+    <p><code>daily</code> — har kunga alohida fayl,
+    eskilari <b>o'zi o'chadi</b>.</p>
+    <p>🔑 Yoki tizim darajasida:
+    <code>logrotate</code>.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>Chiqarishdan oldingi ro'yxat</h4>
+    <div class="natija">KOD
+  □ testlar yashil                       php artisan test
+  □ uslub toza                           ./vendor/bin/pint --test
+  □ 66-darsdagi xavfsizlik ro'yxati
+
+SERVER
+  □ zaxira nusxa olindi                  mysqldump > zaxira.sql
+  □ .env to'liq va to'g'ri
+  □ APP_ENV=production  ·  APP_DEBUG=false
+  □ hujjat ildizi = public/
+  □ storage va bootstrap/cache yoziladigan
+
+DEPLOY
+  □ deploy.sh da set -e bor
+  □ migrate --force
+  □ optimize:clear KEYIN optimize
+  □ orqaga qaytish rejasi tayyor
+
+KEYIN
+  □ php artisan about
+  □ /.env → 404
+  □ log toza</div>
+    <p>🔑 Birinchi marta chiqarishda bu ro'yxatni
+    <b>qog'ozga chiqarib</b> belgilab boring.
+    Keyinchalik u avtomatlashadi.</p>
+  </div>
+
+  <!-- ═══════════════ 10) AMALIYOT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    💻 Quyida amaliyot bor. Hozir o'qish rejimidasiz — kompyuter
+    yoningizda bo'lganda <b>💻 Amaliyot</b> rejimiga o'ting va
+    shu bo'limdan davom eting.
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <div class="callout tip">
+      <span class="label">🔑 VPS shart emas</span>
+      <p>Quyidagi qadamlarning barchasi
+      <b>mahalliy</b> bajariladi. Maqsad — buyruqlarni
+      va <b>xatolarni</b> tanib olish. VPS
+      olganingizda o'sha buyruqlar
+      o'zgarmaydi.</p>
+    </div>
+
+    <ol class="steps">
+      <li>
+        <b>🔍 <code>optimize</code> ni o'lchang.</b>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+php artisan optimize:clear
+php artisan optimize
+ls -la bootstrap/cache/*.php | awk '{printf &quot;  %-40s %8d bayt\n&quot;, $9, $5}'">cd ~/Projects/Learn/ishtop
+php artisan optimize:clear
+php artisan optimize
+ls -la bootstrap/cache/*.php | awk '{printf &quot;  %-40s %8d bayt\n&quot;, $9, $5}'</div>
+        <p class="expect">Menda <code>config.php</code>
+        <b>26 642</b> bayt.</p>
+      </li>
+
+      <li>
+        <b>Tezlik farqini o'lchang.</b>
+        <div class="cmd" data-cmd="olch() {
+  php artisan serve --port=$2 >/dev/null 2>&amp;1 &amp;
+  sleep 4
+  for w in 1 2 3; do curl -s -o /dev/null http://127.0.0.1:$2/api/v1/vakansiyalar; done
+  T=0
+  for i in $(seq 1 30); do
+    T=$(python3 -c &quot;print($T + $(curl -s -o /dev/null -w '%{time_total}' -H 'Accept: application/json' http://127.0.0.1:$2/api/v1/vakansiyalar))&quot;)
+  done
+  python3 -c &quot;print('  %-16s %.2f ms' % ('$1', $T/30*1000))&quot;
+  kill %1 2>/dev/null
+  sleep 1
+}
+php artisan optimize:clear >/dev/null 2>&amp;1
+olch 'optimize-siz' 8093
+php artisan optimize >/dev/null 2>&amp;1
+olch 'optimize-bilan' 8094">olch() {
+  php artisan serve --port=$2 &gt;/dev/null 2&gt;&amp;1 &amp;
+  sleep 4
+  for w in 1 2 3; do curl -s -o /dev/null http://127.0.0.1:$2/api/v1/vakansiyalar; done
+  T=0
+  for i in $(seq 1 30); do
+    T=$(python3 -c &quot;print($T + $(curl -s -o /dev/null -w '%{time_total}' -H 'Accept: application/json' http://127.0.0.1:$2/api/v1/vakansiyalar))&quot;)
+  done
+  python3 -c &quot;print('  %-16s %.2f ms' % ('$1', $T/30*1000))&quot;
+  kill %1 2&gt;/dev/null
+  sleep 1
+}
+php artisan optimize:clear &gt;/dev/null 2&gt;&amp;1
+olch 'optimize-siz' 8093
+php artisan optimize &gt;/dev/null 2&gt;&amp;1
+olch 'optimize-bilan' 8094</div>
+        <p class="expect">Menda <b>13.23 → 8.65 ms</b>.
+        ⚠️ Ikki-uch marta takrorlang — farq
+        <b>tebranadi</b>: bir o'lchovda 35%,
+        boshqasida umuman ko'rinmasligi
+        mumkin.</p>
+      </li>
+
+      <li>
+        <b>🔍 <code>--no-dev</code> nimani
+        olib tashlashini ko'ring.</b>
+        <div class="cmd" data-cmd="du -sh vendor
+echo &quot;  jami:            $(composer show 2>/dev/null | wc -l)&quot;
+echo &quot;  --no-dev:        $(composer show --no-dev 2>/dev/null | wc -l)&quot;
+composer show --no-dev 2>/dev/null | grep -cE 'pest|pint|telescope|faker|mockery|sail' || echo '  dev vositalar ro\x27yxatda YO\x27Q  ✅'">du -sh vendor
+echo &quot;  jami:            $(composer show 2&gt;/dev/null | wc -l)&quot;
+echo &quot;  --no-dev:        $(composer show --no-dev 2&gt;/dev/null | wc -l)&quot;
+composer show --no-dev 2&gt;/dev/null | grep -cE 'pest|pint|telescope|faker|mockery|sail' || echo '  dev vositalar ro\x27yxatda YO\x27Q  ✅'</div>
+        <p class="expect">Menda <b>133 → 78</b> ta
+        paket.</p>
+      </li>
+
+      <li>
+        <b>Ta'mirlash rejimini sinang.</b>
+        <div class="cmd" data-cmd="php artisan serve --port=8095 >/dev/null 2>&amp;1 &amp;
+sleep 4
+curl -s -o /dev/null -w '  normal:            %{http_code}\n' -H 'Accept: application/json' http://127.0.0.1:8095/api/v1/vakansiyalar
+php artisan down --secret=&quot;sirli-kalit-123&quot; --retry=60 | tail -2
+curl -s -o /dev/null -w '  down dan keyin:    %{http_code}\n' -H 'Accept: application/json' http://127.0.0.1:8095/api/v1/vakansiyalar
+curl -s -D- -o /dev/null http://127.0.0.1:8095/api/v1/vakansiyalar 2>/dev/null | grep -i 'retry-after' | sed 's/^/  /'
+curl -s -o /dev/null -w '  maxfiy kalit:      %{http_code}\n' -c /tmp/ck.txt http://127.0.0.1:8095/sirli-kalit-123
+curl -s -o /dev/null -w '  cookie bilan:      %{http_code}\n' -b /tmp/ck.txt -H 'Accept: application/json' http://127.0.0.1:8095/api/v1/vakansiyalar
+php artisan up | tail -2
+curl -s -o /dev/null -w '  up dan keyin:      %{http_code}\n' -H 'Accept: application/json' http://127.0.0.1:8095/api/v1/vakansiyalar
+kill %1 2>/dev/null
+rm -f /tmp/ck.txt">php artisan serve --port=8095 &gt;/dev/null 2&gt;&amp;1 &amp;
+sleep 4
+curl -s -o /dev/null -w '  normal:            %{http_code}\n' -H 'Accept: application/json' http://127.0.0.1:8095/api/v1/vakansiyalar
+php artisan down --secret=&quot;sirli-kalit-123&quot; --retry=60 | tail -2
+curl -s -o /dev/null -w '  down dan keyin:    %{http_code}\n' -H 'Accept: application/json' http://127.0.0.1:8095/api/v1/vakansiyalar
+curl -s -D- -o /dev/null http://127.0.0.1:8095/api/v1/vakansiyalar 2&gt;/dev/null | grep -i 'retry-after' | sed 's/^/  /'
+curl -s -o /dev/null -w '  maxfiy kalit:      %{http_code}\n' -c /tmp/ck.txt http://127.0.0.1:8095/sirli-kalit-123
+curl -s -o /dev/null -w '  cookie bilan:      %{http_code}\n' -b /tmp/ck.txt -H 'Accept: application/json' http://127.0.0.1:8095/api/v1/vakansiyalar
+php artisan up | tail -2
+curl -s -o /dev/null -w '  up dan keyin:      %{http_code}\n' -H 'Accept: application/json' http://127.0.0.1:8095/api/v1/vakansiyalar
+kill %1 2&gt;/dev/null
+rm -f /tmp/ck.txt</div>
+        <p class="expect">200 → <b>503</b> +
+        <code>Retry-After: 60</code> → maxfiy kalit
+        <b>302</b> (cookie o'rnatib, <code>/</code> ga
+        yo'naltiradi) → cookie bilan <b>200</b> →
+        <b>200</b>.</p>
+      </li>
+
+      <li>
+        <b>⚠️ XATO 1: <code>APP_KEY</code> ni
+        bo'shating.</b>
+        <div class="cmd" data-cmd="cp .env /tmp/env69.bak
+sed -i 's/^APP_KEY=.*/APP_KEY=/' .env
+php artisan config:clear >/dev/null 2>&amp;1
+php artisan tinker --execute='echo encrypt(&quot;x&quot;);' 2>&amp;1 | grep -oE 'MissingAppKeyException|No application encryption key[^&quot;]*' | head -2
+cp /tmp/env69.bak .env">cp .env /tmp/env69.bak
+sed -i 's/^APP_KEY=.*/APP_KEY=/' .env
+php artisan config:clear &gt;/dev/null 2&gt;&amp;1
+php artisan tinker --execute='echo encrypt(&quot;x&quot;);' 2&gt;&amp;1 | grep -oE 'MissingAppKeyException|No application encryption key[^&quot;]*' | head -2
+cp /tmp/env69.bak .env</div>
+      </li>
+
+      <li>
+        <b>⭐ ⚠️ XATO 2: <code>config:cache</code>
+        tuzog'i.</b>
+        <div class="cmd" data-cmd="php artisan config:cache >/dev/null 2>&amp;1
+echo &quot;  hozirgi APP_NAME:       $(php artisan tinker --execute='echo config(&quot;app.name&quot;);' 2>/dev/null | tail -1)&quot;
+sed -i 's/^APP_NAME=.*/APP_NAME=IshTopYangi/' .env
+echo '  .env o\x27zgartirildi -> IshTopYangi'
+echo &quot;  config() endi:          $(php artisan tinker --execute='echo config(&quot;app.name&quot;);' 2>/dev/null | tail -1)&quot;
+php artisan config:clear >/dev/null 2>&amp;1
+echo &quot;  config:clear dan keyin: $(php artisan tinker --execute='echo config(&quot;app.name&quot;);' 2>/dev/null | tail -1)&quot;
+cp /tmp/env69.bak .env
+php artisan config:clear >/dev/null 2>&amp;1">php artisan config:cache &gt;/dev/null 2&gt;&amp;1
+echo &quot;  hozirgi APP_NAME:       $(php artisan tinker --execute='echo config(&quot;app.name&quot;);' 2&gt;/dev/null | tail -1)&quot;
+sed -i 's/^APP_NAME=.*/APP_NAME=IshTopYangi/' .env
+echo '  .env o\x27zgartirildi -&gt; IshTopYangi'
+echo &quot;  config() endi:          $(php artisan tinker --execute='echo config(&quot;app.name&quot;);' 2&gt;/dev/null | tail -1)&quot;
+php artisan config:clear &gt;/dev/null 2&gt;&amp;1
+echo &quot;  config:clear dan keyin: $(php artisan tinker --execute='echo config(&quot;app.name&quot;);' 2&gt;/dev/null | tail -1)&quot;
+cp /tmp/env69.bak .env
+php artisan config:clear &gt;/dev/null 2&gt;&amp;1</div>
+        <p class="expect">⚠️ O'rtadagi qator hamon
+        <b>eski</b> qiymatni beradi.</p>
+      </li>
+
+      <li>
+        <b>⚠️ XATO 3: <code>--force</code> siz
+        migratsiya.</b>
+        <div class="cmd" data-cmd="sed -i 's/^APP_ENV=.*/APP_ENV=production/' .env
+php artisan config:clear >/dev/null 2>&amp;1
+php artisan migrate &lt; /dev/null 2>&amp;1 | tail -3
+echo '  --- --force bilan ---'
+php artisan migrate --force 2>&amp;1 | tail -2
+php artisan migrate:fresh &lt; /dev/null 2>&amp;1 | tail -3
+cp /tmp/env69.bak .env
+php artisan config:clear >/dev/null 2>&amp;1">sed -i 's/^APP_ENV=.*/APP_ENV=production/' .env
+php artisan config:clear &gt;/dev/null 2&gt;&amp;1
+php artisan migrate &lt; /dev/null 2&gt;&amp;1 | tail -3
+echo '  --- --force bilan ---'
+php artisan migrate --force 2&gt;&amp;1 | tail -2
+php artisan migrate:fresh &lt; /dev/null 2&gt;&amp;1 | tail -3
+cp /tmp/env69.bak .env
+php artisan config:clear &gt;/dev/null 2&gt;&amp;1</div>
+        <p class="expect">⚠️ <code>WARN Command
+        cancelled.</code> — ikkala buyruqda ham.</p>
+      </li>
+
+      <li>
+        <b>⚠️ XATO 4: huquqlar.</b>
+        <div class="cmd" data-cmd="rm -f storage/logs/laravel.log
+chmod 555 storage/logs
+php artisan tinker --execute='try { Log::error(&quot;zond&quot;); Log::getLogger()->error(&quot;zond2&quot;); echo &quot;yozildi&quot;, PHP_EOL; } catch (\Throwable $e) { echo get_class($e), &quot;: &quot;, substr($e->getMessage(), 0, 110), PHP_EOL; }' 2>&amp;1 | tail -2
+chmod 775 storage/logs
+php artisan tinker --execute='Log::error(&quot;zond&quot;); echo &quot;endi ok&quot;, PHP_EOL;' 2>&amp;1 | tail -1">rm -f storage/logs/laravel.log
+chmod 555 storage/logs
+php artisan tinker --execute='try { Log::error(&quot;zond&quot;); Log::getLogger()-&gt;error(&quot;zond2&quot;); echo &quot;yozildi&quot;, PHP_EOL; } catch (\Throwable $e) { echo get_class($e), &quot;: &quot;, substr($e-&gt;getMessage(), 0, 110), PHP_EOL; }' 2&gt;&amp;1 | tail -2
+chmod 775 storage/logs
+php artisan tinker --execute='Log::error(&quot;zond&quot;); echo &quot;endi ok&quot;, PHP_EOL;' 2&gt;&amp;1 | tail -1</div>
+        <p class="expect">⚠️ <code>UnexpectedValueException
+        ... could not be opened in append mode</code>.</p>
+      </li>
+
+      <li>
+        <b><code>deploy.sh</code> yozing.</b>
+        <div class="cmd" data-cmd="cat > deploy.sh <<'SHEOF'
+#!/usr/bin/env bash
+set -e
+
+cd /var/www/ishtop
+
+php artisan down --secret=&quot;$DEPLOY_SECRET&quot; --retry=60
+
+git pull --ff-only origin main
+
+composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+
+php artisan migrate --force
+
+php artisan optimize:clear
+php artisan optimize
+
+php artisan storage:link
+
+sudo systemctl reload php8.3-fpm
+php artisan queue:restart
+
+php artisan up
+
+php artisan about
+SHEOF
+chmod +x deploy.sh
+bash -n deploy.sh &amp;&amp; echo '  sintaksis: toza'">cat &gt; deploy.sh &lt;&lt;'SHEOF'
+#!/usr/bin/env bash
+set -e
+
+cd /var/www/ishtop
+
+php artisan down --secret=&quot;$DEPLOY_SECRET&quot; --retry=60
+
+git pull --ff-only origin main
+
+composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+
+php artisan migrate --force
+
+php artisan optimize:clear
+php artisan optimize
+
+php artisan storage:link
+
+sudo systemctl reload php8.3-fpm
+php artisan queue:restart
+
+php artisan up
+
+php artisan about
+SHEOF
+chmod +x deploy.sh
+bash -n deploy.sh &amp;&amp; echo '  sintaksis: toza'</div>
+      </li>
+
+      <li>
+        <b>Chiqarishdan keyingi tekshiruvni
+        mashq qiling.</b>
+        <div class="cmd" data-cmd="php artisan about | sed -n '1,20p'">php artisan about | sed -n '1,20p'</div>
+        <p class="expect">Serverda: <code>Environment
+        production</code>, <code>Debug Mode OFF</code>,
+        <code>Config CACHED</code>.</p>
+      </li>
+
+      <li>
+        <b>Tozalang.</b>
+        <div class="cmd" data-cmd="rm -f deploy.sh
+php artisan optimize:clear
+php artisan test 2>&amp;1 | tail -3">rm -f deploy.sh
+php artisan optimize:clear
+php artisan test 2&gt;&amp;1 | tail -3</div>
+        <p class="expect">Menda <b>121 passed (243
+        assertions)</b>.</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li>🔍 <code>optimize</code> o'lchandi
+      (13.23 → 8.65 ms, farq tebranadi)</li>
+      <li>🔍 <code>--no-dev</code>: 133 → 78 paket</li>
+      <li>Ta'mirlash rejimi va maxfiy kalit
+      sinaldi</li>
+      <li>⚠️ <code>MissingAppKeyException</code> ni
+      ko'rdim</li>
+      <li>⭐ ⚠️ <code>config:cache</code> tuzog'ini
+      o'lchadim</li>
+      <li>⚠️ <code>Command cancelled</code> ni
+      ko'rdim</li>
+      <li>⚠️ Huquq xatosini ko'rdim</li>
+      <li><code>deploy.sh</code> yozildi
+      (<code>set -e</code> bilan)</li>
+      <li><code>php artisan about</code> tekshiruvi</li>
+      <li>Orqaga qaytish rejasini o'qidim</li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 11) SINAB KO'RAMIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Juma kuni soat 17:00. Deploy o'tdi, sayt
+    ishlayapti, hamma uyga ketdi.</p>
+    <p>Shanba ertalab qo'llab-quvvatlash xizmati
+    yozdi:</p>
+    <div class="natija">"Foydalanuvchilar tasdiqlash xatini olmayapti.
+ Ro'yxatdan o'tish ishlayapti, lekin xat kelmayapti."</div>
+    <p>Tekshirdingiz:</p>
+    <div class="natija">php artisan about
+   Environment ........ production      ✅
+   Debug Mode ............... OFF       ✅
+   Config ................ CACHED       ✅
+   Mail ..................... smtp      ✅
+
+tail -100 storage/logs/laravel.log
+   (bo'sh — hech qanday xato yo'q)      ✅
+
+php artisan queue:work --once
+   INFO  Processing: App\Jobs\SendVerificationEmail
+   INFO  Processed:  App\Jobs\SendVerificationEmail   ✅ ISHLADI!</div>
+    <p>Qo'lda ishlayapti, o'zi ishlamayapti. Nima
+    bo'lgan?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <p><b>Navbat ishchisi eski kod bilan ishlayapti
+        — yoki umuman ishlamayapti.</b></p>
+        <p>Ikkita alohida sabab bo'lishi mumkin,
+        ikkalasi ham deploy skriptidagi
+        kamchilikdan:</p>
+        <div class="natija">1) queue:restart YO'Q edi
+   →  eski worker jarayoni HALI ISHLAYAPTI
+   →  u ESKI kodni xotirasida saqlaydi (55-dars)
+   →  yangi Job sinfini bilmaydi yoki eski mantiqni bajaradi
+
+2) worker UMUMAN ishlamayapti
+   →  deploy paytida jarayon o'ldi va qayta ko'tarilmadi
+   →  supervisor sozlanmagan</div>
+        <p class="expect">🔑 Va nega log <b>toza</b>?
+        Chunki xato <b>ilovada emas</b>. Ilova
+        job'ni navbatga qo'ydi va bu
+        muvaffaqiyatli bo'ldi. Job esa
+        <b>hech kim tomonidan olinmadi</b>.</p>
+        <p>Buni ko'rish oson edi:</p>
+        <div class="natija">select count(*) from jobs;         ← navbatda nechta kutyapti?
+php artisan queue:monitor default  ← Laravel'ning o'z tekshiruvi
+ps aux | grep queue:work           ← worker umuman bormi?</div>
+        <p>✅ Deploy skriptida <b>ikkita</b> qator
+        yetishmayotgan edi:</p>
+        <div class="natija">php artisan queue:restart          ← eski worker larga "tugating" signali
+sudo supervisorctl restart ishtop-worker:*   ← yoki to'g'ridan-to'g'ri</div>
+        <p>⚠️ <code>queue:restart</code> worker'ni
+        <b>o'ldirmaydi</b> — u «joriy job'ni
+        tugatib, chiqing» degan signal qo'yadi.
+        Qayta ko'tarish — <b>supervisor</b>ning
+        ishi.</p>
+        <p>🔑 <b>Umumiy saboq:</b> ilova ishlayotgani —
+        <b>hamma narsa ishlayapti</b> degani emas.
+        Fon jarayonlari alohida yashaydi va ular
+        <b>alohida</b> tekshiriladi.</p>
+        <p>🔍 Va yana bir saboq: <b>juma kuni
+        chiqarmang</b>. Muammo chiqsa, uni
+        tuzatadigan odam bo'lmaydi.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span>
+    ⭐ <code>config:cache</code> qilingandan keyin
+    <code>.env</code> ni o'zgartirsangiz nima
+    bo'ladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Eski qiymat qoladi va hech qanday ogohlantirish bo'lmaydi</button></li>
+      <li><button class="quiz-option">Yangi qiymat darrov ishlaydi chunki Laravel buni sezadi</button></li>
+      <li><button class="quiz-option">Ilova xato beradi va butunlay ishlashdan to'xtab qoladi</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi:
+    <code>config:cache</code> → <code>config('app.name')</code>
+    <b>Laravel</b>; <code>.env</code> da
+    <code>APP_NAME=IshTopYangi</code> qilindi →
+    <code>config()</code> hamon <b>Laravel</b>;
+    <code>config:clear</code> dan keyin →
+    <b>IshTopYangi</b>.
+    ⚠️ Xato yo'q, natija noto'g'ri.
+    🔑 <code>config:cache</code> dan keyin Laravel
+    <code>.env</code> ni <b>umuman o'qimaydi</b> —
+    <code>env()</code> <code>null</code> qaytaradi.
+    ✅ Deploy'da tartib:
+    <code>optimize:clear</code> <b>keyin</b>
+    <code>optimize</code>.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span>
+    <code>APP_ENV=production</code> da
+    <code>php artisan migrate</code> (<code>--force</code>
+    siz) nima qiladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Buyruq bekor qilinadi va migratsiya umuman bajarilmaydi</button></li>
+      <li><button class="quiz-option">Migratsiya hech narsa so'ramasdan darrov bajarilib ketadi</button></li>
+      <li><button class="quiz-option">Xato beradi va ilova butunlay ishlamay qoladi</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi:
+    <code>WARN Command cancelled.</code> — Laravel
+    tasdiq so'raydi, deploy skriptida klaviatura
+    yo'q.
+    <code>--force</code> bilan →
+    <code>INFO Nothing to migrate.</code>
+    🔑 Xuddi shu himoya
+    <code>migrate:fresh</code>,
+    <code>db:wipe</code>,
+    <code>migrate:rollback</code> da ham bor.
+    ⚠️ 66-darsdan: <code>--force</code>
+    <b>himoyani o'chiradi</b> — skriptga
+    yozishdan oldin o'ylang.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span>
+    nginx'da hujjat ildizi (<code>root</code>) qayerga
+    qaratiladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Ildiz public papkasiga qaratiladi boshqasiga emas</button></li>
+      <li><button class="quiz-option">Ildiz loyihaning eng yuqori papkasiga qaratiladi</button></li>
+      <li><button class="quiz-option">Ildiz storage papkasiga qaratilishi kerak boladi</button></li>
+    </ul>
+    <div class="quiz-explain">🔑
+    <code>root /var/www/ishtop/public;</code>
+    ⚠️ Noto'g'ri qo'ysangiz <b>butun loyiha
+    internetga ochiladi</b>:
+    <code>/.env</code>, <code>/composer.json</code>,
+    <code>/storage/logs/laravel.log</code>.
+    ✅ Tekshirish bir buyruq:
+    <code>curl -I https://ishtop.uz/.env</code> →
+    <b>404</b> yoki <b>403</b> bo'lishi shart.
+    ☠️ <b>200</b> qaytsa — darrov tuzating <b>va
+    sirlarni almashtiring</b> (66-dars).</div>
+  </div>
+
+  <!-- ═══════════════ 12) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+
+    <p>Javobni ovoz chiqarib ayting, keyin ochib
+    solishtiring.</p>
+
+    <details class="recall">
+      <summary>Chiqarish tartibini sanab bering</summary>
+      <div class="answer"><b>1)</b> <code>down --secret</code>
+      · <b>2)</b> <code>git pull --ff-only</code> ·
+      <b>3)</b> <code>composer install --no-dev
+      --optimize-autoloader</code> ·
+      <b>4)</b> <code>migrate --force</code> ·
+      <b>5)</b> <code>optimize:clear</code> ·
+      <b>6)</b> <code>optimize</code> ·
+      <b>7)</b> <code>storage:link</code> ·
+      <b>8)</b> PHP-FPM reload ·
+      <b>9)</b> <code>queue:restart</code> ·
+      <b>10)</b> <code>up</code> ·
+      <b>11)</b> <code>about</code>.
+      🔑 Skript boshida <b><code>set -e</code></b> —
+      usiz migratsiya yiqilsa ham
+      <code>up</code> bajariladi va <b>buzuq
+      ilova</b> ochiq qoladi.
+      ⚠️ Tartib muhim: migratsiya <b>koddan
+      keyin</b>, aks holda eski kod yangi
+      ustunni bilmaydi.</div>
+    </details>
+
+    <details class="recall">
+      <summary>🔍 <code>optimize</code> nima qiladi va
+      qancha foyda beradi?</summary>
+      <div class="answer">Config, events, routes va
+      view'larni <b>bitta tayyor faylga</b>
+      keshlaydi.
+      🔍 O'lchandi: config <b>26 642</b> bayt,
+      routes <b>22 096</b>, services <b>23 488</b>;
+      bajarilishi <b>0.14 s</b>.
+      🔍 Tezlik: <b>13.23 → 8.65 ms</b> (35%), lekin
+      ⚠️ farq <b>tebranadi</b> — bir o'lchovda umuman
+      ko'rinmadi. <b>Bitta o'lchov yetarli
+      emas.</b>
+      Sabab: keshsiz Laravel har so'rovda 15+
+      config faylini o'qiydi va marshrutlarni
+      tahlil qiladi.
+      ⚠️ Mahalliy ishda <b>ishlatmang</b>:
+      <code>.env</code> o'zgarishini
+      <b>sezmaydi</b>.
+      ✅ Deploy'da: <code>optimize:clear</code>
+      <b>keyin</b> <code>optimize</code>.</div>
+    </details>
+
+    <details class="recall">
+      <summary>Ta'mirlash rejimi va maxfiy kalit</summary>
+      <div class="answer"><code>php artisan down
+      --secret="X" --retry=60</code>.
+      🔍 O'lchandi: oddiy so'rov <b>503</b> +
+      <code>Retry-After: 60</code>;
+      <code>/X</code> ni ochish <b>200</b> va cookie
+      o'rnatiladi; keyin oddiy so'rov ham
+      <b>200</b>.
+      🔑 Foydasi: chiqarishdan keyin <b>siz</b>
+      tekshirasiz, foydalanuvchilar hali
+      ko'rmaydi.
+      🔍 <code>Retry-After</code> qidiruv tizimlariga
+      «qayting» signali — usiz sahifa
+      <b>o'chirilgan</b> deb hisoblanishi
+      mumkin.
+      ⚠️ Kalitni skriptga ochiq yozmang —
+      <code>.env</code> da bo'lsin.</div>
+    </details>
+
+    <details class="recall">
+      <summary>⚠️ Beshta xatoni va ularning
+      ko'rinishini ayting</summary>
+      <div class="answer"><b>1)</b>
+      <code>MissingAppKeyException: No application
+      encryption key has been specified.</code>
+      → <code>key:generate --force</code> (⚠️ ishlayotgan
+      saytda <b>emas</b>).
+      <b>2)</b> ⭐ <code>config:cache</code> tuzog'i —
+      <b>xato yo'q</b>, qiymat eski.
+      <b>3)</b> <code>WARN Command cancelled.</code>
+      → <code>--force</code>.
+      <b>4)</b> <code>UnexpectedValueException ...
+      could not be opened in append mode: Permission
+      denied</code> →
+      <code>chown -R www-data storage
+      bootstrap/cache</code>.
+      <b>5)</b> Hujjat ildizi noto'g'ri →
+      <code>/.env</code> <b>200</b> qaytadi.
+      🔑 Faqat <code>storage</code> va
+      <code>bootstrap/cache</code> yoziladigan
+      bo'lsin.</div>
+    </details>
+
+    <details class="recall">
+      <summary>Orqaga qaytish rejasi qanday
+      bo'ladi?</summary>
+      <div class="answer"><b>Kod</b> — oson:
+      <code>git checkout &lt;commit&gt;</code> +
+      <code>composer install</code> +
+      <code>optimize</code>.
+      <b>Migratsiya</b> — qiyin:
+      <code>migrate:rollback --force</code>, lekin
+      <code>down()</code> to'g'ri yozilganmi?
+      Ustun o'chsa <b>ma'lumot ham ketadi</b>.
+      <b>Ma'lumot</b> — faqat <b>zaxira
+      nusxadan</b> (deploy'dan <b>oldin</b>
+      olingan).
+      ✅ Xavfsiz naqsh —
+      <b>kengaytir–ko'chir–toraytir</b>: yangi ustun
+      qo'sh → ma'lumotni ko'chir va kodni
+      o'tkaz → eski ustunni o'chir. Uch
+      alohida deploy.
+      🔑 Nol to'xtash uchun:
+      <code>releases/</code> + <code>shared/</code> +
+      <code>current</code> simvolik havolasi.</div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 13) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Xulosa</span>
+    <ul>
+      <li>Chiqarish — <b>fayl nusxalash emas</b>:
+      o'n bir qadam, tartibi muhim.</li>
+      <li><code>set -e</code> — deploy skriptining eng
+      muhim qatori.</li>
+      <li>⚠️ Hujjat ildizi <b>doim</b>
+      <code>public/</code>. Tekshiruv:
+      <code>/.env</code> → <b>404</b>.</li>
+      <li>🔍 <code>optimize</code>:
+      <b>13.23 → 8.65 ms</b> (⚠️ farq tebranadi);
+      config keshi <b>26 642</b> bayt.</li>
+      <li>🔍 <code>--no-dev</code>: <b>133 → 78</b>
+      paket. Bu tezlik ham, <b>xavfsizlik</b>
+      ham.</li>
+      <li>🔍 <code>down --secret --retry=60</code> →
+      <b>503</b> + <code>Retry-After</code>; kalit
+      bilan <b>200</b>.</li>
+      <li>⚠️ 🔍 <code>MissingAppKeyException</code> —
+      <code>APP_KEY</code> bo'sh.</li>
+      <li>⭐ ⚠️ 🔍 <code>config:cache</code> tuzog'i:
+      <code>.env</code> o'zgardi, qiymat
+      <b>eski</b> qoldi.</li>
+      <li>⚠️ 🔍 <code>WARN Command cancelled.</code> —
+      <code>--force</code> kerak.</li>
+      <li>⚠️ 🔍 <code>could not be opened in append
+      mode</code> — huquqlar.</li>
+      <li>Faqat <code>storage</code> va
+      <code>bootstrap/cache</code>
+      yoziladigan.</li>
+      <li>Orqaga qaytish: kod oson, migratsiya
+      qiyin, ma'lumot — <b>faqat zaxiradan</b>.</li>
+      <li>🔑 <b>Kengaytir–ko'chir–toraytir</b> —
+      xavfsiz migratsiya naqshi.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p>Sayt ishlab turibdi. Lekin 55, 57 va
+    58-darslarda yozgan narsalarimiz —
+    <b>navbat</b>, <b>bildirishnomalar</b> va
+    <b>rejalashtirilgan buyruqlar</b> — hozircha
+    faqat <b>mahalliy</b> ishladi.</p>
+    <p>Serverda ular <b>o'zi ishga
+    tushmaydi</b>. Kimdir ularni doim
+    ishlatib turishi kerak.</p>
+    <p>70-darsda <b>supervisor</b> va
+    <b>cron</b> ni sozlaymiz: worker
+    o'lsa qayta ko'tarilsin,
+    <code>schedule:run</code> har daqiqada
+    ishlasin. Va bugungi predict'dagi
+    muammoni — «xat kelmayapti» —
+    <b>ildizidan</b> yechamiz.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel — Deployment</b>:
+    <a href="https://laravel.com/docs/13.x/deployment">server
+    talablari, <code>optimize</code>,
+    huquqlar</a>.<sup><a href="#fn1">1</a></sup><br>
+    <b>Laravel — Maintenance Mode</b>:
+    <a href="https://laravel.com/docs/13.x/configuration#maintenance-mode"><code>down</code>,
+    <code>--secret</code>,
+    <code>--retry</code></a>.<sup><a href="#fn2">2</a></sup><br>
+    <b>nginx — Laravel sozlamasi</b>:
+    <a href="https://laravel.com/docs/13.x/deployment#nginx">rasmiy
+    namuna</a>.<sup><a href="#fn3">3</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b>
+    «qaysi VPS ni tanlayman?», «Forge kerakmi?»,
+    «birinchi deploy'ni qanday qilaman?» — har qanday
+    savol yaxshi. Ikkinchisiga qisqa javob:
+    <b>kerak emas, lekin foydali</b> — Forge
+    server sozlash, HTTPS, supervisor va deploy'ni
+    avtomatlashtiradi. Lekin avval <b>qo'lda</b>
+    bir marta qiling: nima bo'layotganini
+    bilmasangiz, Forge buzilganda ham nima
+    qilishni bilmaysiz.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0068-docker-va-sail.html">Oldingi: Docker va Laravel Sail</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel 13 — <a href="https://laravel.com/docs/13.x/deployment">Deployment</a>.</li>
+      <li id="fn2">Laravel 13 — <a href="https://laravel.com/docs/13.x/configuration#maintenance-mode">Maintenance Mode</a>.</li>
+      <li id="fn3">Laravel 13 — <a href="https://laravel.com/docs/13.x/deployment#nginx">Nginx</a>.</li>
+      <li id="fn4">Barchasi jonli o'lchangan (PHP 8.3.32,
+      Laravel 13.26.1, Composer 2.9.5):
+      <code>php artisan optimize</code> → config
+      <b>5.81ms</b>, events <b>0.62ms</b>, routes
+      <b>7.24ms</b>, views <b>11.30ms</b>; jami
+      <b>0.14 s</b>; yaratilgan fayllar
+      <code>config.php</code> <b>26 642</b> bayt,
+      <code>services.php</code> <b>23 488</b>,
+      <code>routes-v7.php</code> <b>22 096</b>,
+      <code>packages.php</code> <b>1 501</b>,
+      <code>events.php</code> <b>277</b> ·
+      A/B (30 so'rov o'rtachasi, isitishdan keyin, bir
+      xil endpoint, uch marta takrorlangan):
+      optimize-siz <b>13.23 / 13.42 / 10.70 ms</b>,
+      optimize-bilan <b>8.65 / 10.83 / 10.60 ms</b> —
+      ⚠️ uchinchi o'lchovda farq <b>ko'rinmadi</b>
+      (ilova kichik, o'lchov shovqinli) ·
+      <code>composer show</code> <b>133</b> paket,
+      <code>--no-dev</code> <b>78</b> paket;
+      <code>vendor/</code> <b>102 MB</b>; autoload
+      classmap <b>7 828</b> sinf (~1 MB) ·
+      <code>down --secret="sirli-kalit-123"
+      --retry=60</code> → oddiy so'rov <b>503</b>,
+      <code>Retry-After: 60</code>; maxfiy kalit URL
+      <b>302</b> (cookie o'rnatib yo'naltiradi);
+      cookie bilan so'rov <b>200</b>; <code>up</code> dan keyin
+      <b>200</b> ·
+      ⚠️ <code>APP_KEY=</code> →
+      <code>Illuminate\Encryption\MissingAppKeyException:
+      No application encryption key has been
+      specified.</code> ·
+      ⭐ ⚠️ <code>config:cache</code> tuzog'i:
+      <code>config('app.name')</code> → <b>Laravel</b>;
+      <code>.env</code> da
+      <code>APP_NAME=IshTopYangi</code> qilingach
+      hamon <b>Laravel</b>;
+      <code>config:clear</code> dan keyin
+      <b>IshTopYangi</b> ·
+      ⚠️ <code>APP_ENV=production</code> da
+      <code>php artisan migrate</code> va
+      <code>migrate:fresh</code> →
+      <code>WARN Command cancelled.</code>;
+      <code>--force</code> bilan →
+      <code>INFO Nothing to migrate.</code> ·
+      ⚠️ <code>chmod 555 storage/logs</code> →
+      <code>UnexpectedValueException: The stream or
+      file ".../laravel.log" could not be opened in
+      append mode: Failed to open stream: Permission
+      denied</code> ·
+      <code>php artisan about</code>: Laravel
+      <b>13.26.1</b>, PHP <b>8.3.32</b>, Composer
+      <b>2.9.5</b> ·
+      <code>public/index.php</code> birinchi ishi —
+      <code>storage/framework/maintenance.php</code> ni
+      tekshirish ·
+      ilova to'plami: <b>121 passed (243 assertions)</b>.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>
