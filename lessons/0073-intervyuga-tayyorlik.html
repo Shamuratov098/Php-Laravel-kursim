@@ -1,0 +1,1266 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 73 — Intervyuga tayyorlik</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 73 · MODUL J — ISHGA TUSHIRISH VA KASBGA KIRISH</p>
+  <h1>⭐ Intervyuga tayyorlik</h1>
+  <p class="lead">Kursning oxirgi darsi. Nol darajadan
+  boshlab bu yergacha keldingiz. Bugun hammasini bir
+  joyga yig'amiz — va eng muhim ko'nikmani
+  o'rganamiz: <b>bilganingizni qanday
+  ko'rsatish</b>.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 22 daqiqa</span>
+    <span>💻 Amaliyot ≈ 60 daqiqa</span>
+    <span>Kerak: <a href="0072-php-versiyasini-yangilash.html">Dars 72</a></span>
+  </p>
+
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b>🔍 Nima qurdingiz</b>
+        <span class="nima">Raqamlar bilan:
+        <b>121 test</b>, <b>40 sinf</b>,
+        <b>15 marshrut</b>.</span></li>
+      <li><b>⭐ Javob berishning eng kuchli
+        usuli</b>
+        <span class="nima">Ta'rif emas —
+        <b>o'lchangan misol</b>.</span></li>
+      <li><b>Eng ko'p beriladigan savollar</b>
+        <span class="nima">Har biriga
+        <b>sizning</b> misolingiz bor.</span></li>
+      <li><b>Amaliy topshiriqlar</b>
+        <span class="nima">Nima kutiladi va nima
+        baholanadi.</span></li>
+      <li><b>«Bilmayman» ni qanday aytish</b>
+        <span class="nima">Bu — <b>kuchli</b>
+        javob.</span></li>
+      <li><b>Portfolio va README</b>
+        <span class="nima">Nima yozilishi
+        kerak.</span></li>
+      <li><b>🔍 Test kodi ilova kodidan
+        ko'proq</b>
+        <span class="nima"><b>1382</b> va
+        <b>1166</b> qator.</span></li>
+      <li><b>Rezyume</b>
+        <span class="nima">Raqamlar bilan
+        yozing.</span></li>
+      <li><b>⚠️ AI bilan ishlash</b>
+        <span class="nima">Halol javob va amaliy
+        chegara.</span></li>
+      <li><b>Keyin nima o'rganish</b>
+        <span class="nima">Uchta yo'nalish,
+        aniq tartibda.</span></li>
+      <li><b>Birinchi ish kuni</b>
+        <span class="nima">67-dars aynan shu
+        uchun edi.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima">Maosh · rad javob ·
+        masofaviy · o'sish.</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════ 1) NIMA QURDINGIZ ═══════════════ -->
+  <div class="callout why">
+    <span class="label">🔍 Avval — nima qurganingizni bilib oling</span>
+    <p>Intervyuda «nima qila olasiz?» deb
+    so'rashadi. Javob <b>umumiy</b>
+    bo'lmasin.</p>
+    <div class="natija">IshTop — vakansiyalar API si
+
+  40 ta sinf          Action · DTO · Query · Service · Policy · Job
+  15 ta marshrut      REST API, versiyalangan (v1)
+  121 ta test         243 ta tekshiruv
+  1166 qator kod      app/
+  1382 qator test     tests/            ← testlar KO'PROQ</div>
+    <p>Ichida nima bor:</p>
+    <div class="natija">Autentifikatsiya    Sanctum tokenlari, qobiliyatlar (abilities)
+Huquqlar            Policy, rollar (Enum)
+Baza                migratsiyalar, bog'lanishlar, indekslar
+API                 Resource, sahifalash, filtr, saralash, xato formati
+Fon ishlar          navbat, hodisalar, xatlar, bildirishnomalar, reja
+Kesh                Redis, kesh strategiyasi
+Tuzilish            Action/Service/Query/DTO, SOLID
+Sifat               Pest, Pint, CI (GitHub Actions)
+Ishga tushirish     Docker/Sail, nginx, supervisor, cron, deploy skripti</div>
+    <p>🔑 Bu ro'yxat — <b>rezyumeingizning
+    asosi</b>. Va har bandning ortida
+    <b>ishlaydigan kod</b> bor.</p>
+  </div>
+
+  <!-- ═══════════════ 2) ⭐ JAVOB USULI ═══════════════ -->
+  <h2>⭐ Javob berishning eng kuchli usuli</h2>
+
+  <p>63-darsda aytgandik: SOLID savoliga eng yaxshi
+  javob <b>ta'rif emas</b>. Bu qoida
+  <b>hamma</b> savolga tegishli.</p>
+
+  <div class="natija">SAVOL: "N+1 muammosi nima?"
+
+❌ ZAIF javob:
+   "Bu bitta so'rov ro'yxat uchun va N ta so'rov
+    har element uchun yuborilishi."
+   (to'g'ri, lekin har kim Google'dan o'qiy oladi)
+
+✅ KUCHLI javob:
+   "Loyihamda o'lchagandim: 200 ta vakansiya uchun
+    N+1 bilan 201 so'rov va 22.9 ms, with() bilan
+    2 so'rov va 2.5 ms edi.
+    Uni preventLazyLoading bilan xatoga aylantirdim —
+    lekin u faqat kolleksiyada ishlaydi, bitta modelda
+    emas. Va so'rov byudjeti testi qo'ydim,
+    toBeLessThanOrEqual(6), shunda qaytib kelmasin."</div>
+
+  <div class="callout tip">
+    <span class="label">🔑 Kuchli javobning uch qismi</span>
+    <div class="natija">1) O'LCHOV     →  "201 so'rov, 22.9 ms"        aniq raqam
+2) NOZIKLIK    →  "faqat kolleksiyada ishlaydi"  chuqurlikni ko'rsatadi
+3) HIMOYA      →  "test qo'ydim"                 tajribani ko'rsatadi</div>
+    <p>Uchalasi ham <b>sizda bor</b> — chunki har
+    darsda o'lchadingiz.</p>
+    <p>⚠️ Va bu <b>yodlash emas</b>: siz haqiqatan
+    qilgansiz, shuning uchun eslash oson va
+    qo'shimcha savolga ham javob bera
+    olasiz.</p>
+  </div>
+
+  <!-- ═══════════════ 3) SAVOLLAR ═══════════════ -->
+  <h2>Eng ko'p beriladigan savollar — sizning misollaringiz bilan</h2>
+
+  <div class="natija">"Eloquent va Query Builder farqi?"
+   →  Eloquent model bilan ishlaydi, bog'lanish va hodisalarni beradi.
+      Menda TavsiyaQidiruvi ikkalasini ham ishlatadi.
+      Va Eloquent tuzoqlari bor: lazy loading (N+1) va scope larda
+      orWhere qavssiz qolsa shart buziladi — buni loyihamda topganman.</div>
+
+  <div class="natija">"Migratsiya nima uchun kerak?"
+   →  Baza tuzilishi ham kod, git da yashaydi.
+      Nozik jihat: MySQL da DDL tranzaksiyaga bo'ysunmaydi —
+      men buni o'lchaganman: SQLite jadvalni qaytardi, MySQL qoldirdi.
+      Shuning uchun bitta migratsiya = bitta amal.</div>
+
+  <div class="natija">"Servis konteyneri nima?"
+   →  Bog'liqliklarni o'zi yasab beradigan mexanizm.
+      Menda XabarYuboruvchi interfeysi bor, provayder config ga qarab
+      LogXabar yoki EmailXabar beradi — listener buni bilmaydi.
+      ⚠️ Va bitta tuzoq: xizmat HOLAT saqlasa va singleton bo'lsa,
+      ikkinchi so'rov birinchisining ma'lumotini ko'radi.
+      Men buni o'lchaganman — shuning uchun xizmatlarim holatsiz.</div>
+
+  <div class="natija">"Testlarni qanday yozasiz?"
+   →  Pest. Loyihamda 121 ta test, 243 ta tekshiruv;
+      test kodi ilova kodidan ko'proq (1382 va 1166 qator).
+      Bug topsam AVVAL test yozaman — u QIZARISHI kerak.
+      Masalan tavsiya endpointida yopilgan vakansiyalar chiqardi:
+      4 ta test qizardi, tuzatgandan keyin 5 tasi yashil bo'ldi.</div>
+
+  <div class="natija">"Xavfsizlik haqida nima bilasiz?"
+   →  Amalda topganlarim: rol maydoni fillable da edi — hujumchi
+      User::create($request->all()) orqali admin bo'la olardi.
+      Va APP_DEBUG=true bilan xato sahifasi 877 560 bayt bo'lib,
+      sir 4 marta ko'rindi; false bilan 6 592 bayt va 0 marta.
+      Shuning uchun har chiqarishda ro'yxat bo'yicha tekshiraman.</div>
+
+  <div class="natija">"Ilova sekin ishlayapti — nima qilasiz?"
+   →  O'lchamasdan tuzatmayman.
+      Telescope yoki DB::listen bilan so'rovlarni sanayman,
+      eng sekinini topaman, EXPLAIN qilaman.
+      Nozik jihat: indeks har doim yordam bermaydi —
+      men o'lchaganman, 7000 yozuv qaytaradigan so'rovda
+      7.71 dan 7.29 ms ga tushdi, ya'ni deyarli hech narsa.
+      Bitta yozuvli so'rovda esa 1.868 dan 0.043 ms — 43 barobar.
+      Indeks TOPISHNI tezlashtiradi, o'qib berishni emas.</div>
+
+  <div class="natija">"CI/CD tajribangiz bormi?"
+   →  GitHub Actions: har push va PR da Pint, Pest va composer audit.
+      Matritsa bilan PHP 8.3 va 8.4 da bir vaqtda sinayman.
+      Bir marta CI mening o'z xatomni tutdi — qo'shtirnoq ishlatgandim,
+      Pint ning single_quote qoidasi buzilgan edi.
+      Va himoyalangan tarmoq: qizil build bilan birlashtirib bo'lmaydi.</div>
+
+  <div class="callout tip">
+    <span class="label">🔑 Naqshni ko'ryapsizmi?</span>
+    <p>Har javob bir xil shaklda:
+    <b>ta'rif (qisqa) → o'z o'lchovim →
+    nozik jihat → nima qilganim</b>.</p>
+    <p>✅ Va har javob <b>keyingi savolni
+    chaqiradi</b> — bu yaxshi: siz suhbatni
+    o'zingiz bilgan tomonga
+    yo'naltirasiz.</p>
+  </div>
+
+  <!-- ═══════════════ 4) BILMAYMAN ═══════════════ -->
+  <h2>«Bilmayman» ni qanday aytish</h2>
+
+  <p>Siz <b>hamma narsani</b> bilmaysiz. Bu
+  normal — hech kim bilmaydi.</p>
+
+  <div class="natija">❌ ZAIF:
+   Jim qolish
+   "Ha, bilaman" deb noaniq gapirish
+   Taxmin qilib ishonchli ko'rinishga harakat qilish
+
+✅ KUCHLI:
+   "Buni ishlatmaganman. Lekin o'xshash narsa bilan tajribam bor —
+    [misol]. Agar duch kelsam, avval hujjatni o'qiyman,
+    keyin kichik zondda sinab ko'raman — men shunday ishlayman."</div>
+
+  <div class="callout warn">
+    <span class="label">🔑 Nega bu kuchli javob</span>
+    <p>Intervyuchi <b>bilimingizni</b> emas,
+    <b>ishlash usulingizni</b> bilmoqchi. U
+    biladi: yarim yildan keyin siz butunlay
+    boshqa narsalar bilan ishlaysiz.</p>
+    <p>⚠️ Va taxmin qilib «ishonchli» javob berish —
+    <b>eng yomon</b> variant: tajribali odam
+    buni darrov sezadi va endi <b>hamma</b>
+    javobingizga shubha bilan qaraydi.</p>
+    <p>✅ 67-darsdagi tergov usuli bu yerda ham
+    ishlaydi: «takrorlayman → toraytiraman →
+    o'lchayman». Buni <b>ayting</b> — bu
+    ko'nikma, va u <b>o'rgatib
+    bo'lmaydigan</b> narsadan
+    qimmatliroq.</p>
+  </div>
+
+  <!-- ═══════════════ 5) AMALIY TOPSHIRIQ ═══════════════ -->
+  <h2>Amaliy topshiriq — nima baholanadi</h2>
+
+  <p>Ko'p kompaniyalar kichik topshiriq beradi:
+  «CRUD API yozing», «shu bug'ni toping».</p>
+
+  <div class="natija">BAHOLANADI:
+  □ ishlaydimi                     ← eng oddiy talab
+  □ TESTLAR bormi                  ← eng ko'p ajratadigan omil
+  □ README aniqmi                  ← ishga tushira olamanmi?
+  □ commit lar mantiqiymi          ← bitta katta commit — yomon belgi
+  □ nom va tuzilish                ← controller da 200 qator bormi?
+  □ xato holatlari                 ← faqat "hammasi yaxshi" yo'lmi?
+  □ xavfsizlik                     ← $request->all() bormi?
+
+BAHOLANMAYDI:
+  ✗ eng zamonaviy paketlar
+  ✗ eng qisqa kod
+  ✗ chiroyli dizayn (agar so'ralmagan bo'lsa)</div>
+
+  <div class="callout tip">
+    <span class="label">🔑 Eng ko'p ajratadigan uch narsa</span>
+    <div class="natija">1) TESTLAR
+   Ko'pchilik yozmaydi. Siz yozsangiz — darrov ajralib turasiz.
+   Hatto 5 ta test ham 0 tadan cheksiz yaxshi.
+
+2) README
+   "git clone → composer install → cp .env.example .env →
+    php artisan key:generate → migrate --seed → serve"
+   Agar men buni bajarib ishga tushira olmasam — qolgani muhim emas.
+
+3) XATO HOLATLARI
+   Bo'sh ro'yxat? Topilmagan yozuv? Noto'g'ri kirish?
+   47-darsdagi toza 404 va 422 — mana shu.</div>
+    <p>⚠️ Va vaqt chegarasini <b>hurmat qiling</b>:
+    «4 soat» deyilgan bo'lsa, 20 soat sarflab
+    mukammal qilish — <b>yomon</b> belgi. Nimani
+    ulgurmaganingizni README'da <b>yozing</b>.</p>
+  </div>
+
+  <!-- ═══════════════ 6) PORTFOLIO ═══════════════ -->
+  <h2>Portfolio va README</h2>
+
+  <p>Sizda allaqachon <b>bitta yaxshi loyiha</b>
+  bor. Uchta o'rtacha loyihadan bittasi
+  yaxshiroq.</p>
+
+  <div class="codefile">
+    <div class="fname">README.md</div>
+    <code class="cmd"># IshTop — vakansiyalar API si
+
+Laravel 13 · PHP 8.3 · MySQL · Redis · Pest
+
+Vakansiya e'lon qilish va qidirish uchun REST API.
+Sanctum tokenlari, rollar, fon ishlar va kesh bilan.
+
+## Ishga tushirish
+
+```bash
+git clone https://github.com/&lt;siz&gt;/ishtop.git &amp;&amp; cd ishtop
+composer install
+cp .env.example .env &amp;&amp; php artisan key:generate
+php artisan migrate --seed
+php artisan serve
+```
+
+Docker bilan: `./vendor/bin/sail up -d &amp;&amp; sail artisan migrate --seed`
+
+## Testlar
+
+```bash
+php artisan test        # 121 ta test, 243 ta tekshiruv
+./vendor/bin/pint --test
+```
+
+## Imkoniyatlar
+
+- REST API (v1), sahifalash, filtr, saralash
+- Sanctum tokenlari va qobiliyatlar, Policy bilan huquqlar
+- Navbat (job), hodisalar, xatlar, bildirishnomalar, rejalashtirilgan buyruqlar
+- Redis kesh, N+1 dan himoya (`preventLazyLoading`)
+- CI: har push da Pint + Pest + `composer audit`, PHP 8.3/8.4 matritsasi
+
+## Tuzilish
+
+`app/Actions` — bitta ish · `app/Queries` — so'rov qurish
+`app/Services` — bir mavzu · `app/Data` — DTO (chegaralar uchun)
+
+## Nima o'rganildi
+
+- N+1: o'lchandi (201 so'rov / 22.9 ms → 2 / 2.5 ms), so'rov byudjeti testi bilan mixlandi
+- SQLite va MySQL kollatsiyasi farqi (`whereLike` bilan hal qilindi)
+- Ommaviy tayinlash zaifligi topildi va tuzatildi
+
+## Nima qilinmagan
+
+- To'lov tizimi integratsiyasi
+- Frontend (faqat API)</code>
+  </div>
+
+  <div class="callout tip">
+    <span class="label">🔑 README'dagi eng qimmat ikki bo'lim</span>
+    <p><b>«Nima o'rganildi»</b> — sizni boshqalardan
+    ajratadi. U «men bu loyihada <b>o'yladim</b>»
+    deydi.</p>
+    <p><b>«Nima qilinmagan»</b> — <b>halollik</b>
+    belgisi. Tajribali odam buni juda
+    qadrlaydi: siz chegarani bilasiz va
+    yashirmaysiz.</p>
+    <p>⚠️ Va README'ni <b>sinang</b>: toza papkaga
+    <code>git clone</code> qilib, faqat
+    README bo'yicha yurib ko'ring. Bu
+    68-darsdagi «onboarding testi».</p>
+  </div>
+
+  <!-- ═══════════════ 7) REZYUME ═══════════════ -->
+  <h2>Rezyume — raqamlar bilan</h2>
+
+  <div class="natija">❌ ZAIF:
+   "Laravel bilan ishlashni bilaman"
+   "Toza kod yozaman"
+   "Tez o'rganaman"
+
+✅ KUCHLI:
+   "IshTop — vakansiyalar REST API si (Laravel 13, PHP 8.3):
+    40 sinf, 15 endpoint, 121 test (243 tekshiruv).
+    Sanctum autentifikatsiyasi, Policy huquqlari, navbat va kesh.
+    CI: GitHub Actions'da Pint + Pest + composer audit,
+    PHP 8.3/8.4 matritsasi.
+    N+1 muammosini o'lchab tuzatdim: 201 so'rov → 2 so'rov."</div>
+
+  <div class="callout tip">
+    <span class="label">🔑 Uchta qoida</span>
+    <div class="natija">1) RAQAM        →  "121 test" · "201 so'rov → 2"
+2) HAVOLA       →  GitHub, ishlaydigan repozitoriya
+3) ANIQLIK      →  "Sanctum", "Pest", "GitHub Actions" — nomlar bilan</div>
+    <p>⚠️ Va yozganingizni <b>himoya qila
+    olishingiz</b> kerak. «Redis» deb yozsangiz,
+    «nega Redis?» degan savolga javobingiz
+    bo'lsin.</p>
+    <p>✅ Sizda javob bor: 59-darsda o'lchagansiz.</p>
+  </div>
+
+  <!-- ═══════════════ 8) ⚠️ AI ═══════════════ -->
+  <h2>⚠️ AI bilan ishlash haqida</h2>
+
+  <p>Bu savol endi <b>deyarli har intervyuda</b>
+  beriladi. Va u tuzoq emas — halol javob
+  kutiladi.</p>
+
+  <div class="natija">✅ HALOL va KUCHLI javob:
+   "Ishlataman — hujjat qidirish, bo'lak kod, xatoni tushuntirish uchun.
+    Lekin men yozgan kodni tushunmasam, uni qo'ymayman.
+    Va AI aytgan raqamga ishonmayman — o'zim o'lchayman.
+    Masalan indeks haqida: 'indeks tezlashtiradi' degan javob yetarli emas,
+    men EXPLAIN qilib, ikkala holatda vaqtni o'lchaganman."</div>
+
+  <div class="callout warn">
+    <span class="label">🔑 Nima uchun bu javob kuchli</span>
+    <p>Chunki u <b>chegarani</b> ko'rsatadi: siz
+    vositani ishlatasiz, lekin unga
+    <b>mas'uliyatni topshirmaysiz</b>.</p>
+    <p>⚠️ Va amaliy topshiriqda «AI'siz qiling»
+    deyilsa — <b>qilmang</b>. Ko'pchilik
+    kompaniyalar buni tekshiradi: keyin
+    kodingiz haqida <b>savol berishadi</b>.
+    Tushuntira olmasangiz — hammasi
+    tugadi.</p>
+    <p>✅ Shuning uchun bu kursda har narsani
+    <b>o'z qo'lingiz bilan</b>
+    o'lchadingiz. Endi tushuntira
+    olasiz.</p>
+  </div>
+
+  <!-- ═══════════════ 9) KEYIN NIMA ═══════════════ -->
+  <h2>Keyin nima o'rganish</h2>
+
+  <div class="natija">1) CHUQURLASHTIRISH  (eng foydali)
+   □ SQL — indekslar, EXPLAIN, JOIN turlari, tranzaksiya darajalari
+   □ HTTP — kesh sarlavhalari, CORS, cookie, HTTPS
+   □ Linux — jarayonlar, huquqlar, log, systemd
+
+2) KENGAYTIRISH  (ish talab qilsa)
+   □ Frontend: Livewire yoki Inertia + Vue/React
+   □ Redis chuqurroq, Horizon
+   □ Elasticsearch / Meilisearch (46-darsdagi to'liq matnli qidiruv)
+   □ WebSocket (real vaqt)
+
+3) MUHANDISLIK  (o'sish uchun)
+   □ PHPStan — statik tahlil (65-dars)
+   □ Arxitektura: DDD, hexagonal — LEKIN avval og'riqni ko'ring
+   □ Monitoring: Sentry, Pulse, APM</div>
+
+  <div class="callout tip">
+    <span class="label">🔑 Tartib muhim</span>
+    <p><b>Birinchi guruh</b> — eng foydali va eng
+    kam o'rganiladi. SQL va HTTP
+    <b>hech qachon eskirmaydi</b>; freymvorklar
+    esa o'zgaradi.</p>
+    <p>⚠️ Uchinchi guruhga <b>erta</b> kirmang.
+    63-darsdagi qoida: <b>og'riq paydo
+    bo'lganda</b> qo'llang. DDD ni muammosiz
+    loyihaga kiritish — foyda emas,
+    soliq.</p>
+    <p>✅ Va eng yaxshi o'rganish yo'li —
+    <b>ishlatish</b>. Yangi narsani IshTop'ga
+    qo'shib ko'ring.</p>
+  </div>
+
+  <!-- ═══════════════ 10) BIRINCHI ISH KUNI ═══════════════ -->
+  <h2>Birinchi ish kuni</h2>
+
+  <p>67-dars aynan shu kun uchun edi.</p>
+
+  <div class="natija">BIRINCHI HAFTADA:
+  1) Loyihani ISHGA TUSHIRING — README bo'yicha
+     Ishlamasa — bu birinchi hissangiz: README ni tuzating
+
+  2) route:list ni o'qing — ilova NIMA qilishini ko'rasiz
+
+  3) Testlarni ishlating — nechta bor? Yashilmi?
+
+  4) Kichik vazifa so'rang — bug tuzatish eng yaxshisi
+
+  5) Ko'p SAVOL bering — birinchi haftada bu KUTILADI
+     Uchinchi oyda esa allaqachon bilishingiz kerak</div>
+
+  <div class="callout tip">
+    <span class="label">🔑 Birinchi bug'ni qanday olasiz</span>
+    <p>67-darsdagi sakkiz qadam:
+    <b>takrorla → toraytir → kuzat → o'lcha →
+    tushun → test yoz → tuzat → ko'lamni
+    tekshir</b>.</p>
+    <p>✅ Va PR'ingizda <b>nima qilganingizni</b>
+    yozing: «bug shu edi, sabab shu, test
+    qo'shdim». Bu birinchi taassurot.</p>
+    <p>⚠️ 1–2 soat o'zingiz uring, keyin
+    <b>tekshirilgan</b> savol bering: «shuni
+    sinadim, shunday natija oldim, kutganim
+    boshqacha edi».</p>
+  </div>
+
+  <!-- ═══════════════ 11) HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> —
+  intervyuga tayyorlanayotganda qaytib
+  qarang.</p>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 1</span>
+    <h4>Maosh haqida savol</h4>
+    <div class="natija">"Qancha maosh kutasiz?"
+
+❌ "Bilmayman, o'zingiz ayting"     ← eng past taklifni olasiz
+❌ Aniq bitta raqam                 ← savdolashish imkoni yo'q
+
+✅ "Bozorni o'rgandim, junior uchun X–Y oralig'ida.
+    Men Y ga yaqinroq kutaman, chunki [portfolio · testlar · CI].
+    Lekin butun taklifga qarayman — o'rganish va ustoz ham muhim."</div>
+    <p>🔑 Avval <b>o'rganing</b>: e'lonlar,
+    hamkasblar, jamoalar. Raqamsiz kirmang.</p>
+    <p>✅ Junior uchun <b>ustoz</b> va <b>kod
+    ko'rik</b> maoshdan muhimroq bo'lishi
+    mumkin — buni ayting.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 2</span>
+    <h4>Siz beradigan savollar</h4>
+    <div class="natija">□ Kod ko'rik (code review) qanday o'tadi?
+□ Testlar bormi? Qamrov qanday?
+□ Deploy qanday? Kuniga necha marta?
+□ Junior kim bilan ishlaydi — ustoz bormi?
+□ Birinchi oyda meni nima kutadi?
+□ Eng katta texnik qarz nimada?</div>
+    <p>🔑 Oxirgisi — <b>eng kuchli savol</b>. Javob
+    sizga jamoaning halolligini va
+    loyihaning holatini ko'rsatadi.</p>
+    <p>⚠️ «Savolingiz bormi?» ga «yo'q» deb javob
+    berish — <b>qiziqmaslik</b> belgisi.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 3</span>
+    <h4>Rad javob olsangiz</h4>
+    <div class="natija">1) SABABINI SO'RANG
+   "Nimani yaxshilashim kerak edi?" — ko'pchilik javob beradi
+
+2) YOZIB QO'YING
+   Qaysi savolga javob bera olmadingiz? Bu — o'quv rejangiz
+
+3) DAVOM ETING
+   Junior uchun 20–50 ariza normal. Bu shaxsiy emas.</div>
+    <p>🔑 Har intervyu — <b>bepul mashq</b>. Uchinchi
+    intervyudan keyin ancha yaxshi
+    gapirasiz.</p>
+    <p>✅ Va rad javob ko'pincha <b>siz haqingizda
+    emas</b>: byudjet, ichki nomzod, boshqa
+    yo'nalish.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 4</span>
+    <h4>GitHub profili</h4>
+    <div class="natija">□ Profil README — kim ekaningiz, nima bilan ishlaysiz
+□ Yaxshi loyiha PIN qilingan (yuqorida)
+□ Commit lar mantiqiy: "45-dars: apiResource" ✅  "update" ❌
+□ Har loyihada README bor
+□ Tashlab ketilgan yarim loyihalar YASHIRILGAN yoki arxivlangan</div>
+    <p>🔑 Bitta <b>to'liq</b> loyiha o'ntadan
+    yaxshiroq.</p>
+    <p>✅ Va CI belgisi (badge) README'da —
+    71-darsdan: yashil belgi darrov
+    ko'rinadi.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 5</span>
+    <h4>Masofaviy ish</h4>
+    <div class="natija">Talab qilinadi:
+  □ Ingliz tili (o'qish MINIMUM, yozish yaxshi)
+  □ O'zini boshqarish — nazoratsiz ishlash
+  □ Yozma muloqot — aniq yozish
+  □ Vaqt mintaqalari bilan ishlash
+
+Foydali:
+  □ GitHub profili — sizning "ish joyingiz"
+  □ Ochiq kodga hissa — hatto hujjat tuzatish ham</div>
+    <p>🔑 Ingliz tili — <b>eng katta to'siq</b> va
+    <b>eng katta imkoniyat</b>. Hujjatlarni
+    ingliz tilida o'qishni <b>bugundan</b>
+    boshlang.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 6</span>
+    <h4>Junior'dan Middle'ga</h4>
+    <div class="natija">JUNIOR:   vazifa beriladi → bajaradi → ko'rikdan o'tadi
+MIDDLE:   muammo beriladi → yechim taklif qiladi → o'zi bajaradi
+SENIOR:   yo'nalish beriladi → muammoni O'ZI topadi → boshqalarni o'stiradi</div>
+    <p>🔑 Junior'dan Middle'ga o'tish —
+    <b>mustaqillik</b>: «qanday qilay?» dan
+    «men shunday qilmoqchiman, fikringiz?»
+    ga.</p>
+    <p>✅ Va bu kursda o'rgangan eng muhim narsa
+    aynan shu: <b>o'lchash</b>. Middle
+    «menimcha sekin» demaydi — u
+    <b>raqam</b> keltiradi.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>Intervyudan oldingi ro'yxat</h4>
+    <div class="natija">BIR KUN OLDIN
+  □ Loyihangizni qayta ishga tushiring — ishlayaptimi?
+  □ README ni o'qing
+  □ 3 ta o'lchangan misolni eslang (N+1, indeks, xavfsizlik)
+  □ Kompaniya haqida o'qing — nima qiladi?
+
+BIR SOAT OLDIN
+  □ Kamera va mikrofonni sinang
+  □ GitHub ni oching — kerak bo'lsa ko'rsatasiz
+  □ Suv oling
+
+DAVOMIDA
+  □ Savolni tushunmasangiz — QAYTA so'rang
+  □ O'ylash uchun vaqt so'rang — bu normal
+  □ Bilmasangiz — ayting va usulingizni tushuntiring
+  □ O'z savollaringizni bering (HOLAT 2)</div>
+    <p>🔑 Va eng muhimi: siz <b>ishlaydigan
+    loyiha</b> bilan kelyapsiz. Ko'pchilik
+    nomzodda bu yo'q.</p>
+  </div>
+
+  <!-- ═══════════════ 12) AMALIYOT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    💻 Quyida amaliyot bor. Hozir o'qish rejimidasiz — kompyuter
+    yoningizda bo'lganda <b>💻 Amaliyot</b> rejimiga o'ting va
+    shu bo'limdan davom eting.
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <div class="callout tip">
+      <span class="label">🔑 Bu amaliyot boshqacha</span>
+      <p>Bu yerda yangi kod yozmaysiz. Bu yerda
+      <b>bor narsangizni ko'rsatishga
+      tayyorlaysiz</b>.</p>
+    </div>
+
+    <ol class="steps">
+      <li>
+        <b>🔍 Loyihangiz raqamlarini oling.</b>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+echo &quot;  sinflar:      $(find app -name '*.php' | wc -l) ta&quot;
+echo &quot;  test fayllar: $(find tests -name '*Test.php' | wc -l) ta&quot;
+echo &quot;  app/ qator:   $(find app -name '*.php' -exec cat {} + | wc -l)&quot;
+echo &quot;  tests/ qator: $(find tests -name '*.php' -exec cat {} + | wc -l)&quot;
+php artisan route:list | tail -2 | head -1
+php artisan test 2>&amp;1 | grep 'Tests:'">cd ~/Projects/Learn/ishtop
+echo &quot;  sinflar:      $(find app -name '*.php' | wc -l) ta&quot;
+echo &quot;  test fayllar: $(find tests -name '*Test.php' | wc -l) ta&quot;
+echo &quot;  app/ qator:   $(find app -name '*.php' -exec cat {} + | wc -l)&quot;
+echo &quot;  tests/ qator: $(find tests -name '*.php' -exec cat {} + | wc -l)&quot;
+php artisan route:list | tail -2 | head -1
+php artisan test 2&gt;&amp;1 | grep 'Tests:'</div>
+        <p class="expect">Menda <b>40 sinf</b>,
+        <b>25 test fayli</b> (121 test),
+        <b>15 marshrut</b>, test kodi <b>1382</b>
+        va ilova kodi <b>1166</b> qator.</p>
+      </li>
+
+      <li>
+        <b>Tuzilishni ko'rib chiqing.</b>
+        <div class="cmd" data-cmd="for d in Actions Data Queries Services Xizmatlar Models Policies Jobs Events Listeners Enums Http/Controllers/Api Http/Requests Http/Resources; do
+  n=$(find app/$d -name '*.php' 2>/dev/null | wc -l)
+  [ &quot;$n&quot; -gt 0 ] &amp;&amp; printf '  app/%-26s %s ta\n' &quot;$d&quot; &quot;$n&quot;
+done">for d in Actions Data Queries Services Xizmatlar Models Policies Jobs Events Listeners Enums Http/Controllers/Api Http/Requests Http/Resources; do
+  n=$(find app/$d -name '*.php' 2&gt;/dev/null | wc -l)
+  [ &quot;$n&quot; -gt 0 ] &amp;&amp; printf '  app/%-26s %s ta\n' &quot;$d&quot; &quot;$n&quot;
+done</div>
+        <p>Bu ro'yxatni <b>tushuntira
+        olishingiz</b> kerak: nega
+        <code>Actions</code>, nega
+        <code>Queries</code>?</p>
+      </li>
+
+      <li>
+        <b>README yozing.</b>
+        <div class="cmd" data-cmd="cat > README.md <<'MDEOF'
+# IshTop — vakansiyalar API si
+
+Laravel 13 · PHP 8.3 · MySQL · Redis · Pest
+
+Vakansiya e'lon qilish va qidirish uchun REST API.
+
+## Ishga tushirish
+
+```bash
+composer install
+cp .env.example .env &amp;&amp; php artisan key:generate
+php artisan migrate --seed
+php artisan serve
+```
+
+## Testlar
+
+```bash
+php artisan test
+./vendor/bin/pint --test
+```
+
+## Imkoniyatlar
+
+- REST API (v1): sahifalash, filtr, saralash
+- Sanctum tokenlari va qobiliyatlar, Policy huquqlari
+- Navbat, hodisalar, xatlar, bildirishnomalar, rejalashtirilgan buyruqlar
+- Redis kesh, N+1 dan himoya (preventLazyLoading)
+- CI: Pint + Pest + composer audit, PHP 8.3/8.4 matritsasi
+
+## Nima o'rganildi
+
+- N+1 o'lchandi va so'rov byudjeti testi bilan mixlandi
+- SQLite va MySQL kollatsiyasi farqi (whereLike bilan hal qilindi)
+- Ommaviy tayinlash zaifligi topildi va tuzatildi
+
+## Nima qilinmagan
+
+- To'lov integratsiyasi
+- Frontend (faqat API)
+MDEOF
+head -8 README.md">cat &gt; README.md &lt;&lt;'MDEOF'
+# IshTop — vakansiyalar API si
+
+Laravel 13 · PHP 8.3 · MySQL · Redis · Pest
+
+Vakansiya e'lon qilish va qidirish uchun REST API.
+
+## Ishga tushirish
+
+```bash
+composer install
+cp .env.example .env &amp;&amp; php artisan key:generate
+php artisan migrate --seed
+php artisan serve
+```
+
+## Testlar
+
+```bash
+php artisan test
+./vendor/bin/pint --test
+```
+
+## Imkoniyatlar
+
+- REST API (v1): sahifalash, filtr, saralash
+- Sanctum tokenlari va qobiliyatlar, Policy huquqlari
+- Navbat, hodisalar, xatlar, bildirishnomalar, rejalashtirilgan buyruqlar
+- Redis kesh, N+1 dan himoya (preventLazyLoading)
+- CI: Pint + Pest + composer audit, PHP 8.3/8.4 matritsasi
+
+## Nima o'rganildi
+
+- N+1 o'lchandi va so'rov byudjeti testi bilan mixlandi
+- SQLite va MySQL kollatsiyasi farqi (whereLike bilan hal qilindi)
+- Ommaviy tayinlash zaifligi topildi va tuzatildi
+
+## Nima qilinmagan
+
+- To'lov integratsiyasi
+- Frontend (faqat API)
+MDEOF
+head -8 README.md</div>
+      </li>
+
+      <li>
+        <b>⭐ README'ni SINANG — «onboarding
+        testi».</b>
+        <div class="cmd" data-cmd="cd /tmp
+rm -rf readme-sinov
+git clone -q ~/Projects/Learn/ishtop readme-sinov 2>/dev/null || cp -r ~/Projects/Learn/ishtop readme-sinov
+cd readme-sinov
+composer install --quiet
+cp .env.example .env &amp;&amp; php artisan key:generate --quiet
+touch database/database.sqlite
+php artisan migrate --seed --force 2>&amp;1 | tail -2
+php artisan test 2>&amp;1 | tail -3
+cd /tmp &amp;&amp; rm -rf readme-sinov">cd /tmp
+rm -rf readme-sinov
+git clone -q ~/Projects/Learn/ishtop readme-sinov 2&gt;/dev/null || cp -r ~/Projects/Learn/ishtop readme-sinov
+cd readme-sinov
+composer install --quiet
+cp .env.example .env &amp;&amp; php artisan key:generate --quiet
+touch database/database.sqlite
+php artisan migrate --seed --force 2&gt;&amp;1 | tail -2
+php artisan test 2&gt;&amp;1 | tail -3
+cd /tmp &amp;&amp; rm -rf readme-sinov</div>
+        <p class="expect">Toza nusxada README bo'yicha
+        ishga tushdimi? Yo'q bo'lsa —
+        README'ni <b>tuzating</b>.</p>
+      </li>
+
+      <li>
+        <b>⭐ Uchta o'lchangan misolni yozib
+        oling.</b> Ularni <b>yoddan</b> ayta
+        olishingiz kerak:
+        <div class="cmd" data-cmd="cat > /tmp/intervyu-misollar.md <<'MDEOF'
+## 1. N+1
+200 yozuv: N+1 -> 201 so'rov / 22.9 ms; with() -> 2 so'rov / 2.5 ms.
+preventLazyLoading kolleksiyada ishlaydi, bitta modelda emas.
+Himoya: so'rov byudjeti testi (toBeLessThanOrEqual).
+
+## 2. Indeks har doim yordam bermaydi
+7000 yozuv qaytaradigan so'rov: 7.71 -> 7.29 ms (deyarli hech narsa).
+1 yozuvli so'rov: 1.868 -> 0.043 ms (43 barobar).
+Indeks TOPISHNI tezlashtiradi, o'qib berishni emas.
+
+## 3. Xavfsizlik
+rol maydoni fillable da edi -> User::create($request->all()) bilan admin bo'lish mumkin edi.
+APP_DEBUG=true: javob 877 560 bayt, sir 4 marta; false: 6 592 bayt, 0 marta.
+MDEOF
+cat /tmp/intervyu-misollar.md">cat &gt; /tmp/intervyu-misollar.md &lt;&lt;'MDEOF'
+## 1. N+1
+200 yozuv: N+1 -&gt; 201 so'rov / 22.9 ms; with() -&gt; 2 so'rov / 2.5 ms.
+preventLazyLoading kolleksiyada ishlaydi, bitta modelda emas.
+Himoya: so'rov byudjeti testi (toBeLessThanOrEqual).
+
+## 2. Indeks har doim yordam bermaydi
+7000 yozuv qaytaradigan so'rov: 7.71 -&gt; 7.29 ms (deyarli hech narsa).
+1 yozuvli so'rov: 1.868 -&gt; 0.043 ms (43 barobar).
+Indeks TOPISHNI tezlashtiradi, o'qib berishni emas.
+
+## 3. Xavfsizlik
+rol maydoni fillable da edi -&gt; User::create($request-&gt;all()) bilan admin bo'lish mumkin edi.
+APP_DEBUG=true: javob 877 560 bayt, sir 4 marta; false: 6 592 bayt, 0 marta.
+MDEOF
+cat /tmp/intervyu-misollar.md</div>
+      </li>
+
+      <li>
+        <b>O'zingizni sinang — ovoz chiqarib.</b>
+        Quyidagi savollarga <b>yozmasdan</b>,
+        ovoz chiqarib javob bering. Har biriga
+        <b>o'z o'lchovingizni</b> qo'shing:
+        <div class="natija">cat &lt;&lt;'EOF'
+  1. N+1 muammosi nima va uni qanday topdingiz?
+  2. Eloquent va Query Builder farqi?
+  3. Servis konteyneri nima uchun kerak?
+  4. Testlarni qanday yozasiz? Bug topsangiz birinchi nima qilasiz?
+  5. Ilova sekin ishlayapti — qanday tekshirasiz?
+  6. Ommaviy tayinlash (mass assignment) nima?
+  7. Navbat (queue) qanday ishlaydi? Deploy'da nima qilish kerak?
+  8. CI nima beradi? Qadamlar tartibi nega muhim?
+  9. SQLite va MySQL farqi bormi?
+ 10. AI vositalaridan foydalanasizmi?</div>
+        <p>⚠️ Javob bera olmagan savolni
+        <b>yozib qo'ying</b> — tegishli darsga
+        qaytib o'qing.</p>
+      </li>
+
+      <li>
+        <b>Sinov topshirig'ini bajaring —
+        <b>AI'siz</b>.</b>
+        <div class="natija">TOPSHIRIQ (3 soat):
+
+IshTop ga "kompaniyalar" uchun to'liq CRUD API qo'shing.
+
+Talablar:
+  - GET    /api/v1/kompaniyalar        (sahifalash + shahar bo'yicha filtr)
+  - GET    /api/v1/kompaniyalar/{id}   (404 toza bo'lsin)
+  - POST   /api/v1/kompaniyalar        (auth + tekshiruv)
+  - PUT    /api/v1/kompaniyalar/{id}   (faqat egasi yoki admin)
+  - DELETE /api/v1/kompaniyalar/{id}   (faqat admin)
+
+Majburiy:
+  - FormRequest bilan tekshiruv
+  - Resource bilan javob
+  - Policy bilan huquq
+  - Kamida 6 ta test (xato holatlari ham)
+  - Pint toza
+
+Baholash: testlar &gt; kod chiroyliligi</div>
+        <p>🔑 Hujjatga qarash — <b>mumkin</b>.
+        Kursga qaytib qarash — <b>mumkin</b>.
+        AI'dan kod so'rash — <b>yo'q</b>.</p>
+      </li>
+
+      <li>
+        <b>Yakuniy tekshiruv.</b>
+        <div class="cmd" data-cmd="./vendor/bin/pint --test
+php artisan test 2>&amp;1 | tail -3
+php artisan about | head -12">./vendor/bin/pint --test
+php artisan test 2&gt;&amp;1 | tail -3
+php artisan about | head -12</div>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li>🔍 Loyiham raqamlarini bilaman</li>
+      <li>Tuzilishni tushuntira olaman</li>
+      <li>README yozildi</li>
+      <li>⭐ README toza nusxada sinaldi</li>
+      <li>⭐ Uchta o'lchangan misol yozib
+      olindi</li>
+      <li>10 ta savolga ovoz chiqarib javob
+      berdim</li>
+      <li>Javob bera olmaganlarim yozib
+      qo'yildi</li>
+      <li>Sinov topshirig'ini AI'siz bajardim</li>
+      <li>Rezyumeda raqamlar bor</li>
+      <li>GitHub profili tartibga solindi</li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 13) SINAB KO'RAMIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Intervyuda sizga kod ko'rsatishdi:</p>
+    <div class="natija">public function index(Request $request)
+{
+    $vakansiyalar = Vakansiya::all();
+
+    if ($request->has('shahar')) {
+        $vakansiyalar = $vakansiyalar->where('shahar', $request->shahar);
+    }
+
+    return view('vakansiyalar.index', [
+        'vakansiyalar' => $vakansiyalar->take(20),
+    ]);
+}</div>
+    <p>Va so'rashdi: <b>«Bu kodda nima muammo
+    bor?»</b></p>
+    <p>Nechta muammo topa olasiz?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <p>Kamida <b>beshta</b>. Va ularning
+        har biri — bu kursda
+        <b>o'lchagan</b> narsangiz:</p>
+        <div class="natija">1) Vakansiya::all()  —  BUTUN jadval xotiraga         (60-dars)
+   500 000 yozuv bo'lsa — xotira tugaydi.
+   Filtr KOLLEKSIYADA emas, SO'ROVDA bo'lishi kerak:
+   ->when($request->filled('shahar'), fn ($q) => $q->where(...))
+
+2) ->take(20)  —  bu SAHIFALASH emas                  (46-dars)
+   Foydalanuvchi 21-yozuvni ko'ra olmaydi.
+   paginate(20) kerak.
+
+3) N+1  —  Blade da $v->kompaniya->nom bo'lsa           (60-dars)
+   with('kompaniya') yo'q.
+
+4) Tekshiruv YO'Q  —  $request->shahar xohlagan narsa   (39, 66-dars)
+   FormRequest yoki validate() kerak.
+
+5) Yopilgan vakansiyalar ham chiqadi                    (67-dars)
+   faol() scope si yo'q.</div>
+        <p class="expect">🔑 Va endi eng muhimi:
+        <b>javobni qanday aytish</b>.</p>
+        <div class="natija">❌ Ro'yxatni o'qib berish
+
+✅ "Bir nechta narsa ko'ryapman. Eng jiddiysi — Vakansiya::all():
+    u butun jadvalni xotiraga oladi va filtr SO'ROVDA emas,
+    kolleksiyada bajarilyapti. Men buni o'lchagandim —
+    50 000 yozuvli jadvalda bu jiddiy muammo.
+    Ikkinchisi — take(20) sahifalash emas.
+    Uchinchisi — agar shablonda kompaniya nomi ishlatilsa,
+    bu N+1 beradi; men buni preventLazyLoading bilan tutaman.
+    Yana tekshiruv yo'q — bu 66-darsdagi xavfsizlik masalasi ham.
+    Boshlaymizmi eng jiddiysidan?"</div>
+        <p>🔑 <b>Farqni ko'ryapsizmi?</b> Siz
+        muammolarni <b>tartiblab</b>, sabab bilan
+        va <b>o'z tajribangizga</b> tayanib
+        aytdingiz. Va oxirida <b>suhbatga
+        taklif</b> qildingiz.</p>
+        <p>✅ Bu — junior emas, <b>ishonchli
+        nomzod</b> javobi. Va u sizda
+        <b>bor</b>, chunki har birini
+        o'zingiz o'lchagansiz.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span>
+    ⭐ «N+1 nima?» degan savolga qanday javob
+    kuchli?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">O'lchangan aniq misol keltirish eng kuchli javob bo'ladi</button></li>
+      <li><button class="quiz-option">Ta'rifni to'liq va so'zma-so'z yodlab aytib berish kerak</button></li>
+      <li><button class="quiz-option">Bilmasam ham javob berib ko'rish har doim yaxshi</button></li>
+    </ul>
+    <div class="quiz-explain">🔑 Kuchli javobning uch
+    qismi: <b>o'lchov</b> («201 so'rov,
+    22.9 ms») → <b>nozik jihat</b>
+    («<code>preventLazyLoading</code> faqat
+    kolleksiyada ishlaydi») → <b>himoya</b>
+    («so'rov byudjeti testi qo'ydim»).
+    Ta'rifni har kim Google'dan o'qiy oladi —
+    <b>o'lchov</b> esa faqat sizda bor.
+    ⚠️ Va taxmin qilib javob berish eng yomon
+    variant: bir marta sezilsa, <b>hamma</b>
+    javobingizga shubha tushadi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span>
+    Portfolioda eng muhimi nima?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">README va ishlaydigan testlar eng muhim ko'rsatkich</button></li>
+      <li><button class="quiz-option">Loyihalar soni va qatorlar hajmi eng muhimi</button></li>
+      <li><button class="quiz-option">Chiroyli dizayn va rangli sahifalar eng muhimi</button></li>
+    </ul>
+    <div class="quiz-explain">🔑 Bitta <b>to'liq</b>
+    loyiha o'ntadan yaxshiroq.
+    README bo'yicha ishga tushira olmasam —
+    qolgani muhim emas. Testlar esa eng ko'p
+    <b>ajratadigan</b> omil: ko'pchilik
+    yozmaydi.
+    🔍 Sizda: <b>121 test</b>, va test kodi ilova
+    kodidan <b>ko'proq</b> (1382 va 1166
+    qator).
+    ✅ README'ning eng qimmat ikki bo'limi:
+    «<b>Nima o'rganildi</b>» va «<b>Nima
+    qilinmagan</b>» — ikkinchisi halollik
+    belgisi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span>
+    Javobini bilmagan savolga nima deysiz?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Bilmasligimni aytib uni qanday topishimni tushuntirib beraman</button></li>
+      <li><button class="quiz-option">Taxminan javob berib ishonchli ko'rinishga harakat qilaman</button></li>
+      <li><button class="quiz-option">Savolni eshitmagandek qilib butunlay boshqa mavzuga o'taman</button></li>
+    </ul>
+    <div class="quiz-explain">🔑 Intervyuchi
+    <b>bilimingizni</b> emas, <b>ishlash
+    usulingizni</b> bilmoqchi — yarim yildan
+    keyin siz butunlay boshqa narsalar bilan
+    ishlaysiz.
+    ✅ Kuchli javob: «Ishlatmaganman. Lekin
+    o'xshash narsa bilan tajribam bor —
+    [misol]. Duch kelsam, hujjatni o'qiyman va
+    kichik zondda sinab ko'raman.»
+    🔑 Va 67-darsdagi usulni ayting: <b>takrorlayman
+    → toraytiraman → o'lchayman</b>. Bu
+    ko'nikma bilimdan qimmatliroq.</div>
+  </div>
+
+  <!-- ═══════════════ 14) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+
+    <p>Bu — kursning oxirgi «eslab ayting»i. Javobni
+    ovoz chiqarib ayting.</p>
+
+    <details class="recall">
+      <summary>⭐ Kuchli javobning tuzilishi
+      qanday?</summary>
+      <div class="answer"><b>1)</b> Qisqa ta'rif ·
+      <b>2)</b> <b>o'z o'lchovim</b> (aniq raqam) ·
+      <b>3)</b> <b>nozik jihat</b> (chuqurlikni
+      ko'rsatadi) · <b>4)</b> <b>nima
+      qilganim</b> (himoya, test).
+      Misol: «N+1 — 200 yozuvda <b>201 so'rov /
+      22.9 ms</b>, <code>with()</code> bilan
+      <b>2 / 2.5 ms</b>.
+      <code>preventLazyLoading</code> qo'ydim, lekin u
+      <b>faqat kolleksiyada</b> ishlaydi. Va so'rov
+      byudjeti testi bilan mixladim.»
+      🔑 Ta'rifni har kim o'qiy oladi —
+      <b>o'lchov</b> faqat sizda.</div>
+    </details>
+
+    <details class="recall">
+      <summary>Uchta eng kuchli o'lchangan
+      misolingiz</summary>
+      <div class="answer"><b>1) N+1:</b> 201 so'rov /
+      22.9 ms → 2 / 2.5 ms.
+      <b>2) Indeks har doim yordam bermaydi:</b>
+      7000 yozuvli so'rov 7.71 → 7.29 ms
+      (deyarli hech narsa); 1 yozuvli 1.868 →
+      0.043 ms (43 barobar). <b>Indeks topishni
+      tezlashtiradi, o'qib berishni emas.</b>
+      <b>3) Xavfsizlik:</b> <code>rol</code>
+      <code>fillable</code> da edi — hujumchi admin
+      bo'la olardi; <code>APP_DEBUG=true</code>
+      bilan javob <b>877 560 bayt</b>, sir
+      <b>4 marta</b>.
+      ✅ Bularni <b>yoddan</b> ayta olishingiz
+      kerak.</div>
+    </details>
+
+    <details class="recall">
+      <summary>Amaliy topshiriqda nima
+      baholanadi?</summary>
+      <div class="answer">Eng ko'p ajratadigan uchtasi:
+      <b>1) testlar</b> (ko'pchilik yozmaydi —
+      5 ta ham 0 tadan cheksiz yaxshi) ·
+      <b>2) README</b> (ishga tushira olmasam
+      qolgani muhim emas) ·
+      <b>3) xato holatlari</b> (bo'sh ro'yxat,
+      topilmagan yozuv, noto'g'ri kirish).
+      Yana: mantiqiy commit'lar, nomlash,
+      xavfsizlik (<code>$request-&gt;all()</code>
+      bormi?).
+      ⚠️ Vaqt chegarasini <b>hurmat qiling</b>:
+      «4 soat» ga 20 soat sarflash — yomon
+      belgi. Ulgurmaganingizni README'da
+      <b>yozing</b>.</div>
+    </details>
+
+    <details class="recall">
+      <summary>Keyin nima o'rganish kerak?</summary>
+      <div class="answer"><b>1) Chuqurlashtirish</b>
+      (eng foydali va eng kam o'rganiladigan):
+      <b>SQL</b>, <b>HTTP</b>, <b>Linux</b> —
+      ular hech qachon eskirmaydi.
+      <b>2) Kengaytirish</b> (ish talab qilsa):
+      Livewire/Inertia, Horizon, qidiruv
+      xizmatlari, WebSocket.
+      <b>3) Muhandislik</b> (o'sish uchun):
+      PHPStan, monitoring, arxitektura.
+      ⚠️ Uchinchi guruhga <b>erta</b> kirmang —
+      63-darsdagi qoida: <b>og'riq paydo
+      bo'lganda</b>.
+      ✅ Eng yaxshi usul — yangi narsani
+      <b>IshTop'ga qo'shib ko'rish</b>.</div>
+    </details>
+
+    <details class="recall">
+      <summary>Birinchi ish kunida nima
+      qilasiz?</summary>
+      <div class="answer"><b>1)</b> Loyihani
+      <b>ishga tushiring</b> README bo'yicha —
+      ishlamasa, uni tuzatish birinchi
+      hissangiz.
+      <b>2)</b> <code>route:list</code> ni
+      o'qing — ilova <b>nima</b> qilishini
+      ko'rasiz.
+      <b>3)</b> Testlarni ishlating.
+      <b>4)</b> Kichik vazifa so'rang — <b>bug
+      tuzatish</b> eng yaxshisi.
+      <b>5)</b> Ko'p <b>savol</b> bering — birinchi
+      haftada bu <b>kutiladi</b>.
+      🔑 Va bug'ni 67-darsdagi sakkiz qadam bilan
+      oling: takrorla → toraytir → kuzat →
+      o'lcha → tushun → <b>test yoz</b> →
+      tuzat → ko'lamni tekshir.</div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 15) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Xulosa</span>
+    <ul>
+      <li>🔍 Sizda ishlaydigan loyiha bor:
+      <b>40 sinf</b>, <b>15 marshrut</b>,
+      <b>121 test</b>.</li>
+      <li>🔍 Test kodi ilova kodidan
+      <b>ko'proq</b>: 1382 va 1166 qator.</li>
+      <li>⭐ Kuchli javob: ta'rif → <b>o'z
+      o'lchovim</b> → nozik jihat → nima
+      qilganim.</li>
+      <li>Har savolga <b>sizning</b> misolingiz bor —
+      chunki o'zingiz o'lchagansiz.</li>
+      <li>«Bilmayman» + <b>usulingiz</b> — kuchli
+      javob. Taxmin qilish — eng yomoni.</li>
+      <li>Amaliy topshiriqda eng ko'p ajratadigan:
+      <b>testlar</b>, <b>README</b>, <b>xato
+      holatlari</b>.</li>
+      <li>README'da: «Nima o'rganildi» va «Nima
+      qilinmagan».</li>
+      <li>README'ni <b>toza nusxada sinang</b>.</li>
+      <li>Rezyumeda <b>raqam</b>, <b>havola</b>,
+      <b>aniq nomlar</b>.</li>
+      <li>⚠️ AI: ishlataman, lekin tushunmagan kodni
+      <b>qo'ymayman</b> va raqamni
+      <b>o'zim o'lchayman</b>.</li>
+      <li>Keyin: <b>SQL · HTTP · Linux</b> —
+      eskirmaydigan bilim.</li>
+      <li>Birinchi kun: ishga tushiring →
+      <code>route:list</code> → testlar →
+      kichik bug.</li>
+      <li>🔑 Bitta <b>to'liq</b> loyiha o'ntadan
+      yaxshiroq.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🎓 Kurs tugadi</span>
+    <p><b>73 ta dars.</b> Nol darajadan boshlab —
+    PHP asoslari, OOP, Laravel, baza, API,
+    testlar, tuzilish, xavfsizlik, Docker,
+    server, CI.</p>
+    <p>Lekin eng muhimi <b>bular emas</b>. Eng
+    muhimi — kurs davomida o'rgangan
+    <b>usul</b>:</p>
+    <div class="natija">Taxmin qilmang — O'LCHANG.
+Tuzatmang — avval TAKRORLANG.
+Ishonmang — TEST YOZING.
+"Ishlayapti" yetarli emas — QAYERDA BUZILISHINI biling.</div>
+    <p>Shu sababli har darsda raqamlar bor edi:
+    <b>201 so'rov</b>, <b>7.71 → 7.29 ms</b>,
+    <b>877 560 bayt</b>, <b>121 passed</b>.
+    Ular yodlash uchun emas — <b>usulni
+    ko'rsatish</b> uchun edi.</p>
+    <p>🔑 Va bu usul freymvork o'zgarsa ham,
+    til o'zgarsa ham <b>qoladi</b>.</p>
+    <p><b>Omad tilayman. Endi qurishga
+    kirishing.</b></p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel — Documentation</b>:
+    <a href="https://laravel.com/docs">eng
+    yaxshi manba, doim shu yerdan
+    boshlang</a>.<sup><a href="#fn1">1</a></sup><br>
+    <b>PHP — The Right Way</b>:
+    <a href="https://phptherightway.com/">zamonaviy
+    PHP amaliyoti</a>.<sup><a href="#fn2">2</a></sup><br>
+    <b>Laravel News</b>:
+    <a href="https://laravel-news.com/">yangiliklar
+    va amaliy maqolalar</a>.<sup><a href="#fn3">3</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Oxirgi so'z.</b> Savollaringizni
+    yozishda davom eting — kurs tugadi, lekin
+    o'rganish tugamaydi. «Bu kodda nima
+    xato?», «shu texnologiyani o'rganaymi?»,
+    «intervyuda shunday so'rashdi, qanday javob
+    berardim?» — har qanday savol yaxshi.
+    Va agar biror darsni qayta ko'rib chiqmoqchi
+    bo'lsangiz — <a href="../reference/yol-xaritasi.html">yo'l
+    xaritasi</a> va <a href="../reference/glossary.html">atamalar
+    lug'ati</a> doim shu yerda.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0072-php-versiyasini-yangilash.html">Oldingi: PHP versiyasini yangilash</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel — <a href="https://laravel.com/docs">Documentation</a>.</li>
+      <li id="fn2">PHP — <a href="https://phptherightway.com/">The Right Way</a>.</li>
+      <li id="fn3">Laravel News — <a href="https://laravel-news.com/">laravel-news.com</a>.</li>
+      <li id="fn4">Loyiha raqamlari jonli o'lchangan
+      (PHP 8.3.32, Laravel 13.26.1, Pest 4.7.8):
+      <code>app/</code> da <b>40 ta</b> sinf
+      (<code>Actions</code> 1, <code>Data</code> 1,
+      <code>Queries</code> 2, <code>Services</code> 1,
+      <code>Xizmatlar</code> 4, <code>Models</code> 4,
+      <code>Policies</code> 1, <code>Jobs</code> 2,
+      <code>Events</code> 1, <code>Listeners</code> 2,
+      <code>Enums</code> 1,
+      <code>Http/Controllers/Api</code> 4,
+      <code>Http/Requests</code> 2,
+      <code>Http/Resources</code> 2 va boshqalar) ·
+      <code>route:list</code> → <b>15 ta</b> marshrut ·
+      <code>php artisan test</code> → <b>121 passed
+      (243 assertions)</b>, <b>25 ta</b> test fayli
+      (<b>23</b> Feature + <b>2</b> Unit) ·
+      kod hajmi: <code>app/</code> <b>1166 qator</b>,
+      <code>tests/</code> <b>1382 qator</b> — ya'ni
+      test kodi ilova kodidan <b>ko'proq</b> ·
+      darsdagi keltirilgan o'lchovlar avvalgi
+      darslarda olingan: N+1 <b>201 so'rov /
+      22.9 ms</b> → <b>2 / 2.5 ms</b> (60-dars) ·
+      indeks <b>7.71 → 7.29 ms</b> va
+      <b>1.868 → 0.043 ms</b> (60-dars) ·
+      <code>APP_DEBUG</code> <b>877 560</b> va
+      <b>6 592</b> bayt (66-dars) ·
+      SQLite/MySQL <b>1</b> va <b>3</b> (61-dars).</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

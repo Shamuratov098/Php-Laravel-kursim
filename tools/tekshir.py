@@ -125,7 +125,12 @@ tot = len(re.findall(r'road-n">', r))
 m = re.search(r'Tayyor darslar: (\d+) / (\d+)', r)
 if int(m.group(1)) != len(LESSONS) or int(m.group(2)) != tot:
     bad(f'XARITA hisobi: "{m.group(0)}" — bo\'lishi kerak "{len(LESSONS)} / {tot}"')
-if len(re.findall(r'<li class="now">', r)) != 1: bad('XARITA: aynan bitta "now" bo\'lishi kerak')
+nows = len(re.findall(r'<li class="now">', r))
+if len(LESSONS) == tot:
+    # kurs tugadi — "keyingi dars" bo'lmasligi kerak
+    if nows != 0: bad('XARITA: kurs tugagan, "now" bo\'lmasin')
+elif nows != 1:
+    bad('XARITA: aynan bitta "now" bo\'lishi kerak')
 print(f'✔ xarita: {len(done)} tayyor / {tot} jami')
 
 # 9) Bosh sahifadagi dars havolalari fayllarga mos

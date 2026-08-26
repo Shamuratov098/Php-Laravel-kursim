@@ -17,7 +17,7 @@
   muhit ma'lumotlari. Har dars yangi buyruq o'rgatilsa, shu yerga qo'shiladi.</p>
 
   <p class="lesson-meta">
-    <span>Qamrov: <b>1&ndash;72-darslar</b> — muhitdan API'gacha</span>
+    <span>Qamrov: <b>1&ndash;73-darslar</b> — <b>to'liq kurs</b> — muhitdan API'gacha</span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>💻 Amaliyotga mos</span>
   </p>
@@ -1826,6 +1826,43 @@
     <code>database</code> · <code>redis</code> (ishlab
     chiqarish, teglar bor).
     Redis nafaqat kesh: navbat, sessiya va cheklov ham.</p>
+  </div>
+
+  <h2>Intervyuga tayyorlik (73-darsdan) ⭐</h2>
+  <table class="sheet">
+    <tr><th>Savol</th><th class="note-cell">Sizning o'lchovingiz</th></tr>
+    <tr><td>N+1 nima?</td><td class="note-cell"><b>201 so'rov / 22.9 ms</b> → <b>2 / 2.5 ms</b></td></tr>
+    <tr><td>Indeks nima qiladi?</td><td class="note-cell">7000 yozuv <b>7.71 → 7.29</b> · 1 yozuv <b>1.868 → 0.043</b></td></tr>
+    <tr><td>Xavfsizlik?</td><td class="note-cell"><code>rol</code> fillable da edi · <code>APP_DEBUG</code> <b>877 560</b> bayt</td></tr>
+    <tr><td>Sekin ishlayapti?</td><td class="note-cell"><code>DB::listen</code> → eng sekini → <code>EXPLAIN</code></td></tr>
+    <tr><td>Testlar?</td><td class="note-cell"><b>121 test</b> · bug topsam <b>avval test</b> (qizarsin)</td></tr>
+    <tr><td>SQLite va MySQL?</td><td class="note-cell">Bir xil so'rov: <b>1 ta</b> va <b>3 ta</b></td></tr>
+    <tr><td>Navbat?</td><td class="note-cell">Worker <b>eski kodni</b> saqlaydi → <code>queue:restart</code></td></tr>
+    <tr><td>CI?</td><td class="note-cell">Qadam yiqilsa keyingilari <b>bajarilmaydi</b></td></tr>
+    <tr><td>AI ishlatasizmi?</td><td class="note-cell">Ha, lekin <b>tushunmagan kodni qo'ymayman</b></td></tr>
+  </table>
+  <div class="callout note">
+    <p>⭐ <b>Kuchli javobning to'rt qismi:</b>
+    qisqa ta'rif → <b>o'z o'lchovim</b> →
+    <b>nozik jihat</b> → <b>nima qilganim</b>.</p>
+    <p>✅ <b>«Bilmayman»</b> + usulingiz («hujjatni
+    o'qiyman, kichik zondda sinayman») — kuchli
+    javob.
+    ⚠️ Taxmin qilib ishonchli ko'rinish — eng
+    yomoni.</p>
+    <p>🔍 <b>Loyihangiz:</b> <b>40 sinf</b> ·
+    <b>15 marshrut</b> · <b>121 test (243
+    tekshiruv)</b> · test kodi <b>1382</b> va ilova
+    kodi <b>1166</b> qator.</p>
+    <p>🔑 <b>README'da:</b> ishga tushirish · testlar ·
+    imkoniyatlar · <b>«Nima o'rganildi»</b> ·
+    <b>«Nima qilinmagan»</b>.
+    Va uni <b>toza nusxada sinang</b>.</p>
+    <p>🔑 <b>Birinchi ish kuni:</b> loyihani ishga
+    tushiring → <code>route:list</code> → testlar →
+    kichik bug ([[tergov-tartibi]]).</p>
+    <p>🔑 <b>Keyin o'rganish:</b> <b>SQL · HTTP ·
+    Linux</b> — eskirmaydigan bilim.</p>
   </div>
 
   <h2>PHP versiyasini yangilash (72-darsdan)</h2>
