@@ -1,0 +1,1246 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 72 — PHP versiyasini yangilash: 8.3 dan 8.4 ga</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 72 · MODUL J — ISHGA TUSHIRISH VA KASBGA KIRISH</p>
+  <h1>PHP versiyasini yangilash — 8.3 dan 8.4 ga</h1>
+  <p class="lead">71-darsda CI qurdik. Bugun undan
+  <b>foydalanamiz</b>: yangi PHP versiyasini
+  serverda emas, <b>CI matritsasida</b> sinaymiz.
+  Va ikkita aniq natija olamiz — biri kutilgan,
+  biri esa <b>yoqimli</b>.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 17 daqiqa</span>
+    <span>💻 Amaliyot ≈ 30 daqiqa</span>
+    <span>Kerak: <a href="0071-github-actions.html">Dars 71</a></span>
+  </p>
+
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b>Nega yangilash kerak</b>
+        <span class="nima">Xavfsizlik ·
+        tezlik · qo'llab-quvvatlash
+        muddati.</span></li>
+      <li><b>⭐ CI matritsasi</b>
+        <span class="nima">Serverga tegmasdan
+        <b>ikkala versiyada</b>
+        sinash.</span></li>
+      <li><b>🔍 Natija: ikkalasi yashil</b>
+        <span class="nima">PHP <b>8.4.24</b> va
+        <b>8.3.33</b> — <code>121
+        passed</code>.</span></li>
+      <li><b>🔍 Yoqimli natija</b>
+        <span class="nima">8.4 da testlar
+        <b>1.49s</b>, 8.3 da
+        <b>2.33s</b>.</span></li>
+      <li><b>🔍 Paketlar farqi</b>
+        <span class="nima"><b>132</b> va
+        <b>133</b> — bittasi
+        <b>kerak emas</b>.</span></li>
+      <li><b><code>composer why-not</code></b>
+        <span class="nima">Oldindan
+        to'sqinlikni tekshirish.</span></li>
+      <li><b>⭐ 🔍 8.4 ning deprecation'i</b>
+        <span class="nima">Aniq matni bilan
+        o'lchandi.</span></li>
+      <li><b>Tuzatish</b>
+        <span class="nima">Bitta belgi:
+        <code>?string</code>.</span></li>
+      <li><b>8.4 da nima yangi</b>
+        <span class="nima">Property hooks ·
+        <code>array_find</code> · yangi
+        ko'rinish.</span></li>
+      <li><b>Rector — avtomatik ko'chirish</b>
+        <span class="nima">Katta loyihada
+        qo'lda tuzatib
+        bo'lmaydi.</span></li>
+      <li><b>Serverga chiqarish tartibi</b>
+        <span class="nima">69-darsdagi qadamlar
+        bilan birga.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima">Kengaytmalar · Docker ·
+        <code>platform</code> · orqaga
+        qaytish.</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Nega yangilash kerak</span>
+    <div class="natija">1) XAVFSIZLIK
+   Har PHP versiyasi ~2 yil xatolik tuzatish + 1 yil xavfsizlik oladi.
+   Muddat tugagach — yangi zaifliklar TUZATILMAYDI.  (66-dars)
+
+2) TEZLIK
+   Har versiya tezroq. Kod o'zgarmaydi, ilova tezlashadi.
+
+3) PAKETLAR
+   Yangi kutubxonalar eski PHP ni tashlab ketadi.
+   Bir kun "composer update" ishlamay qoladi.
+
+4) ISHGA JOYLASHISH
+   E'lonlarda "PHP 8.2+" yoziladi. Siz 7.4 da bo'lsangiz — muammo.</div>
+    <p>⚠️ Lekin yangilash <b>xavfli</b>: ishlab
+    turgan ilova buzilishi mumkin.</p>
+    <p>🔑 Va aynan shu yerda 71-darsdagi CI
+    <b>asosiy qurol</b> bo'ladi: serverga
+    tegmasdan, <b>ikkala versiyada</b> bir vaqtda
+    sinaymiz.</p>
+    <p>🔍 Bizda <b>121 ta test</b> bor — ular
+    yangi versiyada nima buzilganini
+    <b>aniq</b> aytadi.</p>
+  </div>
+
+  <!-- ═══════════════ 2) ⭐ MATRITSA ═══════════════ -->
+  <h2>⭐ CI matritsasi — ikkala versiyada bir vaqtda</h2>
+
+  <p>71-darsdagi workflow'ga <b>uch qator</b>
+  qo'shamiz:</p>
+
+  <div class="codefile">
+    <div class="fname">.github/workflows/testlar.yml</div>
+    <code class="cmd">jobs:
+  sinov:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.3', '8.4']
+
+    name: PHP ${{ matrix.php }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: pdo_sqlite, mbstring, bcmath
+          ini-values: error_reporting=E_ALL
+
+      - name: PHP versiyasi
+        run: php -v
+
+      - name: Bog'liqliklarni o'rnatish
+        run: composer update --prefer-dist --no-interaction --no-progress
+
+      - name: Testlar
+        run: php artisan test</code>
+  </div>
+
+  <div class="callout tip">
+    <span class="label">🔑 Uchta muhim tafsilot</span>
+    <div class="natija">fail-fast: false   →  8.3 yiqilsa ham 8.4 SINALADI
+                      (aks holda qaysi biri buzilganini bilmaysiz)
+
+composer update    →  install EMAS! Lock fayl har versiya uchun
+                      qayta hisoblanadi — bu ATAYLAB
+
+error_reporting=E_ALL  →  eskirgan xabarlarni KO'RSATSIN</div>
+    <p>⚠️ <code>composer update</code> ni CI'da
+    ishlatish odatda <b>tavsiya etilmaydi</b> —
+    lekin bu yerda maqsad aynan shu: yangi PHP
+    uchun bog'liqliklar <b>qayta
+    hisoblansin</b>.</p>
+  </div>
+
+  <!-- ═══════════════ 3) NATIJA ═══════════════ -->
+  <h2>🔍 Natija</h2>
+
+  <div class="natija">gh run view
+
+✓ main Testlar
+JOBS
+  ✓ PHP 8.4 in 24s
+  ✓ PHP 8.3 in 23s</div>
+
+  <p><b>Ikkalasi ham yashil.</b> Tafsilotlar:</p>
+
+  <div class="natija">                     PHP 8.3        PHP 8.4
+─────────────────────────────────────────────────
+versiya              8.3.33         8.4.24
+testlar              121 passed     121 passed
+                     (243 assert)   (243 assert)
+davomiyligi          2.33 s         1.49 s        ← TEZROQ
+o'rnatilgan paket    133 ta         132 ta        ← BITTA KAM</div>
+
+  <div class="callout tip">
+    <span class="label">🔍 Ikkita kutilmagan natija</span>
+    <p><b>1) 8.4 tezroq.</b> Bir xil kod, bir xil
+    testlar — <b>2.33 → 1.49 s</b>. Kod
+    o'zgarmasdan ilova tezlashdi.</p>
+    <p>⚠️ Bitta o'lchov — <b>dalil emas</b>
+    (69-darsdan). Lekin yo'nalish
+    to'g'ri: har PHP versiyasi
+    tezroq.</p>
+    <p><b>2) Paket soni kamaydi.</b> Farqni
+    topdik:</p>
+    <div class="natija">diff (8.4 ro'yxati) (8.3 ro'yxati)
+
+> symfony/polyfill-php83</div>
+    <p class="expect">🔑 <b>Polyfill</b> — bu eski
+    PHP'da yangi funksiyalarni <b>taqlid
+    qiladigan</b> paket. PHP 8.4 da o'sha
+    funksiyalar <b>tug'ma</b> bor, demak
+    polyfill <b>kerak emas</b>.</p>
+    <p>✅ Ya'ni yangilash <b>kod qo'shmaydi</b> —
+    aksincha, <b>olib tashlaydi</b>.</p>
+  </div>
+
+  <!-- ═══════════════ 4) OLDINDAN TEKSHIRISH ═══════════════ -->
+  <h2>Oldindan tekshirish</h2>
+
+  <p>CI'ga push qilishdan oldin ham bir narsa
+  bilish mumkin:</p>
+
+  <div class="natija">composer why-not php 8.4
+
+There is no installed package depending on "php" in versions not matching 8.4</div>
+
+  <p>Ya'ni <b>birorta paket</b> 8.4 ga
+  to'sqinlik qilmayapti.</p>
+
+  <div class="callout tip">
+    <span class="label">🔑 To'sqinlik bo'lsa qanday ko'rinadi</span>
+    <div class="natija">composer why-not php 8.4
+
+eski/paket  1.2.0  requires  php (^7.4 || ^8.0 <8.3)</div>
+    <p>Bu holda uchta yo'l:</p>
+    <div class="natija">1) paketni yangilang       →  composer update eski/paket
+2) alternativa toping      →  paket tashlab ketilgan bo'lsa
+3) kutib turing            →  muallif yangilashini</div>
+    <p>✅ Va <code>composer.json</code> da talabni
+    ham yangilang:</p>
+    <div class="natija">"require": {
+    "php": "^8.3"      →      "php": "^8.3 || ^8.4"
+}</div>
+    <p>⚠️ <code>^8.3</code> allaqachon 8.4 ni
+    <b>qamrab oladi</b> (Composer'da
+    <code>^8.3</code> = <code>&gt;=8.3
+    &lt;9.0</code>) — lekin niyatni aniq
+    yozish yaxshi.</p>
+  </div>
+
+  <!-- ═══════════════ 5) ⭐ DEPRECATION ═══════════════ -->
+  <h2>⭐ 🔍 PHP 8.4 ning eng ko'p uchraydigan deprecation'i</h2>
+
+  <p>Bizning kodimiz toza o'tdi. Lekin haqiqiy
+  loyihalarda odatda <b>o'tmaydi</b>. Eng ko'p
+  uchraydigan sababni <b>ataylab</b> yaratdik:</p>
+
+  <div class="natija">class EskiUslub
+{
+    public function salomla(string $ism = null): string
+    {                        ↑ tip: string, standart: null
+        return 'Salom, '.($ism ?? 'mehmon');
+    }
+}</div>
+
+  <p>Bu <b>yashirin nullable</b> deb ataladi:
+  <code>string</code> deb yozilgan, lekin
+  standart qiymati <code>null</code> — demak
+  aslida <code>?string</code>.</p>
+
+  <p>Ikkala versiyada ishlatdik:</p>
+
+  <div class="natija">PHP 8.3:
+  Salom, mehmon                                     ← jim
+
+PHP 8.4:
+  Deprecated: App\Support\EskiUslub::salomla():
+  Implicitly marking parameter $ism as nullable is deprecated...
+  Salom, mehmon                                     ⚠️</div>
+
+  <div class="callout warn">
+    <span class="label">⚠️ Va u testlarda KO'RINMADI</span>
+    <p>Testlar ikkala versiyada ham <b>yashil</b>
+    edi — <code>121 passed</code>.</p>
+    <p>Sabab: Pest/PHPUnit eskirgan xabarlarni
+    standart holda <b>yashiradi</b>. Ular
+    <b>xato emas</b> — ogohlantirish.</p>
+    <p class="expect">🔑 Shuning uchun CI'ga
+    <b>alohida qadam</b> qo'shdik:</p>
+    <div class="natija">- name: Eskirgan sintaksisni tekshirish
+  run: |
+    php -d error_reporting=E_ALL -d display_errors=1 -r '
+      require "vendor/autoload.php";
+      echo (new App\Support\EskiUslub)->salomla(), PHP_EOL;
+    '</div>
+    <p>⚠️ Bu 62, 66, 69 va 70-darslardagi bilan
+    bir xil turkum: <b>xato yo'q, lekin
+    muammo bor</b>.</p>
+    <p>🔑 Va bugungi ogohlantirish —
+    <b>ertangi fatal xato</b>. PHP 9 da
+    yashirin nullable <b>ishlamaydi</b>.</p>
+  </div>
+
+  <h3>✅ Tuzatish — bitta belgi</h3>
+
+  <div class="natija">- public function salomla(string $ism = null): string
++ public function salomla(?string $ism = null): string
+                          ↑</div>
+
+  <div class="natija">PHP 8.4 (tuzatilgach):
+  Salom, mehmon              ✅  ogohlantirish YO'Q
+
+✓ PHP 8.4 in 22s
+✓ PHP 8.3 in 22s</div>
+
+  <!-- ═══════════════ 6) 8.4 DA YANGI ═══════════════ -->
+  <h2>PHP 8.4 da nima yangi</h2>
+
+  <div class="natija">1) PROPERTY HOOKS — xossaga getter/setter
+   class Vakansiya {
+       public string $nom {
+           set => ucfirst($value);
+           get => $this->nom.' (vakansiya)';
+       }
+   }
+
+2) ASIMMETRIK KO'RINISH — tashqaridan o'qish, ichkaridan yozish
+   public private(set) int $maosh;
+   →  64-darsdagi readonly ga o'xshash, lekin ichkarida O'ZGARADI
+
+3) YANGI MASSIV FUNKSIYALARI
+   array_find($v, fn ($x) => $x->faol)       ← birinchi mosini
+   array_any($v, fn ($x) => $x->faol)        ← bittasi ham bormi
+   array_all($v, fn ($x) => $x->faol)        ← hammasi shundaymi
+
+4) YANGI new SINTAKSISI — qavssiz
+   new Vakansiya()->nom      ← 8.3 da: (new Vakansiya())->nom</div>
+
+  <div class="callout tip">
+    <span class="label">🔑 Bularni DARROV ishlatish shart emas</span>
+    <p>Yangilash ikki bosqich:</p>
+    <div class="natija">1) ISHLASHI     →  eski kod yangi PHP da buzilmasin     ← BUGUN
+2) FOYDALANISH  →  yangi imkoniyatlarga asta o'tish   ← keyin, xohishga ko'ra</div>
+    <p>⚠️ Ikkinchisini birinchisi bilan
+    <b>aralashtirmang</b> (65-darsdagi qoida:
+    refaktoring va funksiya alohida
+    commit'da).</p>
+    <p>🔍 Va 52-darsdagi Collection'lar
+    <code>array_find</code> ga o'xshash narsani
+    allaqachon beradi —
+    <code>$v-&gt;first(fn ($x) =&gt;
+    $x-&gt;faol)</code>.</p>
+  </div>
+
+  <!-- ═══════════════ 7) RECTOR ═══════════════ -->
+  <h2>Rector — avtomatik ko'chirish</h2>
+
+  <p>Bizda bitta deprecation bor edi. Katta
+  loyihada <b>yuzlab</b> bo'lishi mumkin —
+  qo'lda tuzatib bo'lmaydi.</p>
+
+  <div class="natija">composer require rector/rector --dev
+vendor/bin/rector init</div>
+
+  <div class="codefile">
+    <div class="fname">rector.php</div>
+    <code class="cmd">return RectorConfig::configure()
+    -&gt;withPaths([__DIR__.'/app', __DIR__.'/tests'])
+    -&gt;withPhpSets(php84: true)
+    -&gt;withTypeCoverageLevel(0);</code>
+  </div>
+
+  <div class="natija">vendor/bin/rector process --dry-run    ← faqat KO'RSATADI
+vendor/bin/rector process              ← tuzatadi</div>
+
+  <div class="callout warn">
+    <span class="label">⚠️ Rector bilan ishlash qoidalari</span>
+    <div class="natija">1) Har doim --dry-run bilan boshlang
+2) Kichik qadamlar: bitta ruleset, keyin testlar
+3) ALOHIDA commit — mantiq o'zgarishi bilan aralashtirmang
+4) 65-darsdagi tartib: Rector KEYIN Pint</div>
+    <p>⚠️ Rector ba'zan <b>xulqni ham</b>
+    o'zgartiradi (masalan tip qo'shganda).
+    Testlarsiz <b>ishlatmang</b>.</p>
+    <p>🔑 Va u faqat yangilash uchun emas — 65-darsdagi
+    refaktoringning avtomatlashtirilgan
+    ko'rinishi.</p>
+  </div>
+
+  <!-- ═══════════════ 8) SERVERGA ═══════════════ -->
+  <h2>Serverga chiqarish</h2>
+
+  <p>CI yashil bo'lgach — serverda.</p>
+
+  <div class="natija">1) O'RNATISH (eski versiya QOLADI)
+   sudo apt install php8.4-fpm php8.4-mysql php8.4-mbstring \
+       php8.4-xml php8.4-curl php8.4-zip php8.4-bcmath php8.4-gd
+
+2) TEKSHIRISH
+   php8.4 -v
+   php8.4 -m | grep -E 'pdo_mysql|mbstring'      ← 61-darsdagi xato esingizdami?
+
+3) NGINX ni yangi soketga qaratish
+   fastcgi_pass unix:/var/run/php/php8.4-fpm.sock;    ← 69-dars
+
+4) SUPERVISOR va CRON
+   command=php8.4 /var/www/ishtop/artisan queue:work ...   ← 70-dars
+   * * * * * cd /var/www/ishtop && /usr/bin/php8.4 artisan schedule:run
+
+5) QAYTA ISHGA TUSHIRISH
+   sudo systemctl restart php8.4-fpm nginx
+   sudo supervisorctl restart ishtop-worker:*
+   php8.4 artisan queue:restart                          ← 70-dars
+
+6) TEKSHIRUV
+   php8.4 artisan about        ← PHP Version 8.4.x
+   curl -I https://ishtop.uz/</div>
+
+  <div class="callout tip">
+    <span class="label">🔑 Eski versiyani DARROV o'chirmang</span>
+    <p>Ikkalasi <b>yonma-yon</b> yashay oladi. Muammo
+    chiqsa — orqaga qaytish <b>bir qator</b>:</p>
+    <div class="natija">fastcgi_pass unix:/var/run/php/php8.3-fpm.sock;
+sudo systemctl reload nginx</div>
+    <p>✅ Bir hafta ishonch hosil qilgach, so'ng:</p>
+    <div class="natija">sudo apt purge 'php8.3-*'</div>
+    <p>🔑 Bu 69-darsdagi <b>orqaga qaytish
+    rejasi</b>ning aynan o'zi.</p>
+  </div>
+
+  <!-- ═══════════════ 9) HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir
+  bir marta o'qing, yangilash paytida qaytib
+  qarang.</p>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 1</span>
+    <h4>Kengaytmalarni unutish</h4>
+    <div class="natija">sudo apt install php8.4-fpm          ← faqat FPM
+# va nginx ni 8.4 ga qaratdingiz
+
+→  "could not find driver"           ← pdo_mysql yo'q   (61-dars)
+→  "Class 'DOMDocument' not found"   ← php8.4-xml yo'q</div>
+    <p>✅ Avval eski versiyada nima borligini
+    <b>ro'yxatga oling</b>:</p>
+    <div class="natija">php8.3 -m > /tmp/eski-modullar.txt
+php8.4 -m > /tmp/yangi-modullar.txt
+diff /tmp/eski-modullar.txt /tmp/yangi-modullar.txt</div>
+    <p>🔑 Bu — 67-darsdagi «o'lcha» qadamining
+    server versiyasi.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 2</span>
+    <h4>Docker bilan yangilash</h4>
+    <div class="natija"># compose.yaml (68-dars)
+build:
+    context: ./vendor/laravel/sail/runtimes/8.4    ← 8.3 dan 8.4 ga
+image: sail-8.4/app</div>
+    <div class="natija">sail down
+sail build --no-cache
+sail up -d
+sail php -v</div>
+    <p>✅ Docker'da yangilash <b>eng xavfsiz</b>:
+    eski image saqlanadi, orqaga qaytish —
+    bir qator.</p>
+    <p>⚠️ 68-darsdan: <code>--no-cache</code> disk
+    talab qiladi. Avval
+    <code>docker system df</code>.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 3</span>
+    <h4><code>platform</code> — mahalliy va server farqi</h4>
+    <div class="natija">// composer.json
+"config": {
+    "platform": {
+        "php": "8.3.0"
+    }
+}</div>
+    <p>Bu Composer'ga «server 8.3 da» deb aytadi —
+    siz mahalliy 8.4 da bo'lsangiz ham, u
+    <b>8.4 ga mos paketlarni tanlamaydi</b>.</p>
+    <p>⚠️ Yangilashda buni <b>ham</b> yangilashni
+    unutmang — aks holda 8.4 ga o'tdingiz, lekin
+    paketlar hamon 8.3 uchun.</p>
+    <p>🔑 Yoki umuman yozmang — shunda Composer
+    haqiqiy versiyaga qaraydi.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 4</span>
+    <h4>Bir vaqtda ikki narsani yangilash</h4>
+    <div class="natija">❌ PHP 8.3 → 8.4  VA  Laravel 12 → 13  — bir deploy da
+
+Buzildi. Sabab qaysi biri?</div>
+    <p>✅ Ketma-ket:</p>
+    <div class="natija">1) PHP ni yangilang       →  testlar → deploy → bir hafta kuting
+2) Laravel ni yangilang   →  testlar → deploy</div>
+    <p>🔑 Bu 67-darsdagi <code>git bisect</code>
+    mantig'i: <b>bir vaqtda bitta
+    o'zgaruvchi</b>.</p>
+    <p>⚠️ Va Laravel'ning o'z yangilash qo'llanmasi
+    bor — uni <b>o'qing</b>, taxmin
+    qilmang.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 5</span>
+    <h4>Deprecation'larni logga yozish</h4>
+    <div class="natija">// config/logging.php
+'deprecations' => [
+    'channel' => 'daily',
+    'trace' => true,
+],</div>
+    <p>Laravel eskirgan xabarlarni <b>alohida
+    kanalga</b> yozishi mumkin.</p>
+    <p>✅ Ishlab chiqarishda yoqing va bir hafta
+    kuzating — CI tutmagan joylar
+    ko'rinadi.</p>
+    <p>⚠️ 66-darsdan: <code>trace</code> yoqilsa
+    log'da <b>fayl yo'llari</b> bo'ladi —
+    ular sir emas, lekin log fayli
+    <b>tez o'sadi</b> (69-darsdagi
+    <code>daily</code>).</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 6</span>
+    <h4>Qo'llab-quvvatlash muddatini bilish</h4>
+    <div class="natija">php.net/supported-versions   ← rasmiy jadval
+
+Har versiya:
+   ~2 yil  →  xatolik tuzatish (bug fixes)
+   +1 yil  →  faqat XAVFSIZLIK tuzatishlari
+   keyin   →  hech narsa</div>
+    <p>🔑 Qoida: <b>xavfsizlik muddati
+    tugashidan 6 oy oldin</b> yangilashni
+    boshlang.</p>
+    <p>⚠️ «Ishlab turibdi-ku» — 66-darsdagi eng
+    xavfli gap. Tuzatilmagan zaiflik
+    <b>ochiq eshik</b>.</p>
+    <p>✅ Va <code>composer audit</code> (71-dars)
+    buni CI'da eslatib turadi.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>Yangilash ro'yxati</h4>
+    <div class="natija">TAYYORGARLIK
+  □ composer why-not php 8.4
+  □ php.net dagi UPGRADING faylini o'qing
+  □ testlar hozir yashilmi?
+
+SINASH
+  □ CI matritsasiga 8.4 qo'shing (fail-fast: false)
+  □ error_reporting=E_ALL bilan eskirgan sintaksisni tekshiring
+  □ Rector --dry-run
+
+TUZATISH
+  □ deprecation larni tuzating — ALOHIDA commit
+  □ composer.json da "php" talabini yangilang
+  □ CI ikkala versiyada yashil
+
+SERVERDA
+  □ 8.4 ni O'RNATING (8.3 qoladi)
+  □ kengaytmalarni solishtiring (HOLAT 1)
+  □ nginx · supervisor · cron — hammasi 8.4 ga
+  □ php8.4 artisan about
+  □ bir hafta kuzating, keyin 8.3 ni o'chiring</div>
+    <p>🔑 Eng muhim qator — oxirgisi: <b>bir hafta
+    kuting</b>.</p>
+  </div>
+
+  <!-- ═══════════════ 10) AMALIYOT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    💻 Quyida amaliyot bor. Hozir o'qish rejimidasiz — kompyuter
+    yoningizda bo'lganda <b>💻 Amaliyot</b> rejimiga o'ting va
+    shu bo'limdan davom eting.
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <div class="callout tip">
+      <span class="label">🔑 PHP 8.4 o'rnatish shart emas</span>
+      <p>Butun sinash <b>CI'da</b> bo'ladi —
+      71-darsdagi repozitoriya bilan.
+      Mahalliy PHP'ingiz <b>8.3</b> qolaveradi.</p>
+    </div>
+
+    <ol class="steps">
+      <li>
+        <b>Oldindan tekshiring.</b>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+composer why-not php 8.4
+grep -n '&quot;php&quot;' composer.json
+php artisan test 2>&amp;1 | tail -3">cd ~/Projects/Learn/ishtop
+composer why-not php 8.4
+grep -n '&quot;php&quot;' composer.json
+php artisan test 2&gt;&amp;1 | tail -3</div>
+        <p class="expect"><code>There is no installed
+        package depending on "php" in versions not
+        matching 8.4</code> — to'sqinlik
+        yo'q.</p>
+      </li>
+
+      <li>
+        <b>⭐ CI matritsasini qo'shing.</b>
+        <div class="cmd" data-cmd="cat > .github/workflows/testlar.yml <<'YMLEOF'
+name: Testlar
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  sinov:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.3', '8.4']
+
+    name: PHP ${{ matrix.php }}
+
+    steps:
+      - name: Kodni olish
+        uses: actions/checkout@v4
+
+      - name: PHP o'rnatish
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: pdo_sqlite, mbstring, bcmath
+          coverage: none
+          ini-values: error_reporting=E_ALL
+
+      - name: PHP versiyasi
+        run: php -v
+
+      - name: Bog'liqliklarni o'rnatish
+        run: composer update --prefer-dist --no-interaction --no-progress
+
+      - name: Muhitni tayyorlash
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Testlar
+        run: php artisan test
+YMLEOF
+python3 -c &quot;import yaml; d=yaml.safe_load(open('.github/workflows/testlar.yml')); print('  matritsa:', d['jobs']['sinov']['strategy']['matrix']['php'])&quot;
+git add -A &amp;&amp; git commit -m &quot;CI: PHP 8.3 va 8.4 matritsasi&quot; &amp;&amp; git push">cat &gt; .github/workflows/testlar.yml &lt;&lt;'YMLEOF'
+name: Testlar
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  sinov:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.3', '8.4']
+
+    name: PHP ${{ matrix.php }}
+
+    steps:
+      - name: Kodni olish
+        uses: actions/checkout@v4
+
+      - name: PHP o'rnatish
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: pdo_sqlite, mbstring, bcmath
+          coverage: none
+          ini-values: error_reporting=E_ALL
+
+      - name: PHP versiyasi
+        run: php -v
+
+      - name: Bog'liqliklarni o'rnatish
+        run: composer update --prefer-dist --no-interaction --no-progress
+
+      - name: Muhitni tayyorlash
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Testlar
+        run: php artisan test
+YMLEOF
+python3 -c &quot;import yaml; d=yaml.safe_load(open('.github/workflows/testlar.yml')); print('  matritsa:', d['jobs']['sinov']['strategy']['matrix']['php'])&quot;
+git add -A &amp;&amp; git commit -m &quot;CI: PHP 8.3 va 8.4 matritsasi&quot; &amp;&amp; git push</div>
+      </li>
+
+      <li>
+        <b>🔍 Natijani o'qing.</b>
+        <div class="cmd" data-cmd="sleep 40
+gh run view">sleep 40
+gh run view</div>
+        <p class="expect">Menda ✓ <b>PHP 8.4 in
+        24s</b>, ✓ <b>PHP 8.3 in 23s</b>.</p>
+      </li>
+
+      <li>
+        <b>🔍 Ikki versiyani solishtiring.</b>
+        <div class="cmd" data-cmd="RID=$(gh run list --limit 1 --json databaseId --jq '.[0].databaseId')
+for N in 'PHP 8.3' 'PHP 8.4'; do
+  J=$(gh run view $RID --json jobs --jq &quot;.jobs[] | select(.name==\&quot;$N\&quot;) | .databaseId&quot;)
+  echo &quot;─── $N ───&quot;
+  gh run view --job=$J --log 2>/dev/null | grep -E 'PHP [0-9]+\.[0-9]+\.[0-9]+ \(cli\)|Package operations|Tests:|Duration:' | head -4 | sed 's/^[^\t]*\t[^\t]*\t//' | cut -c1-80
+done">RID=$(gh run list --limit 1 --json databaseId --jq '.[0].databaseId')
+for N in 'PHP 8.3' 'PHP 8.4'; do
+  J=$(gh run view $RID --json jobs --jq &quot;.jobs[] | select(.name==\&quot;$N\&quot;) | .databaseId&quot;)
+  echo &quot;─── $N ───&quot;
+  gh run view --job=$J --log 2&gt;/dev/null | grep -E 'PHP [0-9]+\.[0-9]+\.[0-9]+ \(cli\)|Package operations|Tests:|Duration:' | head -4 | sed 's/^[^\t]*\t[^\t]*\t//' | cut -c1-80
+done</div>
+        <p class="expect">🔍 Menda <b>8.3.33</b> va
+        <b>8.4.24</b>; <b>133</b> va <b>132</b>
+        paket; <b>2.33s</b> va <b>1.49s</b>.</p>
+      </li>
+
+      <li>
+        <b>🔍 Qaysi paket farq qilishini toping.</b>
+        <div class="cmd" data-cmd="RID=$(gh run list --limit 1 --json databaseId --jq '.[0].databaseId')
+for N in 'PHP 8.3' 'PHP 8.4'; do
+  J=$(gh run view $RID --json jobs --jq &quot;.jobs[] | select(.name==\&quot;$N\&quot;) | .databaseId&quot;)
+  gh run view --job=$J --log 2>/dev/null | grep -oE '  - Installing [a-z0-9/-]+' | sed 's/  - Installing //' | sort > /tmp/pkg_$N.txt
+done
+diff '/tmp/pkg_PHP 8.4.txt' '/tmp/pkg_PHP 8.3.txt'">RID=$(gh run list --limit 1 --json databaseId --jq '.[0].databaseId')
+for N in 'PHP 8.3' 'PHP 8.4'; do
+  J=$(gh run view $RID --json jobs --jq &quot;.jobs[] | select(.name==\&quot;$N\&quot;) | .databaseId&quot;)
+  gh run view --job=$J --log 2&gt;/dev/null | grep -oE '  - Installing [a-z0-9/-]+' | sed 's/  - Installing //' | sort &gt; /tmp/pkg_$N.txt
+done
+diff '/tmp/pkg_PHP 8.4.txt' '/tmp/pkg_PHP 8.3.txt'</div>
+        <p class="expect">🔍
+        <code>&gt; symfony/polyfill-php83</code> —
+        8.4 da <b>kerak emas</b>.</p>
+      </li>
+
+      <li>
+        <b>⭐ Deprecation'ni ataylab yarating.</b>
+        <div class="cmd" data-cmd="mkdir -p app/Support
+cat > app/Support/EskiUslub.php <<'PHPEOF'
+&lt;?php
+
+namespace App\Support;
+
+class EskiUslub
+{
+    public function salomla(string $ism = null): string
+    {
+        return 'Salom, '.($ism ?? 'mehmon');
+    }
+}
+PHPEOF
+php -d error_reporting=E_ALL -r 'require &quot;vendor/autoload.php&quot;; echo (new App\Support\EskiUslub)->salomla(), PHP_EOL;'">mkdir -p app/Support
+cat &gt; app/Support/EskiUslub.php &lt;&lt;'PHPEOF'
+&lt;?php
+
+namespace App\Support;
+
+class EskiUslub
+{
+    public function salomla(string $ism = null): string
+    {
+        return 'Salom, '.($ism ?? 'mehmon');
+    }
+}
+PHPEOF
+php -d error_reporting=E_ALL -r 'require &quot;vendor/autoload.php&quot;; echo (new App\Support\EskiUslub)-&gt;salomla(), PHP_EOL;'</div>
+        <p class="expect">PHP 8.3 da — <b>jim</b>,
+        faqat <code>Salom, mehmon</code>.</p>
+      </li>
+
+      <li>
+        <b>CI'ga aniq tekshiruv qadamini
+        qo'shing.</b> Workflow'da
+        <code>Testlar</code> dan <b>oldin</b>:
+        <div class="cmd" data-cmd="      - name: Eskirgan sintaksisni tekshirish
+        run: |
+          php -d error_reporting=E_ALL -d display_errors=1 -r '
+            require &quot;vendor/autoload.php&quot;;
+            echo (new App\Support\EskiUslub)->salomla(), PHP_EOL;
+          '">      - name: Eskirgan sintaksisni tekshirish
+        run: |
+          php -d error_reporting=E_ALL -d display_errors=1 -r '
+            require &quot;vendor/autoload.php&quot;;
+            echo (new App\Support\EskiUslub)-&gt;salomla(), PHP_EOL;
+          '</div>
+        <div class="cmd" data-cmd="git add -A &amp;&amp; git commit -m &quot;8.4 deprecation zondi&quot; &amp;&amp; git push
+sleep 45
+RID=$(gh run list --limit 1 --json databaseId --jq '.[0].databaseId')
+for N in 'PHP 8.3' 'PHP 8.4'; do
+  J=$(gh run view $RID --json jobs --jq &quot;.jobs[] | select(.name==\&quot;$N\&quot;) | .databaseId&quot;)
+  echo &quot;─── $N ───&quot;
+  gh run view --job=$J --log 2>/dev/null | grep 'Eskirgan sintaksisni' | grep -viE 'group|shell:|env:|COMPOSER' | tail -2 | sed 's/^[^\t]*\t[^\t]*\t//' | cut -c1-105
+done">git add -A &amp;&amp; git commit -m &quot;8.4 deprecation zondi&quot; &amp;&amp; git push
+sleep 45
+RID=$(gh run list --limit 1 --json databaseId --jq '.[0].databaseId')
+for N in 'PHP 8.3' 'PHP 8.4'; do
+  J=$(gh run view $RID --json jobs --jq &quot;.jobs[] | select(.name==\&quot;$N\&quot;) | .databaseId&quot;)
+  echo &quot;─── $N ───&quot;
+  gh run view --job=$J --log 2&gt;/dev/null | grep 'Eskirgan sintaksisni' | grep -viE 'group|shell:|env:|COMPOSER' | tail -2 | sed 's/^[^\t]*\t[^\t]*\t//' | cut -c1-105
+done</div>
+        <p class="expect">⭐ 8.3 — jim; 8.4 —
+        <code>Deprecated: ... Implicitly marking
+        parameter $ism as nullable is
+        deprecated</code>.</p>
+      </li>
+
+      <li>
+        <b>Tuzating — bitta belgi.</b>
+        <div class="cmd" data-cmd="sed -i 's/public function salomla(string $ism = null)/public function salomla(?string $ism = null)/' app/Support/EskiUslub.php
+grep -n 'salomla' app/Support/EskiUslub.php
+git add -A &amp;&amp; git commit -m &quot;8.4: yashirin nullable tuzatildi&quot; &amp;&amp; git push
+sleep 45
+gh run view">sed -i 's/public function salomla(string $ism = null)/public function salomla(?string $ism = null)/' app/Support/EskiUslub.php
+grep -n 'salomla' app/Support/EskiUslub.php
+git add -A &amp;&amp; git commit -m &quot;8.4: yashirin nullable tuzatildi&quot; &amp;&amp; git push
+sleep 45
+gh run view</div>
+        <p class="expect">✅ Ikkala versiya ham
+        yashil, ogohlantirishsiz.</p>
+      </li>
+
+      <li>
+        <b><code>composer.json</code> da niyatni
+        yozing.</b>
+        <div class="cmd" data-cmd="# composer.json → require
+&quot;php&quot;: &quot;^8.3 || ^8.4&quot;"># composer.json → require
+&quot;php&quot;: &quot;^8.3 || ^8.4&quot;</div>
+        <div class="cmd" data-cmd="composer validate --strict">composer validate --strict</div>
+      </li>
+
+      <li>
+        <b>Tozalang.</b>
+        <div class="cmd" data-cmd="rm -f app/Support/EskiUslub.php
+./vendor/bin/pint
+php artisan test 2>&amp;1 | tail -3">rm -f app/Support/EskiUslub.php
+./vendor/bin/pint
+php artisan test 2&gt;&amp;1 | tail -3</div>
+        <p class="expect">Menda <b>121 passed (243
+        assertions)</b>.</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li><code>composer why-not php 8.4</code> —
+      to'sqinlik yo'q</li>
+      <li>⭐ CI matritsasi qo'shildi
+      (<code>fail-fast: false</code>)</li>
+      <li>🔍 Ikkala versiya yashil (8.3.33 va
+      8.4.24)</li>
+      <li>🔍 8.4 tezroq: 2.33s → 1.49s</li>
+      <li>🔍 Paket farqi topildi
+      (<code>polyfill-php83</code>)</li>
+      <li>⭐ Deprecation ataylab yaratildi</li>
+      <li>🔍 8.3 jim, 8.4 ogohlantirdi</li>
+      <li>Bitta belgi bilan tuzatildi</li>
+      <li><code>composer.json</code> yangilandi</li>
+      <li>To'liq to'plam yashil</li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 11) SINAB KO'RAMIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Jamoa PHP 8.4 ga o'tdi. CI matritsasi
+    yashil, deprecation'lar tuzatilgan, server
+    yangilandi. Bir hafta hammasi yaxshi.</p>
+    <p>Keyin oyning oxirida buxgalteriya
+    shikoyat qildi:</p>
+    <div class="natija">"Hisobotdagi summalar noto'g'ri. Ba'zi buyurtmalarda
+ 1 so'm kam, ba'zilarida 1 so'm ko'p."</div>
+    <p>Kodni topdingiz — u <b>o'zgarmagan</b>:</p>
+    <div class="natija">$jami = 0;
+foreach ($buyurtmalar as $b) {
+    $jami += round($b->summa * $b->soliq_foizi, 2);
+}
+return round($jami);</div>
+    <p>Testlar yashil, CI yashil, deploy toza. Nima
+    bo'lishi mumkin?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <p>Ehtimoliy sabab: <b>testlar bu holatni
+        umuman qamramaydi</b>.</p>
+        <div class="natija">Testda:      round(100 * 0.12, 2)   →  12.0     ✅
+Haqiqatda:   round(99.995 * 0.12, 2)  →  chegara holati  ⚠️</div>
+        <p class="expect">🔑 Va bu yerda muhim
+        haqiqat: <b>CI yashil bo'lgani —
+        yangi versiyada hammasi to'g'ri
+        degani emas</b>. U faqat
+        <b>testlar qamragan</b> narsani
+        tekshiradi.</p>
+        <p>Pul hisob-kitobida suzuvchi nuqta
+        (<code>float</code>) <b>har doim</b>
+        xavfli — PHP versiyasidan
+        <b>qat'i nazar</b>:</p>
+        <div class="natija">0.1 + 0.2 == 0.3     →  false      (har qanday PHP da)</div>
+        <p>✅ To'g'ri yechim — 64-darsdagi
+        <b>Value Object</b>:</p>
+        <div class="natija">// pulni TIYINDA (butun son) saqlang
+$jami = 0;                        // tiyin
+foreach ($buyurtmalar as $b) {
+    $jami += intdiv($b->summa_tiyin * $b->soliq_promille, 1000);
+}</div>
+        <p>🔑 <b>Umumiy saboq — ikkitasi:</b></p>
+        <div class="natija">1) CI yashil = "testlar qamragan narsa ishlaydi"
+   ≠ "hamma narsa ishlaydi"
+
+2) Versiya yangilash chegara holatlarini KO'RSATADI,
+   lekin YARATMAYDI — ular allaqachon bor edi</div>
+        <p>✅ Amaliy qadam: yangilashdan keyin
+        <b>bir-ikki hafta</b> — 70-darsdagi
+        nazorat va HOLAT 5 dagi deprecation
+        logini <b>faol</b> kuzating.</p>
+        <p>🔍 Va 67-darsdagi tergov: «bu qiymat
+        qayerdan keldi?» — bu yerda javob
+        <code>float</code> ning
+        <b>tabiati</b>.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span>
+    ⭐ <code>function f(string $x = null)</code> —
+    PHP 8.4 da nima bo'ladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Yashirin nullable parametr uchun eskirgan degan ogohlantirish darrov chiqadi</button></li>
+      <li><button class="quiz-option">Hech qanday farq bo'lmaydi va ikkalasi bir xil ishlayveradi</button></li>
+      <li><button class="quiz-option">Kod umuman ishlamaydi va fatal xato berib butunlay to'xtaydi</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi:
+    PHP 8.3 — <b>jim</b>, faqat
+    <code>Salom, mehmon</code>;
+    PHP 8.4 —
+    <code>Deprecated: ...salomla(): Implicitly
+    marking parameter $ism as nullable is
+    deprecated</code>.
+    ⚠️ Va u <b>testlarda ko'rinmadi</b> — Pest
+    eskirgan xabarlarni yashiradi. Shuning uchun
+    CI'ga <b>alohida qadam</b> kerak.
+    ✅ Tuzatish — bitta belgi:
+    <code>?string $ism = null</code>.
+    🔑 Bugungi ogohlantirish — <b>ertangi fatal
+    xato</b>.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span>
+    🔍 PHP 8.4 da <b>132</b>, 8.3 da <b>133</b> paket
+    o'rnatildi. Nega?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Polyfill paketi endi kerak emas va umuman o'rnatilmay qoladi</button></li>
+      <li><button class="quiz-option">Har ikkala versiyada ham aynan bir xil paket o'rnatilaveradi</button></li>
+      <li><button class="quiz-option">Yangi versiyada esa har doim ko'proq paket o'rnatilib ketadi</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi: farq
+    <code>symfony/polyfill-php83</code>.
+    🔑 <b>Polyfill</b> — eski PHP'da yangi
+    funksiyalarni <b>taqlid qiladigan</b> paket.
+    8.4 da o'sha funksiyalar <b>tug'ma</b> bor,
+    demak polyfill kerak emas.
+    ✅ Ya'ni yangilash kod <b>qo'shmaydi</b> —
+    aksincha, <b>olib tashlaydi</b>.
+    🔍 Yana bir yoqimli natija: testlar
+    <b>2.33s → 1.49s</b>.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span>
+    Yangi PHP versiyasini qanday sinaysiz?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Matritsa bilan ikkala versiyada bir vaqtda sinab ko'riladi</button></li>
+      <li><button class="quiz-option">Avval eski versiyani butunlay o'chirib tashlashga to'g'ri keladi</button></li>
+      <li><button class="quiz-option">Serverda to'g'ridan-to'g'ri yangilab natijasini kutib ko'rish kerak bo'ladi</button></li>
+    </ul>
+    <div class="quiz-explain">🔑 CI matritsasi:
+    <code>matrix: php: ['8.3', '8.4']</code> +
+    <b><code>fail-fast: false</code></b> — bittasi
+    yiqilsa ham ikkinchisi sinaladi.
+    🔍 O'lchandi: ✓ <b>PHP 8.4 in 24s</b>,
+    ✓ <b>PHP 8.3 in 23s</b> — serverga
+    <b>tegmasdan</b>.
+    ✅ Serverda ham eski versiyani <b>darrov
+    o'chirmang</b>: ikkalasi yonma-yon yashaydi,
+    orqaga qaytish <code>fastcgi_pass</code> da
+    <b>bir qator</b>.
+    🔑 Va bir hafta kuzating.</div>
+  </div>
+
+  <!-- ═══════════════ 12) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+
+    <p>Javobni ovoz chiqarib ayting, keyin ochib
+    solishtiring.</p>
+
+    <details class="recall">
+      <summary>⭐ Yangi versiyani qanday
+      sinaysiz?</summary>
+      <div class="answer"><b>CI matritsasi</b> —
+      serverga tegmasdan:
+      <code>strategy: matrix: php: ['8.3', '8.4']</code>
+      + <b><code>fail-fast: false</code></b> (bittasi
+      yiqilsa ikkinchisi <b>sinaladi</b>).
+      🔍 O'lchandi: ✓ PHP 8.4 in <b>24s</b>,
+      ✓ PHP 8.3 in <b>23s</b>; ikkalasida
+      <b>121 passed (243 assertions)</b>.
+      ⚠️ <code>composer update</code> (install emas) —
+      lock har versiya uchun <b>qayta
+      hisoblansin</b>.
+      ⚠️ <code>ini-values: error_reporting=E_ALL</code>
+      — eskirgan xabarlar ko'rinsin.
+      ✅ Oldindan: <code>composer why-not php 8.4</code>.</div>
+    </details>
+
+    <details class="recall">
+      <summary>🔍 Ikkita kutilmagan natija nima
+      edi?</summary>
+      <div class="answer"><b>1) 8.4 tezroq:</b> bir xil
+      kod, bir xil testlar — <b>2.33 s → 1.49 s</b>.
+      (⚠️ Bitta o'lchov dalil emas, lekin
+      yo'nalish to'g'ri.)
+      <b>2) Paket soni kamaydi:</b> <b>133 → 132</b>.
+      Farq — <code>symfony/polyfill-php83</code>.
+      🔑 <b>Polyfill</b> eski PHP'da yangi
+      funksiyalarni taqlid qiladi; 8.4 da ular
+      <b>tug'ma</b> bor.
+      ✅ Ya'ni yangilash kod <b>qo'shmaydi</b>,
+      <b>olib tashlaydi</b>.</div>
+    </details>
+
+    <details class="recall">
+      <summary>⭐ 8.4 ning eng ko'p uchraydigan
+      deprecation'i</summary>
+      <div class="answer"><b>Yashirin nullable
+      parametr</b>:
+      <code>function f(string $x = null)</code> —
+      tip <code>string</code>, standart
+      <code>null</code>.
+      🔍 O'lchandi: 8.3 <b>jim</b>; 8.4 →
+      <code>Deprecated: ... Implicitly marking
+      parameter $ism as nullable is
+      deprecated</code>.
+      ⚠️ Va u <b>testlarda ko'rinmadi</b> —
+      Pest/PHPUnit eskirgan xabarlarni
+      yashiradi. Shuning uchun CI'ga
+      <code>error_reporting=E_ALL</code> bilan
+      <b>alohida qadam</b> qo'shdik.
+      ✅ Tuzatish: <code>?string $x = null</code> —
+      bitta belgi.
+      🔑 Bugungi ogohlantirish — <b>ertangi fatal
+      xato</b> (PHP 9).</div>
+    </details>
+
+    <details class="recall">
+      <summary>Serverda qanday yangilaysiz?</summary>
+      <div class="answer"><b>1)</b> 8.4 ni
+      <b>o'rnating</b> — 8.3 <b>qoladi</b>
+      (kengaytmalarni ham! 🔑
+      <code>php8.3 -m</code> va
+      <code>php8.4 -m</code> ni
+      <code>diff</code> qiling).
+      <b>2)</b> nginx: <code>fastcgi_pass ...
+      php8.4-fpm.sock</code>.
+      <b>3)</b> supervisor va cron —
+      <code>php8.4</code> ga.
+      <b>4)</b> <code>systemctl restart</code>,
+      <code>supervisorctl restart</code>,
+      <code>queue:restart</code>.
+      <b>5)</b> <code>php8.4 artisan about</code>.
+      🔑 Orqaga qaytish — <code>fastcgi_pass</code> da
+      <b>bir qator</b>.
+      ⚠️ <b>Bir hafta kuting</b>, keyin
+      <code>apt purge 'php8.3-*'</code>.
+      ⚠️ Va PHP bilan Laravel'ni <b>bir vaqtda</b>
+      yangilamang.</div>
+    </details>
+
+    <details class="recall">
+      <summary>CI yashil — hammasi joyidami?</summary>
+      <div class="answer"><b>Yo'q.</b> CI yashil =
+      «<b>testlar qamragan</b> narsa ishlaydi»,
+      «hamma narsa ishlaydi» <b>emas</b>.
+      🔑 Versiya yangilash chegara holatlarini
+      <b>ko'rsatadi</b>, lekin
+      <b>yaratmaydi</b> — ular allaqachon bor
+      edi.
+      ✅ Shuning uchun:
+      <code>config/logging.php</code> da
+      <code>'deprecations'</code> kanalini yoqing
+      va <b>bir-ikki hafta</b> kuzating;
+      70-darsdagi nazorat buyruqlarini
+      ishlating.
+      ⚠️ Va <code>php.net/supported-versions</code>:
+      xavfsizlik muddati tugashidan
+      <b>6 oy oldin</b> yangilashni
+      boshlang.</div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 13) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Xulosa</span>
+    <ul>
+      <li>Yangilash sabablari: <b>xavfsizlik</b> ·
+      tezlik · paketlar · ishga joylashish.</li>
+      <li>⭐ CI matritsasi — serverga <b>tegmasdan</b>
+      ikkala versiyada sinash.</li>
+      <li><code>fail-fast: false</code> — bittasi
+      yiqilsa ikkinchisi sinaladi.</li>
+      <li>🔍 Natija: ✓ <b>8.4.24</b> va
+      <b>8.3.33</b>, ikkalasida <code>121
+      passed</code>.</li>
+      <li>🔍 8.4 <b>tezroq</b>: 2.33s →
+      1.49s.</li>
+      <li>🔍 Paket <b>kamaydi</b>: 133 → 132
+      (<code>polyfill-php83</code>).</li>
+      <li><code>composer why-not php 8.4</code> —
+      oldindan tekshirish.</li>
+      <li>⭐ 🔍 Eng ko'p deprecation — <b>yashirin
+      nullable</b>: 8.3 jim, 8.4
+      ogohlantiradi.</li>
+      <li>⚠️ U <b>testlarda ko'rinmaydi</b> —
+      <code>error_reporting=E_ALL</code> bilan
+      alohida qadam kerak.</li>
+      <li>Tuzatish — bitta belgi:
+      <code>?string</code>.</li>
+      <li>Katta loyihada — <b>Rector</b>
+      (<code>--dry-run</code> bilan
+      boshlang).</li>
+      <li>Serverda: 8.4 ni <b>qo'shing</b>, 8.3 ni
+      <b>qoldiring</b>; bir hafta kuting.</li>
+      <li>🔑 CI yashil = «testlar qamragan narsa
+      ishlaydi», <b>hammasi emas</b>.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p><b>Kursning oxirgi darsi.</b></p>
+    <p>Nol darajadan boshlab bu yergacha keldingiz:
+    PHP asoslari, Laravel, baza, API, testlar,
+    tuzilish, xavfsizlik, Docker, server, CI.
+    <b>121 ta test</b> va ishlaydigan ilova.</p>
+    <p>73-darsda hammasini <b>bir joyga</b>
+    yig'amiz: intervyuda nima so'rashadi, qanday
+    javob berish kerak, portfolio qanday
+    bo'lishi lozim va <b>keyin nima
+    o'rganish</b> kerak.</p>
+    <p>Va eng muhimi — 63-darsdagi javob usuli:
+    ta'rif emas, <b>o'lchangan misol</b>.
+    «Kodimizda shunday bug bor edi, shunday
+    topdim, shunday tuzatdim.»</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>PHP — UPGRADING (8.4)</b>:
+    <a href="https://github.com/php/php-src/blob/PHP-8.4/UPGRADING">rasmiy
+    o'zgarishlar ro'yxati</a>.<sup><a href="#fn1">1</a></sup><br>
+    <b>PHP — Supported Versions</b>:
+    <a href="https://www.php.net/supported-versions.php">qo'llab-quvvatlash
+    muddatlari</a>.<sup><a href="#fn2">2</a></sup><br>
+    <b>Rector</b>:
+    <a href="https://getrector.com/documentation">avtomatik
+    ko'chirish va refaktoring</a>.<sup><a href="#fn3">3</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b>
+    «qachon yangilashim kerak?», «Rector xavfsizmi?»,
+    «8.5 ni kutaymi?» — har qanday savol yaxshi.
+    Birinchisiga qisqa javob: <b>xavfsizlik muddati
+    tugashidan 6 oy oldin</b>. Ikkinchisiga:
+    <code>--dry-run</code> bilan boshlang, kichik
+    qadamlar, alohida commit va <b>testlarsiz
+    ishlatmang</b>. Uchinchisiga: yangi versiya
+    chiqqach <b>bir-ikki oy</b> kutish odatiy —
+    paketlar moslashishiga vaqt kerak.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0071-github-actions.html">Oldingi: GitHub Actions</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">PHP — <a href="https://github.com/php/php-src/blob/PHP-8.4/UPGRADING">UPGRADING (8.4)</a>.</li>
+      <li id="fn2">PHP — <a href="https://www.php.net/supported-versions.php">Supported Versions</a>.</li>
+      <li id="fn3">Rector — <a href="https://getrector.com/documentation">Documentation</a>.</li>
+      <li id="fn4">Barchasi jonli o'lchangan —
+      <b>haqiqiy GitHub Actions matritsa ishga
+      tushishlari</b> (Laravel 13.26.1, 121 ta test):
+      <code>composer why-not php 8.4</code> →
+      <code>There is no installed package depending on
+      "php" in versions not matching 8.4</code> ·
+      matritsa <code>['8.3', '8.4']</code>,
+      <code>fail-fast: false</code> →
+      ✓ <b>PHP 8.4 in 24s</b>, ✓ <b>PHP 8.3 in
+      23s</b> ·
+      versiyalar: <code>PHP 8.4.24 (cli)</code> va
+      <code>PHP 8.3.33 (cli)</code> ·
+      testlar ikkalasida <b>121 passed (243
+      assertions)</b>; davomiyligi <b>1.49 s</b>
+      (8.4) va <b>2.33 s</b> (8.3) ·
+      <code>composer update</code>:
+      <b>132 installs</b> (8.4) va <b>133
+      installs</b> (8.3); o'rnatilgan paketlar
+      ro'yxati <code>diff</code> qilinganda yagona
+      farq — <code>symfony/polyfill-php83</code>
+      (8.4 da <b>o'rnatilmagan</b>) ·
+      ⭐ deprecation zondi
+      (<code>public function salomla(string $ism =
+      null)</code>) va
+      <code>error_reporting=E_ALL</code> bilan alohida
+      qadam: PHP 8.3 → faqat
+      <code>Salom, mehmon</code>; PHP 8.4 →
+      <code>Deprecated:
+      App\Support\EskiUslub::salomla(): Implicitly
+      marking parameter $ism as nullable is
+      deprecated…</code> so'ng
+      <code>Salom, mehmon</code> ·
+      ⚠️ bu ogohlantirish <code>php artisan test</code>
+      chiqishida <b>ko'rinmadi</b> — ikkala
+      versiyada ham <code>121 passed</code> ·
+      <code>?string $ism = null</code> ga tuzatilgach
+      PHP 8.4 da ogohlantirish <b>yo'qoldi</b>
+      (✓ 22s / ✓ 22s) ·
+      ⚠️ PHP 8.4 bu mashinada <b>o'rnatilmagan</b>
+      (<code>sudo</code> yo'q) — barcha 8.4
+      o'lchovlari CI'da bajarilgan ·
+      mahalliy to'plam: <b>121 passed (243
+      assertions)</b>.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

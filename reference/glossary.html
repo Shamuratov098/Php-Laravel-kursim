@@ -18,7 +18,7 @@
   izoh esa o'zbekcha.</p>
 
   <p class="lesson-meta">
-    <span>Atamalar: <b>295 ta</b></span>
+    <span>Atamalar: <b>297 ta</b></span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>📱 O'qishga mos</span>
   </p>
@@ -26,7 +26,7 @@
   <div class="callout note">
     <span class="label">Bu hujjat o'sib boradi</span>
     <p>Atama faqat <b>o'z darsi yozilganda</b> qo'shiladi — oldindan emas. Hozir:
-    Modul A–J (1–71-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
+    Modul A–J (1–72-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
     bosqichida qat'iy belgilangan va 73 dars bo'ylab o'zgarmaydi).</p>
   </div>
 
@@ -916,6 +916,62 @@
       <b>majburiy</b>. Xato ko'rinishi: <code>no such table: vakansiyas</code>.
       Tekshirish: <code>(new Vakansiya)-&gt;getTable()</code>.
       <span class="eg">protected $table = 'vakansiyalar';</span></dd>
+    </div>
+
+    <div class="term" id="php-yangilash">
+      <dt>PHP versiyasini yangilash <span class="uz">— CI matritsasi bilan</span></dt>
+      <dd>⭐ Serverga <b>tegmasdan</b> sinash:
+      <code>strategy: matrix: php: ['8.3', '8.4']</code>
+      + <b><code>fail-fast: false</code></b> (bittasi
+      yiqilsa ikkinchisi <b>sinaladi</b>) +
+      <code>composer update</code> (install emas —
+      lock qayta hisoblansin) +
+      <code>ini-values: error_reporting=E_ALL</code>.
+      🔍 O'lchandi: ✓ <b>PHP 8.4 in 24s</b>,
+      ✓ <b>PHP 8.3 in 23s</b>; versiyalar
+      <b>8.4.24</b> va <b>8.3.33</b>; ikkalasida
+      <b>121 passed (243 assertions)</b>.
+      🔍 Ikki kutilmagan natija: 8.4 <b>tezroq</b>
+      (<b>2.33 s → 1.49 s</b>) va paket
+      <b>kamaydi</b> (<b>133 → 132</b>) — farq
+      <code>symfony/polyfill-php83</code>: 8.4 da
+      o'sha funksiyalar <b>tug'ma</b> bor.
+      ✅ Oldindan: <code>composer why-not php 8.4</code>.
+      🔑 Serverda 8.4 ni <b>qo'shing</b>, 8.3 ni
+      <b>qoldiring</b> — orqaga qaytish
+      <code>fastcgi_pass</code> da bir qator. Bir
+      hafta kuting, keyin
+      <code>apt purge 'php8.3-*'</code>.
+      ⚠️ PHP va Laravel'ni <b>bir vaqtda</b>
+      yangilamang.
+      <span class="eg">composer why-not php 8.4</span></dd>
+    </div>
+
+    <div class="term" id="yashirin-nullable">
+      <dt>yashirin nullable <span class="uz">— 8.4 ning eng ko'p deprecation'i</span></dt>
+      <dd><code>function f(string $x = null)</code> —
+      tip <code>string</code>, standart qiymat
+      <code>null</code>, ya'ni aslida
+      <code>?string</code>.
+      🔍 O'lchandi: PHP 8.3 — <b>jim</b>; PHP 8.4 →
+      <code>Deprecated: ...salomla(): Implicitly
+      marking parameter $ism as nullable is
+      deprecated…</code>
+      ⚠️ Va u <code>php artisan test</code> chiqishida
+      <b>ko'rinmadi</b> — Pest/PHPUnit eskirgan
+      xabarlarni yashiradi (ular xato emas,
+      ogohlantirish). Shuning uchun CI'ga
+      <code>error_reporting=E_ALL</code> bilan
+      <b>alohida qadam</b> kerak.
+      ✅ Tuzatish — <b>bitta belgi</b>:
+      <code>?string $x = null</code>.
+      🔑 Bugungi ogohlantirish — <b>ertangi fatal
+      xato</b> (PHP 9 da ishlamaydi).
+      ✅ Katta loyihada — <b>Rector</b>
+      (<code>withPhpSets(php84: true)</code>),
+      har doim <code>--dry-run</code> bilan
+      boshlang va alohida commit qiling.
+      <span class="eg">-&gt;withPhpSets(php84: true)</span></dd>
     </div>
 
     <div class="term" id="ci-workflow">

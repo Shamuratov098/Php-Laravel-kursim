@@ -17,7 +17,7 @@
   muhit ma'lumotlari. Har dars yangi buyruq o'rgatilsa, shu yerga qo'shiladi.</p>
 
   <p class="lesson-meta">
-    <span>Qamrov: <b>1&ndash;71-darslar</b> — muhitdan API'gacha</span>
+    <span>Qamrov: <b>1&ndash;72-darslar</b> — muhitdan API'gacha</span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>💻 Amaliyotga mos</span>
   </p>
@@ -1826,6 +1826,50 @@
     <code>database</code> · <code>redis</code> (ishlab
     chiqarish, teglar bor).
     Redis nafaqat kesh: navbat, sessiya va cheklov ham.</p>
+  </div>
+
+  <h2>PHP versiyasini yangilash (72-darsdan)</h2>
+  <table class="sheet">
+    <tr><th>Qadam</th><th class="note-cell">Buyruq / sozlama</th></tr>
+    <tr><td>Oldindan tekshirish</td><td class="note-cell"><code>composer why-not php 8.4</code></td></tr>
+    <tr><td>CI matritsasi</td><td class="note-cell"><code>matrix: php: ['8.3', '8.4']</code></td></tr>
+    <tr><td></td><td class="note-cell">🔑 <code>fail-fast: false</code> — bittasi yiqilsa ikkinchisi sinaladi</td></tr>
+    <tr><td></td><td class="note-cell"><code>composer update</code> (install <b>emas</b>)</td></tr>
+    <tr><td></td><td class="note-cell"><code>ini-values: error_reporting=E_ALL</code></td></tr>
+    <tr><td>Deprecation'ni ko'rish</td><td class="note-cell">⚠️ Testda ko'rinmaydi — <b>alohida qadam</b> kerak</td></tr>
+    <tr><td>Avtomatik ko'chirish</td><td class="note-cell"><code>rector process --dry-run</code> · <code>withPhpSets(php84: true)</code></td></tr>
+    <tr><td>Serverda</td><td class="note-cell"><code>apt install php8.4-fpm ...</code> — 8.3 <b>qoladi</b></td></tr>
+    <tr><td></td><td class="note-cell"><code>diff &lt;(php8.3 -m) &lt;(php8.4 -m)</code> — kengaytmalar</td></tr>
+    <tr><td></td><td class="note-cell">nginx <code>fastcgi_pass</code> · supervisor · cron</td></tr>
+    <tr><td>Orqaga qaytish</td><td class="note-cell"><code>fastcgi_pass ... php8.3-fpm.sock</code> — <b>bir qator</b></td></tr>
+  </table>
+  <div class="callout note">
+    <p>🔍 <b>Haqiqiy matritsa ishga tushishi:</b>
+    ✓ <b>PHP 8.4 in 24s</b> · ✓ <b>PHP 8.3 in 23s</b>;
+    versiyalar <b>8.4.24</b> va <b>8.3.33</b>;
+    ikkalasida <b>121 passed (243 assertions)</b>.</p>
+    <p>🔍 <b>Ikki kutilmagan natija:</b>
+    8.4 <b>tezroq</b> (<b>2.33 s → 1.49 s</b>) va
+    paket <b>kamaydi</b> (<b>133 → 132</b>) —
+    farq <code>symfony/polyfill-php83</code>.
+    <br>🔑 Yangilash kod <b>qo'shmaydi</b>,
+    <b>olib tashlaydi</b>.</p>
+    <p>⭐ ⚠️ <b>Yashirin nullable</b> —
+    <code>f(string $x = null)</code>:
+    8.3 <b>jim</b>, 8.4 →
+    <code>Deprecated: ... Implicitly marking parameter
+    $ism as nullable is deprecated</code>.
+    <br>U <code>php artisan test</code> da
+    <b>ko'rinmaydi</b>.
+    ✅ Tuzatish: <code>?string $x = null</code>.</p>
+    <p>🔑 <b>CI yashil</b> = «testlar qamragan narsa
+    ishlaydi», <b>hammasi emas</b>.
+    Yangilashdan keyin <code>config/logging.php</code>
+    da <code>'deprecations'</code> kanalini yoqing va
+    bir-ikki hafta kuzating.</p>
+    <p>⚠️ PHP va Laravel'ni <b>bir vaqtda</b>
+    yangilamang · serverda 8.3 ni <b>bir hafta</b>
+    qoldiring.</p>
   </div>
 
   <h2>GitHub Actions (71-darsdan)</h2>
