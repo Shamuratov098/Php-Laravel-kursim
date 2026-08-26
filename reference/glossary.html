@@ -18,7 +18,7 @@
   izoh esa o'zbekcha.</p>
 
   <p class="lesson-meta">
-    <span>Atamalar: <b>283 ta</b></span>
+    <span>Atamalar: <b>286 ta</b></span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>📱 O'qishga mos</span>
   </p>
@@ -26,7 +26,7 @@
   <div class="callout note">
     <span class="label">Bu hujjat o'sib boradi</span>
     <p>Atama faqat <b>o'z darsi yozilganda</b> qo'shiladi — oldindan emas. Hozir:
-    Modul A–J (1–67-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
+    Modul A–J (1–68-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
     bosqichida qat'iy belgilangan va 73 dars bo'ylab o'zgarmaydi).</p>
   </div>
 
@@ -916,6 +916,93 @@
       <b>majburiy</b>. Xato ko'rinishi: <code>no such table: vakansiyas</code>.
       Tekshirish: <code>(new Vakansiya)-&gt;getTable()</code>.
       <span class="eg">protected $table = 'vakansiyalar';</span></dd>
+    </div>
+
+    <div class="term" id="docker-sail">
+      <dt>Docker va Laravel Sail <span class="uz">— muhitni kodga aylantirish</span></dt>
+      <dd>Konteyner ≠ virtual mashina: <b>host
+      yadrosidan</b> foydalanadi, soniyalarda ishga
+      tushadi.
+      🔍 O'lchandi: <code>redis</code> konteyneri
+      <b>6.5 MiB</b>, <code>mysql</code>
+      <b>422.3 MiB</b> xotira oladi.
+      <b>image</b> (retsept) · <b>konteyner</b> (nusxa) ·
+      <b>volume</b> (konteyner o'chsa ham qoladigan
+      ma'lumot).
+      <code>php artisan sail:install
+      --with=mysql,redis,mailpit --php=8.3</code>.
+      ⚠️ <code>--php</code> standarti <b>8.5</b> —
+      versiyani <b>ataylab</b> bering, aks holda
+      mahalliy va konteyner PHP'lari farq qiladi.
+      🔍 Uchta faylni o'zgartiradi:
+      <b><code>compose.yaml</code></b> (82 qator;
+      <code>docker-compose.yml</code> emas) ·
+      <code>.env</code> (manzillar → xizmat nomlari) ·
+      ⭐ <code>phpunit.xml</code> (<code>sqlite</code>
+      va <code>:memory:</code> <b>o'chiriladi</b>,
+      <code>DB_DATABASE=testing</code>) — bu
+      [[phpunit-baza]] tuzog'ining yechimi.
+      <code>vendor/bin/sail</code> — <b>725 qatorlik</b>
+      qobiq: <code>sail artisan X</code> →
+      <code>docker compose exec laravel.test php artisan
+      X</code>; u <code>WWWUSER</code>/<code>WWWGROUP</code>
+      ni <b>o'zi</b> qo'yadi (usiz fayllarga
+      <code>root</code> egalik qiladi).
+      <span class="eg">./vendor/bin/sail up -d</span></dd>
+    </div>
+
+    <div class="term" id="konteyner-tarmogi">
+      <dt>konteyner tarmog'i <span class="uz">— nom bilan topish va izolyatsiya</span></dt>
+      <dd>⭐ Bir tarmoqdagi konteynerlar bir-birini
+      <b>xizmat nomi</b> bilan topadi — Docker o'z DNS
+      serverini yuritadi.
+      🔍 O'lchandi: mysql konteyneridan
+      <code>getent hosts redis</code> →
+      <b>172.19.0.2 redis</b>,
+      <code>mailpit</code> → <b>172.19.0.3</b>.
+      🔑 Shuning uchun <code>DB_HOST=mysql</code> — IP
+      emas, <b>nom</b>: IP o'zgarishi mumkin, nom —
+      yo'q.
+      ⚠️ Konteyner ichida <code>127.0.0.1</code> —
+      <b>o'sha konteynerning o'zi</b>. Hostga murojaat
+      uchun <code>host.docker.internal</code>.
+      🔍 <b>Izolyatsiya o'lchandi:</b> bir xil kalitga
+      host Redis'da <code>hostdan</code>, konteyner
+      Redis'da <code>konteynerdan</code> — ular
+      <b>butunlay alohida</b>.
+      ⚠️ Port band bo'lsa:
+      <code>failed to bind host port 0.0.0.0:6379/tcp:
+      address already in use</code> → <code>.env</code>
+      da <code>FORWARD_REDIS_PORT=16379</code>.
+      <b>Konteyner ichidagi</b> port o'zgarmaydi.
+      <span class="eg">FORWARD_DB_PORT=13306</span></dd>
+    </div>
+
+    <div class="term" id="docker-narxi">
+      <dt>Docker'ning narxi <span class="uz">— disk va tozalash</span></dt>
+      <dd>⚠️ Ko'p qo'llanmalar aytmaydi.
+      🔍 O'lchandi: Images <b>2.511 GB</b>, Build Cache
+      <b>2.042 GB</b>, Volumes <b>684 MB</b>.
+      Alohida: <code>mysql:8.4</code> <b>1.12 GB</b> ·
+      <code>redis:alpine</code> <b>160 MB</b> ·
+      <code>axllent/mailpit</code> <b>51.7 MB</b> ·
+      Sail image <b>~1.5 GB</b> (<code>ubuntu:24.04</code>
+      + 25 ta php8.3 kengaytmasi + Node 24 +
+      npm/pnpm/bun).
+      ⚠️ <b>Disk to'lganda build tushunarli xatosiz
+      qotib qoladi</b> — bu dars tayyorlanayotganda
+      aynan shunday bo'ldi
+      (<code>94G 89G 719M 100%</code>).
+      ✅ <code>docker system df</code> →
+      <code>docker builder prune -a</code> (🔍 bizda
+      <b>1.17 GB</b>) → <code>docker image prune -a</code>.
+      ☠️ <code>docker volume rm</code>,
+      <code>sail down -v</code>,
+      <code>system prune -a --volumes</code> —
+      <b>ma'lumotni o'chiradi</b>.
+      🔑 Ishlab chiqarish uchun Sail emas, <b>ko'p
+      bosqichli</b> yengil Dockerfile (~150 MB).
+      <span class="eg">docker builder prune -a -f</span></dd>
     </div>
 
     <div class="term" id="tergov-tartibi">

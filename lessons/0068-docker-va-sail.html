@@ -1,0 +1,1167 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 68 — Docker va Laravel Sail</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 68 · MODUL J — ISHGA TUSHIRISH VA KASBGA KIRISH</p>
+  <h1>Docker va Laravel Sail</h1>
+  <p class="lead">61-darsda «menda ishlayapti-ku» muammosini
+  ko'rdik: SQLite'da <b>1 ta</b>, MySQL'da <b>3 ta</b>.
+  Bugun uni ildizidan yechamiz — butun muhitni
+  <b>bitta faylga</b> yozamiz. Va Docker'ning
+  aytilmaydigan narxini <b>o'lchaymiz</b>.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 19 daqiqa</span>
+    <span>💻 Amaliyot ≈ 40 daqiqa</span>
+    <span>Kerak: <a href="0067-notanish-kodda-bug-topish.html">Dars 67</a></span>
+  </p>
+
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b>Muammo: «menda ishlayapti»</b>
+        <span class="nima">Oltita narsa farq
+        qilishi mumkin.</span></li>
+      <li><b>Konteyner nima</b>
+        <span class="nima">Virtual mashina
+        <b>emas</b> — farqi muhim.</span></li>
+      <li><b>Sail o'rnatish</b>
+        <span class="nima">🔍 Standart PHP
+        <b>8.5</b> — biz 8.3 ni
+        tanlaymiz.</span></li>
+      <li><b>🔍 Sail nimalarni o'zgartiradi</b>
+        <span class="nima"><code>compose.yaml</code> ·
+        <code>.env</code> ·
+        <b><code>phpunit.xml</code></b>.</span></li>
+      <li><b><code>compose.yaml</code> tuzilishi</b>
+        <span class="nima">🔍 82 qator, to'rtta
+        xizmat.</span></li>
+      <li><b><code>sail</code> skripti nima qiladi</b>
+        <span class="nima">🔍 725 qator —
+        <code>docker compose</code> ustidagi
+        qobiq.</span></li>
+      <li><b>⭐ Xizmatlar nom bilan topishadi</b>
+        <span class="nima">🔍 <code>redis</code> →
+        <b>172.19.0.2</b>.</span></li>
+      <li><b>🔍 Izolyatsiya o'lchandi</b>
+        <span class="nima">Host Redis va konteyner
+        Redis — <b>alohida</b>.</span></li>
+      <li><b>⚠️ Port to'qnashuvi</b>
+        <span class="nima">🔍 <code>failed to bind
+        host port 0.0.0.0:6379</code>.</span></li>
+      <li><b>⚠️ <code>WWWUSER</code>
+        ogohlantirishi</b>
+        <span class="nima">Nega
+        <code>docker compose</code> emas,
+        <code>sail</code>.</span></li>
+      <li><b>⚠️ Docker'ning narxi</b>
+        <span class="nima">🔍 O'lchandi: image'lar
+        <b>2.5 GB</b>, kesh <b>2 GB</b>. Va
+        disk to'lganda <b>nima
+        bo'ladi</b>.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima">Volume · alias · CI ·
+        <code>.dockerignore</code> ·
+        Sail'siz Docker.</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">«Menda ishlayapti-ku»</span>
+    <p>67-darsda bu iborani ko'rdik. Endi uni
+    <b>hal qilamiz</b>.</p>
+    <p>Muammo shundaki, «loyiha» — bu faqat kod emas.
+    U <b>butun muhit</b>:</p>
+    <div class="natija">sizda                    hamkasbingizda           serverda
+─────────────────────────────────────────────────────────────
+PHP 8.3.32               PHP 8.2.10               PHP 8.1
+pdo_sqlite               pdo_mysql                pdo_mysql
+Redis 7 (mahalliy)       Redis yo'q               Redis 6 (alohida)
+Ubuntu 24.04             macOS 15                 Debian 12</div>
+    <p>Kod bir xil, natija <b>boshqacha</b>. Va
+    bug ishlab chiqarishga chiqqanda paydo
+    bo'ladi.</p>
+    <p>🔑 Docker'ning g'oyasi oddiy: <b>muhitni ham
+    kodga aylantiring</b>. Shunda u git'da yashaydi,
+    ko'rib chiqiladi va hammada <b>aynan bir
+    xil</b> bo'ladi.</p>
+  </div>
+
+  <!-- ═══════════════ 2) KONTEYNER ═══════════════ -->
+  <h2>Konteyner — virtual mashina emas</h2>
+
+  <div class="natija">VIRTUAL MASHINA               KONTEYNER
+─────────────────────────────────────────────────────
+o'z YADROSI bor               HOST yadrosidan foydalanadi
+butun OS yuklaydi             faqat kerakli fayllar
+ishga tushishi: daqiqalar     ishga tushishi: soniyalar
+hajmi: 10+ GB                 hajmi: 50 MB – 2 GB
+xotira: ajratilgan            xotira: kerak bo'lganda</div>
+
+  <p>🔍 O'lchadik — ishlab turgan uchta xizmat:</p>
+
+  <div class="natija">ishtop-mysql-1     422.3 MiB / 15.32 GiB    2.47%
+ishtop-redis-1       6.5 MiB / 15.32 GiB    1.79%
+ishtop-mailpit-1     7.5 MiB / 15.32 GiB    0.00%</div>
+
+  <p>Redis <b>6.5 MB</b> xotira oladi — virtual
+  mashinada bu bir necha yuz megabayt bo'lardi.</p>
+
+  <div class="callout tip">
+    <span class="label">🔑 Uchta atama</span>
+    <div class="natija">IMAGE      →  "retsept" — o'zgarmas, diskda yotadi
+KONTEYNER  →  image dan ishga tushirilgan NUSXA
+VOLUME     →  konteyner o'chsa ham QOLADIGAN ma'lumot</div>
+    <p>Konteynerni o'chirsangiz, ichidagi hamma narsa
+    <b>yo'qoladi</b> — <code>volume</code> da
+    bo'lmasa.</p>
+    <p>⚠️ Shuning uchun baza <b>doim</b> volume'da
+    saqlanadi:
+    <code>sail-mysql:/var/lib/mysql</code>.</p>
+  </div>
+
+  <!-- ═══════════════ 3) SAIL O'RNATISH ═══════════════ -->
+  <h2>Sail o'rnatish</h2>
+
+  <p><b>Laravel Sail</b> — Docker'ning Laravel uchun
+  tayyorlangan sozlamasi. Uni nolddan yozish shart
+  emas.</p>
+
+  <div class="natija">composer require laravel/sail --dev
+php artisan sail:install --with=mysql,redis,mailpit --php=8.3</div>
+
+  <div class="callout warn">
+    <span class="label">🔍 <code>--php</code> ni ATAYLAB berdik</span>
+    <div class="natija">php artisan sail:install --help
+
+--php[=PHP]   The PHP version that should be used [default: "8.5"]</div>
+    <p>Standart — <b>8.5</b>. Ya'ni buyruqni oddiy
+    ishlatsangiz, konteynerda <b>boshqa</b> PHP
+    versiyasi bo'ladi.</p>
+    <p>⚠️ Bu aynan biz yechmoqchi bo'lgan muammoni
+    <b>yaratadi</b>: mahalliy 8.3, konteynerda
+    8.5.</p>
+    <p>✅ Har doim versiyani <b>aniq</b> ko'rsating.</p>
+  </div>
+
+  <p>🔍 Mavjud xizmatlar ro'yxati (Sail 1.67):</p>
+
+  <div class="natija">mysql · pgsql · mariadb · mongodb · redis · valkey · memcached
+meilisearch · typesense · minio · rustfs · mailpit · rabbitmq
+selenium · soketi</div>
+
+  <!-- ═══════════════ 4) NIMANI O'ZGARTIRADI ═══════════════ -->
+  <h2>🔍 Sail nimalarni o'zgartiradi</h2>
+
+  <p>Uchta fayl. Ikkitasi kutilgan, uchinchisi —
+  <b>ajablanarli</b>.</p>
+
+  <h3>1) <code>compose.yaml</code> — yangi fayl</h3>
+
+  <div class="natija">82 qator, to'rtta xizmat:
+    laravel.test    ← ilovamiz (PHP 8.3)
+    mysql           ← mysql:8.4
+    redis           ← redis:alpine
+    mailpit         ← axllent/mailpit</div>
+
+  <p>⚠️ E'tibor bering: fayl nomi
+  <b><code>compose.yaml</code></b> —
+  <code>docker-compose.yml</code> <b>emas</b>. Bu
+  Compose spetsifikatsiyasining zamonaviy
+  nomi.</p>
+
+  <h3>2) <code>.env</code> — manzillar o'zgardi</h3>
+
+  <div class="natija">DB_CONNECTION=mysql
+DB_HOST=mysql          ← IP emas, XIZMAT NOMI
+DB_DATABASE=laravel
+DB_USERNAME=sail
+DB_PASSWORD=password
+
+REDIS_HOST=redis       ← xizmat nomi
+MAIL_HOST=mailpit      ← xizmat nomi
+MAIL_PORT=1025</div>
+
+  <h3>3) ⭐ <code>phpunit.xml</code> — 61-darsdagi tuzoq</h3>
+
+  <div class="natija">// AVVAL (Laravel standarti)
+&lt;env name="DB_CONNECTION" value="sqlite"/&gt;
+&lt;env name="DB_DATABASE" value=":memory:"/&gt;
+
+// SAIL DAN KEYIN
+&lt;env name="DB_DATABASE" value="testing"/&gt;</div>
+
+  <div class="callout tip">
+    <span class="label">🔑 Bu — 61-darsdagi muammoning yechimi</span>
+    <p>61-darsda topgandik: <code>phpunit.xml</code>
+    testlarni SQLite'ga <b>mixlab qo'ygan</b>, ya'ni
+    MySQL'ga o'tsangiz ham testlar unga
+    <b>tegmaydi</b>.</p>
+    <p>Sail buni <b>o'zi</b> tuzatadi: ikki qatorni
+    o'chirib, <code>DB_DATABASE=testing</code>
+    qo'yadi.</p>
+    <p>🔍 Va MySQL konteyneri o'sha bazani
+    <b>avtomatik</b> yaratadi:</p>
+    <div class="natija">show databases;
+
+information_schema
+laravel            ← ishlab chiqarish
+performance_schema
+testing            ← TESTLAR uchun, o'zi yaratildi</div>
+    <p>Buni <code>compose.yaml</code> dagi bir qator
+    qiladi:</p>
+    <div class="natija">- './vendor/laravel/sail/database/mysql/create-testing-database.sh:/docker-entrypoint-initdb.d/10-create-testing-database.sh'</div>
+  </div>
+
+  <!-- ═══════════════ 5) COMPOSE.YAML ═══════════════ -->
+  <h2><code>compose.yaml</code> ni o'qish</h2>
+
+  <div class="natija">services:
+    laravel.test:
+        build:
+            context: ./vendor/laravel/sail/runtimes/8.3   ← Dockerfile qayerda
+        image: sail-8.3/app
+        ports:
+            - '${APP_PORT:-80}:80'                        ← host:konteyner
+        environment:
+            WWWUSER: '${WWWUSER}'
+        volumes:
+            - '.:/var/www/html'                           ← KODNI ULASH
+        networks: [sail]
+        depends_on: [mysql, redis, mailpit]
+
+    mysql:
+        image: 'mysql:8.4'
+        ports:
+            - '${FORWARD_DB_PORT:-3306}:3306'
+        volumes:
+            - 'sail-mysql:/var/lib/mysql'                 ← MA'LUMOT saqlanadi
+        healthcheck:
+            test: [CMD, mysqladmin, ping, '-p${DB_PASSWORD}']</div>
+
+  <div class="callout tip">
+    <span class="label">🔑 Uchta muhim tushuncha</span>
+    <div class="natija">1) VOLUME: '.:/var/www/html'
+   Kod konteynerga ULANADI (nusxalanmaydi).
+   Faylni tahrirlaysiz → konteynerda DARROV o'zgaradi.
+
+2) PORTS: '8080:80'
+   host:konteyner. Konteyner ichida 80, tashqarida 8080.
+
+3) NETWORKS: sail
+   Bir tarmoqdagi konteynerlar bir-birini NOM bilan topadi.</div>
+    <p>🔍 <code>${APP_PORT:-80}</code> — «<code>.env</code>
+    da <code>APP_PORT</code> bo'lsa uni ol, bo'lmasa
+    80». Shuning uchun portlarni
+    <code>.env</code> dan boshqarasiz.</p>
+  </div>
+
+  <!-- ═══════════════ 6) ⭐ TARMOQ ═══════════════ -->
+  <h2>⭐ Konteynerlar bir-birini qanday topadi</h2>
+
+  <p>MySQL konteyneridan turib tekshirdik:</p>
+
+  <div class="natija">getent hosts redis      →  172.19.0.2   redis
+getent hosts mailpit    →  172.19.0.3   mailpit</div>
+
+  <p>Ya'ni <code>DB_HOST=mysql</code> yozganingizda —
+  bu <b>haqiqiy manzil</b>. Docker o'z DNS
+  serverini yuritadi va xizmat nomlarini IP'ga
+  aylantiradi.</p>
+
+  <p>🔑 Va bu <b>o'zgarmaydi</b>: konteyner qayta ishga
+  tushsa IP boshqacha bo'lishi mumkin, lekin
+  <b>nom</b> o'sha.</p>
+
+  <h3>🔍 Izolyatsiya — o'lchangan</h3>
+
+  <p>Mening kompyuterimda Redis <b>allaqachon</b>
+  ishlab turardi (59-darsdan). Konteynerda ham
+  Redis bor. Ular bir xilmi?</p>
+
+  <div class="natija">redis-cli -p 6379  set zond hostdan          ← host Redis
+redis-cli -p 16379 set zond konteynerdan     ← konteyner Redis
+
+redis-cli -p 6379  get zond   →  hostdan          ✅
+redis-cli -p 16379 get zond   →  konteynerdan     ✅</div>
+
+  <p>Bir xil kalit, <b>ikki xil qiymat</b>. Ular
+  <b>butunlay alohida</b> — bu izolyatsiyaning
+  butun ma'nosi.</p>
+
+  <!-- ═══════════════ 7) ⚠️ PORT TO'QNASHUVI ═══════════════ -->
+  <h2>⚠️ Birinchi xato: port band</h2>
+
+  <p>Xizmatlarni ko'targanimizda:</p>
+
+  <div class="natija">Error response from daemon: failed to set up container networking:
+driver failed programming external connectivity on endpoint ishtop-redis-1:
+failed to bind host port 0.0.0.0:6379/tcp: address already in use</div>
+
+  <p>Sabab — hostda Redis ishlab turibdi:</p>
+
+  <div class="natija">ss -tlnp | grep 6379
+
+LISTEN  0  511  127.0.0.1:6379  0.0.0.0:*</div>
+
+  <div class="callout tip">
+    <span class="label">✅ Yechim: <code>FORWARD_*</code> o'zgaruvchilari</span>
+    <div class="natija"># .env
+FORWARD_DB_PORT=13306
+FORWARD_REDIS_PORT=16379
+FORWARD_MAILPIT_PORT=11025
+FORWARD_MAILPIT_DASHBOARD_PORT=18025
+APP_PORT=8080</div>
+    <p>Natija:</p>
+    <div class="natija">mysql    0.0.0.0:13306->3306/tcp
+redis    0.0.0.0:16379->6379/tcp
+mailpit  0.0.0.0:11025->1025/tcp, 0.0.0.0:18025->8025/tcp</div>
+    <p>🔑 <b>Konteyner ichidagi</b> port o'zgarmaydi
+    (3306, 6379) — faqat <b>hostdan ko'rinadigan</b>
+    port ko'chadi. Shuning uchun
+    <code>.env</code> dagi <code>DB_PORT</code>
+    hamon <b>3306</b>.</p>
+    <p>🔍 Tekshirdik: mailpit paneli
+    <code>http://127.0.0.1:18025</code> →
+    <b>200</b>.</p>
+  </div>
+
+  <!-- ═══════════════ 8) SAIL SKRIPTI ═══════════════ -->
+  <h2><code>sail</code> — 725 qatorlik qobiq</h2>
+
+  <p><code>vendor/bin/sail</code> — sehr emas. U
+  <code>docker compose</code> ustidagi <b>qulaylik
+  qobig'i</b>:</p>
+
+  <div class="natija">sail up -d              →  docker compose up -d
+sail artisan migrate    →  docker compose exec laravel.test php artisan migrate
+sail test               →  docker compose exec laravel.test php artisan test
+sail shell              →  docker compose exec laravel.test bash
+sail mysql              →  docker compose exec mysql mysql -u sail -p
+sail composer install   →  docker compose exec laravel.test composer install
+sail npm run dev        →  docker compose exec laravel.test npm run dev
+sail down               →  docker compose down</div>
+
+  <div class="callout warn">
+    <span class="label">⚠️ Nega <code>docker compose</code> emas, <code>sail</code>?</span>
+    <p><code>docker compose</code> ni to'g'ridan-to'g'ri
+    ishlatganimizda:</p>
+    <div class="natija">warning: The "WWWUSER" variable is not set. Defaulting to a blank string.
+warning: The "WWWGROUP" variable is not set. Defaulting to a blank string.</div>
+    <p>Bu ikki o'zgaruvchini <code>sail</code> skripti
+    <b>o'zi</b> qo'yadi:</p>
+    <div class="natija">export WWWUSER=${WWWUSER:-$UID}
+export WWWGROUP=${WWWGROUP:-$(id -g)}
+export APP_SERVICE=${APP_SERVICE:-"laravel.test"}</div>
+    <p>🔑 Ular nima uchun kerak? Konteyner ichidagi
+    foydalanuvchi <b>sizning</b> UID'ingiz bilan
+    ishlaydi — shunda konteyner yaratgan fayllar
+    hostda ham <b>siznikida</b> bo'ladi.</p>
+    <p>⚠️ Usiz: <code>storage/logs</code> ga
+    <code>root</code> egalik qiladi va siz uni
+    o'chira olmaysiz.</p>
+  </div>
+
+  <!-- ═══════════════ 9) ⚠️ NARX ═══════════════ -->
+  <h2>⚠️ Docker'ning aytilmaydigan narxi</h2>
+
+  <p>Ko'p qo'llanmalar buni tilga olmaydi. Biz
+  <b>o'lchadik</b>.</p>
+
+  <div class="natija">docker system df
+
+TYPE            TOTAL   ACTIVE   SIZE      RECLAIMABLE
+Images          5       4        2.511GB   527.9MB (21%)
+Containers      5       3        565.2kB   32.77kB (5%)
+Local Volumes   7       4        684MB     271.5MB (39%)
+Build Cache     5       5        2.042GB   0B</div>
+
+  <div class="natija">Alohida image lar:
+   mysql:8.4              1.12 GB
+   redis:alpine            160 MB
+   axllent/mailpit        51.7 MB
+   sail-8.3/app          ~1.5 GB  (Ubuntu + PHP + Node 24 + npm/pnpm/bun)</div>
+
+  <div class="callout warn">
+    <span class="label">⚠️ Va bu haqiqatan muammo bo'ldi</span>
+    <p>Bu darsni tayyorlashda <code>sail build</code>
+    <b>o'rtada to'xtadi</b>. Sabab:</p>
+    <div class="natija">df -h /
+/dev/nvme0n1p5   94G   89G  719M  100%  /</div>
+    <p>Disk <b>to'lgan</b>. Build hech qanday tushunarli
+    xato bermadi — shunchaki qotib qoldi.</p>
+    <p>🔑 Bu Docker bilan ishlashda <b>eng ko'p
+    uchraydigan</b> va <b>eng kam
+    tushuntiriladigan</b> muammo.</p>
+    <p>✅ Tozalash buyruqlari:</p>
+    <div class="natija">docker system df              nima qancha joy olgan
+docker builder prune -a       build keshi (qayta yaratiladi)  ← eng ko'p bo'shatadi
+docker image prune -a         ishlatilmayotgan image lar
+docker system prune -a        HAMMASI (⚠️ ehtiyot: volume lar ham)
+docker volume ls              volume lar — BU YERDA MA'LUMOT BOR</div>
+    <p>⚠️ <code>docker volume rm</code> — <b>ma'lumotni
+    o'chiradi</b>. Bazangiz o'sha yerda.</p>
+    <p>🔍 Bizda <code>builder prune -a</code>
+    <b>1.17 GB</b> bo'shatdi.</p>
+  </div>
+
+  <div class="callout tip">
+    <span class="label">🔑 Sail image nega shunchalik katta?</span>
+    <p><code>vendor/laravel/sail/runtimes/8.3/Dockerfile</code>
+    — <b>102 qator</b>:</p>
+    <div class="natija">FROM ubuntu:24.04
+    + php8.3 va 25 ta kengaytma
+    + Node 24, npm, pnpm, bun, corepack
+    + supervisor, git, zip, sqlite3, ffmpeg, python3, nano</div>
+    <p>Bu <b>hamma narsa</b> bor image — qulay, lekin
+    og'ir. Ishlab chiqarish uchun ko'pincha
+    <b>o'z</b>, ancha yengil Dockerfile
+    yoziladi.</p>
+  </div>
+
+  <!-- ═══════════════ 10) HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir
+  bir marta o'qing, keyin kerak bo'lganda qaytib
+  qarang.</p>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 1</span>
+    <h4>Ma'lumotni yo'qotish</h4>
+    <div class="natija">sail down              ← konteynerlar o'chadi, VOLUME QOLADI     ✅
+sail down -v           ← volume lar ham O'CHADI — BAZA YO'QOLADI  ☠️
+docker system prune -a --volumes   ← HAMMASI                      ☠️</div>
+    <p>⚠️ <code>-v</code> bayrog'i — eng ko'p
+    afsuslanish sababi.</p>
+    <p>✅ Bazani ko'chirish kerak bo'lsa:</p>
+    <div class="natija">sail mysql mysqldump -u sail -p laravel > zaxira.sql</div>
+    <p>🔑 66-darsdagi qoida bu yerda ham: <b>zaxira
+    nusxa</b> — har xavfli amaldan oldin.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 2</span>
+    <h4><code>sail</code> ni qisqartirish</h4>
+    <div class="natija"># ~/.bashrc yoki ~/.zshrc ga:
+alias sail='sh $([ -f sail ] && echo sail || echo vendor/bin/sail)'</div>
+    <p>Endi <code>./vendor/bin/sail</code> emas,
+    shunchaki <code>sail</code>.</p>
+    <p>🔍 Bu Laravel hujjatlaridagi rasmiy
+    tavsiya — <code>sail</code> fayli loyiha
+    ildizida bo'lsa uni, bo'lmasa
+    <code>vendor/bin</code> dagini
+    ishlatadi.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 3</span>
+    <h4>Faqat xizmatlarni ishlatish</h4>
+    <div class="natija">docker compose up -d mysql redis mailpit</div>
+    <p>PHP mahalliy, faqat baza va Redis konteynerda.
+    <b>Eng tez</b> variant: kod o'zgarishlari
+    darrov ishlaydi, image qurish shart
+    emas.</p>
+    <p>✅ Kamchiligi: PHP versiyasi hamon
+    <b>sizniki</b> — ya'ni asosiy muammo
+    to'liq yechilmaydi.</p>
+    <p>🔑 Amalda ko'p jamoalar shunday qiladi:
+    <b>xizmatlar Docker'da</b>, <b>PHP
+    mahalliy</b> (tezlik uchun), CI'da esa
+    <b>hammasi</b> Docker'da.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 4</span>
+    <h4>Tezlik: macOS va Windows</h4>
+    <div class="natija">Linux    →  volume tez (yadro bir xil)
+macOS    →  fayl tizimi SEKIN (VM orqali)
+Windows  →  WSL2 ichida saqlansa tez, C:\ da sekin</div>
+    <p>⚠️ macOS'da <code>composer install</code> yoki
+    <code>npm install</code> konteynerda
+    <b>bir necha barobar</b> sekin
+    bo'lishi mumkin.</p>
+    <p>✅ Yechimlar:
+    <code>:cached</code>/<code>:delegated</code>
+    volume bayroqlari, yoki
+    <code>vendor</code> va
+    <code>node_modules</code> ni <b>nomlangan
+    volume</b> ga chiqarish.</p>
+    <p>🔑 Windows'da: loyihani <b>WSL2 ichida</b>
+    saqlang (<code>/home/...</code>), Windows
+    diskida emas.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 5</span>
+    <h4><code>.dockerignore</code></h4>
+    <div class="natija">.git
+node_modules
+vendor
+storage/logs
+.env</div>
+    <p>Image qurishda bu papkalar Docker'ga
+    <b>yuborilmaydi</b>. Aks holda har build'da
+    yuzlab megabayt nusxalanadi.</p>
+    <p>⚠️ <code>.env</code> ni albatta qo'shing —
+    66-darsdagi qoida: sir image ichiga
+    tushmasin.</p>
+    <p>🔍 Sail'da bu unchalik muhim emas (kod
+    <b>ulanadi</b>, nusxalanmaydi), lekin
+    ishlab chiqarish uchun o'z Dockerfile
+    yozganda — <b>majburiy</b>.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 6</span>
+    <h4>Ko'p uchraydigan xatolar</h4>
+    <div class="natija">"port is already allocated"
+   →  FORWARD_* ni o'zgartiring yoki hostdagi xizmatni to'xtating
+
+"Cannot connect to the Docker daemon"
+   →  Docker ishlamayapti: sudo systemctl start docker
+
+"permission denied while trying to connect"
+   →  foydalanuvchi docker guruhida emas:
+      sudo usermod -aG docker $USER  (keyin qayta kiring)
+
+"no space left on device"
+   →  docker builder prune -a  ·  docker image prune -a
+
+Konteyner darrov o'chib qolyapti
+   →  docker compose logs mysql   ← LOGGA qarang</div>
+    <p>🔑 Oxirgisi eng muhim: <code>docker compose
+    logs -f &lt;xizmat&gt;</code> — 67-darsdagi
+    «o'lcha» qadamining Docker'dagi
+    ko'rinishi.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>Sail va ishlab chiqarish</h4>
+    <div class="natija">Sail             →  FAQAT ishlab chiqish uchun (--dev)
+Ishlab chiqarish →  o'z Dockerfile: yengil, xavfsiz, npm/xdebug SIZ</div>
+    <p>⚠️ Sail image'ida Node, bun, xdebug, nano bor —
+    ishlab chiqarish serverida bularning hech
+    biri kerak emas va har biri <b>hujum
+    yuzasi</b>.</p>
+    <p>✅ Ishlab chiqarish uchun odatiy yondashuv —
+    <b>ko'p bosqichli</b> (multi-stage) build:</p>
+    <div class="natija">FROM node:24 AS assets     ← faqat qurish uchun
+RUN npm ci && npm run build
+
+FROM php:8.3-fpm-alpine    ← YAKUNIY image (kichik)
+COPY --from=assets /app/public/build /var/www/public/build</div>
+    <p>🔑 Natija: 1.5 GB o'rniga ~150 MB.</p>
+  </div>
+
+  <!-- ═══════════════ 11) AMALIYOT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    💻 Quyida amaliyot bor. Hozir o'qish rejimidasiz — kompyuter
+    yoningizda bo'lganda <b>💻 Amaliyot</b> rejimiga o'ting va
+    shu bo'limdan davom eting.
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <div class="callout warn">
+      <span class="label">⚠️ Avval bo'sh joyni tekshiring</span>
+      <p>Sail image <b>~1.5 GB</b>, MySQL <b>1.12 GB</b>.
+      Kamida <b>5 GB</b> bo'sh joy bo'lsin — aks
+      holda build o'rtada to'xtaydi.</p>
+    </div>
+
+    <ol class="steps">
+      <li>
+        <b>Docker va bo'sh joyni tekshiring.</b>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+docker --version
+docker compose version
+docker info > /dev/null 2>&amp;1 &amp;&amp; echo '  daemon: ishlayapti' || echo '  daemon: ISHLAMAYAPTI'
+df -h / | tail -1
+docker system df">cd ~/Projects/Learn/ishtop
+docker --version
+docker compose version
+docker info &gt; /dev/null 2&gt;&amp;1 &amp;&amp; echo '  daemon: ishlayapti' || echo '  daemon: ISHLAMAYAPTI'
+df -h / | tail -1
+docker system df</div>
+      </li>
+
+      <li>
+        <b>Sail o'rnating — versiyani ATAYLAB
+        bering.</b>
+        <div class="cmd" data-cmd="composer require laravel/sail --dev
+php artisan sail:install --help 2>&amp;1 | grep -A1 'php\[='">composer require laravel/sail --dev
+php artisan sail:install --help 2&gt;&amp;1 | grep -A1 'php\[='</div>
+        <p class="expect">🔍 Standart <b>8.5</b> —
+        biz 8.3 ni beramiz.</p>
+        <div class="cmd" data-cmd="php artisan sail:install --with=mysql,redis,mailpit --php=8.3 --no-interaction">php artisan sail:install --with=mysql,redis,mailpit --php=8.3 --no-interaction</div>
+        <p>⚠️ Bu buyruq oxirida <code>sail pull</code>
+        va <code>sail build</code> ni ishga tushiradi
+        — <b>bir necha daqiqa</b> davom etadi.</p>
+      </li>
+
+      <li>
+        <b>🔍 Nima o'zgarganini ko'ring.</b>
+        <div class="cmd" data-cmd="wc -l compose.yaml
+grep -n '^    [a-z.]*:' compose.yaml
+echo '--- .env ---'
+grep -n 'DB_HOST\|REDIS_HOST\|MAIL_HOST' .env
+echo '--- phpunit.xml ---'
+grep -n 'DB_' phpunit.xml">wc -l compose.yaml
+grep -n '^    [a-z.]*:' compose.yaml
+echo '--- .env ---'
+grep -n 'DB_HOST\|REDIS_HOST\|MAIL_HOST' .env
+echo '--- phpunit.xml ---'
+grep -n 'DB_' phpunit.xml</div>
+        <p class="expect"><b>82 qator</b>, to'rtta
+        xizmat. <code>DB_HOST=mysql</code>. Va
+        ⭐ <code>phpunit.xml</code> dan
+        <code>sqlite</code> <b>yo'qoldi</b>.</p>
+      </li>
+
+      <li>
+        <b>⚠️ Port to'qnashuvini oldindan
+        hal qiling.</b>
+        <div class="cmd" data-cmd="ss -tlnp 2>/dev/null | grep -E ':(3306|6379|1025|8025|80) ' || echo '  band port yo\x27q'">ss -tlnp 2&gt;/dev/null | grep -E ':(3306|6379|1025|8025|80) ' || echo '  band port yo\x27q'</div>
+        <p>Band bo'lsa <code>.env</code> ga
+        qo'shing:</p>
+        <div class="cmd" data-cmd="printf '\nFORWARD_DB_PORT=13306\nFORWARD_REDIS_PORT=16379\nFORWARD_MAILPIT_PORT=11025\nFORWARD_MAILPIT_DASHBOARD_PORT=18025\nAPP_PORT=8080\n' >> .env
+grep -n 'FORWARD_\|APP_PORT' .env">printf '\nFORWARD_DB_PORT=13306\nFORWARD_REDIS_PORT=16379\nFORWARD_MAILPIT_PORT=11025\nFORWARD_MAILPIT_DASHBOARD_PORT=18025\nAPP_PORT=8080\n' &gt;&gt; .env
+grep -n 'FORWARD_\|APP_PORT' .env</div>
+      </li>
+
+      <li>
+        <b>Ko'taring.</b>
+        <div class="cmd" data-cmd="./vendor/bin/sail up -d
+./vendor/bin/sail ps">./vendor/bin/sail up -d
+./vendor/bin/sail ps</div>
+        <p class="expect">Uchala xizmat
+        <code>(healthy)</code> bo'lishini
+        kuting.</p>
+      </li>
+
+      <li>
+        <b>⭐ Konteynerlar bir-birini nom bilan
+        topishini ko'ring.</b>
+        <div class="cmd" data-cmd="docker compose exec mysql sh -c 'getent hosts redis; getent hosts mailpit'">docker compose exec mysql sh -c 'getent hosts redis; getent hosts mailpit'</div>
+        <p class="expect">🔍 Menda
+        <code>172.19.0.2 redis</code> va
+        <code>172.19.0.3 mailpit</code>.</p>
+      </li>
+
+      <li>
+        <b>Konteynerdagi MySQL ni tekshiring.</b>
+        <div class="cmd" data-cmd="docker compose exec mysql mysql -usail -ppassword -e 'select version(); show databases;' 2>&amp;1 | grep -v Warning">docker compose exec mysql mysql -usail -ppassword -e 'select version(); show databases;' 2&gt;&amp;1 | grep -v Warning</div>
+        <p class="expect">🔍 <b>8.4.11</b> va bazalar
+        ichida <code>laravel</code> hamda
+        ⭐ <code>testing</code> — Sail uni
+        <b>o'zi</b> yaratgan.</p>
+      </li>
+
+      <li>
+        <b>🔍 Izolyatsiyani o'lchang.</b> Hostda ham
+        Redis bo'lsa:
+        <div class="cmd" data-cmd="redis-cli -p 6379  set zond hostdan      > /dev/null 2>&amp;1 &amp;&amp; echo '  host 6379 ga yozildi'
+redis-cli -p 16379 set zond konteynerdan > /dev/null 2>&amp;1 &amp;&amp; echo '  konteyner 16379 ga yozildi'
+echo &quot;  host 6379 da:       $(redis-cli -p 6379 get zond 2>/dev/null)&quot;
+echo &quot;  konteyner 16379 da: $(redis-cli -p 16379 get zond 2>/dev/null)&quot;">redis-cli -p 6379  set zond hostdan      &gt; /dev/null 2&gt;&amp;1 &amp;&amp; echo '  host 6379 ga yozildi'
+redis-cli -p 16379 set zond konteynerdan &gt; /dev/null 2&gt;&amp;1 &amp;&amp; echo '  konteyner 16379 ga yozildi'
+echo &quot;  host 6379 da:       $(redis-cli -p 6379 get zond 2&gt;/dev/null)&quot;
+echo &quot;  konteyner 16379 da: $(redis-cli -p 16379 get zond 2&gt;/dev/null)&quot;</div>
+        <p class="expect">🔍 Bir xil kalit, <b>ikki xil
+        qiymat</b>.</p>
+      </li>
+
+      <li>
+        <b>Migratsiya va testlar — konteynerda.</b>
+        <div class="cmd" data-cmd="./vendor/bin/sail artisan migrate --force
+./vendor/bin/sail artisan test 2>&amp;1 | tail -3
+./vendor/bin/sail php -v | head -1">./vendor/bin/sail artisan migrate --force
+./vendor/bin/sail artisan test 2&gt;&amp;1 | tail -3
+./vendor/bin/sail php -v | head -1</div>
+        <p class="expect">Endi testlar <b>MySQL</b> da
+        ishlaydi — 61-darsdagi muammo
+        yechildi.</p>
+      </li>
+
+      <li>
+        <b>⚠️ <code>sail</code> va <code>docker
+        compose</code> farqini ko'ring.</b>
+        <div class="cmd" data-cmd="docker compose ps 2>&amp;1 | head -4">docker compose ps 2&gt;&amp;1 | head -4</div>
+        <p class="expect">⚠️ <code>WWWUSER is not
+        set</code> ogohlantirishi. <code>sail</code>
+        buni <b>o'zi</b> qo'yadi.</p>
+      </li>
+
+      <li>
+        <b>⚠️ Narxni o'lchang.</b>
+        <div class="cmd" data-cmd="docker system df
+docker images --format '{{.Repository}}:{{.Tag}} {{.Size}}' | head -6
+docker stats --no-stream --format '{{.Name}} {{.MemUsage}}'
+df -h / | tail -1">docker system df
+docker images --format '{{.Repository}}:{{.Tag}} {{.Size}}' | head -6
+docker stats --no-stream --format '{{.Name}} {{.MemUsage}}'
+df -h / | tail -1</div>
+        <p class="expect">🔍 Menda image'lar
+        <b>2.5 GB</b>, build keshi <b>2 GB</b>.</p>
+      </li>
+
+      <li>
+        <b>To'xtating va tozalang.</b>
+        <div class="cmd" data-cmd="./vendor/bin/sail down
+docker builder prune -a -f
+docker system df">./vendor/bin/sail down
+docker builder prune -a -f
+docker system df</div>
+        <p>⚠️ <code>sail down</code> — volume'lar
+        <b>qoladi</b>. <code>-v</code> qo'shsangiz
+        <b>baza o'chadi</b>.</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li>Docker va bo'sh joy tekshirildi</li>
+      <li>Sail <code>--php=8.3</code> bilan
+      o'rnatildi</li>
+      <li>🔍 <code>compose.yaml</code>,
+      <code>.env</code>, <code>phpunit.xml</code>
+      o'zgarishlari ko'rildi</li>
+      <li>⚠️ Port to'qnashuvi
+      <code>FORWARD_*</code> bilan hal qilindi</li>
+      <li>⭐ Xizmatlar nom bilan topishishi
+      ko'rildi</li>
+      <li><code>testing</code> bazasi
+      avtomatik yaratilgani tasdiqlandi</li>
+      <li>🔍 Host va konteyner Redis alohida ekani
+      o'lchandi</li>
+      <li>Testlar konteynerda MySQL'da ishladi</li>
+      <li>⚠️ <code>WWWUSER</code> ogohlantirishi
+      ko'rildi</li>
+      <li>⚠️ Docker'ning disk narxi o'lchandi</li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 12) SINAB KO'RAMIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Jamoa Sail'ga o'tdi. Hammasi ishladi:
+    <code>sail up</code>, migratsiyalar, testlar —
+    yashil.</p>
+    <p>Bir hafta o'tib yangi dasturchi qo'shildi. U
+    ham hammasini bajardi:</p>
+    <div class="natija">git clone ...
+composer install
+cp .env.example .env
+php artisan key:generate
+sail up -d
+sail artisan migrate</div>
+    <p>Va xato oldi:</p>
+    <div class="natija">SQLSTATE[HY000] [2002] Connection refused
+(Connection: mysql, Host: 127.0.0.1, Port: 3306, Database: laravel)</div>
+    <p>Lekin <code>sail ps</code> — MySQL
+    <b>ishlab turibdi va healthy</b>. Nima
+    bo'lgan?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <p>Xato matnida javob bor:
+        <b><code>Host: 127.0.0.1</code></b>.</p>
+        <p>U <code>.env.example</code> dan nusxa oldi —
+        va u yerda hamon eski qiymat turibdi:</p>
+        <div class="natija">.env.example:   DB_HOST=127.0.0.1     ← ESKI
+.env (sizda):   DB_HOST=mysql         ← Sail o'zgartirgan</div>
+        <p class="expect">🔑 <code>sail:install</code>
+        <b>faqat <code>.env</code></b> ni
+        o'zgartiradi. <code>.env.example</code>
+        git'da yotgan eski holicha qoladi (66-darsdan:
+        <code>.env</code> git'da <b>yo'q</b>).</p>
+        <p>Va nega <code>127.0.0.1</code> ishlamaydi?
+        Chunki <b>konteyner ichida</b>
+        <code>127.0.0.1</code> — bu <b>o'sha
+        konteynerning o'zi</b>, host emas.
+        MySQL esa <b>boshqa</b> konteynerda.</p>
+        <div class="natija">konteyner ichidan:
+   127.0.0.1  →  laravel.test konteyneri (u yerda MySQL yo'q)   ❌
+   mysql      →  mysql konteyneri                                ✅
+   host.docker.internal  →  HOST mashinasi                       (Sail buni qo'shgan)</div>
+        <p>✅ Ikki qismli tuzatish:</p>
+        <div class="natija">1) Yangi dasturchi uchun DARHOL:
+   .env da DB_HOST=mysql, REDIS_HOST=redis, MAIL_HOST=mailpit
+
+2) QAYTMASLIGI uchun — .env.example ni ham yangilang va COMMIT qiling</div>
+        <p>🔑 <b>Umumiy saboq:</b>
+        <code>.env.example</code> — bu <b>hujjat</b>.
+        U eskirsa, har yangi dasturchi <b>bir
+        soat</b> yo'qotadi.</p>
+        <p>🔍 Va tekshirish oson: yangi papkaga
+        <code>git clone</code> qilib,
+        <code>.env.example</code> dan boshlab
+        o'zingiz o'tib ko'ring. Bu
+        <b>onboarding testi</b>.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span>
+    ⭐ Konteynerlar bir-birini qanday topadi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Xizmat nomi bilan topadi masalan mysql yoki redis</button></li>
+      <li><button class="quiz-option">Har doim host manzili orqali murojaat qilishlari kerak</button></li>
+      <li><button class="quiz-option">Konteynerlar bir-birini umuman ko'ra olmaydi hech qachon ham</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi: mysql
+    konteyneridan
+    <code>getent hosts redis</code> →
+    <b>172.19.0.2 redis</b>,
+    <code>mailpit</code> → <b>172.19.0.3</b>.
+    Docker o'z DNS serverini yuritadi va xizmat
+    nomlarini IP'ga aylantiradi.
+    🔑 Shuning uchun <code>.env</code> da
+    <code>DB_HOST=mysql</code> — IP emas, <b>nom</b>.
+    IP o'zgarishi mumkin, nom — yo'q.
+    ⚠️ Konteyner ichida <code>127.0.0.1</code> —
+    <b>o'sha konteynerning o'zi</b>.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span>
+    Hostda ham, konteynerda ham Redis bor. Ular bir
+    xilmi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Host va konteyner Redis mutlaqo alohida ikki xizmat</button></li>
+      <li><button class="quiz-option">Ikkalasi ham bir xil ma'lumotni baham ko'rib turadi</button></li>
+      <li><button class="quiz-option">Konteyner hostdagi Redis ga o'zi ulanib olaveradi xolos</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi — bir xil
+    kalitga ikki xil qiymat yozdik:
+    <code>redis-cli -p 6379 get zond</code> →
+    <b>hostdan</b>;
+    <code>redis-cli -p 16379 get zond</code> →
+    <b>konteynerdan</b>.
+    🔑 Izolyatsiyaning butun ma'nosi shu: konteyner
+    o'z dunyosida yashaydi.
+    ⚠️ Va bu tuzoq ham: mahalliy Redis'da test qilib,
+    konteynerdagisini <b>bo'sh</b> deb
+    o'ylamang.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span>
+    <code>failed to bind host port 0.0.0.0:6379:
+    address already in use</code> — nima
+    qilasiz?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">FORWARD_REDIS_PORT bilan host tomonidagi portni boshqasiga o'zgartirish kerak</button></li>
+      <li><button class="quiz-option">Hostdagi Redis xizmatini butunlay o'chirib tashlashga to'g'ri keladi</button></li>
+      <li><button class="quiz-option">Docker o'zi bo'sh portni topib avtomatik qo'yib beradi</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi: hostda Redis
+    ishlab turgan edi
+    (<code>LISTEN 127.0.0.1:6379</code>).
+    ✅ <code>.env</code> ga
+    <code>FORWARD_REDIS_PORT=16379</code> →
+    <code>0.0.0.0:16379-&gt;6379/tcp</code>.
+    🔑 <b>Konteyner ichidagi</b> port o'zgarmaydi —
+    faqat hostdan ko'rinadigani. Shuning uchun
+    <code>REDIS_PORT</code> hamon <b>6379</b>.
+    Ikkinchi variant ham ishlaydi, lekin hostdagi
+    xizmatni o'chirish <b>kerak emas</b> —
+    ular birga yashay oladi.</div>
+  </div>
+
+  <!-- ═══════════════ 13) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+
+    <p>Javobni ovoz chiqarib ayting, keyin ochib
+    solishtiring.</p>
+
+    <details class="recall">
+      <summary>Docker qanday muammoni yechadi?</summary>
+      <div class="answer">«<b>Menda ishlayapti-ku</b>».
+      Loyiha — faqat kod emas, <b>butun muhit</b>: PHP
+      versiyasi, kengaytmalar, baza, Redis, OS.
+      🔑 Docker'ning g'oyasi: <b>muhitni ham kodga
+      aylantiring</b> — u git'da yashaydi, ko'rib
+      chiqiladi, hammada bir xil.
+      Konteyner ≠ virtual mashina: <b>host yadrosidan</b>
+      foydalanadi, soniyalarda ishga tushadi.
+      🔍 O'lchandi: <code>redis</code> konteyneri
+      <b>6.5 MB</b> xotira oladi.
+      Uchta atama: <b>image</b> (retsept) ·
+      <b>konteyner</b> (nusxa) · <b>volume</b>
+      (saqlanadigan ma'lumot).</div>
+    </details>
+
+    <details class="recall">
+      <summary>🔍 Sail nimalarni o'zgartiradi?</summary>
+      <div class="answer"><b>1)</b>
+      <code>compose.yaml</code> yaratadi (🔍 <b>82
+      qator</b>, to'rtta xizmat) — e'tibor bering,
+      <code>docker-compose.yml</code> <b>emas</b>.
+      <b>2)</b> <code>.env</code> da manzillarni
+      xizmat nomlariga almashtiradi:
+      <code>DB_HOST=mysql</code>,
+      <code>REDIS_HOST=redis</code>,
+      <code>MAIL_HOST=mailpit</code>.
+      <b>3)</b> ⭐ <code>phpunit.xml</code> dan
+      <code>sqlite</code> va <code>:memory:</code> ni
+      <b>o'chiradi</b>,
+      <code>DB_DATABASE=testing</code> qo'yadi —
+      61-darsdagi tuzoqning yechimi.
+      🔍 Va MySQL konteyneri <code>testing</code>
+      bazasini <b>o'zi yaratadi</b>.
+      ⚠️ <code>--php</code> standarti <b>8.5</b> —
+      versiyani ataylab bering.</div>
+    </details>
+
+    <details class="recall">
+      <summary><code>sail</code> nima qiladi va nega
+      <code>docker compose</code> emas?</summary>
+      <div class="answer"><code>vendor/bin/sail</code> —
+      <b>725 qatorlik</b> qobiq:
+      <code>sail artisan X</code> →
+      <code>docker compose exec laravel.test php artisan
+      X</code>.
+      🔍 Muhimi: u <code>WWWUSER</code> va
+      <code>WWWGROUP</code> ni <b>o'zi</b> qo'yadi.
+      <code>docker compose</code> ni to'g'ridan-to'g'ri
+      ishlatsangiz — <code>WWWUSER is not set</code>
+      ogohlantirishi.
+      🔑 Ular konteyner ichidagi foydalanuvchini
+      <b>sizning UID</b>ingizga tenglashtiradi —
+      shunda konteyner yaratgan fayllar hostda
+      <b>siznikida</b> bo'ladi.
+      ⚠️ Usiz <code>storage/logs</code> ga
+      <code>root</code> egalik qiladi.</div>
+    </details>
+
+    <details class="recall">
+      <summary>⚠️ Docker'ning narxi qancha?</summary>
+      <div class="answer">🔍 O'lchandi:
+      image'lar <b>2.5 GB</b>, build keshi
+      <b>2 GB</b>, volume'lar <b>684 MB</b>.
+      Alohida: <code>mysql:8.4</code> <b>1.12 GB</b> ·
+      <code>redis:alpine</code> <b>160 MB</b> ·
+      Sail image <b>~1.5 GB</b> (Ubuntu + PHP +
+      Node 24 + npm/pnpm/bun).
+      ⚠️ Va bu haqiqiy muammo: bu darsni
+      tayyorlashda disk <b>to'lib</b>
+      (<code>94G 89G 719M 100%</code>) build
+      <b>o'rtada qotib qoldi</b> — tushunarli
+      xatosiz.
+      ✅ <code>docker system df</code> ·
+      <code>docker builder prune -a</code> (🔍 bizda
+      <b>1.17 GB</b> bo'shatdi) ·
+      <code>docker image prune -a</code>.
+      ☠️ <code>docker volume rm</code> va
+      <code>sail down -v</code> — <b>ma'lumotni
+      o'chiradi</b>.</div>
+    </details>
+
+    <details class="recall">
+      <summary>Konteyner ichidan hostga qanday
+      murojaat qilinadi?</summary>
+      <div class="answer">⚠️ <code>127.0.0.1</code>
+      <b>ishlamaydi</b> — konteyner ichida u
+      <b>o'sha konteynerning o'zi</b>.
+      ✅ Uch yo'l:
+      <b>1)</b> boshqa konteynerga —
+      <b>xizmat nomi</b> (<code>mysql</code>,
+      <code>redis</code>);
+      <b>2)</b> host mashinasiga —
+      <code>host.docker.internal</code> (Sail buni
+      <code>extra_hosts</code> orqali qo'shgan);
+      <b>3)</b> hostdan konteynerga —
+      <code>127.0.0.1:&lt;ochilgan port&gt;</code>.
+      🔑 Va <code>.env.example</code> ni
+      <b>yangilashni unutmang</b> — u hujjat, eskirsa
+      har yangi dasturchi bir soat
+      yo'qotadi.</div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 14) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Xulosa</span>
+    <ul>
+      <li>Docker <b>muhitni kodga aylantiradi</b> —
+      «menda ishlayapti» tugaydi.</li>
+      <li>Konteyner ≠ VM: host yadrosi, soniyalarda
+      ishga tushadi. 🔍 Redis <b>6.5 MB</b>.</li>
+      <li><b>image</b> (retsept) · <b>konteyner</b>
+      (nusxa) · <b>volume</b> (ma'lumot).</li>
+      <li>⚠️ <code>sail:install --php</code> standarti
+      <b>8.5</b> — versiyani <b>ataylab</b>
+      bering.</li>
+      <li>🔍 Sail uchta faylni o'zgartiradi:
+      <code>compose.yaml</code> (82 qator) ·
+      <code>.env</code> · <code>phpunit.xml</code>.</li>
+      <li>⭐ <code>phpunit.xml</code> dagi o'zgarish —
+      61-darsdagi tuzoqning yechimi.</li>
+      <li>🔍 <code>testing</code> bazasi
+      <b>avtomatik</b> yaratiladi.</li>
+      <li>⭐ 🔍 Xizmatlar <b>nom</b> bilan topishadi:
+      <code>redis</code> → <b>172.19.0.2</b>.</li>
+      <li>🔍 Host Redis va konteyner Redis —
+      <b>butunlay alohida</b>.</li>
+      <li>⚠️ Port band bo'lsa —
+      <code>FORWARD_*</code>. Konteyner ichidagi
+      port <b>o'zgarmaydi</b>.</li>
+      <li><code>sail</code> — 725 qatorlik qobiq;
+      u <code>WWWUSER</code> ni o'zi
+      qo'yadi.</li>
+      <li>⚠️ 🔍 Narxi real: <b>2.5 GB</b> image,
+      <b>2 GB</b> kesh. Disk to'lsa build
+      <b>jimgina qotadi</b>.</li>
+      <li>☠️ <code>sail down -v</code> — bazani
+      <b>o'chiradi</b>.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p>Muhitimiz endi ko'chma. Lekin u hamon
+    <b>bizning kompyuterimizda</b>.</p>
+    <p>69-darsda <b>real serverga chiqaramiz</b>:
+    kod qanday yetkaziladi, nima ishga tushadi
+    va nima <b>tushmasligi</b> kerak.</p>
+    <p>66-darsdagi ro'yxatni eslang —
+    <code>APP_DEBUG=false</code>,
+    <code>APP_ENV=production</code>. Endi ular
+    shunchaki maslahat emas, <b>chiqarish
+    tartibining</b> qismi bo'ladi. Va yana:
+    <code>migrate --force</code>, kesh, huquqlar,
+    HTTPS va <b>orqaga qaytish</b>
+    (rollback).</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel Sail</b>:
+    <a href="https://laravel.com/docs/13.x/sail">o'rnatish,
+    buyruqlar, sozlash</a>.<sup><a href="#fn1">1</a></sup><br>
+    <b>Docker Compose</b>:
+    <a href="https://docs.docker.com/compose/">compose
+    fayli va buyruqlar</a>.<sup><a href="#fn2">2</a></sup><br>
+    <b>Docker — Prune</b>:
+    <a href="https://docs.docker.com/engine/manage-resources/pruning/">joyni
+    bo'shatish</a>.<sup><a href="#fn3">3</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b>
+    «Sail sekin ishlayaptimi?», «Docker'siz ham
+    bo'ladimi?», «ishlab chiqarishda ham Sail'mi?» —
+    har qanday savol yaxshi. Ikkinchisiga qisqa javob:
+    <b>ha</b> — mahalliy PHP + Docker'dagi baza eng
+    ko'p tarqalgan amaliy variant (HOLAT 3).
+    Uchinchisiga: <b>yo'q</b> — Sail
+    <code>--dev</code> paketi; ishlab chiqarish uchun
+    yengil, ko'p bosqichli o'z Dockerfile'ingiz
+    (HOLAT 7).
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0067-notanish-kodda-bug-topish.html">Oldingi: Notanish kodda bug topish</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel 13 — <a href="https://laravel.com/docs/13.x/sail">Laravel Sail</a>.</li>
+      <li id="fn2">Docker — <a href="https://docs.docker.com/compose/">Compose</a>.</li>
+      <li id="fn3">Docker — <a href="https://docs.docker.com/engine/manage-resources/pruning/">Pruning unused objects</a>.</li>
+      <li id="fn4">Barchasi jonli o'lchangan
+      (Docker 29.6.2, Docker Compose v5.3.1,
+      <b>Laravel Sail 1.67</b>, Laravel 13.26.1):
+      <code>sail:install --help</code> →
+      <code>--php[=PHP] ... [default: "8.5"]</code>;
+      mavjud xizmatlar ro'yxati 15 ta ·
+      <code>sail:install --with=mysql,redis,mailpit
+      --php=8.3</code> →
+      <b><code>compose.yaml</code></b> (<b>82 qator</b>,
+      xizmatlar <code>laravel.test</code>,
+      <code>mysql:8.4</code>, <code>redis:alpine</code>,
+      <code>axllent/mailpit</code>);
+      <code>.env</code> da <code>DB_HOST=mysql</code>,
+      <code>REDIS_HOST=redis</code>,
+      <code>MAIL_HOST=mailpit</code>;
+      ⭐ <code>phpunit.xml</code> dan
+      <code>DB_CONNECTION=sqlite</code> va
+      <code>DB_DATABASE=":memory:"</code>
+      <b>o'chirilib</b>,
+      <code>DB_DATABASE=testing</code> qo'yildi ·
+      <code>vendor/laravel/sail/runtimes/8.3/Dockerfile</code>
+      — <b>102 qator</b>, <code>FROM ubuntu:24.04</code>,
+      <b>25 ta</b> <code>php8.3-*</code> kengaytmasi,
+      Node 24 + npm/pnpm/bun;
+      <code>vendor/laravel/sail/bin/sail</code> —
+      <b>725 qator</b> ·
+      ⚠️ birinchi urinishda
+      <code>Error response from daemon: ... failed to
+      bind host port 0.0.0.0:6379/tcp: address already
+      in use</code> (hostda Redis:
+      <code>LISTEN 127.0.0.1:6379</code>);
+      <code>FORWARD_*</code> bilan hal qilindi →
+      <code>0.0.0.0:13306-&gt;3306</code>,
+      <code>0.0.0.0:16379-&gt;6379</code>,
+      <code>0.0.0.0:18025-&gt;8025</code>, mailpit paneli
+      <b>200</b> ·
+      ⚠️ <code>docker compose</code> to'g'ridan-to'g'ri:
+      <code>The "WWWUSER" variable is not set</code> ·
+      konteyner ichidan
+      <code>getent hosts redis</code> →
+      <b>172.19.0.2 redis</b>,
+      <code>mailpit</code> → <b>172.19.0.3</b> ·
+      konteynerdagi MySQL <b>8.4.11</b>, bazalar:
+      <code>laravel</code>, <b><code>testing</code></b>
+      (avtomatik yaratilgan) ·
+      🔍 izolyatsiya: <code>redis-cli -p 6379 get
+      zond</code> → <code>hostdan</code>,
+      <code>-p 16379</code> → <code>konteynerdan</code> ·
+      xotira: mysql <b>422.3 MiB</b>, redis
+      <b>6.5 MiB</b>, mailpit <b>7.5 MiB</b> ·
+      <code>docker system df</code>: Images
+      <b>2.511 GB</b>, Build Cache <b>2.042 GB</b>,
+      Volumes <b>684 MB</b>;
+      <code>mysql:8.4</code> <b>1.12 GB</b>,
+      <code>redis:alpine</code> <b>160 MB</b>,
+      <code>axllent/mailpit</code> <b>51.7 MB</b> ·
+      ⚠️ <b>Sail'ning <code>laravel.test</code> image'i
+      bu mashinada qurib bo'lmadi</b>: disk
+      <code>94G 89G 719M 100%</code> holatida
+      <code>sail build</code> tushunarli xatosiz
+      to'xtadi; <code>docker builder prune -a</code>
+      <b>1.17 GB</b> bo'shatdi, lekin baribir
+      yetmadi. Shu sababli yuqoridagi xizmat
+      o'lchovlari <code>mysql</code>,
+      <code>redis</code>, <code>mailpit</code>
+      konteynerlarida — Sail yaratgan haqiqiy
+      <code>compose.yaml</code> orqali — olingan ·
+      ilova to'plami (SQLite'da, host PHP bilan):
+      <b>121 passed (243 assertions)</b>.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

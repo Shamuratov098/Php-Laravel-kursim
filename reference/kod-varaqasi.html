@@ -17,7 +17,7 @@
   muhit ma'lumotlari. Har dars yangi buyruq o'rgatilsa, shu yerga qo'shiladi.</p>
 
   <p class="lesson-meta">
-    <span>Qamrov: <b>1&ndash;67-darslar</b> — muhitdan API'gacha</span>
+    <span>Qamrov: <b>1&ndash;68-darslar</b> — muhitdan API'gacha</span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>💻 Amaliyotga mos</span>
   </p>
@@ -1826,6 +1826,52 @@
     <code>database</code> · <code>redis</code> (ishlab
     chiqarish, teglar bor).
     Redis nafaqat kesh: navbat, sessiya va cheklov ham.</p>
+  </div>
+
+  <h2>Docker va Sail (68-darsdan)</h2>
+  <table class="sheet">
+    <tr><th>Buyruq</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>composer require laravel/sail --dev</code></td><td class="note-cell">Faqat ishlab chiqish uchun</td></tr>
+    <tr><td><code>sail:install --with=... --php=8.3</code></td><td class="note-cell">⚠️ <code>--php</code> standarti <b>8.5</b></td></tr>
+    <tr><td><code>sail up -d</code> · <code>sail down</code></td><td class="note-cell">☠️ <code>down -v</code> volume'ni ham o'chiradi</td></tr>
+    <tr><td><code>sail ps</code> · <code>sail logs -f mysql</code></td><td class="note-cell">Holat va log</td></tr>
+    <tr><td><code>sail artisan X</code> · <code>sail test</code></td><td class="note-cell"><code>exec laravel.test php artisan X</code></td></tr>
+    <tr><td><code>sail shell</code> · <code>sail mysql</code></td><td class="note-cell">Konteyner ichiga kirish</td></tr>
+    <tr><td><code>docker compose exec mysql getent hosts redis</code></td><td class="note-cell">Xizmat nomi → IP</td></tr>
+    <tr><td><code>docker system df</code></td><td class="note-cell">Nima qancha joy olgan</td></tr>
+    <tr><td><code>docker builder prune -a</code></td><td class="note-cell">✅ Eng ko'p bo'shatadi (qayta yaratiladi)</td></tr>
+    <tr><td><code>docker volume ls</code></td><td class="note-cell">☠️ Bu yerda <b>ma'lumot</b> bor</td></tr>
+  </table>
+  <table class="sheet">
+    <tr><th><code>.env</code></th><th class="note-cell">Nima uchun</th></tr>
+    <tr><td><code>DB_HOST=mysql</code> · <code>REDIS_HOST=redis</code></td><td class="note-cell">IP emas — <b>xizmat nomi</b></td></tr>
+    <tr><td><code>FORWARD_DB_PORT=13306</code></td><td class="note-cell">Port band bo'lsa — <b>host</b> tomonini ko'chiradi</td></tr>
+    <tr><td><code>APP_PORT=8080</code></td><td class="note-cell">Konteyner ichida hamon 80</td></tr>
+    <tr><td><code>host.docker.internal</code></td><td class="note-cell">Konteynerdan <b>hostga</b> murojaat</td></tr>
+  </table>
+  <div class="callout note">
+    <p>🔍 <b>Sail uchta faylni o'zgartiradi:</b>
+    <code>compose.yaml</code> (82 qator) ·
+    <code>.env</code> ·
+    ⭐ <code>phpunit.xml</code> — <code>sqlite</code> va
+    <code>:memory:</code> <b>o'chiriladi</b>,
+    <code>DB_DATABASE=testing</code> qo'yiladi. MySQL
+    konteyneri o'sha bazani <b>o'zi yaratadi</b>.
+    Bu 61-darsdagi tuzoqning yechimi.</p>
+    <p>⭐ 🔍 <b>Nom bilan topish:</b>
+    <code>getent hosts redis</code> →
+    <b>172.19.0.2</b>.
+    ⚠️ Konteyner ichida <code>127.0.0.1</code> —
+    <b>o'sha konteynerning o'zi</b>.</p>
+    <p>🔍 <b>Izolyatsiya:</b> host Redis va konteyner
+    Redis — bir xil kalit, <b>ikki xil qiymat</b>.</p>
+    <p>⚠️ <b>Narxi:</b> Images <b>2.5 GB</b>, Build Cache
+    <b>2 GB</b>. <b>Disk to'lsa build tushunarli
+    xatosiz qotadi.</b></p>
+    <p>🔑 <code>sail</code> — 725 qatorlik qobiq; u
+    <code>WWWUSER</code> ni o'zi qo'yadi. Usiz
+    <code>storage/logs</code> ga <code>root</code>
+    egalik qiladi.</p>
   </div>
 
   <h2>Bug tergovi (67-darsdan) ⭐</h2>
