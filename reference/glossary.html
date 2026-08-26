@@ -18,7 +18,7 @@
   izoh esa o'zbekcha.</p>
 
   <p class="lesson-meta">
-    <span>Atamalar: <b>292 ta</b></span>
+    <span>Atamalar: <b>295 ta</b></span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>📱 O'qishga mos</span>
   </p>
@@ -26,7 +26,7 @@
   <div class="callout note">
     <span class="label">Bu hujjat o'sib boradi</span>
     <p>Atama faqat <b>o'z darsi yozilganda</b> qo'shiladi — oldindan emas. Hozir:
-    Modul A–J (1–70-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
+    Modul A–J (1–71-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
     bosqichida qat'iy belgilangan va 73 dars bo'ylab o'zgarmaydi).</p>
   </div>
 
@@ -916,6 +916,90 @@
       <b>majburiy</b>. Xato ko'rinishi: <code>no such table: vakansiyas</code>.
       Tekshirish: <code>(new Vakansiya)-&gt;getTable()</code>.
       <span class="eg">protected $table = 'vakansiyalar';</span></dd>
+    </div>
+
+    <div class="term" id="ci-workflow">
+      <dt>CI va GitHub Actions <span class="uz">— testlarni mashina ishlatadi</span></dt>
+      <dd><code>.github/workflows/*.yml</code>.
+      <code>on:</code> — <b>qachon</b>
+      (<code>push</code>, <code>pull_request</code>,
+      <code>schedule</code>,
+      <code>workflow_dispatch</code>) ·
+      <code>runs-on:</code> — toza Ubuntu mashinasi ·
+      <code>steps:</code> — <code>uses:</code> (tayyor
+      action) yoki <code>run:</code> (shell).
+      🔍 O'lchandi (haqiqiy ishga tushish):
+      <b>8 ta qadam</b>, ✓ <code>sinov in 21s</code>;
+      Pint <code>PASS ... 102 files</code>, Pest
+      <code>121 passed (243 assertions)</code>
+      <code>Duration: 1.66s</code> (mahalliy
+      <b>0.96s</b>), audit
+      <code>No security vulnerability advisories
+      found.</code>
+      ⚠️ Har ishga tushish <b>toza mashinada</b> —
+      <code>.env</code> ni <code>.env.example</code>
+      dan yaratib, <code>key:generate</code> qilish
+      <b>shart</b>.
+      ⚠️ YAML'da <b>tabulyatsiya taqiqlangan</b>.
+      🔑 Kesh: <code>actions/cache@v4</code> +
+      <code>key: composer-${{
+      hashFiles('composer.lock') }}</code>.
+      🔑 Sirlar: <code>${{ secrets.X }}</code> — log'da
+      <code>***</code>; fork PR'larida
+      <b>berilmaydi</b>.
+      <span class="eg">run: ./vendor/bin/pint --test</span></dd>
+    </div>
+
+    <div class="term" id="qizil-build">
+      <dt>qizil build <span class="uz">— qadam yiqilsa keyingilari bajarilmaydi</span></dt>
+      <dd>⭐ 🔍 O'lchandi: uslub ataylab buzilgach —
+      oltita qadam <code>✓</code>, so'ng
+      <code>X Kod uslubi (Pint)</code> va
+      <code>- Testlar (Pest)</code> (chizgi =
+      <b>bajarilmadi</b>);
+      <code>##[error]Process completed with exit code
+      1.</code>
+      Job <b>18s</b> (yashilda <b>21s</b> — chunki
+      testlar bajarilmadi).
+      🔑 Bu 69-darsdagi <code>set -e</code> bilan bir
+      xil g'oya. Shuning uchun <b>tez va arzon</b>
+      tekshiruvlar <b>oldinda</b>: uslub buzuq
+      bo'lsa testlarni kutish ma'nosiz.
+      🔍 CI faqat <b>chiqish kodini</b> tushunadi —
+      [[pint]] ning <code>--test</code> exit 1/0
+      shu yerda ishlaydi.
+      ⚠️ Yashil build ham ogohlantirish berishi
+      mumkin — 🔍 bizda <code>Node.js 20 is
+      deprecated</code>. <b>O'qing.</b>
+      <span class="eg">gh run view --log-failed</span></dd>
+    </div>
+
+    <div class="term" id="pr-tekshiruvi">
+      <dt>PR tekshiruvi va himoyalangan tarmoq <span class="uz">— yashil belgi</span></dt>
+      <dd>PR ochilganda va <b>har yangi commit</b> da
+      CI <b>avtomatik</b> qayta ishlaydi — PR'ni
+      yopib ochish shart emas.
+      🔍 O'lchandi: <code>sinov fail 12s</code> →
+      tuzatilgach <code>sinov pass 22s</code>,
+      <code>"mergeable":"MERGEABLE"</code>,
+      <code>conclusion: SUCCESS</code>.
+      (Xato <b>rejalashtirilmagan</b> edi:
+      <code>return "salom";</code> — Pint qoidasi
+      <code>single_quote</code>. CI
+      <b>charchamaydi va e'tiborsiz
+      qolmaydi</b>.)
+      ✅ Himoyalangan tarmoq: Require PR · Require
+      status checks (<code>sinov</code> — job
+      <b>nomi</b>) · <b>Require branches to be up to
+      date</b>.
+      🔑 Oxirgisi <b>semantik konflikt</b>ni
+      to'sadi: ikkita PR alohida yashil,
+      birlashgach <b>qizil</b> — chunki birgalikda
+      hech kim sinamagan.
+      🔑 Yashil PR «<b>mening o'zgarishim</b>
+      ishlaydi» degani, «birlashgach ham ishlaydi»
+      degani <b>emas</b>.
+      <span class="eg">gh pr checks</span></dd>
     </div>
 
     <div class="term" id="worker-eski-kod">

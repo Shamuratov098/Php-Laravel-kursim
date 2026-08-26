@@ -1,0 +1,1264 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 71 — GitHub Actions bilan avtomatik test</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 71 · MODUL J — ISHGA TUSHIRISH VA KASBGA KIRISH</p>
+  <h1>GitHub Actions bilan avtomatik test</h1>
+  <p class="lead">Deploy tayyor, worker ishlayapti. Bitta
+  zaif joy qoldi: <b>testlarni kim ishlatadi?</b>
+  Hozircha — siz. Bugun buni <b>mashinaga</b>
+  topshiramiz. Va CI'ni sinab ko'rayotganimizda u
+  <b>haqiqiy xatoni tutdi</b> — men yozgan
+  xatoni.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 18 daqiqa</span>
+    <span>💻 Amaliyot ≈ 35 daqiqa</span>
+    <span>Kerak: <a href="0070-serverda-worker-va-scheduler.html">Dars 70</a></span>
+  </p>
+
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b>CI nima va nega kerak</b>
+        <span class="nima">«Testlarni ishlatishni
+        unutdim» — endi <b>imkonsiz</b>.</span></li>
+      <li><b>Workflow fayli</b>
+        <span class="nima">🔍 <b>8 ta qadam</b>,
+        oddiy YAML.</span></li>
+      <li><b>🔍 Birinchi ishga tushish</b>
+        <span class="nima">✓ <b>21 soniya</b>,
+        <code>121 passed</code>.</span></li>
+      <li><b>Mahalliy va CI farqi</b>
+        <span class="nima">🔍 Testlar
+        <b>0.96s → 1.66s</b>.</span></li>
+      <li><b>⭐ 🔍 Qizil build</b>
+        <span class="nima">Uslub buzildi →
+        keyingi qadamlar
+        <b>bajarilmadi</b>.</span></li>
+      <li><b>Qadamlar tartibi</b>
+        <span class="nima">Tez va arzon —
+        <b>oldinda</b>.</span></li>
+      <li><b>🔍 Kesh</b>
+        <span class="nima"><code>vendor</code> ni
+        qayta yuklamaslik.</span></li>
+      <li><b>⭐ 🔍 PR oqimi</b>
+        <span class="nima">CI <b>mening
+        xatomni</b> tutdi:
+        <code>single_quote</code>.</span></li>
+      <li><b>Tuzatib, yashil</b>
+        <span class="nima">🔍
+        <code>sinov pass 22s</code>,
+        <code>mergeable</code>.</span></li>
+      <li><b>Himoyalangan tarmoq</b>
+        <span class="nima">Qizil build bilan
+        <b>birlashtira olmaysiz</b>.</span></li>
+      <li><b>⚠️ Ogohlantirishlar</b>
+        <span class="nima">🔍 <code>Node.js 20 is
+        deprecated</code>.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima">Matritsa · sirlar ·
+        MySQL xizmati · avtomatik deploy.</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Oxirgi zaif joy — odam</span>
+    <p>40-darsdan beri test yozib kelamiz. Ular
+    <b>121 ta</b> bo'ldi. Lekin bitta savol:</p>
+    <div class="natija">Kim va qachon ularni ishlatadi?</div>
+    <p>Javob: <b>siz</b>, esingizda bo'lsa. Va
+    shoshib qolsangiz — <b>o'tkazib
+    yuborasiz</b>.</p>
+    <p>⚠️ Va bu eng yomon paytda sodir bo'ladi:
+    juma kuni, muhim tuzatish, «bir qatorgina
+    o'zgartirdim».</p>
+    <p>🔑 <b>CI</b> (Continuous Integration) —
+    testlarni <b>mashina</b> ishlatadi.
+    Har <code>git push</code> da, <b>istisnosiz</b>.
+    Va agar qizil bo'lsa — kod
+    <code>main</code> ga <b>tushmaydi</b>.</p>
+    <p>🔍 Bugun buni haqiqiy repozitoriyada sozlaymiz
+    va <b>uch holatni</b> o'lchaymiz: yashil
+    build, qizil build va PR oqimi.</p>
+  </div>
+
+  <!-- ═══════════════ 2) WORKFLOW ═══════════════ -->
+  <h2>Workflow fayli</h2>
+
+  <p>GitHub Actions bitta narsani qidiradi:
+  <code>.github/workflows/</code> papkasidagi
+  YAML fayllar.</p>
+
+  <div class="codefile">
+    <div class="fname">.github/workflows/testlar.yml</div>
+    <code class="cmd">name: Testlar
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  sinov:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Kodni olish
+        uses: actions/checkout@v4
+
+      - name: PHP o'rnatish
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite, mbstring, bcmath
+          coverage: none
+
+      - name: Composer keshi
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ hashFiles('composer.lock') }}
+
+      - name: Bog'liqliklarni o'rnatish
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Muhitni tayyorlash
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Kod uslubi (Pint)
+        run: ./vendor/bin/pint --test
+
+      - name: Testlar (Pest)
+        run: php artisan test
+
+      - name: Zaifliklarni tekshirish
+        run: composer audit</code>
+  </div>
+
+  <div class="callout tip">
+    <span class="label">🔑 Har bo'limning ma'nosi</span>
+    <div class="natija">on:            QACHON ishga tushsin
+  push         →  main ga har push da
+  pull_request →  har PR da (va PR yangilanganda)
+
+runs-on:       QAYERDA — GitHub bergan toza Ubuntu mashinasi
+
+uses:          tayyor "action" (boshqalar yozgan qadam)
+run:           oddiy shell buyrug'i</div>
+    <p>🔍 <b>Har ishga tushishda mashina
+    <code>butunlay yangi</code></b> — hech qanday
+    eski fayl, kesh yoki sozlama qolmaydi. Bu
+    68-darsdagi Docker g'oyasining
+    davomi.</p>
+    <p>⚠️ Shuning uchun <code>.env</code> ni
+    <b>o'zimiz</b> yaratamiz —
+    <code>.env.example</code> dan (66-darsdan:
+    <code>.env</code> git'da <b>yo'q</b>).</p>
+    <p>🔑 Va 69-darsdagi
+    <code>MissingAppKeyException</code> ni oldini
+    olish uchun <code>key:generate</code>.</p>
+  </div>
+
+  <!-- ═══════════════ 3) BIRINCHI ISHGA TUSHISH ═══════════════ -->
+  <h2>🔍 Birinchi ishga tushish</h2>
+
+  <div class="natija">git add .github/workflows/testlar.yml
+git commit -m "CI qo'shildi"
+git push</div>
+
+  <p>Va tamom — GitHub buni <b>o'zi</b> ko'radi:</p>
+
+  <div class="natija">gh run list --limit 1
+
+completed  success  Testlar  main  push  32946646329  ...
+
+gh run view
+
+✓ main Testlar · 32946646329
+JOBS
+  ✓ sinov in 21s</div>
+
+  <p>Qadamlar chiqishi:</p>
+
+  <div class="natija">Kod uslubi (Pint)
+    PASS   ......................................... 102 files
+
+Testlar (Pest)
+    Tests:    121 passed (243 assertions)
+    Duration: 1.66s
+
+Zaifliklarni tekshirish
+    No security vulnerability advisories found.</div>
+
+  <div class="callout tip">
+    <span class="label">🔍 Mahalliy va CI farqi</span>
+    <div class="natija">testlar mahalliy:  0.96 s
+testlar CI da:     1.66 s
+butun job:        21 s</div>
+    <p>CI sekinroq — chunki u har safar noldan
+    boshlaydi: mashina ko'tariladi, PHP
+    o'rnatiladi, <code>composer install</code>
+    bajariladi.</p>
+    <p>✅ <b>21 soniya</b> — bu juda yaxshi natija.
+    Katta loyihalarda 5–15 daqiqa odatiy.</p>
+    <p>🔑 Va bu vaqt <b>sizning vaqtingiz emas</b> —
+    siz boshqa ish qilib turasiz.</p>
+  </div>
+
+  <!-- ═══════════════ 4) ⭐ QIZIL BUILD ═══════════════ -->
+  <h2>⭐ 🔍 Qizil build — nima bo'ladi</h2>
+
+  <p>Ataylab uslubni buzdik: yangi fayl,
+  formatlanmagan.</p>
+
+  <div class="natija">gh run list --limit 1
+
+completed  failure  "uslub ataylab buzildi"  Testlar  main  push  ...  23s</div>
+
+  <div class="natija">X sinov in 18s
+  ✓ Set up job
+  ✓ Kodni olish
+  ✓ PHP o'rnatish
+  ✓ Composer keshi
+  ✓ Bog'liqliklarni o'rnatish
+  ✓ Muhitni tayyorlash
+  X Kod uslubi (Pint)          ← YIQILDI
+  - Testlar (Pest)             ← BAJARILMADI
+</div>
+
+  <div class="natija">FAIL   .......................... 103 files, 1 style issue
+⨯ app/Support/Buzuq.php class_attributes_separation, class_defi…
+##[error]Process completed with exit code 1.</div>
+
+  <div class="callout warn">
+    <span class="label">⭐ Eng muhim kuzatuv</span>
+    <p><code>Testlar (Pest)</code> qadami
+    <b>umuman bajarilmadi</b> — chizgi
+    (<code>-</code>) bilan belgilangan.</p>
+    <p>🔑 GitHub Actions'da <b>bitta qadam
+    yiqilsa — qolganlari to'xtaydi</b>. Bu 69-darsdagi
+    <code>set -e</code> bilan bir xil g'oya.</p>
+    <p>✅ Va shuning uchun <b>qadamlar tartibi
+    muhim</b>:</p>
+    <div class="natija">Pint          →  ~2 soniya    ← tez, arzon: OLDINDA
+Testlar       →  ~2 soniya
+composer audit →  ~1 soniya
+
+Agar uslub buzuq bo'lsa — testlarni kutish MA'NOSIZ.</div>
+    <p>🔑 Umumiy qoida: <b>eng tez va eng ko'p
+    yiqiladigan tekshiruv birinchi
+    bo'lsin</b>. Fikr-mulohaza tezroq
+    keladi.</p>
+    <p>⚠️ 65-darsdagi <code>pint --test</code> ning
+    chiqish kodi (nomuvofiqlik → <b>1</b>) aynan shu
+    yerda ishlaydi. CI faqat chiqish kodini
+    tushunadi.</p>
+  </div>
+
+  <!-- ═══════════════ 5) ⭐ PR OQIMI ═══════════════ -->
+  <h2>⭐ PR oqimi — va CI mening xatomni tutdi</h2>
+
+  <p>Endi haqiqiy ish jarayoni: yangi tarmoq, yangi
+  fayl, pull request.</p>
+
+  <div class="natija">git checkout -b yangi-xususiyat
+# app/Support/Yangi.php yozdim
+git commit -m "yangi xususiyat qo'shildi"
+git push -u origin yangi-xususiyat
+gh pr create --title "Yangi xususiyat" --base main</div>
+
+  <p>Va natija:</p>
+
+  <div class="natija">gh pr checks 1
+
+sinov    fail    12s    https://github.com/.../job/98110687063</div>
+
+  <div class="callout warn">
+    <span class="label">⭐ Bu <b>rejalashtirilmagan</b> edi</span>
+    <p>Men oddiy fayl yozdim:</p>
+    <div class="natija">public function salom(): string
+{
+    return "salom";        ← qo'shtirnoq
+}</div>
+    <p>CI ayti:</p>
+    <div class="natija">FAIL   .......................... 103 files, 1 style issue
+⨯ app/Support/Yangi.php     single_quote</div>
+    <p class="expect">🔑 Pint qoidasi:
+    <b>oddiy matn uchun bitta tirnoq</b>. Men
+    buni bilardim, lekin <b>e'tibor
+    bermadim</b>.</p>
+    <p>Va bu — CI ning butun ma'nosi: u
+    <b>charchamaydi</b>, <b>shoshmaydi</b> va
+    <b>e'tiborsiz qolmaydi</b>.</p>
+    <p>✅ Tuzatish bir buyruq:</p>
+    <div class="natija">./vendor/bin/pint app/Support/Yangi.php
+git commit -m "pint: uslub tuzatildi"
+git push</div>
+  </div>
+
+  <p>Push'dan keyin CI <b>o'zi</b> qayta
+  ishladi:</p>
+
+  <div class="natija">gh pr checks 1
+sinov    pass    22s
+
+gh pr view 1
+  holat:      OPEN
+  mergeable:  MERGEABLE
+  tekshiruv:  SUCCESS          ✅</div>
+
+  <p>🔑 E'tibor bering: PR'ni <b>yopib qayta
+  ochish</b> shart emas. Har yangi commit
+  tekshiruvni <b>avtomatik</b> qayta ishga
+  tushiradi.</p>
+
+  <!-- ═══════════════ 6) HIMOYALANGAN TARMOQ ═══════════════ -->
+  <h2>Himoyalangan tarmoq — qizil bilan birlashtirmaslik</h2>
+
+  <p>CI yashil belgi ko'rsatadi. Lekin
+  <b>majburlamaydi</b> — birlashtirish tugmasi
+  hamon bosiladi.</p>
+
+  <p>Buni <b>qoida</b>ga aylantirish kerak:</p>
+
+  <div class="natija">GitHub → Settings → Branches → Add branch protection rule
+
+Branch name pattern:  main
+  ☑ Require a pull request before merging
+  ☑ Require status checks to pass before merging
+       ☑ sinov              ← workflow dagi job NOMI
+  ☑ Require branches to be up to date before merging</div>
+
+  <div class="callout tip">
+    <span class="label">🔑 Nima o'zgaradi</span>
+    <div class="natija">Himoyasiz:  qizil PR ni ham birlashtirsa bo'ladi
+Himoya bilan: birlashtirish tugmasi O'CHIQ bo'ladi
+
+Himoyasiz:  main ga to'g'ridan-to'g'ri push mumkin
+Himoya bilan: faqat PR orqali</div>
+    <p>✅ <code>sinov</code> — bu
+    <code>testlar.yml</code> dagi <b>job nomi</b>.
+    Uni o'zgartirsangiz, himoya qoidasini ham
+    yangilang.</p>
+    <p>⚠️ «Require branches to be up to date» —
+    PR <code>main</code> ning <b>eng yangi</b>
+    holati bilan sinalishini talab qiladi.
+    Usiz: ikkita PR alohida yashil, birlashgach
+    <b>qizil</b>.</p>
+  </div>
+
+  <!-- ═══════════════ 7) OGOHLANTIRISHLAR ═══════════════ -->
+  <h2>⚠️ Ogohlantirishlarni o'qing</h2>
+
+  <p>Birinchi ishga tushishimiz <b>yashil</b> edi,
+  lekin quyida:</p>
+
+  <div class="natija">ANNOTATIONS
+! Node.js 20 is deprecated. The following actions target Node.js 20
+  but are being forced to run on Node.js 24:
+  actions/cache@v4, actions/checkout@v4</div>
+
+  <p>Bu <b>hozir</b> muammo emas — lekin bir kun
+  bo'ladi.</p>
+
+  <div class="callout tip">
+    <span class="label">🔑 Nima qilish kerak</span>
+    <div class="natija">1) Action versiyalarini muntazam yangilang
+   actions/checkout@v4  →  @v5 (chiqqanda)
+
+2) Yoki Dependabot ni yoqing — u O'ZI PR ochadi:</div>
+    <div class="natija"># .github/dependabot.yml
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"</div>
+    <p>✅ Xuddi shu narsani <code>composer</code>
+    uchun ham qilish mumkin —
+    66-darsdagi <code>composer audit</code> bilan
+    birga.</p>
+    <p>⚠️ Va umumiy qoida: <b>yashil build ham
+    ogohlantirish berishi mumkin</b>. Ularni
+    o'qing.</p>
+  </div>
+
+  <!-- ═══════════════ 8) HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir
+  bir marta o'qing, keyin CI sozlaganda qaytib
+  qarang.</p>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 1</span>
+    <h4>Matritsa — bir necha versiyada sinash</h4>
+    <div class="natija">strategy:
+  fail-fast: false
+  matrix:
+    php: ['8.3', '8.4']
+    laravel: ['12.*', '13.*']
+
+steps:
+  - uses: shivammathur/setup-php@v2
+    with:
+      php-version: ${{ matrix.php }}</div>
+    <p>To'rtta job <b>parallel</b> ishlaydi:
+    8.3+12, 8.3+13, 8.4+12, 8.4+13.</p>
+    <p>✅ <code>fail-fast: false</code> — bittasi
+    yiqilsa qolganlari <b>davom etadi</b>.
+    Shunda «qaysi kombinatsiyada
+    buzilgan?» degan savolga darrov javob
+    olasiz.</p>
+    <p>🔑 Bu Modul J'dagi PHP versiyasini yangilash
+    darsida to'g'ridan-to'g'ri kerak
+    bo'ladi.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 2</span>
+    <h4>MySQL bilan sinash</h4>
+    <div class="natija">services:
+  mysql:
+    image: mysql:8.4
+    env:
+      MYSQL_DATABASE: testing
+      MYSQL_ROOT_PASSWORD: parol
+    ports: ['3306:3306']
+    options: >-
+      --health-cmd="mysqladmin ping"
+      --health-interval=10s
+      --health-retries=5
+
+steps:
+  - name: Testlar
+    env:
+      DB_CONNECTION: mysql
+      DB_DATABASE: testing
+      DB_USERNAME: root
+      DB_PASSWORD: parol
+    run: php artisan test</div>
+    <p>🔑 61-darsdagi muammoning <b>haqiqiy
+    yechimi</b>: mahalliy ishda SQLite (tez),
+    CI'da MySQL (haqiqiy).</p>
+    <p>⚠️ <code>--health-cmd</code> shart — usiz
+    testlar MySQL ko'tarilishidan
+    <b>oldin</b> boshlanadi va
+    <code>Connection refused</code> beradi.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 3</span>
+    <h4>Sirlarni workflow'ga yozish</h4>
+    <div class="natija">❌ env:
+     API_KALIT: "sk_live_abc123"      ← git da, HAMMAGA ko'rinadi</div>
+    <p>✅ GitHub Secrets:</p>
+    <div class="natija">Settings → Secrets and variables → Actions → New repository secret
+
+env:
+  API_KALIT: ${{ secrets.API_KALIT }}</div>
+    <p>🔑 Sirlar log'da <b>avtomatik</b>
+    yashiriladi (<code>***</code> bo'lib
+    ko'rinadi).</p>
+    <p>⚠️ Lekin ehtiyot bo'ling: sir <b>fork'dan
+    kelgan PR</b> larda <b>berilmaydi</b> —
+    bu ataylab, xavfsizlik uchun.</p>
+    <p>⚠️ Va 66-darsdan: sir git tarixiga tushsa —
+    <b>avval almashtiring</b>.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 4</span>
+    <h4>Kesh — CI ni tezlashtirish</h4>
+    <div class="natija">- uses: actions/cache@v4
+  with:
+    path: vendor
+    key: composer-${{ hashFiles('composer.lock') }}</div>
+    <p><code>composer.lock</code> o'zgarmasa —
+    <code>vendor</code> keshdan olinadi va
+    <code>composer install</code> <b>soniyalar</b>
+    ichida tugaydi.</p>
+    <p>🔑 <code>hashFiles()</code> muhim: kalit fayl
+    mazmuniga bog'liq. Yangi paket qo'shsangiz
+    kalit o'zgaradi va kesh <b>yangilanadi</b>.</p>
+    <p>⚠️ Faqat <code>path: vendor</code> ni
+    keshlash yetarli emas — Composer'ning
+    <b>o'z</b> keshi ham bor:
+    <code>~/.composer/cache</code>.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 5</span>
+    <h4>Faqat kerak bo'lganda ishga tushirish</h4>
+    <div class="natija">on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'</div>
+    <p>README o'zgarganda testlarni ishlatish —
+    <b>vaqt va pul</b> isrofi.</p>
+    <p>✅ Teskarisi ham bor:</p>
+    <div class="natija">paths:
+  - 'app/**'
+  - 'tests/**'
+  - 'composer.lock'</div>
+    <p>⚠️ Diqqat: <code>paths</code> bilan
+    <b>himoyalangan tarmoq</b> muammo beradi —
+    tekshiruv umuman ishga tushmasa, PR
+    <b>abadiy kutadi</b>.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 6</span>
+    <h4>Avtomatik deploy (CD)</h4>
+    <div class="natija">deploy:
+  needs: sinov                    ← faqat testlar YASHIL bo'lsa
+  if: github.ref == 'refs/heads/main'
+  runs-on: ubuntu-latest
+  steps:
+    - uses: appleboy/ssh-action@v1
+      with:
+        host: ${{ secrets.SSH_HOST }}
+        username: ${{ secrets.SSH_USER }}
+        key: ${{ secrets.SSH_KEY }}
+        script: cd /var/www/ishtop && ./deploy.sh</div>
+    <p><code>needs: sinov</code> — 69-darsdagi
+    <code>set -e</code> ning CI'dagi
+    ko'rinishi: testlar qizil bo'lsa
+    deploy <b>umuman boshlanmaydi</b>.</p>
+    <p>⚠️ Avtomatik deploy'ni <b>darrov</b>
+    yoqmang. Avval CI'ga ishoning, keyin
+    CD qo'shing.</p>
+    <p>🔑 Va 69-darsdagi <b>orqaga qaytish
+    rejasi</b> avtomatik deploy'da
+    <b>majburiy</b>.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>Ko'p uchraydigan xatolar</h4>
+    <div class="natija">"Could not open input file: artisan"
+   →  actions/checkout qadami yo'q yoki working-directory noto'g'ri
+
+"No application encryption key"
+   →  key:generate qadami yo'q (69-dars)
+
+"could not find driver"
+   →  setup-php da extensions yozilmagan (61-dars)
+
+"SQLSTATE ... Connection refused"
+   →  services da health-check yo'q (HOLAT 2)
+
+Testlar mahalliy YASHIL, CI da QIZIL
+   →  .env farqi · vaqt zonasi · ma'lumot tartibi
+   →  67-darsdagi "menda ishlayapti-ku"
+
+Workflow UMUMAN ishga tushmayapti
+   →  fayl .github/workflows/ da emasmi?
+   →  YAML sintaksisi buzuqmi?  (bo'shliqlar!)
+   →  Actions repo sozlamalarida o'chiqmi?</div>
+    <p>🔑 YAML'da <b>tabulyatsiya taqiqlangan</b> —
+    faqat bo'shliq. Bu eng ko'p uchraydigan
+    sabab.</p>
+  </div>
+
+  <!-- ═══════════════ 9) AMALIYOT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    💻 Quyida amaliyot bor. Hozir o'qish rejimidasiz — kompyuter
+    yoningizda bo'lganda <b>💻 Amaliyot</b> rejimiga o'ting va
+    shu bo'limdan davom eting.
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <div class="callout tip">
+      <span class="label">🔑 Kerak bo'ladi</span>
+      <p>GitHub hisobi va <code>gh</code> CLI.
+      Yo'q bo'lsa:
+      <code>sudo apt install gh</code> va
+      <code>gh auth login</code>.</p>
+      <p>Yopiq repozitoriyada ham Actions
+      <b>bepul</b> (oyiga cheklangan
+      daqiqalar bilan).</p>
+    </div>
+
+    <ol class="steps">
+      <li>
+        <b>CI qadamlarini mahalliy o'lchang.</b>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+composer validate --strict
+composer audit; echo &quot;  audit exit: $?&quot;
+./vendor/bin/pint --test >/dev/null 2>&amp;1; echo &quot;  pint exit: $?&quot;
+php artisan test 2>&amp;1 | tail -3">cd ~/Projects/Learn/ishtop
+composer validate --strict
+composer audit; echo &quot;  audit exit: $?&quot;
+./vendor/bin/pint --test &gt;/dev/null 2&gt;&amp;1; echo &quot;  pint exit: $?&quot;
+php artisan test 2&gt;&amp;1 | tail -3</div>
+        <p class="expect">Hammasi <b>0</b> chiqish kodi
+        bilan tugasin — CI ham xuddi shularni
+        ishlatadi.</p>
+      </li>
+
+      <li>
+        <b>Workflow faylini yozing.</b>
+        <div class="cmd" data-cmd="mkdir -p .github/workflows
+cat > .github/workflows/testlar.yml <<'YMLEOF'
+name: Testlar
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  sinov:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Kodni olish
+        uses: actions/checkout@v4
+
+      - name: PHP o'rnatish
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite, mbstring, bcmath
+          coverage: none
+
+      - name: Composer keshi
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ hashFiles('composer.lock') }}
+
+      - name: Bog'liqliklarni o'rnatish
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Muhitni tayyorlash
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Kod uslubi (Pint)
+        run: ./vendor/bin/pint --test
+
+      - name: Testlar (Pest)
+        run: php artisan test
+
+      - name: Zaifliklarni tekshirish
+        run: composer audit
+YMLEOF
+python3 -c &quot;import yaml; d=yaml.safe_load(open('.github/workflows/testlar.yml')); print('  YAML toza,', len(d['jobs']['sinov']['steps']), 'ta qadam')&quot;">mkdir -p .github/workflows
+cat &gt; .github/workflows/testlar.yml &lt;&lt;'YMLEOF'
+name: Testlar
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  sinov:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Kodni olish
+        uses: actions/checkout@v4
+
+      - name: PHP o'rnatish
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite, mbstring, bcmath
+          coverage: none
+
+      - name: Composer keshi
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ hashFiles('composer.lock') }}
+
+      - name: Bog'liqliklarni o'rnatish
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Muhitni tayyorlash
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Kod uslubi (Pint)
+        run: ./vendor/bin/pint --test
+
+      - name: Testlar (Pest)
+        run: php artisan test
+
+      - name: Zaifliklarni tekshirish
+        run: composer audit
+YMLEOF
+python3 -c &quot;import yaml; d=yaml.safe_load(open('.github/workflows/testlar.yml')); print('  YAML toza,', len(d['jobs']['sinov']['steps']), 'ta qadam')&quot;</div>
+        <p class="expect"><b>8 ta qadam</b>.</p>
+      </li>
+
+      <li>
+        <b>Repozitoriya yarating va push qiling.</b>
+        <div class="cmd" data-cmd="git init 2>/dev/null
+git add -A
+git commit -m &quot;IshTop + CI&quot;
+git branch -M main
+gh repo create ishtop --private --source=. --push"># git hali yo'q bo'lsa:
+git init
+git add -A
+git commit -m &quot;IshTop + CI&quot;
+git branch -M main
+gh repo create ishtop --private --source=. --push</div>
+      </li>
+
+      <li>
+        <b>🔍 Birinchi ishga tushishni kuzating.</b>
+        <div class="cmd" data-cmd="sleep 20
+gh run list --limit 1
+gh run view">sleep 20
+gh run list --limit 1
+gh run view</div>
+        <p class="expect">Menda ✓ <code>sinov in
+        21s</code>.</p>
+      </li>
+
+      <li>
+        <b>Qadamlar chiqishini ko'ring.</b>
+        <div class="cmd" data-cmd="RID=$(gh run list --limit 1 --json databaseId --jq '.[0].databaseId')
+JID=$(gh run view $RID --json jobs --jq '.jobs[0].databaseId')
+gh run view --job=$JID --log 2>&amp;1 | grep -E 'Tests:|Duration:|PASS   |No security' | tail -6">RID=$(gh run list --limit 1 --json databaseId --jq '.[0].databaseId')
+JID=$(gh run view $RID --json jobs --jq '.jobs[0].databaseId')
+gh run view --job=$JID --log 2&gt;&amp;1 | grep -E 'Tests:|Duration:|PASS   |No security' | tail -6</div>
+        <p class="expect">🔍 Menda
+        <code>121 passed (243 assertions)</code>,
+        <code>Duration: 1.66s</code>,
+        <code>PASS ... 102 files</code>.</p>
+      </li>
+
+      <li>
+        <b>⭐ Qizil build'ni ataylab chaqiring.</b>
+        <div class="cmd" data-cmd="printf '&lt;?php\nnamespace App\\Support;\nclass Buzuq { public function a(){ return 1; } }\n' > app/Support/Buzuq.php
+git add -A
+git commit -m &quot;uslub ataylab buzildi&quot;
+git push
+sleep 30
+gh run list --limit 1
+gh run view">printf '&lt;?php\nnamespace App\\Support;\nclass Buzuq { public function a(){ return 1; } }\n' &gt; app/Support/Buzuq.php
+git add -A
+git commit -m &quot;uslub ataylab buzildi&quot;
+git push
+sleep 30
+gh run list --limit 1
+gh run view</div>
+        <p class="expect">⭐ <code>X Kod uslubi
+        (Pint)</code> va <code>- Testlar (Pest)</code>
+        — ikkinchisi <b>bajarilmadi</b>.</p>
+      </li>
+
+      <li>
+        <b>Yiqilgan qadam logini o'qing.</b>
+        <div class="cmd" data-cmd="RID=$(gh run list --limit 1 --json databaseId --jq '.[0].databaseId')
+gh run view $RID --log-failed 2>&amp;1 | grep -E 'FAIL|⨯|error' | head -4">RID=$(gh run list --limit 1 --json databaseId --jq '.[0].databaseId')
+gh run view $RID --log-failed 2&gt;&amp;1 | grep -E 'FAIL|⨯|error' | head -4</div>
+        <p class="expect"><code>##[error]Process
+        completed with exit code 1.</code></p>
+      </li>
+
+      <li>
+        <b>⭐ PR oqimini sinang.</b>
+        <div class="cmd" data-cmd="rm -f app/Support/Buzuq.php
+git add -A &amp;&amp; git commit -m &quot;uslub tuzatildi&quot; &amp;&amp; git push
+git checkout -b yangi-xususiyat
+printf '&lt;?php\n\nnamespace App\\Support;\n\nfinal class Yangi\n{\n    public function salom(): string\n    {\n        return &quot;salom&quot;;\n    }\n}\n' > app/Support/Yangi.php
+git add -A
+git commit -m &quot;yangi xususiyat&quot;
+git push -u origin yangi-xususiyat
+gh pr create --title &quot;Yangi xususiyat&quot; --body &quot;CI ni sinash&quot; --base main
+sleep 40
+gh pr checks">rm -f app/Support/Buzuq.php
+git add -A &amp;&amp; git commit -m &quot;uslub tuzatildi&quot; &amp;&amp; git push
+git checkout -b yangi-xususiyat
+printf '&lt;?php\n\nnamespace App\\Support;\n\nfinal class Yangi\n{\n    public function salom(): string\n    {\n        return &quot;salom&quot;;\n    }\n}\n' &gt; app/Support/Yangi.php
+git add -A
+git commit -m &quot;yangi xususiyat&quot;
+git push -u origin yangi-xususiyat
+gh pr create --title &quot;Yangi xususiyat&quot; --body &quot;CI ni sinash&quot; --base main
+sleep 40
+gh pr checks</div>
+        <p class="expect">⚠️ <code>fail</code> —
+        qo'shtirnoq sababli
+        (<code>single_quote</code>). Menda ham
+        shunday bo'lgan.</p>
+      </li>
+
+      <li>
+        <b>Tuzating va yashil holatni ko'ring.</b>
+        <div class="cmd" data-cmd="./vendor/bin/pint app/Support/Yangi.php
+git add -A
+git commit -m &quot;pint: uslub tuzatildi&quot;
+git push
+sleep 40
+gh pr checks
+gh pr view --json state,mergeable">./vendor/bin/pint app/Support/Yangi.php
+git add -A
+git commit -m &quot;pint: uslub tuzatildi&quot;
+git push
+sleep 40
+gh pr checks
+gh pr view --json state,mergeable</div>
+        <p class="expect">✅ <code>sinov pass 22s</code>
+        va <code>"mergeable":"MERGEABLE"</code>.</p>
+      </li>
+
+      <li>
+        <b>Himoyalangan tarmoqni yoqing.</b>
+        <p>Brauzerda: <b>Settings → Branches → Add
+        branch protection rule</b>. Naqsh:
+        <code>main</code>. Belgilang:</p>
+        <div class="cmd" data-cmd="# ☑ Require a pull request before merging
+# ☑ Require status checks to pass before merging
+#      ☑ sinov
+# ☑ Require branches to be up to date before merging"># ☑ Require a pull request before merging
+# ☑ Require status checks to pass before merging
+#      ☑ sinov
+# ☑ Require branches to be up to date before merging</div>
+      </li>
+
+      <li>
+        <b>Ogohlantirishlarni o'qing.</b>
+        <div class="cmd" data-cmd="RID=$(gh run list --limit 1 --json databaseId --jq '.[0].databaseId')
+gh run view $RID 2>&amp;1 | grep -A3 ANNOTATIONS">RID=$(gh run list --limit 1 --json databaseId --jq '.[0].databaseId')
+gh run view $RID 2&gt;&amp;1 | grep -A3 ANNOTATIONS</div>
+        <p class="expect">⚠️ Menda <code>Node.js 20 is
+        deprecated</code>.</p>
+      </li>
+
+      <li>
+        <b>PR ni birlashtiring va tozalang.</b>
+        <div class="cmd" data-cmd="gh pr merge --squash --delete-branch
+git checkout main
+git pull
+php artisan test 2>&amp;1 | tail -3">gh pr merge --squash --delete-branch
+git checkout main
+git pull
+php artisan test 2&gt;&amp;1 | tail -3</div>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li>CI qadamlari mahalliy o'lchandi</li>
+      <li>Workflow fayli yozildi (8 qadam)</li>
+      <li>🔍 Birinchi ishga tushish yashil
+      (21s)</li>
+      <li>Testlar CI'da 1.66s ekanini
+      ko'rdim</li>
+      <li>⭐ Qizil build va <b>bajarilmagan</b>
+      qadamni ko'rdim</li>
+      <li>⭐ PR oqimi sinaldi</li>
+      <li>CI uslub xatosini <b>tutdi</b></li>
+      <li>Tuzatilgach avtomatik qayta ishladi</li>
+      <li>Himoyalangan tarmoq yoqildi</li>
+      <li>⚠️ Ogohlantirishlar o'qildi</li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 10) SINAB KO'RAMIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Jamoada CI ishlayapti, himoyalangan tarmoq
+    yoqilgan. Ikki dasturchi bir kunda ikkita PR
+    ochdi:</p>
+    <div class="natija">PR #12  (Ali)   →  Vakansiya modeliga 'kompaniya_nomi' ustuni qo'shdi
+                   sinov: ✓ pass
+
+PR #13  (Vali)  →  VakansiyaResource ga yangi maydon qo'shdi
+                   sinov: ✓ pass</div>
+    <p>Ikkalasi ham yashil. Ali o'zinikini
+    birlashtirdi, keyin Vali o'zinikini.</p>
+    <p>Va <code>main</code> <b>qizil</b> bo'ldi.</p>
+    <p>Ikkala PR ham yashil edi-ku. Nima
+    bo'lgan?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <p>Har PR <b>o'z</b> holatida sinalgan —
+        <b>birgalikda emas</b>.</p>
+        <div class="natija">PR #12 sinaldi:   main + Ali ning o'zgarishi           ✓
+PR #13 sinaldi:   main + Vali ning o'zgarishi          ✓
+main da esa:      main + Ali + Vali                    ✗  ← HECH KIM SINAMAGAN</div>
+        <p class="expect">🔑 Bu <b>semantik konflikt</b>
+        deb ataladi: git konflikt <b>bermaydi</b>
+        (fayllar boshqa-boshqa), lekin natija
+        buziladi.</p>
+        <p>Bizning holatda: Vali migratsiyani
+        <b>ko'rmagan</b> holda Resource yozgan,
+        yoki Ali ustun nomini o'zgartirgan va
+        Vali eskisiga tayangan.</p>
+        <p>✅ Yechim — himoya qoidasidagi bitta
+        katakcha:</p>
+        <div class="natija">☑ Require branches to be up to date before merging</div>
+        <p>Endi Vali PR'ini birlashtirishdan oldin
+        <code>main</code> ni <b>o'ziga
+        tortishi</b> shart — va CI
+        <b>birlashgan</b> holatni sinaydi.</p>
+        <div class="natija">git checkout yangi-xususiyat
+git merge main          # yoki: git rebase main
+git push                # CI qayta ishlaydi — endi HAQIQIY holat bilan</div>
+        <p>⚠️ Narxi bor: har birlashtirishdan keyin
+        qolgan PR'lar <b>yangilanishi</b> kerak.
+        Katta jamoada bu «birlashtirish navbati»
+        (merge queue) bilan hal qilinadi.</p>
+        <p>🔑 <b>Umumiy saboq:</b> yashil PR —
+        «<b>mening o'zgarishim</b> ishlaydi»
+        degani. «<b>Birlashgach ham</b>
+        ishlaydi» degani <b>emas</b>.</p>
+        <p>🔍 Va bu 67-darsdagi tergov usuli bilan
+        topiladi: <code>main</code> qizil bo'lsa,
+        <b>oxirgi ikki commit</b> ga qarang —
+        <code>git log --oneline -5</code>.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span>
+    ⭐ CI'da bitta qadam yiqilsa nima bo'ladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Keyingi qadamlar umuman bajarilmaydi va build qizil bo'ladi</button></li>
+      <li><button class="quiz-option">Qolgan qadamlar baribir bajarilib build yashil holicha qoladi</button></li>
+      <li><button class="quiz-option">Faqat ogohlantirish chiqadi va hech qanday narsa to'xtamaydi</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi: uslub buzilgach
+    <code>X Kod uslubi (Pint)</code> va
+    <code>- Testlar (Pest)</code> — ikkinchisi
+    chizgi bilan, ya'ni <b>bajarilmadi</b>.
+    <code>##[error]Process completed with exit code
+    1.</code>
+    🔑 Bu 69-darsdagi <code>set -e</code> bilan bir
+    xil g'oya.
+    ✅ Shuning uchun <b>tez va arzon</b> tekshiruvlar
+    oldinda: uslub buzuq bo'lsa testlarni kutish
+    ma'nosiz.
+    🔍 CI faqat <b>chiqish kodini</b> tushunadi —
+    65-darsdagi <code>pint --test</code> shu
+    yerda ishlaydi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span>
+    <code>on: push</code> va <code>pull_request</code>
+    bilan workflow qachon ishlaydi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Har push va har pull request da o'zi ishga tushadi</button></li>
+      <li><button class="quiz-option">Faqat qo'lda maxsus tugma bosilganda ishga tushiriladi xolos va boshqa</button></li>
+      <li><button class="quiz-option">Har kuni belgilangan vaqtda faqat bir marta ishga tushadi xolos</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi: PR'ga yangi
+    commit push qilingach CI <b>o'zi</b> qayta
+    ishladi — PR'ni yopib qayta ochish
+    <b>shart emas</b>.
+    ✅ Boshqa variantlar ham <b>mavjud</b>:
+    <code>workflow_dispatch</code> (qo'lda tugma) va
+    <code>schedule</code> (cron) — lekin bizning
+    faylimizda ular yo'q.
+    🔑 <code>paths-ignore</code> bilan keraksiz ishga
+    tushishlarni to'xtatasiz — lekin ⚠️
+    himoyalangan tarmoqda ehtiyot bo'ling: tekshiruv
+    umuman ishlamasa PR <b>abadiy kutadi</b>.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span>
+    Qadamlarni qanday tartibda joylashtirasiz?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Tez va arzon qadamlar birinchi turishi kerak bo'ladi</button></li>
+      <li><button class="quiz-option">Eng sekin qadamlar esa birinchi turishi kerak bo'ladi</button></li>
+      <li><button class="quiz-option">Qadamlar tartibining bu yerda umuman ahamiyati yo'q ekan</button></li>
+    </ul>
+    <div class="quiz-explain">🔑 Bitta qadam yiqilsa
+    qolganlari <b>bajarilmaydi</b> — demak eng tez
+    va eng ko'p yiqiladigan tekshiruv
+    <b>oldinda</b> bo'lsin. Fikr-mulohaza tezroq
+    keladi.
+    🔍 Bizda: Pint (~2s) → Testlar (~2s) →
+    <code>composer audit</code> (~1s); butun job
+    <b>21s</b>.
+    ✅ Va o'lchang: mahalliy testlar <b>0.96s</b>,
+    CI'da <b>1.66s</b> — CI har safar noldan
+    boshlaydi.</div>
+  </div>
+
+  <!-- ═══════════════ 11) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+
+    <p>Javobni ovoz chiqarib ayting, keyin ochib
+    solishtiring.</p>
+
+    <details class="recall">
+      <summary>Workflow faylining tuzilishi
+      qanday?</summary>
+      <div class="answer"><code>.github/workflows/*.yml</code>.
+      <code>name:</code> — nomi ·
+      <code>on:</code> — <b>qachon</b>
+      (<code>push</code>, <code>pull_request</code>,
+      <code>schedule</code>,
+      <code>workflow_dispatch</code>) ·
+      <code>jobs:</code> → <code>runs-on:</code> —
+      <b>qayerda</b> (toza Ubuntu mashinasi) →
+      <code>steps:</code>.
+      Qadam ikki xil: <code>uses:</code> (tayyor
+      action) va <code>run:</code> (shell buyrug'i).
+      🔍 Bizda <b>8 ta qadam</b>: checkout →
+      setup-php → cache → composer install →
+      <code>.env</code> + <code>key:generate</code> →
+      Pint → Pest → audit.
+      ⚠️ YAML'da <b>tabulyatsiya taqiqlangan</b> —
+      faqat bo'shliq.</div>
+    </details>
+
+    <details class="recall">
+      <summary>⭐ Bitta qadam yiqilsa nima
+      bo'ladi?</summary>
+      <div class="answer">Keyingi qadamlar
+      <b>umuman bajarilmaydi</b>.
+      🔍 O'lchandi: <code>X Kod uslubi (Pint)</code>
+      va <code>- Testlar (Pest)</code> — chizgi
+      bilan.
+      <code>##[error]Process completed with exit code
+      1.</code>
+      🔑 Shuning uchun <b>tartib muhim</b>: tez va
+      arzon tekshiruvlar oldinda.
+      🔍 Vaqtlar: butun job <b>21s</b> (yashil),
+      <b>18s</b> (qizil — chunki testlar
+      bajarilmadi).
+      ✅ CI faqat <b>chiqish kodini</b> tushunadi —
+      har buyruq 0 (yaxshi) yoki boshqa (yomon)
+      qaytaradi.</div>
+    </details>
+
+    <details class="recall">
+      <summary>⭐ PR oqimida CI qanday ishlaydi?</summary>
+      <div class="answer">PR ochilganda va <b>har yangi
+      commit</b> da CI <b>avtomatik</b> qayta
+      ishlaydi — PR'ni yopib ochish shart
+      emas.
+      🔍 O'lchandi: dastlab <code>sinov fail
+      12s</code> (men <code>return "salom";</code>
+      deb qo'shtirnoq yozgan edim — Pint qoidasi
+      <code>single_quote</code>);
+      <code>pint</code> bilan tuzatib push qilgach
+      <code>sinov pass 22s</code> va
+      <code>"mergeable":"MERGEABLE"</code>,
+      <code>conclusion: SUCCESS</code>.
+      🔑 CI ning butun ma'nosi shu: u
+      <b>charchamaydi</b>, <b>shoshmaydi</b> va
+      <b>e'tiborsiz qolmaydi</b>.</div>
+    </details>
+
+    <details class="recall">
+      <summary>Himoyalangan tarmoq nima beradi?</summary>
+      <div class="answer">CI yashil belgi ko'rsatadi,
+      lekin <b>majburlamaydi</b>. Himoya buni
+      <b>qoida</b>ga aylantiradi:
+      <b>☑</b> Require a pull request before merging ·
+      <b>☑</b> Require status checks to pass
+      (<code>sinov</code> — job <b>nomi</b>) ·
+      <b>☑</b> Require branches to be up to date.
+      🔑 Oxirgisi <b>semantik konflikt</b>ni oldini
+      oladi: ikkita PR alohida yashil,
+      birlashgach <b>qizil</b> — chunki
+      birgalikda hech kim sinamagan.
+      ✅ Yashil PR «<b>mening o'zgarishim</b>
+      ishlaydi» degani, «birlashgach ham ishlaydi»
+      degani <b>emas</b>.</div>
+    </details>
+
+    <details class="recall">
+      <summary>CI'ni tezlashtirish va sirlar</summary>
+      <div class="answer"><b>Kesh:</b>
+      <code>actions/cache@v4</code> +
+      <code>key: composer-${{
+      hashFiles('composer.lock') }}</code> —
+      <code>composer.lock</code> o'zgarmasa
+      <code>vendor</code> keshdan olinadi.
+      <b>paths-ignore:</b> README o'zgarganda
+      testlarni ishlatmang.
+      <b>Sirlar:</b> hech qachon workflow'ga
+      yozmang — GitHub Secrets:
+      <code>${{ secrets.API_KALIT }}</code>.
+      Log'da <code>***</code> bo'lib
+      ko'rinadi.
+      ⚠️ Fork'dan kelgan PR'larda sirlar
+      <b>berilmaydi</b> (ataylab).
+      ⚠️ Va <b>ogohlantirishlarni o'qing</b>:
+      🔍 bizda <code>Node.js 20 is deprecated</code>
+      — yashil build ham ogohlantirish
+      berishi mumkin.</div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 12) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Xulosa</span>
+    <ul>
+      <li>CI — testlarni <b>mashina</b> ishlatadi,
+      har push'da, <b>istisnosiz</b>.</li>
+      <li>Workflow — <code>.github/workflows/*.yml</code>,
+      🔍 bizda <b>8 ta qadam</b>.</li>
+      <li>Har ishga tushish <b>toza mashinada</b> —
+      <code>.env</code> ni o'zimiz yaratamiz.</li>
+      <li>🔍 Birinchi ishga tushish: ✓ <b>21s</b>,
+      <code>121 passed (243 assertions)</code>.</li>
+      <li>🔍 Testlar mahalliy <b>0.96s</b>, CI'da
+      <b>1.66s</b>.</li>
+      <li>⭐ 🔍 Qadam yiqilsa keyingilari
+      <b>bajarilmaydi</b>.</li>
+      <li><b>Tez va arzon</b> tekshiruvlar
+      oldinda.</li>
+      <li>🔍 Kesh: <code>hashFiles('composer.lock')</code>
+      — lock o'zgarmasa <code>vendor</code>
+      keshdan.</li>
+      <li>⭐ 🔍 PR oqimi: CI <b>haqiqiy xatoni</b>
+      tutdi (<code>single_quote</code>).</li>
+      <li>Har yangi commit tekshiruvni
+      <b>avtomatik</b> qayta ishga tushiradi.</li>
+      <li>Himoyalangan tarmoq: qizil bilan
+      <b>birlashtira olmaysiz</b>.</li>
+      <li>⚠️ Yashil build ham ogohlantirish berishi
+      mumkin — <b>o'qing</b>.</li>
+      <li>🔑 Yashil PR «birlashgach ham ishlaydi»
+      degani <b>emas</b>.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p>CI ishlayapti. Endi undan <b>foydalanamiz</b>.</p>
+    <p>Kursimiz boshidan beri PHP <b>8.3</b> da
+    yozdik. Lekin 68-darsda ko'rdik: Sail'ning
+    standarti allaqachon <b>8.5</b>. Versiyalar
+    o'zgaradi, va bir kun sizga «loyihani
+    yangilang» deyishadi.</p>
+    <p>72-darsda <b>PHP 8.3'dan 8.4'ga</b>
+    o'tamiz. Bu yerda CI matritsasi (HOLAT 1)
+    va 121 ta testimiz <b>asosiy qurol</b>
+    bo'ladi: ular yangi versiyada nima
+    buzilganini <b>aniq</b> aytadi.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>GitHub Actions</b>:
+    <a href="https://docs.github.com/en/actions/writing-workflows/quickstart">workflow
+    sintaksisi va tezkor boshlash</a>.<sup><a href="#fn1">1</a></sup><br>
+    <b>setup-php</b>:
+    <a href="https://github.com/shivammathur/setup-php">PHP
+    versiyalari, kengaytmalar,
+    matritsa</a>.<sup><a href="#fn2">2</a></sup><br>
+    <b>GitHub — Branch protection</b>:
+    <a href="https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches">majburiy
+    tekshiruvlar</a>.<sup><a href="#fn3">3</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b>
+    «Actions pullikmi?», «GitLab CI'da ham
+    shundaymi?», «avtomatik deploy qo'shaymi?» — har
+    qanday savol yaxshi. Birinchisiga qisqa javob:
+    <b>ochiq repozitoriyalarda bepul</b>, yopiqlarida
+    oyiga cheklangan daqiqalar (bizning ishga
+    tushishimiz <b>21 soniya</b> oldi). Ikkinchisiga:
+    tushunchalar <b>bir xil</b> — fayl nomi
+    (<code>.gitlab-ci.yml</code>) va sintaksis
+    boshqacha, lekin qadamlar, kesh, sirlar va
+    majburiy tekshiruvlar
+    <b>o'zgarmaydi</b>.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0070-serverda-worker-va-scheduler.html">Oldingi: Worker va scheduler</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">GitHub — <a href="https://docs.github.com/en/actions/writing-workflows/quickstart">Actions Quickstart</a>.</li>
+      <li id="fn2">shivammathur — <a href="https://github.com/shivammathur/setup-php">setup-php</a>.</li>
+      <li id="fn3">GitHub — <a href="https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches">Protected branches</a>.</li>
+      <li id="fn4">Barchasi jonli o'lchangan —
+      <b>haqiqiy GitHub Actions ishga tushishlari</b>
+      (PHP 8.3, Laravel 13.26.1, gh 2.45.0;
+      o'lchov uchun vaqtinchalik <b>yopiq</b>
+      repozitoriya yaratilib, unda uchta stsenariy
+      bajarildi):
+      mahalliy qadamlar —
+      <code>composer validate --strict</code>
+      <b>0.12 s</b> «is valid»,
+      <code>composer audit</code> exit <b>0</b>
+      «No security vulnerability advisories found.»,
+      <code>pint --test</code> exit <b>0</b>,
+      <code>php artisan test</code> <b>1.10 s</b> ·
+      workflow: <b>8 ta qadam</b>, YAML tekshirilgan ·
+      <b>1-ishga tushish (yashil):</b>
+      <code>completed success ... 32946646329</code>,
+      <code>✓ sinov in 21s</code>; qadam chiqishlari —
+      Pint <code>PASS ... 102 files</code>, Pest
+      <code>121 passed (243 assertions)</code>
+      <code>Duration: 1.66s</code>, audit
+      <code>No security vulnerability advisories
+      found.</code> ·
+      ⚠️ annotatsiya: <code>Node.js 20 is deprecated.
+      ... actions/cache@v4, actions/checkout@v4</code> ·
+      ⭐ <b>2-ishga tushish (qizil):</b>
+      <code>completed failure ... 23s</code>,
+      <code>X sinov in 18s</code>; oltita qadam
+      <code>✓</code>, so'ng
+      <code>X Kod uslubi (Pint)</code> va
+      <code>- Testlar (Pest)</code> — <b>bajarilmadi</b>;
+      log: <code>FAIL ... 103 files, 1 style issue</code>,
+      <code>⨯ app/Support/Buzuq.php
+      class_attributes_separation, class_defi…</code>,
+      <code>##[error]Process completed with exit code
+      1.</code> ·
+      ⭐ <b>3-stsenariy (PR):</b> tarmoq +
+      <code>gh pr create</code> → PR #1;
+      birinchi tekshiruv <code>sinov fail 12s</code> —
+      sabab <b>rejalashtirilmagan</b>: yozilgan
+      faylda <code>return "salom";</code> bo'lib,
+      Pint <code>single_quote</code> qoidasini
+      buzgan; <code>pint</code> bilan tuzatib push
+      qilingach <code>sinov pass 22s</code>,
+      <code>"state":"OPEN"</code>,
+      <code>"mergeable":"MERGEABLE"</code>,
+      <code>conclusion: SUCCESS</code> ·
+      ilova to'plami (mahalliy): <b>121 passed (243
+      assertions)</b>.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

@@ -17,7 +17,7 @@
   muhit ma'lumotlari. Har dars yangi buyruq o'rgatilsa, shu yerga qo'shiladi.</p>
 
   <p class="lesson-meta">
-    <span>Qamrov: <b>1&ndash;70-darslar</b> — muhitdan API'gacha</span>
+    <span>Qamrov: <b>1&ndash;71-darslar</b> — muhitdan API'gacha</span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>💻 Amaliyotga mos</span>
   </p>
@@ -1826,6 +1826,56 @@
     <code>database</code> · <code>redis</code> (ishlab
     chiqarish, teglar bor).
     Redis nafaqat kesh: navbat, sessiya va cheklov ham.</p>
+  </div>
+
+  <h2>GitHub Actions (71-darsdan)</h2>
+  <table class="sheet">
+    <tr><th>Workflow</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>.github/workflows/testlar.yml</code></td><td class="note-cell">⚠️ YAML — <b>tabulyatsiya taqiqlangan</b></td></tr>
+    <tr><td><code>on: push / pull_request</code></td><td class="note-cell">Har push va har PR da <b>o'zi</b></td></tr>
+    <tr><td><code>actions/checkout@v4</code></td><td class="note-cell">Kodni olish</td></tr>
+    <tr><td><code>shivammathur/setup-php@v2</code></td><td class="note-cell"><code>php-version</code>, <code>extensions</code></td></tr>
+    <tr><td><code>actions/cache@v4</code> + <code>hashFiles('composer.lock')</code></td><td class="note-cell">Kesh — lock o'zgarmasa <code>vendor</code> keshdan</td></tr>
+    <tr><td><code>cp .env.example .env &amp;&amp; php artisan key:generate</code></td><td class="note-cell">⚠️ Toza mashina — <code>.env</code> yo'q</td></tr>
+    <tr><td><code>${{ secrets.X }}</code></td><td class="note-cell">Sirlar · log'da <code>***</code> · fork PR'da yo'q</td></tr>
+    <tr><td><code>needs: sinov</code></td><td class="note-cell">CD — faqat testlar yashil bo'lsa</td></tr>
+  </table>
+  <table class="sheet">
+    <tr><th><code>gh</code> buyrug'i</th><th class="note-cell">Nima uchun</th></tr>
+    <tr><td><code>gh run list --limit 1</code></td><td class="note-cell">Oxirgi ishga tushish holati</td></tr>
+    <tr><td><code>gh run view</code></td><td class="note-cell">Qadamlar: ✓ · X · <b>-</b> (bajarilmadi)</td></tr>
+    <tr><td><code>gh run view $RID --log-failed</code></td><td class="note-cell">Faqat yiqilgan qadam logi</td></tr>
+    <tr><td><code>gh pr checks</code></td><td class="note-cell">PR tekshiruvlari holati</td></tr>
+    <tr><td><code>gh pr view --json state,mergeable</code></td><td class="note-cell">Birlashtirsa bo'ladimi</td></tr>
+  </table>
+  <div class="callout note">
+    <p>🔍 <b>Haqiqiy ishga tushish o'lchandi:</b>
+    ✓ <code>sinov in 21s</code> ·
+    Pint <code>PASS ... 102 files</code> ·
+    Pest <code>121 passed (243 assertions)</code>,
+    <code>1.66s</code> (mahalliy <b>0.96s</b>) ·
+    <code>No security vulnerability advisories
+    found.</code></p>
+    <p>⭐ ⚠️ <b>Qadam yiqilsa keyingilari
+    bajarilmaydi:</b>
+    <code>X Kod uslubi (Pint)</code> →
+    <code>- Testlar (Pest)</code>.
+    <code>##[error]Process completed with exit code
+    1.</code>
+    <br>✅ Shuning uchun <b>tez va arzon</b>
+    tekshiruvlar oldinda.</p>
+    <p>⭐ <b>PR oqimi:</b> <code>sinov fail 12s</code>
+    → tuzatilgach <code>sinov pass 22s</code>,
+    <code>MERGEABLE</code>. Har yangi commit
+    tekshiruvni <b>avtomatik</b> qayta ishga
+    tushiradi.</p>
+    <p>🔑 <b>Himoyalangan tarmoq:</b> Require PR ·
+    Require status checks (<code>sinov</code>) ·
+    <b>Require branches to be up to date</b> —
+    oxirgisi <b>semantik konflikt</b>ni to'sadi.</p>
+    <p>⚠️ <b>Yashil build ham ogohlantirish berishi
+    mumkin</b> — <code>Node.js 20 is
+    deprecated</code>. O'qing.</p>
   </div>
 
   <h2>Worker va scheduler (70-darsdan)</h2>
