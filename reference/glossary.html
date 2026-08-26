@@ -18,7 +18,7 @@
   izoh esa o'zbekcha.</p>
 
   <p class="lesson-meta">
-    <span>Atamalar: <b>289 ta</b></span>
+    <span>Atamalar: <b>292 ta</b></span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>📱 O'qishga mos</span>
   </p>
@@ -26,7 +26,7 @@
   <div class="callout note">
     <span class="label">Bu hujjat o'sib boradi</span>
     <p>Atama faqat <b>o'z darsi yozilganda</b> qo'shiladi — oldindan emas. Hozir:
-    Modul A–J (1–69-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
+    Modul A–J (1–70-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
     bosqichida qat'iy belgilangan va 73 dars bo'ylab o'zgarmaydi).</p>
   </div>
 
@@ -916,6 +916,86 @@
       <b>majburiy</b>. Xato ko'rinishi: <code>no such table: vakansiyas</code>.
       Tekshirish: <code>(new Vakansiya)-&gt;getTable()</code>.
       <span class="eg">protected $table = 'vakansiyalar';</span></dd>
+    </div>
+
+    <div class="term" id="worker-eski-kod">
+      <dt>queue:work va eski kod <span class="uz">— deploy'dan keyingi eng ko'p chalkashlik</span></dt>
+      <dd>⭐ <code>queue:work</code> — <b>demon</b>: PHP
+      fayllarni bir marta yuklaydi va <b>xotirada
+      saqlaydi</b>. Diskdagi fayl o'zgarsa ham
+      xotiradagi sinf <b>o'zgarmaydi</b>.
+      🔍 O'lchandi: kod <code>VERSIYA-2</code> ga
+      o'zgardi, worker hamon
+      <code>VERSIYA-1</code> yozdi.
+      ✅ <code>queue:restart</code> worker'ni
+      <b>o'ldirmaydi</b> — keshga vaqt tamg'asini
+      qo'yadi
+      (🔍 <code>illuminate:queue:restart</code> =
+      <b>1787731068</b>); worker joriy job'ni
+      <b>tugatib</b> chiqadi. Qayta ko'tarish —
+      <b>supervisor</b>ning ishi
+      (<code>autorestart=true</code>).
+      🔍 <code>queue:listen</code> har job uchun yangi
+      jarayon yaratadi va kodni <b>qayta yuklaydi</b>
+      (VERSIYA-3 → VERSIYA-4) — sekin, <b>mahalliy
+      ish</b> uchun.
+      🔑 Bu odatiy HTTP so'rovdan tubdan farq qiladi:
+      u yerda har so'rov yangi jarayon.
+      <span class="eg">php artisan queue:restart</span></dd>
+    </div>
+
+    <div class="term" id="supervisor-cron">
+      <dt>supervisor va cron <span class="uz">— fon ishlarini kim ishlatadi</span></dt>
+      <dd>Navbat va reja <b>o'zi ishga tushmaydi</b>.
+      <b>supervisor</b> (navbat) va <b>cron</b> (reja) —
+      operatsion tizim vositalari.
+      Muhim qatorlar: <code>autorestart=true</code>
+      (<b>eng muhimi</b>) · <code>numprocs=2</code> ·
+      <code>user=www-data</code> ·
+      <code>--max-time=3600</code> (xotira sizishiga
+      qarshi) · <code>stopwaitsecs=3600</code> (usiz
+      job <b>yarim</b> qoladi) ·
+      <code>stopasgroup=true</code>.
+      Crontab'da <b>bitta</b> qator:
+      <code>* * * * * cd /var/www/ishtop &amp;&amp; php artisan
+      schedule:run &gt;&gt; /dev/null 2&gt;&amp;1</code> —
+      yangi vazifa qo'shsangiz crontab'ga
+      <b>tegmaysiz</b>.
+      🔍 <code>schedule:test --name=X</code> Laravel
+      bajaradigan <b>aniq buyruqni</b> ko'rsatadi
+      (PHP ning to'liq yo'li bilan — cron muhitida
+      <code>PATH</code> bo'sh bo'lishi mumkin).
+      🔑 Eng muhim ko'rsatkich — <b>navbat uzunligi</b>:
+      <code>queue:monitor default --max=100</code>.
+      <span class="eg">sudo supervisorctl start ishtop-worker:*</span></dd>
+    </div>
+
+    <div class="term" id="job-ikki-marta">
+      <dt>job ikki marta bajarilishi <span class="uz">— timeout va retry_after</span></dt>
+      <dd>⚠️ <code>--timeout</code> <b>har doim</b>
+      <code>retry_after</code> dan <b>kichik</b>
+      bo'lsin.
+      Aks holda <code>retry_after</code> o'tgach navbat
+      job'ni «tashlab ketilgan» deb hisoblab
+      <b>boshqa worker'ga</b> beradi — birinchisi hali
+      ishlayotgan bo'lsa ham.
+      Natija: xat <b>ikki marta</b>, zaxira <b>ikki
+      marta</b> kamayadi. Va <b>log toza</b> — job
+      yiqilmadi.
+      🔑 Navbat «<b>kamida bir marta</b>» yetkazishni
+      kafolatlaydi, «aynan bir marta»ni <b>emas</b> —
+      bu taqsimlangan tizimlarning tabiati.
+      ✅ Har job uchun so'rang: «<b>ikki marta ishlasa
+      nima bo'ladi?</b>» → idempotentlik
+      (holatni tekshirish) yoki
+      <code>ShouldBeUnique</code> +
+      <code>uniqueId()</code>.
+      🔍 Xatolar: <code>--tries=3</code> → <b>3 ta
+      FAIL</b> → <code>failed_jobs</code> →
+      <code>queue:retry all</code>.
+      ⚠️ <code>--tries=0</code> — <b>cheksiz</b>
+      urinadi.
+      <span class="eg">public array $backoff = [10, 60, 300];</span></dd>
     </div>
 
     <div class="term" id="chiqarish">

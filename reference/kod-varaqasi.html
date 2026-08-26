@@ -17,7 +17,7 @@
   muhit ma'lumotlari. Har dars yangi buyruq o'rgatilsa, shu yerga qo'shiladi.</p>
 
   <p class="lesson-meta">
-    <span>Qamrov: <b>1&ndash;69-darslar</b> — muhitdan API'gacha</span>
+    <span>Qamrov: <b>1&ndash;70-darslar</b> — muhitdan API'gacha</span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>💻 Amaliyotga mos</span>
   </p>
@@ -1826,6 +1826,56 @@
     <code>database</code> · <code>redis</code> (ishlab
     chiqarish, teglar bor).
     Redis nafaqat kesh: navbat, sessiya va cheklov ham.</p>
+  </div>
+
+  <h2>Worker va scheduler (70-darsdan)</h2>
+  <table class="sheet">
+    <tr><th>Buyruq</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>queue:work</code></td><td class="note-cell">Demon · kod <b>xotirada</b> · ishlab chiqarish</td></tr>
+    <tr><td><code>queue:listen</code></td><td class="note-cell">Har job uchun yangi jarayon · mahalliy ish</td></tr>
+    <tr><td><code>queue:restart</code></td><td class="note-cell">⭐ Deploy'dan keyin <b>shart</b></td></tr>
+    <tr><td><code>--tries=3 --backoff=10,60,300</code></td><td class="note-cell">⚠️ <code>--tries=0</code> — cheksiz</td></tr>
+    <tr><td><code>--max-time=3600</code> · <code>--memory=128</code></td><td class="note-cell">Xotira sizishiga qarshi</td></tr>
+    <tr><td><code>queue:failed</code> · <code>queue:retry all</code></td><td class="note-cell">Yiqilganlarni ko'rish va qaytarish</td></tr>
+    <tr><td><code>queue:monitor default --max=100</code></td><td class="note-cell">🔑 Eng muhim ko'rsatkich</td></tr>
+    <tr><td><code>schedule:list</code> · <code>schedule:run</code></td><td class="note-cell">Cron shuni chaqiradi</td></tr>
+    <tr><td><code>schedule:test --name=X</code></td><td class="note-cell">🔍 <b>Aniq buyruqni</b> ko'rsatadi</td></tr>
+    <tr><td><code>schedule:clear-cache</code></td><td class="note-cell">Qolib ketgan qulfni tozalaydi</td></tr>
+    <tr><td><code>-&gt;withoutOverlapping()</code> · <code>-&gt;onOneServer()</code></td><td class="note-cell">⭐ Ikki marta bajarilmasin</td></tr>
+  </table>
+  <table class="sheet">
+    <tr><th>supervisor / cron</th><th class="note-cell">Nima uchun</th></tr>
+    <tr><td><code>autorestart=true</code></td><td class="note-cell">🔑 <b>Eng muhim qator</b> — o'lsa qayta ko'taradi</td></tr>
+    <tr><td><code>numprocs=2</code> · <code>user=www-data</code></td><td class="note-cell">Nechta worker · qaysi foydalanuvchi</td></tr>
+    <tr><td><code>stopwaitsecs=3600</code></td><td class="note-cell">Usiz job <b>yarim</b> qoladi</td></tr>
+    <tr><td><code>* * * * * ... schedule:run</code></td><td class="note-cell">Crontab'da <b>bitta</b> qator</td></tr>
+  </table>
+  <div class="callout note">
+    <p>⭐ 🔍 <b>Worker eski kodni saqlaydi:</b> kod
+    <code>VERSIYA-2</code> ga o'zgardi, worker hamon
+    <code>VERSIYA-1</code> yozdi.
+    <code>queue:restart</code> keshga vaqt tamg'asi
+    qo'yadi (<code>illuminate:queue:restart</code>);
+    worker <b>chiqadi</b>, qayta ko'tarish —
+    supervisor.</p>
+    <p>🔍 <code>queue:listen</code> kodni <b>qayta
+    yuklaydi</b> (VERSIYA-3 → VERSIYA-4).</p>
+    <p>⚠️ <b><code>--timeout</code> &lt;
+    <code>retry_after</code></b> — aks holda job
+    <b>ikki marta</b> bajariladi va <b>log toza</b>
+    qoladi.
+    <br>🔑 Navbat «kamida bir marta» kafolatlaydi.
+    Har job uchun: «ikki marta ishlasa nima
+    bo'ladi?» → idempotentlik yoki
+    <code>ShouldBeUnique</code>.</p>
+    <p>⭐ 🔍 <code>withoutOverlapping</code>: ikkita
+    <code>schedule:run</code> bir vaqtda →
+    <b>bitta</b> bajarilish.</p>
+    <p>🔍 <b>Nazorat:</b> <code>ps aux | grep
+    queue:work</code> · <code>select count(*) from
+    jobs</code> · <code>queue:failed</code> ·
+    <code>tail -f storage/logs/reja.log</code> ·
+    <code>grep CRON /var/log/syslog</code>.</p>
   </div>
 
   <h2>Serverga chiqarish (69-darsdan)</h2>

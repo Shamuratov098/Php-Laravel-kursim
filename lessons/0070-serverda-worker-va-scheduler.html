@@ -1,0 +1,1387 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 70 — Serverda queue worker va scheduler</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 70 · MODUL J — ISHGA TUSHIRISH VA KASBGA KIRISH</p>
+  <h1>Serverda queue worker va scheduler</h1>
+  <p class="lead">69-darsning oxirida savol qoldi: «xat
+  kelmayapti, lekin log toza». Javob shu darsda.
+  Fon jarayonlari <b>alohida yashaydi</b> — va
+  ularning eng yoqimsiz xususiyatini bugun
+  <b>o'lchaymiz</b>: worker <b>eski kodni
+  xotirasida saqlaydi</b>.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 19 daqiqa</span>
+    <span>💻 Amaliyot ≈ 40 daqiqa</span>
+    <span>Kerak: <a href="0069-real-serverga-chiqarish.html">Dars 69</a></span>
+  </p>
+
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b>Muammo: kim ularni ishlatadi?</b>
+        <span class="nima">Navbat va reja
+        <b>o'zi</b> ishga tushmaydi.</span></li>
+      <li><b>⭐ Worker eski kodni saqlaydi</b>
+        <span class="nima">🔍 Kod
+        <code>VERSIYA-2</code>, worker hamon
+        <code>VERSIYA-1</code>.</span></li>
+      <li><b><code>queue:restart</code> qanday
+        ishlaydi</b>
+        <span class="nima">🔍 Keshdagi bitta son:
+        <code>1787731068</code>.</span></li>
+      <li><b><code>work</code> va
+        <code>listen</code></b>
+        <span class="nima">🔍
+        <code>listen</code> kodni <b>qayta
+        yuklaydi</b>.</span></li>
+      <li><b>supervisor</b>
+        <span class="nima">Worker o'lsa
+        <b>qayta ko'taradi</b>.</span></li>
+      <li><b>🔍 Xato va qayta urinish</b>
+        <span class="nima"><code>--tries=3</code> →
+        <b>3 ta FAIL</b> →
+        <code>failed_jobs</code>.</span></li>
+      <li><b><code>queue:retry</code></b>
+        <span class="nima">🔍 To'liq tsikl:
+        yiqildi → tuzatildi →
+        o'tdi.</span></li>
+      <li><b>Scheduler va cron</b>
+        <span class="nima">Crontab'da
+        <b>bitta</b> qator.</span></li>
+      <li><b>🔍 <code>schedule:test</code></b>
+        <span class="nima">Laravel yozadigan
+        <b>aniq buyruqni</b> ko'rsatadi.</span></li>
+      <li><b>⭐ 🔍 <code>withoutOverlapping</code></b>
+        <span class="nima">Ikkita bir vaqtda ishga
+        tushdi — bajarilishi <b>bitta</b>.</span></li>
+      <li><b>Nazorat va log</b>
+        <span class="nima">Navbat uzunligi ·
+        <code>queue:monitor</code> · ogohlantirish.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima">Xotira · <code>--timeout</code>
+        · bir necha navbat · Horizon.</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Kim ularni ishlatadi?</span>
+    <p>55-darsda navbat yozdik, 57-darsda
+    bildirishnoma, 58-darsda rejalashtirilgan
+    buyruq. Mahalliy ishda ularni
+    <b>o'zimiz</b> ishga tushirdik:</p>
+    <div class="natija">php artisan queue:work
+php artisan schedule:work</div>
+    <p>Terminalni yopsangiz — ular
+    <b>to'xtaydi</b>. Serverda esa terminal
+    <b>umuman yo'q</b>.</p>
+    <p>Demak ikkita savol:</p>
+    <div class="natija">1) Kim ularni ishga tushiradi?
+2) O'lib qolsa, kim qayta ko'taradi?</div>
+    <p>🔑 Javob: <b>supervisor</b> (navbat uchun) va
+    <b>cron</b> (reja uchun). Ikkalasi ham
+    operatsion tizim vositalari — Laravel'ga
+    tegishli emas.</p>
+    <p>⚠️ Va 69-darsdagi predict'ni eslang: ilova
+    ishlayapti, log toza, lekin xat kelmayapti.
+    Sabab aynan shu yerda edi.</p>
+  </div>
+
+  <!-- ═══════════════ 2) ⭐ ESKI KOD ═══════════════ -->
+  <h2>⭐ Worker eski kodni xotirasida saqlaydi</h2>
+
+  <p>Bu — navbat bilan ishlashdagi eng ko'p
+  chalkashlik manbai. <b>O'lchaymiz.</b></p>
+
+  <p>Oddiy job yozamiz:</p>
+
+  <div class="natija">final class ZondJob implements ShouldQueue
+{
+    use Queueable;
+
+    public function handle(): void
+    {
+        Log::info('ZOND: VERSIYA-1');
+    }
+}</div>
+
+  <div class="natija">1) worker ni fonda ishga tushiramiz
+   php artisan queue:work --sleep=1 --tries=1
+
+2) job yuboramiz
+   log: ZOND: VERSIYA-1          ✅
+
+3) ⚠️ KODNI o'zgartiramiz (worker ISHLAB TURIBDI)
+   Log::info('ZOND: VERSIYA-2');
+
+4) yana job yuboramiz
+   log: ZOND: VERSIYA-1          ⚠️  ESKI KOD!</div>
+
+  <div class="callout warn">
+    <span class="label">⚠️ Nega bunday?</span>
+    <p><code>queue:work</code> — <b>demon</b>. U
+    bir marta ishga tushadi va <b>doim</b>
+    ishlaydi.</p>
+    <p>PHP fayllarni <b>bir marta</b> yuklaydi va
+    xotirada saqlaydi. Diskdagi fayl
+    o'zgarsa ham, xotiradagi sinf
+    <b>o'zgarmaydi</b>.</p>
+    <p class="expect">🔑 Bu odatiy HTTP so'rovdan
+    tubdan farq qiladi: u yerda har so'rov
+    <b>yangi jarayon</b> — fayllar qayta
+    o'qiladi.</p>
+    <p>⚠️ Va oqibati jiddiy: deploy qildingiz, bug
+    tuzatildi — lekin worker <b>hamon eski
+    bug bilan</b> ishlayapti.</p>
+  </div>
+
+  <h3>✅ <code>queue:restart</code></h3>
+
+  <div class="natija">php artisan queue:restart
+
+worker CHIQDI ✅
+
+# yangi worker ko'tarilgach:
+log: ZOND: VERSIYA-2            ✅</div>
+
+  <div class="callout tip">
+    <span class="label">🔑 <code>queue:restart</code> qanday ishlaydi</span>
+    <p>U worker'ni <b>o'ldirmaydi</b>. U keshga
+    <b>vaqt tamg'asini</b> qo'yadi:</p>
+    <div class="natija">Cache::get('illuminate:queue:restart')  →  1787731068</div>
+    <p>Worker har job'dan keyin shu qiymatni
+    tekshiradi. O'zgargan bo'lsa —
+    <b>joriy job'ni tugatib</b>, chiroyli
+    chiqadi.</p>
+    <p class="expect">⚠️ Va shuning uchun uni
+    <b>qayta ko'tarish kerak</b> —
+    <code>queue:restart</code> buni
+    <b>qilmaydi</b>. Bu <b>supervisor</b>ning
+    ishi.</p>
+    <p>🔑 Deploy skriptida (69-dars) shuning uchun
+    <code>queue:restart</code> bor edi.</p>
+  </div>
+
+  <!-- ═══════════════ 3) WORK VA LISTEN ═══════════════ -->
+  <h2><code>queue:work</code> va <code>queue:listen</code></h2>
+
+  <div class="natija">queue:work     →  BITTA jarayon, doim ishlaydi
+                  kod XOTIRADA qoladi
+                  TEZ ✅
+                  ishlab chiqarish uchun
+
+queue:listen   →  har job uchun YANGI jarayon
+                  kod HAR SAFAR qayta o'qiladi
+                  SEKIN
+                  mahalliy ish uchun</div>
+
+  <p>🔍 Sinadik — <code>listen</code> bilan kodni
+  o'zgartirdik:</p>
+
+  <div class="natija">listen bilan:      ZOND: VERSIYA-3
+kod o'zgargach:    ZOND: VERSIYA-4      ✅  restart SHART EMAS</div>
+
+  <p>🔑 Mahalliy ishda <code>listen</code> qulay:
+  har o'zgarishdan keyin restart qilish shart
+  emas. Serverda esa <code>work</code> —
+  chunki har job uchun jarayon yaratish
+  <b>qimmat</b>.</p>
+
+  <!-- ═══════════════ 4) SUPERVISOR ═══════════════ -->
+  <h2>supervisor — worker'ni tirik saqlaydi</h2>
+
+  <p>Worker o'lishi mumkin: xotira tugadi,
+  <code>queue:restart</code> bo'ldi, server
+  qayta yuklandi, kutilmagan xato.</p>
+
+  <p><b>supervisor</b> — jarayonlarni kuzatib
+  turadigan va o'lganini <b>qayta
+  ko'taradigan</b> dastur.</p>
+
+  <div class="natija">sudo apt install supervisor</div>
+
+  <div class="codefile">
+    <div class="fname">/etc/supervisor/conf.d/ishtop-worker.conf</div>
+    <code class="cmd">[program:ishtop-worker]
+process_name=%(program_name)s_%(process_num)02d
+command=php /var/www/ishtop/artisan queue:work --sleep=3 --tries=3 --max-time=3600
+directory=/var/www/ishtop
+autostart=true
+autorestart=true
+stopasgroup=true
+killasgroup=true
+user=www-data
+numprocs=2
+redirect_stderr=true
+stdout_logfile=/var/www/ishtop/storage/logs/worker.log
+stopwaitsecs=3600</code>
+  </div>
+
+  <div class="natija">sudo supervisorctl reread
+sudo supervisorctl update
+sudo supervisorctl start ishtop-worker:*
+sudo supervisorctl status</div>
+
+  <div class="callout tip">
+    <span class="label">🔑 Har sozlamaning ma'nosi</span>
+    <div class="natija">autorestart=true    →  o'lsa QAYTA ko'taradi        ← eng muhimi
+numprocs=2          →  ikkita worker parallel
+user=www-data       →  69-darsdagi huquqlar bilan bir xil
+--max-time=3600     →  har soatda O'ZINI qayta ishga tushiradi
+stopwaitsecs=3600   →  to'xtatishda joriy job ni tugatishga vaqt beradi
+stopasgroup=true    →  bola jarayonlarni ham to'xtatadi</div>
+    <p>⚠️ <code>--max-time</code> nima uchun? PHP
+    uzoq ishlaganda <b>xotira sizishi</b>
+    (memory leak) bo'lishi mumkin. Soatiga bir
+    marta qayta boshlash — <b>eng oddiy</b>
+    yechim.</p>
+    <p>⚠️ <code>stopwaitsecs</code> juda muhim: usiz
+    supervisor worker'ni <b>o'rtada</b>
+    o'ldiradi va job <b>yarim
+    bajarilgan</b> qoladi.</p>
+  </div>
+
+  <!-- ═══════════════ 5) XATOLAR ═══════════════ -->
+  <h2>🔍 Job yiqilganda nima bo'ladi</h2>
+
+  <p>Ataylab yiqiladigan job yozdik:</p>
+
+  <div class="natija">public function handle(): void
+{
+    if ($this->yiqil) {
+        throw new \RuntimeException('Tashqi API javob bermadi');
+    }
+}</div>
+
+  <div class="natija">php artisan queue:work --stop-when-empty --tries=3 --backoff=0
+
+App\Jobs\ZondJob ..... RUNNING
+App\Jobs\ZondJob ..... 4.86ms FAIL
+App\Jobs\ZondJob ..... RUNNING
+App\Jobs\ZondJob ..... 3.07ms FAIL
+App\Jobs\ZondJob ..... RUNNING
+App\Jobs\ZondJob ..... 2.89ms FAIL
+
+jobs: 0   failed_jobs: 1</div>
+
+  <p>Uch marta urindi, so'ng
+  <code>failed_jobs</code> jadvaliga
+  ko'chirdi.</p>
+
+  <div class="natija">php artisan queue:failed
+
+2026-08-26 07:59:17  d35004f5-91f8-4bc9-a7c0-76de19fda5f1
+                     database@default  App\Jobs\ZondJob</div>
+
+  <h3>To'liq tsikl: yiqildi → tuzatildi → o'tdi</h3>
+
+  <div class="natija">1) queue:retry all
+   d35004f5-... DONE
+   jobs: 1   failed_jobs: 0          ← navbatga QAYTDI
+
+2) kodni tuzatamiz
+
+3) queue:work --stop-when-empty
+   App\Jobs\ZondJob ..... 4.75ms DONE
+   jobs: 0   failed_jobs: 0          ✅</div>
+
+  <div class="callout tip">
+    <span class="label">🔑 <code>--tries</code> va <code>--backoff</code></span>
+    <div class="natija">--tries=3        →  3 marta urinadi, keyin failed_jobs ga
+--tries=0        →  CHEKSIZ urinadi  ⚠️ tashqi API o'chsa — cheksiz sikl
+--backoff=60     →  urinishlar orasida 60 soniya kutadi
+--backoff=10,60,300  →  o'sib boruvchi kutish (eng yaxshisi)</div>
+    <p>✅ Tashqi xizmatga murojaat qiladigan
+    job'larda <b>o'sib boruvchi</b> backoff
+    ishlating: xizmat qayta ko'tarilishiga
+    vaqt beradi.</p>
+    <p>🔑 Job ichida ham berish mumkin:</p>
+    <div class="natija">public $tries = 3;
+public array $backoff = [10, 60, 300];</div>
+  </div>
+
+  <!-- ═══════════════ 6) SCHEDULER ═══════════════ -->
+  <h2>Scheduler va cron</h2>
+
+  <p>58-darsda reja yozdik:</p>
+
+  <div class="natija">Schedule::command('ishtop:vakansiyalarni-yop')
+    ->dailyAt('03:00')
+    ->withoutOverlapping();</div>
+
+  <p>Lekin uni <b>kim</b> ishga tushiradi? Serverda —
+  <b>cron</b>. Va crontab'da <b>bitta</b> qator
+  bo'ladi:</p>
+
+  <div class="natija">crontab -e -u www-data
+
+* * * * * cd /var/www/ishtop && php artisan schedule:run >> /dev/null 2>&1</div>
+
+  <div class="callout tip">
+    <span class="label">🔑 Nega bitta qator?</span>
+    <p>Cron har daqiqada <code>schedule:run</code> ni
+    chaqiradi. U esa <b>Laravel ichidagi</b> rejani
+    o'qib, <b>hozir vaqti kelganini</b>
+    bajaradi.</p>
+    <div class="natija">php artisan schedule:run
+
+INFO  No scheduled commands are ready to run.</div>
+    <p>✅ Foydasi: yangi vazifa qo'shsangiz,
+    crontab'ga <b>tegmaysiz</b> — hammasi
+    <code>routes/console.php</code> da, ya'ni
+    <b>git'da</b>.</p>
+    <p>⚠️ <code>* * * * *</code> — har daqiqada. Bu
+    <b>to'g'ri</b>: <code>schedule:run</code>
+    hech narsa bo'lmasa ~100 ms ishlaydi
+    va chiqadi.</p>
+  </div>
+
+  <h3>🔍 <code>schedule:test</code> — aniq buyruqni ko'rish</h3>
+
+  <div class="natija">php artisan schedule:test --name="ishtop:vakansiyalarni-yop"
+
+Running ['artisan' ishtop:vakansiyalarni-yop] ....... 141.77ms DONE
+  ⇂ '/usr/bin/php8.3' 'artisan' ishtop:vakansiyalarni-yop >> 'storage/logs/reja.log' 2>&1</div>
+
+  <p>Ikkinchi qator — Laravel <b>haqiqatan</b>
+  bajaradigan buyruq. Bu 67-darsdagi
+  «o'lchash» qadamining scheduler'dagi
+  ko'rinishi.</p>
+
+  <p>🔑 Va u PHP ning <b>to'liq yo'lini</b>
+  ishlatadi (<code>/usr/bin/php8.3</code>) —
+  cron muhitida <code>PATH</code> bo'sh
+  bo'lishi mumkin.</p>
+
+  <!-- ═══════════════ 7) ⭐ WITHOUTOVERLAPPING ═══════════════ -->
+  <h2>⭐ 🔍 <code>withoutOverlapping</code> — o'lchandi</h2>
+
+  <p>Vazifa 8 soniya davom etadi, lekin har daqiqada
+  ishga tushadi. Nima bo'ladi?</p>
+
+  <p>Ikkita <code>schedule:run</code> ni
+  <b>bir vaqtda</b> ishga tushirdik:</p>
+
+  <div class="natija">Schedule::command('zond:sekin')->everyMinute()->withoutOverlapping();
+
+1-jarayon:  0 ta ishga tushdi
+2-jarayon:  Running ['artisan' zond:sekin] ..... 8s DONE
+
+fayldagi yozuvlar soni:  1          ✅  FAQAT BITTA</div>
+
+  <div class="callout tip">
+    <span class="label">🔑 Bu qanday ishlaydi</span>
+    <p><code>withoutOverlapping()</code> keshda
+    <b>qulf</b> (mutex) qo'yadi. Ikkinchi jarayon
+    qulfni ko'radi va <b>o'tkazib
+    yuboradi</b>.</p>
+    <p>⚠️ Usiz nima bo'lardi? Vazifa 8 soniya,
+    interval 60 soniya — bu holda muammo
+    yo'q. Lekin vazifa <b>2 daqiqa</b> davom
+    etsa:</p>
+    <div class="natija">00:00  boshlandi
+00:01  YANA boshlandi  ← ikkitasi parallel
+00:02  YANA boshlandi  ← uchtasi parallel
+...</div>
+    <p>Natija: xatlar <b>ikki marta</b> yuboriladi,
+    hisobot <b>ikki marta</b> yoziladi.</p>
+    <p>✅ Qo'shimcha himoya:</p>
+    <div class="natija">->withoutOverlapping(10)      ← qulf 10 daqiqadan keyin o'zi ochiladi
+->onOneServer()               ← bir NECHTA server bo'lsa (kesh umumiy bo'lsin)
+->runInBackground()           ← keyingi vazifani kutdirmaydi</div>
+    <p>⚠️ Jarayon <b>qattiq o'ldirilsa</b> qulf
+    qolib ketishi mumkin —
+    <code>schedule:clear-cache</code> uni
+    tozalaydi.</p>
+  </div>
+
+  <!-- ═══════════════ 8) NAZORAT ═══════════════ -->
+  <h2>Nazorat: qanday bilasiz ishlayotganini?</h2>
+
+  <p>69-darsdagi predict'ning butun mohiyati shu
+  edi: <b>log toza, lekin ish bajarilmayapti</b>.</p>
+
+  <div class="natija">1) WORKER umuman bormi?
+   ps aux | grep queue:work
+   sudo supervisorctl status
+
+2) NAVBAT o'sib ketmayaptimi?
+   select count(*) from jobs;
+   php artisan queue:monitor default --max=100
+
+3) YIQILGANLAR bormi?
+   php artisan queue:failed
+
+4) REJA ishlayaptimi?
+   php artisan schedule:list
+   tail -f storage/logs/reja.log
+
+5) CRON o'zi ishlayaptimi?
+   grep CRON /var/log/syslog | tail</div>
+
+  <div class="callout warn">
+    <span class="label">🔑 Eng muhim ko'rsatkich — navbat uzunligi</span>
+    <p><code>jobs</code> jadvali <b>o'sib
+    borayotgan</b> bo'lsa — worker
+    yetishmayapti yoki umuman
+    ishlamayapti.</p>
+    <div class="natija">php artisan queue:monitor default --max=100</div>
+    <p>Bu buyruq navbat uzunligi chegaradan
+    oshsa <code>QueueBusy</code> hodisasini
+    yuboradi — siz uni 53-darsdagi listener
+    bilan ushlab, ogohlantirish yuborasiz.</p>
+    <p>✅ Uni ham rejaga qo'ying:</p>
+    <div class="natija">Schedule::command('queue:monitor default --max=100')->everyFiveMinutes();</div>
+  </div>
+
+  <!-- ═══════════════ 9) HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir
+  bir marta o'qing, keyin serverda qaytib
+  qarang.</p>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 1</span>
+    <h4>Xotira sizishi</h4>
+    <div class="natija">--memory=128       →  128 MB dan oshsa chiqadi
+--max-jobs=1000    →  1000 job dan keyin chiqadi
+--max-time=3600    →  1 soatdan keyin chiqadi</div>
+    <p>Uzoq ishlaydigan PHP jarayonida xotira
+    <b>asta o'sadi</b> — Eloquent modellari,
+    statik massivlar, kutubxonalar.</p>
+    <p>✅ Uchalasidan <b>kamida bittasini</b>
+    ishlating. <code>autorestart=true</code>
+    bilan birga bu <b>butunlay xavfsiz</b>:
+    worker chiqadi, supervisor darrov qayta
+    ko'taradi.</p>
+    <p>🔑 60-darsdagi <code>chunkById</code> naqshi
+    ham shu sababdan: butun jadvalni xotiraga
+    olmang.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 2</span>
+    <h4><code>--timeout</code> va uzoq job'lar</h4>
+    <div class="natija">--timeout=60       →  job 60 soniyadan oshsa TO'XTATILADI
+public $timeout = 120;   ← job ichida</div>
+    <p>⚠️ Muhim qoida:
+    <code>--timeout</code> <b>har doim</b>
+    <code>retry_after</code> dan
+    <b>kichik</b> bo'lsin
+    (<code>config/queue.php</code>).</p>
+    <div class="natija">retry_after = 90    timeout = 60     ✅
+retry_after = 60    timeout = 90     ⚠️ job IKKI MARTA bajariladi</div>
+    <p>Sabab: <code>retry_after</code> o'tgach navbat
+    job'ni «tashlab ketilgan» deb hisoblab
+    <b>boshqa worker'ga</b> beradi — birinchisi
+    hali ishlayotgan bo'lsa ham.</p>
+    <p>🔑 Bu ham «xato yo'q, natija noto'g'ri»
+    turkumidan: xat ikki marta ketadi.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 3</span>
+    <h4>Bir necha navbat va ustuvorlik</h4>
+    <div class="natija">// yuborishda
+ParolniTikla::dispatch($user)->onQueue('tez');
+HisobotYarat::dispatch()->onQueue('sekin');
+
+// supervisor da
+command=php artisan queue:work --queue=tez,sekin</div>
+    <p>Vergul bilan ajratilgan tartib —
+    <b>ustuvorlik</b>: <code>tez</code>
+    bo'shamaguncha <code>sekin</code> ga
+    o'tmaydi.</p>
+    <p>✅ Yoki ikkita alohida supervisor dasturi:
+    <code>tez</code> uchun 4 ta worker,
+    <code>sekin</code> uchun 1 ta.</p>
+    <p>⚠️ Aks holda bitta uzoq hisobot butun
+    navbatni <b>tiqib qo'yadi</b> va parol
+    tiklash xati kelmaydi.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 4</span>
+    <h4>Redis va database navbatlari</h4>
+    <div class="natija">database   →  sozlash SHART EMAS, tayyor. Sekinroq.
+redis      →  tezroq, atomik. Alohida xizmat kerak (68-dars).
+sqs        →  AWS, cheksiz masshtab</div>
+    <p>🔍 Bizda <code>QUEUE_CONNECTION=database</code>
+    — o'rganish va kichik loyihalar uchun
+    <b>butunlay yetarli</b>.</p>
+    <p>⚠️ Katta yuklamada <code>database</code>
+    muammo bo'ladi: har worker jadvalni
+    <b>qulflaydi</b>.</p>
+    <p>✅ Redis'ga o'tish — bitta qator
+    (<code>.env</code>), lekin
+    <b>Horizon</b> ham ochiladi (HOLAT 7).</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 5</span>
+    <h4>Job ichida model saqlash</h4>
+    <div class="natija">❌ public function __construct(public Vakansiya $vakansiya) {}</div>
+    <p>Model <code>SerializesModels</code> orqali
+    faqat <code>id</code> sifatida saqlanadi va
+    bajarilganda <b>qayta yuklanadi</b>. Bu
+    yaxshi. Lekin:</p>
+    <div class="natija">⚠️ Yozuv O'CHIRILGAN bo'lsa  →  ModelNotFoundException
+⚠️ Yozuv O'ZGARGAN bo'lsa    →  job ESKI emas, YANGI holat bilan ishlaydi</div>
+    <p>✅ 64-darsdagi qoida: job ichiga <b>DTO</b>
+    yoki <code>id</code> soling — o'sha
+    paytdagi holat muhim bo'lsa.</p>
+    <p>🔑 Va <code>ModelNotFoundException</code> ni
+    kutib oling:</p>
+    <div class="natija">public $deleteWhenMissingModels = true;</div>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 6</span>
+    <h4>Cron muhiti — bo'sh</h4>
+    <div class="natija">⚠️ Cron da PATH, .env, HOME — hammasi BOSHQACHA yoki YO'Q
+
+Ko'p uchraydigan xatolar:
+   "php: command not found"     →  to'liq yo'l: /usr/bin/php8.3
+   "Could not open input file"  →  cd qilinmagan
+   hech narsa bo'lmayapti       →  loglar /dev/null ga ketyapti</div>
+    <p>✅ Tuzatish uchun <code>/dev/null</code> ni
+    <b>vaqtincha</b> faylga almashtiring:</p>
+    <div class="natija">* * * * * cd /var/www/ishtop && /usr/bin/php8.3 artisan schedule:run >> /tmp/cron.log 2>&1</div>
+    <p>🔑 Va crontab <b>qaysi foydalanuvchida</b>
+    ekaniga e'tibor bering:
+    <code>crontab -e -u www-data</code> —
+    69-darsdagi huquqlar bilan mos
+    bo'lsin.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>Laravel Horizon</h4>
+    <div class="natija">composer require laravel/horizon
+php artisan horizon:install
+php artisan horizon</div>
+    <p>Redis navbatlari uchun <b>boshqaruv
+    paneli</b>: real vaqtda job'lar, yiqilganlar,
+    o'tkazuvchanlik, kutish vaqti.</p>
+    <p>✅ Supervisor sozlamasi ham soddalashadi —
+    bitta <code>horizon</code> jarayoni
+    worker'larni <b>o'zi</b> boshqaradi
+    (<code>config/horizon.php</code> da).</p>
+    <p>⚠️ Faqat <b>Redis</b> bilan ishlaydi.
+    <code>database</code> navbatida ishlamaydi.</p>
+    <p>⚠️ Va 66-darsdan: panelni himoyalang —
+    <code>Horizon::auth()</code> yoki
+    <code>gate</code>.</p>
+  </div>
+
+  <!-- ═══════════════ 10) AMALIYOT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    💻 Quyida amaliyot bor. Hozir o'qish rejimidasiz — kompyuter
+    yoningizda bo'lganda <b>💻 Amaliyot</b> rejimiga o'ting va
+    shu bo'limdan davom eting.
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <b>Zond job yarating.</b>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+cat > app/Jobs/ZondJob.php <<'PHPEOF'
+&lt;?php
+
+declare(strict_types=1);
+
+namespace App\Jobs;
+
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Log;
+
+final class ZondJob implements ShouldQueue
+{
+    use Queueable;
+
+    public function handle(): void
+    {
+        Log::info('ZOND: VERSIYA-1');
+    }
+}
+PHPEOF
+php -l app/Jobs/ZondJob.php
+php artisan tinker --execute='DB::table(&quot;jobs&quot;)->delete(); DB::table(&quot;failed_jobs&quot;)->delete();'
+rm -f storage/logs/laravel.log">cd ~/Projects/Learn/ishtop
+cat &gt; app/Jobs/ZondJob.php &lt;&lt;'PHPEOF'
+&lt;?php
+
+declare(strict_types=1);
+
+namespace App\Jobs;
+
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Log;
+
+final class ZondJob implements ShouldQueue
+{
+    use Queueable;
+
+    public function handle(): void
+    {
+        Log::info('ZOND: VERSIYA-1');
+    }
+}
+PHPEOF
+php -l app/Jobs/ZondJob.php
+php artisan tinker --execute='DB::table(&quot;jobs&quot;)-&gt;delete(); DB::table(&quot;failed_jobs&quot;)-&gt;delete();'
+rm -f storage/logs/laravel.log</div>
+      </li>
+
+      <li>
+        <b>⭐ Worker eski kodni saqlashini
+        o'lchang.</b>
+        <div class="cmd" data-cmd="nohup php artisan queue:work --sleep=1 --tries=1 > /tmp/worker.log 2>&amp;1 &amp;
+sleep 4
+php artisan tinker --execute='App\Jobs\ZondJob::dispatch();' >/dev/null 2>&amp;1
+sleep 3
+echo &quot;  1-job:  $(grep -o 'ZOND: VERSIYA-[0-9]' storage/logs/laravel.log | tail -1)&quot;
+sed -i 's/VERSIYA-1/VERSIYA-2/' app/Jobs/ZondJob.php
+echo '  --- kod VERSIYA-2 ga o\x27zgartirildi ---'
+php artisan tinker --execute='App\Jobs\ZondJob::dispatch();' >/dev/null 2>&amp;1
+sleep 3
+echo &quot;  2-job:  $(grep -o 'ZOND: VERSIYA-[0-9]' storage/logs/laravel.log | tail -1)&quot;">nohup php artisan queue:work --sleep=1 --tries=1 &gt; /tmp/worker.log 2&gt;&amp;1 &amp;
+sleep 4
+php artisan tinker --execute='App\Jobs\ZondJob::dispatch();' &gt;/dev/null 2&gt;&amp;1
+sleep 3
+echo &quot;  1-job:  $(grep -o 'ZOND: VERSIYA-[0-9]' storage/logs/laravel.log | tail -1)&quot;
+sed -i 's/VERSIYA-1/VERSIYA-2/' app/Jobs/ZondJob.php
+echo '  --- kod VERSIYA-2 ga o\x27zgartirildi ---'
+php artisan tinker --execute='App\Jobs\ZondJob::dispatch();' &gt;/dev/null 2&gt;&amp;1
+sleep 3
+echo &quot;  2-job:  $(grep -o 'ZOND: VERSIYA-[0-9]' storage/logs/laravel.log | tail -1)&quot;</div>
+        <p class="expect">⚠️ Ikkinchisi ham
+        <b><code>VERSIYA-1</code></b> — eski kod
+        xotirada.</p>
+      </li>
+
+      <li>
+        <b><code>queue:restart</code> ni sinang.</b>
+        <div class="cmd" data-cmd="php artisan queue:restart
+sleep 3
+pgrep -f 'queue:work' >/dev/null &amp;&amp; echo '  worker hali tirik' || echo '  worker CHIQDI ✅'
+php artisan tinker --execute='echo &quot;  kesh kaliti: &quot;, var_export(Cache::get(&quot;illuminate:queue:restart&quot;), true), PHP_EOL;'
+nohup php artisan queue:work --sleep=1 --tries=1 > /tmp/worker2.log 2>&amp;1 &amp;
+sleep 4
+php artisan tinker --execute='App\Jobs\ZondJob::dispatch();' >/dev/null 2>&amp;1
+sleep 3
+echo &quot;  yangi worker: $(grep -o 'ZOND: VERSIYA-[0-9]' storage/logs/laravel.log | tail -1)  ✅&quot;
+php artisan queue:restart >/dev/null 2>&amp;1
+sleep 3">php artisan queue:restart
+sleep 3
+pgrep -f 'queue:work' &gt;/dev/null &amp;&amp; echo '  worker hali tirik' || echo '  worker CHIQDI ✅'
+php artisan tinker --execute='echo &quot;  kesh kaliti: &quot;, var_export(Cache::get(&quot;illuminate:queue:restart&quot;), true), PHP_EOL;'
+nohup php artisan queue:work --sleep=1 --tries=1 &gt; /tmp/worker2.log 2&gt;&amp;1 &amp;
+sleep 4
+php artisan tinker --execute='App\Jobs\ZondJob::dispatch();' &gt;/dev/null 2&gt;&amp;1
+sleep 3
+echo &quot;  yangi worker: $(grep -o 'ZOND: VERSIYA-[0-9]' storage/logs/laravel.log | tail -1)  ✅&quot;
+php artisan queue:restart &gt;/dev/null 2&gt;&amp;1
+sleep 3</div>
+        <p class="expect">Kesh kaliti — <b>vaqt
+        tamg'asi</b> (menda
+        <code>1787731068</code>).</p>
+      </li>
+
+      <li>
+        <b><code>queue:listen</code> farqini
+        ko'ring.</b>
+        <div class="cmd" data-cmd="sed -i 's/VERSIYA-2/VERSIYA-3/' app/Jobs/ZondJob.php
+nohup php artisan queue:listen --sleep=1 --tries=1 > /tmp/listen.log 2>&amp;1 &amp;
+sleep 5
+php artisan tinker --execute='App\Jobs\ZondJob::dispatch();' >/dev/null 2>&amp;1
+sleep 4
+echo &quot;  listen:        $(grep -o 'ZOND: VERSIYA-[0-9]' storage/logs/laravel.log | tail -1)&quot;
+sed -i 's/VERSIYA-3/VERSIYA-4/' app/Jobs/ZondJob.php
+php artisan tinker --execute='App\Jobs\ZondJob::dispatch();' >/dev/null 2>&amp;1
+sleep 5
+echo &quot;  kod o'zgargach: $(grep -o 'ZOND: VERSIYA-[0-9]' storage/logs/laravel.log | tail -1)  <-- QAYTA YUKLADI&quot;
+pkill -f 'queue:listen'">sed -i 's/VERSIYA-2/VERSIYA-3/' app/Jobs/ZondJob.php
+nohup php artisan queue:listen --sleep=1 --tries=1 &gt; /tmp/listen.log 2&gt;&amp;1 &amp;
+sleep 5
+php artisan tinker --execute='App\Jobs\ZondJob::dispatch();' &gt;/dev/null 2&gt;&amp;1
+sleep 4
+echo &quot;  listen:        $(grep -o 'ZOND: VERSIYA-[0-9]' storage/logs/laravel.log | tail -1)&quot;
+sed -i 's/VERSIYA-3/VERSIYA-4/' app/Jobs/ZondJob.php
+php artisan tinker --execute='App\Jobs\ZondJob::dispatch();' &gt;/dev/null 2&gt;&amp;1
+sleep 5
+echo &quot;  kod o'zgargach: $(grep -o 'ZOND: VERSIYA-[0-9]' storage/logs/laravel.log | tail -1)  &lt;-- QAYTA YUKLADI&quot;
+pkill -f 'queue:listen'</div>
+        <p class="expect"><b>VERSIYA-3</b> →
+        <b>VERSIYA-4</b>: restart <b>shart
+        emas</b>.</p>
+      </li>
+
+      <li>
+        <b>🔍 Job yiqilishini o'lchang.</b>
+        <div class="cmd" data-cmd="cat > app/Jobs/ZondJob.php <<'PHPEOF'
+&lt;?php
+
+declare(strict_types=1);
+
+namespace App\Jobs;
+
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Queue\Queueable;
+
+final class ZondJob implements ShouldQueue
+{
+    use Queueable;
+
+    public function __construct(public bool $yiqil = false) {}
+
+    public function handle(): void
+    {
+        if ($this->yiqil) {
+            throw new \RuntimeException('Tashqi API javob bermadi');
+        }
+    }
+}
+PHPEOF
+php artisan tinker --execute='DB::table(&quot;jobs&quot;)->delete(); DB::table(&quot;failed_jobs&quot;)->delete(); App\Jobs\ZondJob::dispatch(true);'
+php artisan queue:work --stop-when-empty --tries=3 --sleep=0 --backoff=0 2>&amp;1 | grep -E 'ZondJob' | head -6
+php artisan tinker --execute='echo &quot;  jobs: &quot;, DB::table(&quot;jobs&quot;)->count(), &quot;   failed_jobs: &quot;, DB::table(&quot;failed_jobs&quot;)->count(), PHP_EOL;'">cat &gt; app/Jobs/ZondJob.php &lt;&lt;'PHPEOF'
+&lt;?php
+
+declare(strict_types=1);
+
+namespace App\Jobs;
+
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Queue\Queueable;
+
+final class ZondJob implements ShouldQueue
+{
+    use Queueable;
+
+    public function __construct(public bool $yiqil = false) {}
+
+    public function handle(): void
+    {
+        if ($this-&gt;yiqil) {
+            throw new \RuntimeException('Tashqi API javob bermadi');
+        }
+    }
+}
+PHPEOF
+php artisan tinker --execute='DB::table(&quot;jobs&quot;)-&gt;delete(); DB::table(&quot;failed_jobs&quot;)-&gt;delete(); App\Jobs\ZondJob::dispatch(true);'
+php artisan queue:work --stop-when-empty --tries=3 --sleep=0 --backoff=0 2&gt;&amp;1 | grep -E 'ZondJob' | head -6
+php artisan tinker --execute='echo &quot;  jobs: &quot;, DB::table(&quot;jobs&quot;)-&gt;count(), &quot;   failed_jobs: &quot;, DB::table(&quot;failed_jobs&quot;)-&gt;count(), PHP_EOL;'</div>
+        <p class="expect">Uchta <b>FAIL</b>, so'ng
+        <code>failed_jobs: 1</code>.</p>
+      </li>
+
+      <li>
+        <b>To'liq tsiklni yakunlang.</b>
+        <div class="cmd" data-cmd="php artisan queue:failed | tail -3
+php artisan queue:retry all | tail -2
+php artisan tinker --execute='echo &quot;  jobs: &quot;, DB::table(&quot;jobs&quot;)->count(), &quot;   failed_jobs: &quot;, DB::table(&quot;failed_jobs&quot;)->count(), PHP_EOL;'
+sed -i 's/if ($this->yiqil) {/if (false \&amp;\&amp; $this->yiqil) {/' app/Jobs/ZondJob.php
+php artisan queue:work --stop-when-empty --tries=1 --sleep=0 2>&amp;1 | grep ZondJob | tail -2
+php artisan tinker --execute='echo &quot;  jobs: &quot;, DB::table(&quot;jobs&quot;)->count(), &quot;   failed_jobs: &quot;, DB::table(&quot;failed_jobs&quot;)->count(), PHP_EOL;'">php artisan queue:failed | tail -3
+php artisan queue:retry all | tail -2
+php artisan tinker --execute='echo &quot;  jobs: &quot;, DB::table(&quot;jobs&quot;)-&gt;count(), &quot;   failed_jobs: &quot;, DB::table(&quot;failed_jobs&quot;)-&gt;count(), PHP_EOL;'
+sed -i 's/if ($this-&gt;yiqil) {/if (false \&amp;\&amp; $this-&gt;yiqil) {/' app/Jobs/ZondJob.php
+php artisan queue:work --stop-when-empty --tries=1 --sleep=0 2&gt;&amp;1 | grep ZondJob | tail -2
+php artisan tinker --execute='echo &quot;  jobs: &quot;, DB::table(&quot;jobs&quot;)-&gt;count(), &quot;   failed_jobs: &quot;, DB::table(&quot;failed_jobs&quot;)-&gt;count(), PHP_EOL;'</div>
+        <p class="expect"><code>retry</code> dan keyin
+        <code>jobs: 1</code>, tuzatilgach
+        <b>ikkalasi ham 0</b>.</p>
+      </li>
+
+      <li>
+        <b>Scheduler buyruqlarini sinang.</b>
+        <div class="cmd" data-cmd="php artisan schedule:list
+php artisan schedule:run
+php artisan schedule:test --name=&quot;ishtop:vakansiyalarni-yop&quot; 2>&amp;1 | tail -4">php artisan schedule:list
+php artisan schedule:run
+php artisan schedule:test --name=&quot;ishtop:vakansiyalarni-yop&quot; 2&gt;&amp;1 | tail -4</div>
+        <p class="expect">🔍 <code>schedule:test</code>
+        Laravel bajaradigan <b>aniq buyruqni</b>
+        ko'rsatadi.</p>
+      </li>
+
+      <li>
+        <b>⭐ 🔍 <code>withoutOverlapping</code> ni
+        o'lchang.</b>
+        <div class="cmd" data-cmd="cp routes/console.php /tmp/console.bak
+cat >> routes/console.php <<'PHPEOF'
+
+Artisan::command('zond:sekin', function () {
+    sleep(8);
+    file_put_contents(storage_path('logs/zond-sekin.log'), now()->format('H:i:s.u').&quot;\n&quot;, FILE_APPEND);
+})->purpose('Sekin zond');
+
+Schedule::command('zond:sekin')->everyMinute()->withoutOverlapping();
+PHPEOF
+rm -f storage/logs/zond-sekin.log
+php artisan schedule:run >/tmp/s1.log 2>&amp;1 &amp;
+php artisan schedule:run >/tmp/s2.log 2>&amp;1 &amp;
+sleep 14
+echo &quot;  1-jarayon: $(grep -c 'zond:sekin' /tmp/s1.log) ta&quot;
+echo &quot;  2-jarayon: $(grep -c 'zond:sekin' /tmp/s2.log) ta&quot;
+echo &quot;  BAJARILDI: $(wc -l < storage/logs/zond-sekin.log 2>/dev/null || echo 0) marta  <-- withoutOverlapping&quot;
+cp /tmp/console.bak routes/console.php">cp routes/console.php /tmp/console.bak
+cat &gt;&gt; routes/console.php &lt;&lt;'PHPEOF'
+
+Artisan::command('zond:sekin', function () {
+    sleep(8);
+    file_put_contents(storage_path('logs/zond-sekin.log'), now()-&gt;format('H:i:s.u').&quot;\n&quot;, FILE_APPEND);
+})-&gt;purpose('Sekin zond');
+
+Schedule::command('zond:sekin')-&gt;everyMinute()-&gt;withoutOverlapping();
+PHPEOF
+rm -f storage/logs/zond-sekin.log
+php artisan schedule:run &gt;/tmp/s1.log 2&gt;&amp;1 &amp;
+php artisan schedule:run &gt;/tmp/s2.log 2&gt;&amp;1 &amp;
+sleep 14
+echo &quot;  1-jarayon: $(grep -c 'zond:sekin' /tmp/s1.log) ta&quot;
+echo &quot;  2-jarayon: $(grep -c 'zond:sekin' /tmp/s2.log) ta&quot;
+echo &quot;  BAJARILDI: $(wc -l &lt; storage/logs/zond-sekin.log 2&gt;/dev/null || echo 0) marta  &lt;-- withoutOverlapping&quot;
+cp /tmp/console.bak routes/console.php</div>
+        <p class="expect">⭐ Ikkita jarayon, lekin
+        <b>bir marta</b> bajarildi.</p>
+      </li>
+
+      <li>
+        <b>supervisor sozlamasini yozing.</b> (Serverda
+        ishlatasiz — hozir faqat tayyorlaymiz.)
+        <div class="cmd" data-cmd="cat > ishtop-worker.conf <<'EOF'
+[program:ishtop-worker]
+process_name=%(program_name)s_%(process_num)02d
+command=php /var/www/ishtop/artisan queue:work --sleep=3 --tries=3 --max-time=3600
+directory=/var/www/ishtop
+autostart=true
+autorestart=true
+stopasgroup=true
+killasgroup=true
+user=www-data
+numprocs=2
+redirect_stderr=true
+stdout_logfile=/var/www/ishtop/storage/logs/worker.log
+stopwaitsecs=3600
+EOF
+cat ishtop-worker.conf | head -6
+echo '  --- serverda: ---'
+echo '  sudo cp ishtop-worker.conf /etc/supervisor/conf.d/'
+echo '  sudo supervisorctl reread &amp;&amp; sudo supervisorctl update'
+echo '  sudo supervisorctl start ishtop-worker:*'">cat &gt; ishtop-worker.conf &lt;&lt;'EOF'
+[program:ishtop-worker]
+process_name=%(program_name)s_%(process_num)02d
+command=php /var/www/ishtop/artisan queue:work --sleep=3 --tries=3 --max-time=3600
+directory=/var/www/ishtop
+autostart=true
+autorestart=true
+stopasgroup=true
+killasgroup=true
+user=www-data
+numprocs=2
+redirect_stderr=true
+stdout_logfile=/var/www/ishtop/storage/logs/worker.log
+stopwaitsecs=3600
+EOF
+cat ishtop-worker.conf | head -6
+echo '  --- serverda: ---'
+echo '  sudo cp ishtop-worker.conf /etc/supervisor/conf.d/'
+echo '  sudo supervisorctl reread &amp;&amp; sudo supervisorctl update'
+echo '  sudo supervisorctl start ishtop-worker:*'</div>
+      </li>
+
+      <li>
+        <b>Nazorat buyruqlarini mashq qiling.</b>
+        <div class="cmd" data-cmd="pgrep -f 'queue:work' >/dev/null &amp;&amp; echo '  worker: ishlayapti' || echo '  worker: YO\x27Q'
+php artisan tinker --execute='echo &quot;  navbat uzunligi: &quot;, DB::table(&quot;jobs&quot;)->count(), PHP_EOL;'
+php artisan queue:monitor default --max=100
+php artisan queue:failed | tail -2
+php artisan schedule:list | tail -3">pgrep -f 'queue:work' &gt;/dev/null &amp;&amp; echo '  worker: ishlayapti' || echo '  worker: YO\x27Q'
+php artisan tinker --execute='echo &quot;  navbat uzunligi: &quot;, DB::table(&quot;jobs&quot;)-&gt;count(), PHP_EOL;'
+php artisan queue:monitor default --max=100
+php artisan queue:failed | tail -2
+php artisan schedule:list | tail -3</div>
+      </li>
+
+      <li>
+        <b>Tozalang.</b>
+        <div class="cmd" data-cmd="pkill -f 'queue:work' 2>/dev/null; pkill -f 'queue:listen' 2>/dev/null
+rm -f app/Jobs/ZondJob.php ishtop-worker.conf storage/logs/zond-sekin.log
+php artisan tinker --execute='DB::table(&quot;jobs&quot;)->delete(); DB::table(&quot;failed_jobs&quot;)->delete();'
+php artisan schedule:clear-cache
+./vendor/bin/pint
+php artisan test 2>&amp;1 | tail -3">pkill -f 'queue:work' 2&gt;/dev/null; pkill -f 'queue:listen' 2&gt;/dev/null
+rm -f app/Jobs/ZondJob.php ishtop-worker.conf storage/logs/zond-sekin.log
+php artisan tinker --execute='DB::table(&quot;jobs&quot;)-&gt;delete(); DB::table(&quot;failed_jobs&quot;)-&gt;delete();'
+php artisan schedule:clear-cache
+./vendor/bin/pint
+php artisan test 2&gt;&amp;1 | tail -3</div>
+        <p class="expect">Menda <b>121 passed (243
+        assertions)</b>.</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li>⭐ Worker eski kodni saqlashini
+      ko'rdim</li>
+      <li><code>queue:restart</code> va kesh kalitini
+      ko'rdim</li>
+      <li><code>queue:listen</code> kodni qayta
+      yuklashini ko'rdim</li>
+      <li>🔍 <code>--tries=3</code> → 3 FAIL →
+      <code>failed_jobs: 1</code></li>
+      <li><code>queue:retry all</code> tsikli
+      yakunlandi</li>
+      <li><code>schedule:test</code> aniq buyruqni
+      ko'rsatdi</li>
+      <li>⭐ 🔍 <code>withoutOverlapping</code>
+      o'lchandi</li>
+      <li>supervisor sozlamasi yozildi</li>
+      <li>Nazorat buyruqlari mashq qilindi</li>
+      <li>To'liq to'plam yashil</li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 11) SINAB KO'RAMIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Onlayn do'kon. Buyurtma to'langanda job
+    ishlaydi:</p>
+    <div class="natija">class BuyurtmaniTasdiqla implements ShouldQueue
+{
+    public $tries = 3;
+
+    public function handle(): void
+    {
+        $this->buyurtma->update(['holat' => 'tasdiqlangan']);
+
+        Mail::to($this->buyurtma->email)->send(new BuyurtmaTasdigi($this->buyurtma));
+
+        $this->omborga->zaxiraKamaytir($this->buyurtma);   // tashqi API
+    }
+}</div>
+    <p>Sozlamalar:</p>
+    <div class="natija">config/queue.php:   'retry_after' => 60
+supervisor:         queue:work --timeout=90 --tries=3</div>
+    <p>Odatda hammasi yaxshi. Lekin ombor API'si
+    sekinlashgan kunlari mijozlar shikoyat
+    qildi: <b>«ikkita bir xil xat keldi»</b>, va
+    omborchi <b>«zaxira ikki marta
+    kamaydi»</b> dedi.</p>
+    <p>Log'da esa <b>xato yo'q</b>. Nima
+    bo'lgan?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <p><b><code>retry_after</code> (60) —
+        <code>--timeout</code> (90) dan
+        kichik.</b></p>
+        <div class="natija">00:00  worker A job ni oldi, ombor API ni kutyapti
+00:60  retry_after o'tdi
+       →  navbat job ni "tashlab ketilgan" deb hisobladi
+       →  worker B GA BERDI                              ⚠️
+00:75  worker A tugatdi:  xat #1, zaxira -1
+00:135 worker B tugatdi:  xat #2, zaxira -1              ⚠️</div>
+        <p class="expect">🔑 Job <b>yiqilmadi</b> —
+        shuning uchun log toza va
+        <code>failed_jobs</code> bo'sh. U
+        shunchaki <b>ikki marta</b>
+        bajarildi.</p>
+        <p>✅ Ikki qismli tuzatish:</p>
+        <div class="natija">1) SOZLAMA:  timeout HAR DOIM retry_after dan KICHIK
+   'retry_after' => 120      timeout = 90    ✅
+
+2) KOD:  job IDEMPOTENT bo'lsin — ikki marta ishlasa ham natija bir xil</div>
+        <p>Idempotentlik nima?</p>
+        <div class="natija">❌ $this->omborga->zaxiraKamaytir($buyurtma);       // har chaqiruvda -1
+
+✅ if ($buyurtma->holat === 'tasdiqlangan') {
+       return;                                          // ALLAQACHON bajarilgan
+   }
+
+✅ yoki: ShouldBeUnique interfeysi
+   public function uniqueId(): string { return $this->buyurtma->id; }</div>
+        <p>🔑 <b>Umumiy saboq:</b> navbat
+        «<b>kamida bir marta</b>» yetkazishni
+        kafolatlaydi — «aynan bir marta»ni
+        <b>emas</b>. Bu Laravel'ning kamchiligi
+        emas, taqsimlangan tizimlarning
+        <b>tabiati</b>.</p>
+        <p>✅ Shuning uchun har job'ni yozayotganda
+        so'rang: <b>«bu ikki marta ishlasa nima
+        bo'ladi?»</b></p>
+        <p>🔍 Va e'tibor bering: bu 62, 66 va
+        69-darslardagi bilan bir xil turkum —
+        <b>xato yo'q, natija noto'g'ri</b>.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span>
+    ⭐ <code>queue:work</code> ishlab turganda kodni
+    o'zgartirsangiz nima bo'ladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Eski kodni xotirasida saqlaydi va uni bajaraveradi</button></li>
+      <li><button class="quiz-option">Yangi kodni darrov o'qib olib ishlatishni boshlaydi</button></li>
+      <li><button class="quiz-option">Xato beradi va butunlay ishlashdan to'xtab qoladi</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi: kod
+    <code>VERSIYA-2</code> ga o'zgartirilgach ham
+    worker <b><code>VERSIYA-1</code></b> ni yozdi.
+    🔑 <code>queue:work</code> — <b>demon</b>: PHP
+    fayllarni bir marta yuklaydi va xotirada
+    saqlaydi. HTTP so'rovdan tubdan farq
+    qiladi.
+    ✅ <code>queue:restart</code> keshga vaqt
+    tamg'asini qo'yadi
+    (<code>illuminate:queue:restart</code> =
+    <b>1787731068</b>), worker joriy job'ni
+    tugatib <b>chiqadi</b> — qayta ko'tarish
+    <b>supervisor</b>ning ishi.
+    🔍 <code>queue:listen</code> esa kodni
+    <b>qayta yuklaydi</b> (VERSIYA-3 →
+    VERSIYA-4).</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span>
+    ⭐ <code>withoutOverlapping()</code> bo'lgan vazifa
+    ikki marta bir vaqtda ishga tushsa?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Faqat bittasi bajaradi ikkinchisi esa o'tkazib yuboradi</button></li>
+      <li><button class="quiz-option">Ikkalasi ham bir vaqtda bajarib natijani ikkilantiradi</button></li>
+      <li><button class="quiz-option">Ikkalasi ham xato berib umuman bajarilmay qoladi</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi: ikkita
+    <code>schedule:run</code> bir vaqtda ishga
+    tushirildi — 1-jarayon <b>0 ta</b>, 2-jarayon
+    <b>1 ta</b> ishga tushirdi, faylda
+    <b>bitta</b> yozuv.
+    🔑 Keshda <b>qulf</b> (mutex) qo'yiladi;
+    ikkinchisi qulfni ko'radi va o'tkazib
+    yuboradi.
+    ⚠️ Jarayon qattiq o'ldirilsa qulf qolib
+    ketishi mumkin →
+    <code>schedule:clear-cache</code>.
+    ✅ Bir necha server bo'lsa —
+    <code>onOneServer()</code>.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span>
+    Rejalashtirilgan vazifalar serverda qanday ishga
+    tushadi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Crontab da har daqiqada schedule:run buyrug'i chaqiriladi</button></li>
+      <li><button class="quiz-option">Crontab ga har vazifa alohida yozib qo'yiladi</button></li>
+      <li><button class="quiz-option">Laravel o'zi cron sifatida fonda ishlab turaveradi</button></li>
+    </ul>
+    <div class="quiz-explain">🔑 Crontab'da
+    <b>bitta</b> qator:
+    <code>* * * * * cd /var/www/ishtop &amp;&amp; php artisan
+    schedule:run &gt;&gt; /dev/null 2&gt;&amp;1</code>.
+    <code>schedule:run</code> Laravel ichidagi
+    rejani o'qib, <b>vaqti kelganini</b>
+    bajaradi
+    (<code>INFO No scheduled commands are ready to
+    run.</code>).
+    ✅ Foydasi: yangi vazifa qo'shsangiz crontab'ga
+    <b>tegmaysiz</b> — hammasi
+    <code>routes/console.php</code> da, ya'ni
+    git'da.
+    ⚠️ Cron muhitida <code>PATH</code> bo'sh
+    bo'lishi mumkin — PHP ning <b>to'liq
+    yo'lini</b> yozing.</div>
+  </div>
+
+  <!-- ═══════════════ 12) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+
+    <p>Javobni ovoz chiqarib ayting, keyin ochib
+    solishtiring.</p>
+
+    <details class="recall">
+      <summary>⭐ Nega deploy'dan keyin
+      <code>queue:restart</code> kerak?</summary>
+      <div class="answer"><code>queue:work</code> —
+      <b>demon</b>: PHP fayllarni bir marta yuklaydi
+      va <b>xotirada saqlaydi</b>.
+      🔍 O'lchandi: kod <code>VERSIYA-2</code> ga
+      o'zgardi, worker hamon
+      <code>VERSIYA-1</code> yozdi.
+      🔑 <code>queue:restart</code> worker'ni
+      <b>o'ldirmaydi</b> — keshga vaqt tamg'asini
+      qo'yadi
+      (<code>illuminate:queue:restart</code>);
+      worker joriy job'ni <b>tugatib</b>
+      chiqadi.
+      ⚠️ Qayta ko'tarish — <b>supervisor</b>ning
+      ishi (<code>autorestart=true</code>).
+      🔍 <code>queue:listen</code> har job uchun yangi
+      jarayon yaratadi va kodni qayta yuklaydi —
+      <b>mahalliy ish</b> uchun.</div>
+    </details>
+
+    <details class="recall">
+      <summary>supervisor sozlamasidagi muhim
+      qatorlar</summary>
+      <div class="answer"><code>autorestart=true</code> —
+      <b>eng muhimi</b>: o'lsa qayta ko'taradi.
+      <code>numprocs=2</code> — nechta worker.
+      <code>user=www-data</code> — 69-darsdagi
+      huquqlar bilan mos.
+      <code>--max-time=3600</code> — xotira sizishiga
+      qarshi, soatiga bir marta qayta boshlaydi.
+      <code>stopwaitsecs=3600</code> — to'xtatishda
+      joriy job'ni tugatishga vaqt (usiz job
+      <b>yarim</b> qoladi).
+      <code>stopasgroup=true</code> — bola
+      jarayonlarni ham.
+      ✅ <code>supervisorctl reread</code> →
+      <code>update</code> → <code>start
+      ishtop-worker:*</code>.</div>
+    </details>
+
+    <details class="recall">
+      <summary>🔍 Job yiqilganda nima bo'ladi?</summary>
+      <div class="answer">🔍 O'lchandi
+      (<code>--tries=3</code>): <b>3 ta FAIL</b>,
+      so'ng <code>failed_jobs: 1</code>.
+      <code>queue:failed</code> uuid, ulanish va sinf
+      nomini ko'rsatadi.
+      <code>queue:retry all</code> → job navbatga
+      <b>qaytadi</b> (<code>jobs: 1</code>); kod
+      tuzatilgach <b>DONE</b> va ikkalasi ham
+      <b>0</b>.
+      🔑 <code>--tries=0</code> — <b>cheksiz</b>
+      urinadi ⚠️ tashqi API o'chsa cheksiz
+      sikl.
+      ✅ Tashqi xizmatlar uchun o'sib boruvchi
+      backoff:
+      <code>public array $backoff = [10, 60,
+      300];</code></div>
+    </details>
+
+    <details class="recall">
+      <summary>⚠️ <code>--timeout</code> va
+      <code>retry_after</code></summary>
+      <div class="answer">🔑 <code>--timeout</code>
+      <b>har doim</b> <code>retry_after</code> dan
+      <b>kichik</b> bo'lsin.
+      ⚠️ Aks holda: <code>retry_after</code> o'tgach
+      navbat job'ni «tashlab ketilgan» deb
+      hisoblab <b>boshqa worker'ga</b> beradi —
+      birinchisi hali ishlayotgan bo'lsa
+      ham.
+      Natija: xat <b>ikki marta</b>, zaxira
+      <b>ikki marta</b> kamayadi.
+      Va <b>log toza</b> — job yiqilmadi, shunchaki
+      ikki marta bajarildi.
+      ✅ Navbat «<b>kamida bir marta</b>»
+      kafolatlaydi. Har job uchun so'rang:
+      <b>«ikki marta ishlasa nima bo'ladi?»</b> →
+      idempotentlik yoki
+      <code>ShouldBeUnique</code>.</div>
+    </details>
+
+    <details class="recall">
+      <summary>Fon ishlari ishlayotganini qanday
+      tekshirasiz?</summary>
+      <div class="answer"><b>1)</b> Worker bormi —
+      <code>ps aux | grep queue:work</code>,
+      <code>supervisorctl status</code>.
+      <b>2)</b> Navbat o'smayaptimi —
+      <code>select count(*) from jobs</code>,
+      <code>queue:monitor default --max=100</code>.
+      <b>3)</b> Yiqilganlar —
+      <code>queue:failed</code>.
+      <b>4)</b> Reja — <code>schedule:list</code>,
+      <code>tail -f storage/logs/reja.log</code>.
+      <b>5)</b> Cron —
+      <code>grep CRON /var/log/syslog</code>.
+      🔑 Eng muhim ko'rsatkich — <b>navbat
+      uzunligi</b>: o'sib borayotgan bo'lsa,
+      worker yetishmayapti yoki umuman
+      yo'q.
+      ✅ <code>queue:monitor</code> ni ham rejaga
+      qo'ying va <code>QueueBusy</code> hodisasini
+      ushlang.</div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 13) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Xulosa</span>
+    <ul>
+      <li>Navbat va reja <b>o'zi ishga
+      tushmaydi</b>: supervisor va cron
+      kerak.</li>
+      <li>⭐ 🔍 <code>queue:work</code> — demon: kod
+      <b>xotirada</b> qoladi
+      (<code>VERSIYA-1</code>).</li>
+      <li><code>queue:restart</code> keshga vaqt
+      tamg'asi qo'yadi; worker <b>chiqadi</b>,
+      qayta ko'tarish supervisor'da.</li>
+      <li>🔍 <code>queue:listen</code> kodni qayta
+      yuklaydi — <b>mahalliy ish</b>
+      uchun.</li>
+      <li><code>autorestart=true</code> —
+      supervisor'dagi eng muhim qator.</li>
+      <li><code>--max-time</code> / <code>--memory</code>
+      — xotira sizishiga qarshi.</li>
+      <li>🔍 <code>--tries=3</code> → <b>3 FAIL</b> →
+      <code>failed_jobs</code> →
+      <code>queue:retry</code>.</li>
+      <li>⚠️ <code>--timeout</code> &lt;
+      <code>retry_after</code> — aks holda job
+      <b>ikki marta</b> bajariladi.</li>
+      <li>Navbat «<b>kamida bir marta</b>»
+      kafolatlaydi — <b>idempotentlik</b>
+      kerak.</li>
+      <li>Crontab'da <b>bitta</b> qator:
+      <code>* * * * * ... schedule:run</code>.</li>
+      <li>🔍 <code>schedule:test</code> Laravel
+      bajaradigan <b>aniq buyruqni</b>
+      ko'rsatadi.</li>
+      <li>⭐ 🔍 <code>withoutOverlapping</code>: ikkita
+      jarayon → <b>bitta</b> bajarilish.</li>
+      <li>🔑 Eng muhim ko'rsatkich — <b>navbat
+      uzunligi</b>.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p>Serverimiz to'liq ishlayapti. Lekin bitta
+    zaif joy qoldi: <b>deploy'dan oldin kim
+    testlarni ishlatadi?</b></p>
+    <p>Hozircha — <b>siz</b>. Va shoshib qolsangiz,
+    o'tkazib yuborasiz.</p>
+    <p>71-darsda <b>GitHub Actions</b> ni sozlaymiz:
+    har <code>git push</code> da testlar
+    <b>o'zi</b> ishlaydi, Pint uslubni
+    tekshiradi (65-darsdagi
+    <code>--test</code> chiqish kodi shu yerda
+    kerak bo'ladi), va <code>composer
+    audit</code> zaifliklarni qidiradi
+    (66-dars).</p>
+    <p>Va eng muhimi: <b>qizil build bilan
+    birlashtira olmaysiz</b>.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel — Queues</b>:
+    <a href="https://laravel.com/docs/13.x/queues#running-the-queue-worker">worker,
+    supervisor, <code>--timeout</code> va
+    <code>retry_after</code></a>.<sup><a href="#fn1">1</a></sup><br>
+    <b>Laravel — Task Scheduling</b>:
+    <a href="https://laravel.com/docs/13.x/scheduling#running-the-scheduler">cron,
+    <code>withoutOverlapping</code>,
+    <code>onOneServer</code></a>.<sup><a href="#fn2">2</a></sup><br>
+    <b>Supervisor</b>:
+    <a href="http://supervisord.org/configuration.html">sozlama
+    fayli va parametrlar</a>.<sup><a href="#fn3">3</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b>
+    «nechta worker kerak?», «Horizon o'rnatsammi?»,
+    «systemd bilan bo'ladimi?» — har qanday savol
+    yaxshi. Birinchisiga qisqa javob: <b>navbat
+    uzunligiga qarang</b> — o'sib borayotgan
+    bo'lsa ko'paytiring, doim bo'sh bo'lsa
+    bittasi yetadi. Uchinchisiga: <b>ha</b> —
+    systemd ham supervisor kabi
+    <code>Restart=always</code> bilan ishlaydi,
+    lekin supervisor <code>numprocs</code> tufayli
+    bir necha nusxani boshqarishda
+    qulayroq.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0069-real-serverga-chiqarish.html">Oldingi: Real serverga chiqarish</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel 13 — <a href="https://laravel.com/docs/13.x/queues#running-the-queue-worker">Queues: Running the Worker</a>.</li>
+      <li id="fn2">Laravel 13 — <a href="https://laravel.com/docs/13.x/scheduling#running-the-scheduler">Task Scheduling</a>.</li>
+      <li id="fn3">Supervisor — <a href="http://supervisord.org/configuration.html">Configuration</a>.</li>
+      <li id="fn4">Barchasi jonli o'lchangan (PHP 8.3.32,
+      Laravel 13.26.1, <code>QUEUE_CONNECTION=database</code>):
+      ⭐ <code>queue:work</code> ishlab turganda job
+      <code>ZOND: VERSIYA-1</code> yozdi; kod
+      <code>VERSIYA-2</code> ga o'zgartirilgach yangi job
+      <b>hamon <code>VERSIYA-1</code></b> yozdi;
+      <code>queue:restart</code> dan keyin worker
+      <b>chiqdi</b> va yangi worker
+      <code>VERSIYA-2</code> yozdi ·
+      <code>Cache::get('illuminate:queue:restart')</code> →
+      <b>1787731068</b> ·
+      <code>queue:listen</code>: <code>VERSIYA-3</code> →
+      kod o'zgargach <code>VERSIYA-4</code> (restart
+      <b>shart emas</b>) ·
+      <code>queue:work --tries=3 --backoff=0</code> →
+      <b>3 ta FAIL</b> (4.86ms / 3.07ms / 2.89ms), so'ng
+      <code>jobs: 0  failed_jobs: 1</code>;
+      <code>queue:failed</code> →
+      <code>d35004f5-91f8-4bc9-a7c0-76de19fda5f1
+      database@default App\Jobs\ZondJob</code>;
+      <code>queue:retry all</code> → <code>jobs: 1
+      failed_jobs: 0</code>; kod tuzatilgach
+      <b>DONE</b> va ikkalasi <b>0</b> ·
+      <code>schedule:run</code> (vaqti kelmagan) →
+      <code>INFO No scheduled commands are ready to
+      run.</code> ·
+      <code>schedule:test --name="ishtop:vakansiyalarni-yop"</code>
+      → <b>141.77ms DONE</b> va aniq buyruq
+      <code>'/usr/bin/php8.3' 'artisan'
+      ishtop:vakansiyalarni-yop &gt;&gt;
+      'storage/logs/reja.log' 2&gt;&amp;1</code> ·
+      ⭐ <code>withoutOverlapping</code>: 8 soniyalik
+      vazifa, ikkita <code>schedule:run</code> bir
+      vaqtda → 1-jarayon <b>0 ta</b>, 2-jarayon
+      <b>1 ta</b> ishga tushirdi (<b>8s DONE</b>),
+      natija faylida <b>1 ta</b> yozuv ·
+      ⚠️ <b>supervisor bu mashinada o'rnatilmagan</b>
+      (<code>sudo</code> yo'q), shuning uchun
+      sozlama fayli yozildi va tekshirildi, lekin
+      <code>supervisorctl</code> bilan <b>ishga
+      tushirilmadi</b>; worker'lar
+      <code>nohup</code> bilan qo'lda boshqarildi ·
+      ilova to'plami: <b>121 passed (243
+      assertions)</b>.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>
