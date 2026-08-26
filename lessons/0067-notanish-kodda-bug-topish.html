@@ -1,0 +1,1412 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 67 — Notanish kodni o'qib bug topish</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 67 · MODUL J — ISHGA TUSHIRISH VA KASBGA KIRISH</p>
+  <h1>⭐ Notanish kodni o'qib bug topish</h1>
+  <p class="lead">Ishga kirganingizda birinchi vazifangiz
+  <b>yangi funksiya yozish emas</b> — deyarli har doim
+  «shu yerda bug bor, toping» bo'ladi. Hujjat yo'q,
+  muallif ketgan, test ham yo'q. Bugun aynan shu
+  vaziyatni yaratamiz va <b>tizimli yo'l</b> bilan
+  yechamiz.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 18 daqiqa</span>
+    <span>💻 Amaliyot ≈ 40 daqiqa</span>
+    <span>Kerak: <a href="0066-xavfsizlik.html">Dars 66</a></span>
+  </p>
+
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b>Shikoyat matni</b>
+        <span class="nima">Foydalanuvchidan kelgan
+        gap — <b>yagona</b> boshlang'ich
+        ma'lumot.</span></li>
+      <li><b>1-qadam: marshrutni topish</b>
+        <span class="nima"><code>route:list
+        --path=</code> — kirish nuqtasi.</span></li>
+      <li><b>2-qadam: yo'lni kuzatish</b>
+        <span class="nima">Controller → Query →
+        Model. <b>Faqat kerakli</b>
+        fayllar.</span></li>
+      <li><b>3-qadam: takrorlash</b>
+        <span class="nima">Bug'ni <b>o'z
+        qo'lingizda</b> ko'rmaguncha
+        tuzatmang.</span></li>
+      <li><b>🔍 4-qadam: SQL ga qarash</b>
+        <span class="nima"><code>toSql()</code> ·
+        <code>getBindings()</code> ·
+        <code>toRawSql()</code>.</span></li>
+      <li><b>⭐ Bug topildi</b>
+        <span class="nima">🔍 SQL'da bitta qavs
+        yetishmayapti.</span></li>
+      <li><b>Nega bunday bo'ldi</b>
+        <span class="nima"><code>AND</code>
+        <code>OR</code> dan <b>kuchliroq</b>
+        bog'lanadi.</span></li>
+      <li><b>🔍 O'lchandi: 2 ta yopilgan
+        vakansiya</b>
+        <span class="nima">Foydalanuvchi
+        ko'rmasligi kerak bo'lgan
+        yozuvlar.</span></li>
+      <li><b>5-qadam: avval TEST</b>
+        <span class="nima">🔍 Bug bilan
+        <b>4 failed</b>, tuzatilgach
+        <b>5 passed</b>.</span></li>
+      <li><b>Boshqa vositalar</b>
+        <span class="nima"><code>DB::listen</code> ·
+        <code>Log</code> · <code>dd</code> ·
+        <code>dump</code> · Telescope.</span></li>
+      <li><b>⚠️ Eng ko'p qilinadigan xato</b>
+        <span class="nima">Tushunmasdan
+        tuzatish.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima"><code>git log</code> ·
+        ikkilamchi qidiruv · «ishlaydi-ku» ·
+        savol berish.</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════ 1) VAZIYAT ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Vaziyat</span>
+    <p>Siz jamoaga yangi qo'shildingiz. Birinchi
+    vazifa:</p>
+    <div class="natija">TIKET #412
+
+Foydalanuvchi shikoyati:
+"Tavsiyalar bo'limida allaqachon yopilgan vakansiyalar
+ chiqyapti. Ularga murojaat qilib bo'lmaydi."
+
+Takrorlash: /tavsiya sahifasida "php" deb qidiring.
+
+Bu kodni Anvar yozgan, u martda ishdan ketgan.
+Testlari yo'q.</div>
+    <p>Sizda bor narsa: <b>shikoyat matni</b> va
+    <b>kod</b>. Boshqa hech narsa.</p>
+    <p>⚠️ Eng ko'p qilinadigan xato — darrov barcha
+    fayllarni ochib o'qishga tushish. Loyihada
+    yuzlab fayl bor; ularning <b>99% i</b> bu
+    bugga aloqador emas.</p>
+    <p>🔑 Biz <b>yo'lni kuzatamiz</b>: so'rov qayerdan
+    kirib, qayerdan chiqadi.</p>
+  </div>
+
+  <!-- ═══════════════ 2) 1-QADAM ═══════════════ -->
+  <h2>1-qadam: kirish nuqtasini topish</h2>
+
+  <p>Shikoyatda manzil bor: <code>/tavsiya</code>.
+  Marshrutlar ro'yxatidan qidiramiz:</p>
+
+  <div class="natija">php artisan route:list --path=tavsiya
+
+  GET|HEAD  api/v1/tavsiya ....... api.v1.tavsiya › Api\TavsiyaController</div>
+
+  <p>Bir buyruq — va bizda <b>aniq fayl nomi</b> bor:
+  <code>app/Http/Controllers/Api/TavsiyaController.php</code>.</p>
+
+  <div class="callout tip">
+    <span class="label">🔑 <code>route:list</code> ning foydali bayroqlari</span>
+    <div class="natija">--path=tavsiya      manzil bo'yicha
+--name=api.v1       nom bo'yicha
+--method=POST       usul bo'yicha
+--except-vendor     paketlar marshrutlarisiz
+-v                  middleware ro'yxati bilan</div>
+    <p>🔍 Oxirgisi ayniqsa foydali: «nega bu endpoint
+    401 qaytaryapti?» degan savolga javob
+    ko'pincha middleware ro'yxatida.</p>
+  </div>
+
+  <!-- ═══════════════ 3) 2-QADAM ═══════════════ -->
+  <h2>2-qadam: yo'lni kuzatish</h2>
+
+  <p>Controllerni ochamiz:</p>
+
+  <div class="natija">final class TavsiyaController extends Controller
+{
+    public function __invoke(Request $request, TavsiyaQidiruvi $qidiruv)
+    {
+        $malumot = $request->validate([
+            'matn' => ['required', 'string', 'min:2', 'max:60'],
+            'shahar' => ['nullable', 'string', 'max:60'],
+        ]);
+
+        return VakansiyaResource::collection(
+            $qidiruv->bajar($malumot['matn'], $malumot['shahar'] ?? null)
+        );
+    }
+}</div>
+
+  <p>Controller <b>hech narsa qilmaydi</b> — u
+  tekshiradi va <code>TavsiyaQidiruvi</code> ga
+  uzatadi (62-darsdagi naqsh). Demak bug
+  <b>u yerda emas</b>.</p>
+
+  <p>Keyingi fayl:</p>
+
+  <div class="natija">final class TavsiyaQidiruvi
+{
+    public function soRov(string $matn, ?string $shahar = null): Builder
+    {
+        return Vakansiya::query()
+            ->with('kompaniya')
+            ->faol()
+            ->whereLike('nom', "%{$matn}%")
+            ->orWhereHas('kompaniya', fn (Builder $k) => $k->whereLike('nom', "%{$matn}%"))
+            ->when($shahar, fn (Builder $s) => $s->where('shahar', $shahar));
+    }
+}</div>
+
+  <p>Mana bug shu yerda. Lekin — <b>ko'ryapsizmi?</b></p>
+
+  <div class="callout warn">
+    <span class="label">⚠️ Ko'z bilan topish qiyin</span>
+    <p>Kod <b>toza</b>: nomlar tushunarli, uslub
+    yaxshi, <code>faol()</code> chaqirilgan.
+    Ko'z darrov «hammasi joyida» deydi.</p>
+    <p>🔑 Shuning uchun <b>taxmin qilmaymiz</b> —
+    keyingi qadamga o'tamiz.</p>
+  </div>
+
+  <!-- ═══════════════ 4) 3-QADAM ═══════════════ -->
+  <h2>3-qadam: takrorlash</h2>
+
+  <p><b>Eng muhim qoida:</b> bug'ni <b>o'z
+  qo'lingizda</b> ko'rmaguningizcha tuzatishga
+  urinmang.</p>
+
+  <p>Shikoyatga mos ma'lumot yaratamiz.
+  Beshta vakansiya — ba'zilari yopilgan:</p>
+
+  <div class="natija">nom              faol   shahar      kompaniya
+──────────────────────────────────────────────
+PHP dasturchi    ha     Toshkent    Uzum Tech
+PHP junior       YO'Q   Toshkent    Uzum Tech
+Sotuvchi         YO'Q   Samarqand   PHP Studio
+Buxgalter        ha     Samarqand   PHP Studio
+Kuryer           YO'Q   Toshkent    PHP Studio</div>
+
+  <p>«php» deb qidiramiz:</p>
+
+  <div class="natija">=== bajar('php') ===
+    PHP dasturchi   faol=ha   shahar=Toshkent   kompaniya=Uzum Tech
+    Sotuvchi        faol=YOQ  shahar=Samarqand  kompaniya=PHP Studio   ⚠️
+    Buxgalter       faol=ha   shahar=Samarqand  kompaniya=PHP Studio
+    Kuryer          faol=YOQ  shahar=Toshkent   kompaniya=PHP Studio   ⚠️
+
+=== bajar('php', 'Toshkent') ===
+    PHP dasturchi   faol=ha   shahar=Toshkent   kompaniya=Uzum Tech
+    Kuryer          faol=YOQ  shahar=Toshkent   kompaniya=PHP Studio   ⚠️</div>
+
+  <p>✅ <b>Takrorlandi.</b> Ikkita yopilgan vakansiya
+  chiqdi — va ikkalasining ham <b>kompaniya
+  nomida</b> «PHP» bor.</p>
+
+  <p>🔑 Bu allaqachon katta maslahat: bug
+  <b>kompaniya bo'yicha qidirish</b> shoxida.</p>
+
+  <!-- ═══════════════ 5) 4-QADAM ═══════════════ -->
+  <h2>🔍 4-qadam: SQL ga qarash</h2>
+
+  <p>Eloquent oxir-oqibat SQL yozadi. Uni
+  <b>ko'rish mumkin</b>:</p>
+
+  <div class="natija">$q = (new TavsiyaQidiruvi)->soRov('php', 'Toshkent');
+
+$q->toSql()         →  ? belgilar bilan
+$q->getBindings()   →  qiymatlar ro'yxati
+$q->toRawSql()      →  ikkalasi birga</div>
+
+  <div class="natija">toSql():
+select * from "vakansiyalar" where "faol" = ? and "nom" like ?
+or exists (select * from "kompaniyalar"
+           where "vakansiyalar"."kompaniya_id" = "kompaniyalar"."id"
+           and "nom" like ?) and "shahar" = ?
+
+bindings:  [true,"%php%","%php%","Toshkent"]</div>
+
+  <div class="callout warn">
+    <span class="label">⭐ Mana bug</span>
+    <p>Diqqat bilan qarang:</p>
+    <div class="natija">where "faol" = ?  and  "nom" like ?  or  exists (...)  and  "shahar" = ?
+                       ↑                    ↑
+                    qavs YO'Q</div>
+    <p>SQL'da <code>AND</code> <code>OR</code> dan
+    <b>kuchliroq</b> bog'lanadi. Ya'ni baza buni
+    shunday o'qiydi:</p>
+    <div class="natija">( faol AND nom LIKE '%php%' )  OR  ( exists(...) AND shahar = 'Toshkent' )</div>
+    <p>Ikkinchi shoxda <code>faol</code>
+    <b>umuman yo'q</b>. Shuning uchun kompaniya
+    nomi mos kelgan <b>har qanday</b> vakansiya
+    chiqadi — yopilgani ham.</p>
+    <p>🔑 Xuddi matematikadagi kabi:
+    <code>2 + 3 × 4</code> — <code>×</code> oldin
+    bajariladi. SQL'da <code>AND</code>
+    <code>×</code> ning o'rnida.</p>
+  </div>
+
+  <p>🔍 <code>toRawSql()</code> qiymatlarni
+  <b>ichiga qo'yib</b> beradi — bazaga
+  to'g'ridan-to'g'ri nusxalash uchun
+  qulay:</p>
+
+  <div class="natija">select * from "vakansiyalar" where "faol" = 1 and ("nom" like '%php%'
+or exists (select * from "kompaniyalar" where ... and "nom" like '%php%'))
+and "shahar" = 'Toshkent'</div>
+
+  <!-- ═══════════════ 6) 5-QADAM ═══════════════ -->
+  <h2>5-qadam: avval TEST, keyin tuzatish</h2>
+
+  <p>Bug'ni tushundik. Endi <b>tuzatmaymiz</b> —
+  avval uni <b>ushlaydigan test</b> yozamiz.</p>
+
+  <div class="codefile">
+    <div class="fname">tests/Feature/TavsiyaTest.php</div>
+    <code class="cmd">it('yopilgan vakansiyani hech qachon qaytarmaydi', function () {
+    tavsiyaMalumoti();
+
+    $natija = (new TavsiyaQidiruvi)-&gt;bajar('php');
+
+    expect($natija)-&gt;toHaveCount(2)
+        -&gt;and($natija-&gt;pluck('faol')-&gt;unique()-&gt;all())-&gt;toBe([true]);
+});
+
+it('shahar filtri bilan ham yopilganini qaytarmaydi', function () {
+    tavsiyaMalumoti();
+
+    $natija = (new TavsiyaQidiruvi)-&gt;bajar('php', 'Toshkent');
+
+    expect($natija)-&gt;toHaveCount(1)
+        -&gt;and($natija-&gt;first()-&gt;nom)-&gt;toBe('PHP dasturchi');
+});
+
+it('kompaniya nomi bo\'yicha ham topadi', function () {
+    tavsiyaMalumoti();
+
+    expect((new TavsiyaQidiruvi)-&gt;bajar('php')-&gt;pluck('nom')-&gt;all())
+        -&gt;toContain('Buxgalter');
+});
+
+it('SQL da faol sharti qavsdan TASHQARIDA turadi', function () {
+    $sql = (new TavsiyaQidiruvi)-&gt;soRov('php')-&gt;toSql();
+
+    expect($sql)-&gt;toContain('"faol" = ? and (')
+        -&gt;and($sql)-&gt;toContain('or exists');
+});
+
+it('endpoint faqat faol vakansiyalarni beradi', function () {
+    tavsiyaMalumoti();
+
+    $javob = $this-&gt;getJson('/api/v1/tavsiya?matn=php');
+
+    $javob-&gt;assertOk();
+    expect($javob-&gt;json('data'))-&gt;toHaveCount(2);
+});</code>
+  </div>
+
+  <div class="natija">php artisan test tests/Feature/TavsiyaTest.php
+
+⨯ it yopilgan vakansiyani hech qachon qaytarmaydi
+⨯ it shahar filtri bilan ham yopilganini qaytarmaydi
+✓ it kompaniya nomi bo'yicha ham topadi
+⨯ it SQL da faol sharti qavsdan TASHQARIDA turadi
+⨯ it endpoint faqat faol vakansiyalarni beradi
+
+Tests:  4 failed, 1 passed (6 assertions)</div>
+
+  <div class="callout tip">
+    <span class="label">🔑 Nega avval test?</span>
+    <div class="natija">1) Bug'ni HAQIQATAN tushunganingizni isbotlaydi
+   (test qizarmasa — siz boshqa narsani topgansiz)
+
+2) Tuzatish ISHLAGANINI isbotlaydi
+   (yashil bo'lsa — tugadi)
+
+3) Bug QAYTMASLIGINI kafolatlaydi
+   (60-darsdan: mixlanmagan tuzatish vaqtinchalik)</div>
+    <p>✅ E'tibor bering: uchinchi test
+    (<b>«kompaniya nomi bo'yicha ham topadi»</b>)
+    bug bilan ham <b>yashil</b>. U ataylab shunday —
+    tuzatish <b>ishlayotgan narsani buzmasligini</b>
+    tekshiradi.</p>
+    <p>🔑 Bunday testni <b>ilgak</b> deb ataymiz. Har
+    tuzatishda kamida bittasini yozing.</p>
+  </div>
+
+  <!-- ═══════════════ 7) TUZATISH ═══════════════ -->
+  <h2>Tuzatish — bitta qavs</h2>
+
+  <div class="natija">// AVVAL
+->faol()
+->whereLike('nom', "%{$matn}%")
+->orWhereHas('kompaniya', fn (Builder $k) => $k->whereLike('nom', "%{$matn}%"))
+
+// KEYIN
+->faol()
+->where(function (Builder $s) use ($matn) {
+    $s->whereLike('nom', "%{$matn}%")
+        ->orWhereHas('kompaniya', fn (Builder $k) => $k->whereLike('nom', "%{$matn}%"));
+})</div>
+
+  <p><code>where(function ...)</code> — Eloquent'da
+  <b>qavs</b> shunday yoziladi. Ichidagi hamma
+  narsa <b>bitta guruh</b> bo'ladi.</p>
+
+  <div class="natija">// AVVAL
+where "faol" = ? and "nom" like ? or exists (...)
+
+// KEYIN
+where "faol" = ? and ("nom" like ? or exists (...))
+                    ↑                          ↑</div>
+
+  <div class="natija">=== bajar('php') ===
+    PHP dasturchi   faol=ha   shahar=Toshkent   kompaniya=Uzum Tech
+    Buxgalter       faol=ha   shahar=Samarqand  kompaniya=PHP Studio
+
+=== bajar('php', 'Toshkent') ===
+    PHP dasturchi   faol=ha   shahar=Toshkent   kompaniya=Uzum Tech</div>
+
+  <div class="natija">Tests:  5 passed (9 assertions)          ✅
+To'liq to'plam: 121 passed (243 assertions)</div>
+
+  <p>🔑 <b>Bitta qavs.</b> Uni topish uchun beshta qadam
+  kerak bo'ldi — va bu <b>normal</b>. Tuzatish
+  hajmi bilan topish qiyinligi <b>bog'liq
+  emas</b>.</p>
+
+  <!-- ═══════════════ 8) BOSHQA VOSITALAR ═══════════════ -->
+  <h2>Tergov vositalari</h2>
+
+  <div class="natija">route:list --path=X       kirish nuqtasini topish
+toSql() / getBindings()   Eloquent nima yozganini ko'rish
+toRawSql()                qiymatlar bilan birga
+DB::listen()              HAR so'rovni kuzatish
+Log::debug()              vaqt o'tishi bilan kuzatish
+dd() / dump()             oqim o'rtasida to'xtash
+Telescope                 hammasini brauzerda (60-dars)
+tinker                    kodni interaktiv sinash</div>
+
+  <p>🔍 <code>DB::listen()</code> ni sinadik — u har
+  so'rovni <b>vaqti bilan</b> ko'rsatadi:</p>
+
+  <div class="natija">DB::listen(function ($q) { printf("  [%.2f ms] %s\n", $q->time, $q->sql); });
+
+  [0.60 ms] select * from "vakansiyalar" where "faol" = ? and (...) limit 10</div>
+
+  <div class="callout tip">
+    <span class="label">🔑 <code>dd()</code> va <code>dump()</code> farqi</span>
+    <div class="natija">dump($x)   →  chiqaradi va DAVOM ETADI
+dd($x)     →  chiqaradi va TO'XTAYDI  (dump and die)</div>
+    <p>Siklda <code>dump()</code> ishlating —
+    <code>dd()</code> birinchi aylanishda
+    to'xtatadi.</p>
+    <p>⚠️ Va so'rov quruvchisida ikkitasi ham bor:</p>
+    <div class="natija">$q->dd()          →  SQL va bog'lashni ko'rsatib to'xtaydi
+$q->dump()        →  ko'rsatadi va zanjir davom etadi
+$q->dumpRawSql()  →  to'liq SQL ni ko'rsatadi</div>
+    <p>❌ Va eng muhimi: <code>dd()</code> ni commit
+    <b>qilmang</b>. Ishlab chiqarishda u sahifani
+    to'xtatadi.</p>
+  </div>
+
+  <!-- ═══════════════ 9) ⚠️ ENG KO'P XATO ═══════════════ -->
+  <h2>⚠️ Eng ko'p qilinadigan xato</h2>
+
+  <p><b>Tushunmasdan tuzatish.</b> U shunday
+  ko'rinadi:</p>
+
+  <div class="natija">"Yopilganlar chiqyapti? Unda natijadan filtrlab tashlayman."
+
+$natija = $qidiruv->bajar($matn);
+return $natija->filter(fn ($v) => $v->faol);      ⚠️</div>
+
+  <p>Bug «tuzatildi». Test ham yashil bo'lishi
+  mumkin. Lekin:</p>
+
+  <div class="natija">1) LIMIT 10 dan keyin filtrlash  →  ba'zan 10 emas, 6 ta chiqadi
+2) Sahifalash buziladi           →  "jami: 40" deydi, 25 tasini ko'rsatadi
+3) Asl sabab QOLADI              →  boshqa joyda yana chiqadi</div>
+
+  <div class="callout warn">
+    <span class="label">🔑 Ikki savol</span>
+    <p>Tuzatishdan oldin ikkita savolga javob
+    bering:</p>
+    <div class="natija">1) NEGA bunday bo'lyapti?     ← sabab
+2) Yana QAYERDA shunday bo'lishi mumkin?   ← ko'lam</div>
+    <p>Bizning holatda: sabab —
+    <code>orWhereHas</code> qavssiz. Ko'lam — bu
+    naqsh <b>butun loyihada</b> uchraydi:</p>
+    <div class="natija">grep -rn 'orWhere' app/</div>
+    <p>✅ Har topilganini tekshiring. Bitta bug
+    ko'pincha <b>yolg'iz</b> emas.</p>
+  </div>
+
+  <!-- ═══════════════ 10) HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir
+  bir marta o'qing, keyin kerak bo'lganda qaytib
+  qarang.</p>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 1</span>
+    <h4><code>git log</code> — kod tarixi</h4>
+    <div class="natija">git log --oneline -- app/Queries/TavsiyaQidiruvi.php
+git log -p -- app/Queries/TavsiyaQidiruvi.php    ← o'zgarishlar bilan
+git blame app/Queries/TavsiyaQidiruvi.php        ← har qator kim va qachon</div>
+    <p>Commit xabari ko'pincha <b>nima uchun</b>
+    degan savolga javob beradi — kod
+    bermaydigan javob.</p>
+    <p>🔑 Ayniqsa foydali: «bu qator ataylab shunday
+    yozilganmi yoki xatomi?» Commit xabarida
+    «vaqtinchalik» yoki «keyin tuzatamiz» deb
+    yozilgan bo'lishi mumkin.</p>
+    <p>⚠️ 65-darsdan eslang: uslub commit'lari
+    <code>git blame</code> ni ifloslantiradi —
+    <code>.git-blame-ignore-revs</code>.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 2</span>
+    <h4>Ikkilamchi qidiruv: <code>git bisect</code></h4>
+    <div class="natija">"Bu oldin ishlardi, endi ishlamayapti" — lekin qaysi commit buzgan?
+
+git bisect start
+git bisect bad                 ← hozirgi holat buzuq
+git bisect good v1.2.0         ← bu versiya ishlagan
+# git sizga o'rtadagi commit'ni beradi, siz sinaysiz:
+git bisect good   yoki   git bisect bad
+# ... takrorlaysiz. git AYBDOR commit'ni topadi
+git bisect reset</div>
+    <p>🔑 1000 ta commit → <b>10 ta</b> sinov. Har
+    qadamda qolgan oraliq <b>ikkiga</b>
+    bo'linadi.</p>
+    <p>✅ Testingiz bo'lsa,
+    <code>git bisect run php artisan test</code> —
+    hammasi <b>avtomatik</b>.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 3</span>
+    <h4>«Menda ishlayapti-ku»</h4>
+    <div class="natija">Farq qilishi mumkin bo'lgan narsalar:
+   ma'lumot        →  sizda 5 yozuv, ishlab chiqarishda 500 000
+   sozlama         →  .env, kesh, config:cache (54-dars)
+   vaqt zonasi     →  APP_TIMEZONE
+   baza            →  SQLite va MySQL (61-dars!)
+   foydalanuvchi   →  siz adminsiz, u oddiy
+   brauzer/til     →  Accept-Language, sana formati</div>
+    <p>✅ Birinchi savol: «<b>sizda</b> qanday
+    ma'lumot bilan takrorlandi?» So'rang va
+    <b>o'sha</b> ma'lumotni yarating.</p>
+    <p>🔑 61-darsdagi kollatsiya misoli aynan shu:
+    SQLite'da <b>0 ta</b>, MySQL'da <b>1 ta</b>.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 4</span>
+    <h4>Log — vaqt o'tishi bilan kuzatish</h4>
+    <div class="natija">Log::debug('tavsiya qidiruvi', [
+    'matn' => $matn,
+    'shahar' => $shahar,
+    'sql' => $q->toRawSql(),
+    'natija' => $natija->pluck('id')->all(),
+]);</div>
+    <div class="natija">php artisan pail                  ← jonli oqim (tail kabi)
+tail -f storage/logs/laravel.log</div>
+    <p>✅ <code>dd()</code> ishlamaydigan joylarda
+    kerak: navbatdagi job, rejalashtirilgan
+    buyruq, ishlab chiqarish.</p>
+    <p>⚠️ 66-darsdan: <b>sirni logga yozmang</b> —
+    parol, token, karta raqami.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 5</span>
+    <h4>Qidiruv buyruqlari</h4>
+    <div class="natija">grep -rn 'tavsiya' app/ routes/        matn bo'yicha
+grep -rln 'TavsiyaQidiruvi' app/       faqat fayl nomlari
+grep -rn 'orWhere' app/                naqsh bo'yicha
+git grep -n 'orWhere'                  tezroq (faqat kuzatilayotgan fayllar)</div>
+    <p>🔑 Sinf nomini qidirish eng samarali: u
+    <b>noyob</b> va <code>use</code> qatorlarida
+    ko'rinadi — kim ishlatayotganini
+    darrov ko'rsatadi.</p>
+    <p>✅ IDE'da: «Find Usages» yoki
+    <code>Ctrl+Shift+F</code>.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 6</span>
+    <h4>Qachon savol berish kerak</h4>
+    <div class="natija">✅ SAVOL BERING:
+   "Bu ataylab shundaymi?"         ← xulq g'alati, lekin ehtimol maqsadli
+   "Qaysi ma'lumot bilan?"         ← takrorlay olmayapsiz
+   "Bu qaror nega qabul qilingan?" ← commit xabari yo'q
+
+❌ SAVOL BERMANG:
+   "Bu kod nima qiladi?"           ← o'zingiz o'qiy olasiz
+   "Qanday tuzataman?"             ← avval o'zingiz urinib ko'ring</div>
+    <p>🔑 Yaxshi savol <b>tekshirilgan</b> bo'ladi:
+    «Men shuni sinadim, shunday natija oldim,
+    kutganim boshqacha edi — bu ataylabmi?»</p>
+    <p>⚠️ Vaqt chegarasi qo'ying: <b>1–2 soat</b>
+    o'zingiz urining, keyin so'rang. Ikkala
+    chekka ham yomon.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>Tergov tartibi — qisqacha</h4>
+    <div class="natija">1) TAKRORLA        →  bug'ni o'z qo'lingizda ko'ring
+2) TORAYTIR        →  route:list, grep — kirish nuqtasi
+3) KUZAT           →  controller -> service -> model
+4) O'LCHA          →  toSql, DB::listen, log, dd
+5) TUSHUN          →  NEGA bunday bo'lyapti?
+6) TEST YOZ        →  qizarishi SHART
+7) TUZAT           →  test yashil bo'lguncha
+8) KO'LAMNI TEKSHIR →  yana qayerda shunday?</div>
+    <p>⚠️ 1-qadamni o'tkazib yubormang. «Kodga
+    qarab tushundim» — <b>eng ko'p vaqt
+    yo'qotadigan</b> yo'l.</p>
+    <p>🔑 6-qadam ham majburiy: test <b>qizarmasa</b>,
+    siz bug'ni emas, boshqa narsani
+    topgansiz.</p>
+  </div>
+
+  <!-- ═══════════════ 11) AMALIYOT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    💻 Quyida amaliyot bor. Hozir o'qish rejimidasiz — kompyuter
+    yoningizda bo'lganda <b>💻 Amaliyot</b> rejimiga o'ting va
+    shu bo'limdan davom eting.
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <div class="callout warn">
+      <span class="label">⚠️ Bu amaliyot boshqacha</span>
+      <p>Avval <b>bug'li</b> kodni yozasiz — so'ng uni
+      o'zingiz topasiz. Javobni bilsangiz ham,
+      <b>qadamlarni bajaring</b>: bu yerda muhimi
+      javob emas, <b>usul</b>.</p>
+    </div>
+
+    <ol class="steps">
+      <li>
+        <b>«Meros qolgan» kodni yarating.</b>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+mkdir -p app/Queries
+cat > app/Queries/TavsiyaQidiruvi.php <<'PHPEOF'
+&lt;?php
+
+declare(strict_types=1);
+
+namespace App\Queries;
+
+use App\Models\Vakansiya;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
+
+final class TavsiyaQidiruvi
+{
+    public function bajar(string $matn, ?string $shahar = null): Collection
+    {
+        return $this->soRov($matn, $shahar)->limit(10)->get();
+    }
+
+    public function soRov(string $matn, ?string $shahar = null): Builder
+    {
+        return Vakansiya::query()
+            ->with('kompaniya')
+            ->faol()
+            ->whereLike('nom', &quot;%{$matn}%&quot;)
+            ->orWhereHas('kompaniya', fn (Builder $k) => $k->whereLike('nom', &quot;%{$matn}%&quot;))
+            ->when($shahar, fn (Builder $s) => $s->where('shahar', $shahar));
+    }
+}
+PHPEOF
+php -l app/Queries/TavsiyaQidiruvi.php">cd ~/Projects/Learn/ishtop
+mkdir -p app/Queries
+cat &gt; app/Queries/TavsiyaQidiruvi.php &lt;&lt;'PHPEOF'
+&lt;?php
+
+declare(strict_types=1);
+
+namespace App\Queries;
+
+use App\Models\Vakansiya;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
+
+final class TavsiyaQidiruvi
+{
+    public function bajar(string $matn, ?string $shahar = null): Collection
+    {
+        return $this-&gt;soRov($matn, $shahar)-&gt;limit(10)-&gt;get();
+    }
+
+    public function soRov(string $matn, ?string $shahar = null): Builder
+    {
+        return Vakansiya::query()
+            -&gt;with('kompaniya')
+            -&gt;faol()
+            -&gt;whereLike('nom', &quot;%{$matn}%&quot;)
+            -&gt;orWhereHas('kompaniya', fn (Builder $k) =&gt; $k-&gt;whereLike('nom', &quot;%{$matn}%&quot;))
+            -&gt;when($shahar, fn (Builder $s) =&gt; $s-&gt;where('shahar', $shahar));
+    }
+}
+PHPEOF
+php -l app/Queries/TavsiyaQidiruvi.php</div>
+      </li>
+
+      <li>
+        <b>Controller va marshrutni qo'shing.</b>
+        <div class="cmd" data-cmd="cat > app/Http/Controllers/Api/TavsiyaController.php <<'PHPEOF'
+&lt;?php
+
+declare(strict_types=1);
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Http\Resources\VakansiyaResource;
+use App\Queries\TavsiyaQidiruvi;
+use Illuminate\Http\Request;
+
+final class TavsiyaController extends Controller
+{
+    public function __invoke(Request $request, TavsiyaQidiruvi $qidiruv)
+    {
+        $malumot = $request->validate([
+            'matn' => ['required', 'string', 'min:2', 'max:60'],
+            'shahar' => ['nullable', 'string', 'max:60'],
+        ]);
+
+        return VakansiyaResource::collection(
+            $qidiruv->bajar($malumot['matn'], $malumot['shahar'] ?? null)
+        );
+    }
+}
+PHPEOF
+php -l app/Http/Controllers/Api/TavsiyaController.php">cat &gt; app/Http/Controllers/Api/TavsiyaController.php &lt;&lt;'PHPEOF'
+&lt;?php
+
+declare(strict_types=1);
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Http\Resources\VakansiyaResource;
+use App\Queries\TavsiyaQidiruvi;
+use Illuminate\Http\Request;
+
+final class TavsiyaController extends Controller
+{
+    public function __invoke(Request $request, TavsiyaQidiruvi $qidiruv)
+    {
+        $malumot = $request-&gt;validate([
+            'matn' =&gt; ['required', 'string', 'min:2', 'max:60'],
+            'shahar' =&gt; ['nullable', 'string', 'max:60'],
+        ]);
+
+        return VakansiyaResource::collection(
+            $qidiruv-&gt;bajar($malumot['matn'], $malumot['shahar'] ?? null)
+        );
+    }
+}
+PHPEOF
+php -l app/Http/Controllers/Api/TavsiyaController.php</div>
+        <p><code>routes/api.php</code> ga
+        <code>v1</code> guruhi ichiga qo'shing:</p>
+        <div class="cmd" data-cmd="# use App\Http\Controllers\Api\TavsiyaController;   qo'shing
+
+Route::get('/tavsiya', TavsiyaController::class)->name('tavsiya');"># use App\Http\Controllers\Api\TavsiyaController;   qo'shing
+
+Route::get('/tavsiya', TavsiyaController::class)-&gt;name('tavsiya');</div>
+      </li>
+
+      <li>
+        <b>1-qadam: kirish nuqtasini toping.</b>
+        <div class="cmd" data-cmd="php artisan route:list --path=tavsiya">php artisan route:list --path=tavsiya</div>
+        <p class="expect"><code>api/v1/tavsiya ...
+        Api\TavsiyaController</code>.</p>
+      </li>
+
+      <li>
+        <b>3-qadam: bug'ni TAKRORLANG.</b>
+        <div class="cmd" data-cmd="cat > /tmp/zond67.php <<'PHPEOF'
+DB::beginTransaction();
+DB::table(&quot;vakansiyalar&quot;)->delete(); DB::table(&quot;kompaniyalar&quot;)->delete();
+$phpKomp = App\Models\Kompaniya::factory()->create([&quot;nom&quot; => &quot;PHP Studio&quot;, &quot;shahar&quot; => &quot;Toshkent&quot;]);
+$boshqa  = App\Models\Kompaniya::factory()->create([&quot;nom&quot; => &quot;Uzum Tech&quot;, &quot;shahar&quot; => &quot;Toshkent&quot;]);
+$f = fn ($nom, $faol, $shahar, $k) => App\Models\Vakansiya::factory()->create([&quot;nom&quot; => $nom, &quot;faol&quot; => $faol, &quot;shahar&quot; => $shahar, &quot;kompaniya_id&quot; => $k->id]);
+$f(&quot;PHP dasturchi&quot;, true,  &quot;Toshkent&quot;,  $boshqa);
+$f(&quot;PHP junior&quot;,    false, &quot;Toshkent&quot;,  $boshqa);
+$f(&quot;Sotuvchi&quot;,      false, &quot;Samarqand&quot;, $phpKomp);
+$f(&quot;Buxgalter&quot;,     true,  &quot;Samarqand&quot;, $phpKomp);
+$f(&quot;Kuryer&quot;,        false, &quot;Toshkent&quot;,  $phpKomp);
+echo &quot;  === bajar('php') ===&quot;, PHP_EOL;
+foreach ((new App\Queries\TavsiyaQidiruvi)->bajar(&quot;php&quot;) as $v) {
+    printf(&quot;    %-15s faol=%-4s shahar=%-10s kompaniya=%s\n&quot;, $v->nom, $v->faol ? &quot;ha&quot; : &quot;YOQ&quot;, $v->shahar, $v->kompaniya->nom);
+}
+echo PHP_EOL, &quot;  === bajar('php', 'Toshkent') ===&quot;, PHP_EOL;
+foreach ((new App\Queries\TavsiyaQidiruvi)->bajar(&quot;php&quot;, &quot;Toshkent&quot;) as $v) {
+    printf(&quot;    %-15s faol=%-4s shahar=%-10s kompaniya=%s\n&quot;, $v->nom, $v->faol ? &quot;ha&quot; : &quot;YOQ&quot;, $v->shahar, $v->kompaniya->nom);
+}
+DB::rollBack();
+PHPEOF
+php artisan tinker --execute=&quot;$(cat /tmp/zond67.php)&quot;">cat &gt; /tmp/zond67.php &lt;&lt;'PHPEOF'
+DB::beginTransaction();
+DB::table(&quot;vakansiyalar&quot;)-&gt;delete(); DB::table(&quot;kompaniyalar&quot;)-&gt;delete();
+$phpKomp = App\Models\Kompaniya::factory()-&gt;create([&quot;nom&quot; =&gt; &quot;PHP Studio&quot;, &quot;shahar&quot; =&gt; &quot;Toshkent&quot;]);
+$boshqa  = App\Models\Kompaniya::factory()-&gt;create([&quot;nom&quot; =&gt; &quot;Uzum Tech&quot;, &quot;shahar&quot; =&gt; &quot;Toshkent&quot;]);
+$f = fn ($nom, $faol, $shahar, $k) =&gt; App\Models\Vakansiya::factory()-&gt;create([&quot;nom&quot; =&gt; $nom, &quot;faol&quot; =&gt; $faol, &quot;shahar&quot; =&gt; $shahar, &quot;kompaniya_id&quot; =&gt; $k-&gt;id]);
+$f(&quot;PHP dasturchi&quot;, true,  &quot;Toshkent&quot;,  $boshqa);
+$f(&quot;PHP junior&quot;,    false, &quot;Toshkent&quot;,  $boshqa);
+$f(&quot;Sotuvchi&quot;,      false, &quot;Samarqand&quot;, $phpKomp);
+$f(&quot;Buxgalter&quot;,     true,  &quot;Samarqand&quot;, $phpKomp);
+$f(&quot;Kuryer&quot;,        false, &quot;Toshkent&quot;,  $phpKomp);
+echo &quot;  === bajar('php') ===&quot;, PHP_EOL;
+foreach ((new App\Queries\TavsiyaQidiruvi)-&gt;bajar(&quot;php&quot;) as $v) {
+    printf(&quot;    %-15s faol=%-4s shahar=%-10s kompaniya=%s\n&quot;, $v-&gt;nom, $v-&gt;faol ? &quot;ha&quot; : &quot;YOQ&quot;, $v-&gt;shahar, $v-&gt;kompaniya-&gt;nom);
+}
+echo PHP_EOL, &quot;  === bajar('php', 'Toshkent') ===&quot;, PHP_EOL;
+foreach ((new App\Queries\TavsiyaQidiruvi)-&gt;bajar(&quot;php&quot;, &quot;Toshkent&quot;) as $v) {
+    printf(&quot;    %-15s faol=%-4s shahar=%-10s kompaniya=%s\n&quot;, $v-&gt;nom, $v-&gt;faol ? &quot;ha&quot; : &quot;YOQ&quot;, $v-&gt;shahar, $v-&gt;kompaniya-&gt;nom);
+}
+DB::rollBack();
+PHPEOF
+php artisan tinker --execute=&quot;$(cat /tmp/zond67.php)&quot;</div>
+        <p class="expect">⚠️ <code>Sotuvchi</code> va
+        <code>Kuryer</code> — <b>yopilgan</b>, lekin
+        chiqdi.</p>
+      </li>
+
+      <li>
+        <b>🔍 4-qadam: SQL ga qarang.</b>
+        <div class="cmd" data-cmd="php artisan tinker --execute='
+$q = (new App\Queries\TavsiyaQidiruvi)->soRov(&quot;php&quot;, &quot;Toshkent&quot;);
+echo &quot;  toSql():    &quot;, $q->toSql(), PHP_EOL;
+echo &quot;  bindings:   &quot;, json_encode($q->getBindings()), PHP_EOL;
+echo &quot;  toRawSql(): &quot;, $q->toRawSql(), PHP_EOL;'">php artisan tinker --execute='
+$q = (new App\Queries\TavsiyaQidiruvi)-&gt;soRov(&quot;php&quot;, &quot;Toshkent&quot;);
+echo &quot;  toSql():    &quot;, $q-&gt;toSql(), PHP_EOL;
+echo &quot;  bindings:   &quot;, json_encode($q-&gt;getBindings()), PHP_EOL;
+echo &quot;  toRawSql(): &quot;, $q-&gt;toRawSql(), PHP_EOL;'</div>
+        <p class="expect">⭐ <code>where "faol" = ? and
+        "nom" like ? or exists (...)</code> — <b>qavs
+        yo'q</b>.</p>
+      </li>
+
+      <li>
+        <b><code>DB::listen</code> ni ham sinang.</b>
+        <div class="cmd" data-cmd="php artisan tinker --execute='
+DB::listen(function ($q) { printf(&quot;  [%.2f ms] %s\n&quot;, $q->time, $q->sql); });
+(new App\Queries\TavsiyaQidiruvi)->bajar(&quot;php&quot;);'">php artisan tinker --execute='
+DB::listen(function ($q) { printf(&quot;  [%.2f ms] %s\n&quot;, $q-&gt;time, $q-&gt;sql); });
+(new App\Queries\TavsiyaQidiruvi)-&gt;bajar(&quot;php&quot;);'</div>
+      </li>
+
+      <li>
+        <b>5-qadam: avval TEST — u <b>qizarishi</b>
+        kerak.</b>
+        <div class="cmd" data-cmd="cat > tests/Feature/TavsiyaTest.php <<'PHPEOF'
+&lt;?php
+
+declare(strict_types=1);
+
+use App\Models\Kompaniya;
+use App\Models\Vakansiya;
+use App\Queries\TavsiyaQidiruvi;
+
+function tavsiyaMalumoti(): void
+{
+    $phpKompaniya = Kompaniya::factory()->create(['nom' => 'PHP Studio', 'shahar' => 'Toshkent']);
+    $boshqa = Kompaniya::factory()->create(['nom' => 'Uzum Tech', 'shahar' => 'Toshkent']);
+
+    Vakansiya::factory()->create(['nom' => 'PHP dasturchi', 'faol' => true, 'shahar' => 'Toshkent', 'kompaniya_id' => $boshqa->id]);
+    Vakansiya::factory()->create(['nom' => 'PHP junior', 'faol' => false, 'shahar' => 'Toshkent', 'kompaniya_id' => $boshqa->id]);
+    Vakansiya::factory()->create(['nom' => 'Sotuvchi', 'faol' => false, 'shahar' => 'Samarqand', 'kompaniya_id' => $phpKompaniya->id]);
+    Vakansiya::factory()->create(['nom' => 'Buxgalter', 'faol' => true, 'shahar' => 'Samarqand', 'kompaniya_id' => $phpKompaniya->id]);
+    Vakansiya::factory()->create(['nom' => 'Kuryer', 'faol' => false, 'shahar' => 'Toshkent', 'kompaniya_id' => $phpKompaniya->id]);
+}
+
+it('yopilgan vakansiyani hech qachon qaytarmaydi', function () {
+    tavsiyaMalumoti();
+
+    $natija = (new TavsiyaQidiruvi)->bajar('php');
+
+    expect($natija)->toHaveCount(2)
+        ->and($natija->pluck('faol')->unique()->all())->toBe([true]);
+});
+
+it('shahar filtri bilan ham yopilganini qaytarmaydi', function () {
+    tavsiyaMalumoti();
+
+    $natija = (new TavsiyaQidiruvi)->bajar('php', 'Toshkent');
+
+    expect($natija)->toHaveCount(1)
+        ->and($natija->first()->nom)->toBe('PHP dasturchi');
+});
+
+it('kompaniya nomi bo\'yicha ham topadi', function () {
+    tavsiyaMalumoti();
+
+    expect((new TavsiyaQidiruvi)->bajar('php')->pluck('nom')->all())
+        ->toContain('Buxgalter');
+});
+
+it('SQL da faol sharti qavsdan TASHQARIDA turadi', function () {
+    $sql = (new TavsiyaQidiruvi)->soRov('php')->toSql();
+
+    expect($sql)->toContain('&quot;faol&quot; = ? and (')
+        ->and($sql)->toContain('or exists');
+});
+
+it('endpoint faqat faol vakansiyalarni beradi', function () {
+    tavsiyaMalumoti();
+
+    $javob = $this->getJson('/api/v1/tavsiya?matn=php');
+
+    $javob->assertOk();
+    expect($javob->json('data'))->toHaveCount(2);
+});
+PHPEOF
+php artisan test tests/Feature/TavsiyaTest.php 2>&amp;1 | tail -10">cat &gt; tests/Feature/TavsiyaTest.php &lt;&lt;'PHPEOF'
+&lt;?php
+
+declare(strict_types=1);
+
+use App\Models\Kompaniya;
+use App\Models\Vakansiya;
+use App\Queries\TavsiyaQidiruvi;
+
+function tavsiyaMalumoti(): void
+{
+    $phpKompaniya = Kompaniya::factory()-&gt;create(['nom' =&gt; 'PHP Studio', 'shahar' =&gt; 'Toshkent']);
+    $boshqa = Kompaniya::factory()-&gt;create(['nom' =&gt; 'Uzum Tech', 'shahar' =&gt; 'Toshkent']);
+
+    Vakansiya::factory()-&gt;create(['nom' =&gt; 'PHP dasturchi', 'faol' =&gt; true, 'shahar' =&gt; 'Toshkent', 'kompaniya_id' =&gt; $boshqa-&gt;id]);
+    Vakansiya::factory()-&gt;create(['nom' =&gt; 'PHP junior', 'faol' =&gt; false, 'shahar' =&gt; 'Toshkent', 'kompaniya_id' =&gt; $boshqa-&gt;id]);
+    Vakansiya::factory()-&gt;create(['nom' =&gt; 'Sotuvchi', 'faol' =&gt; false, 'shahar' =&gt; 'Samarqand', 'kompaniya_id' =&gt; $phpKompaniya-&gt;id]);
+    Vakansiya::factory()-&gt;create(['nom' =&gt; 'Buxgalter', 'faol' =&gt; true, 'shahar' =&gt; 'Samarqand', 'kompaniya_id' =&gt; $phpKompaniya-&gt;id]);
+    Vakansiya::factory()-&gt;create(['nom' =&gt; 'Kuryer', 'faol' =&gt; false, 'shahar' =&gt; 'Toshkent', 'kompaniya_id' =&gt; $phpKompaniya-&gt;id]);
+}
+
+it('yopilgan vakansiyani hech qachon qaytarmaydi', function () {
+    tavsiyaMalumoti();
+
+    $natija = (new TavsiyaQidiruvi)-&gt;bajar('php');
+
+    expect($natija)-&gt;toHaveCount(2)
+        -&gt;and($natija-&gt;pluck('faol')-&gt;unique()-&gt;all())-&gt;toBe([true]);
+});
+
+it('shahar filtri bilan ham yopilganini qaytarmaydi', function () {
+    tavsiyaMalumoti();
+
+    $natija = (new TavsiyaQidiruvi)-&gt;bajar('php', 'Toshkent');
+
+    expect($natija)-&gt;toHaveCount(1)
+        -&gt;and($natija-&gt;first()-&gt;nom)-&gt;toBe('PHP dasturchi');
+});
+
+it('kompaniya nomi bo\'yicha ham topadi', function () {
+    tavsiyaMalumoti();
+
+    expect((new TavsiyaQidiruvi)-&gt;bajar('php')-&gt;pluck('nom')-&gt;all())
+        -&gt;toContain('Buxgalter');
+});
+
+it('SQL da faol sharti qavsdan TASHQARIDA turadi', function () {
+    $sql = (new TavsiyaQidiruvi)-&gt;soRov('php')-&gt;toSql();
+
+    expect($sql)-&gt;toContain('&quot;faol&quot; = ? and (')
+        -&gt;and($sql)-&gt;toContain('or exists');
+});
+
+it('endpoint faqat faol vakansiyalarni beradi', function () {
+    tavsiyaMalumoti();
+
+    $javob = $this-&gt;getJson('/api/v1/tavsiya?matn=php');
+
+    $javob-&gt;assertOk();
+    expect($javob-&gt;json('data'))-&gt;toHaveCount(2);
+});
+PHPEOF
+php artisan test tests/Feature/TavsiyaTest.php 2&gt;&amp;1 | tail -10</div>
+        <p class="expect">✅ Kutilgan:
+        <b>4 failed, 1 passed</b>. Qizarmasa —
+        test noto'g'ri.</p>
+      </li>
+
+      <li>
+        <b>7-qadam: tuzating — bitta qavs.</b>
+        <code>soRov()</code> ichida:
+        <div class="cmd" data-cmd="# AVVAL:
+->faol()
+->whereLike('nom', &quot;%{$matn}%&quot;)
+->orWhereHas('kompaniya', fn (Builder $k) => $k->whereLike('nom', &quot;%{$matn}%&quot;))
+
+# KEYIN:
+->faol()
+->where(function (Builder $s) use ($matn) {
+    $s->whereLike('nom', &quot;%{$matn}%&quot;)
+        ->orWhereHas('kompaniya', fn (Builder $k) => $k->whereLike('nom', &quot;%{$matn}%&quot;));
+})"># AVVAL:
+-&gt;faol()
+-&gt;whereLike('nom', &quot;%{$matn}%&quot;)
+-&gt;orWhereHas('kompaniya', fn (Builder $k) =&gt; $k-&gt;whereLike('nom', &quot;%{$matn}%&quot;))
+
+# KEYIN:
+-&gt;faol()
+-&gt;where(function (Builder $s) use ($matn) {
+    $s-&gt;whereLike('nom', &quot;%{$matn}%&quot;)
+        -&gt;orWhereHas('kompaniya', fn (Builder $k) =&gt; $k-&gt;whereLike('nom', &quot;%{$matn}%&quot;));
+})</div>
+        <div class="cmd" data-cmd="php artisan test tests/Feature/TavsiyaTest.php 2>&amp;1 | tail -4
+php artisan tinker --execute=&quot;$(cat /tmp/zond67.php)&quot;">php artisan test tests/Feature/TavsiyaTest.php 2&gt;&amp;1 | tail -4
+php artisan tinker --execute=&quot;$(cat /tmp/zond67.php)&quot;</div>
+        <p class="expect">✅ <b>5 passed</b> va endi
+        faqat <b>faol</b> vakansiyalar.</p>
+      </li>
+
+      <li>
+        <b>8-qadam: ko'lamni tekshiring.</b>
+        <div class="cmd" data-cmd="grep -rn 'orWhere' app/ || echo '  boshqa joyda yo\x27q'">grep -rn 'orWhere' app/ || echo '  boshqa joyda yo\x27q'</div>
+        <p>🔑 Bitta bug ko'pincha <b>yolg'iz
+        emas</b>.</p>
+      </li>
+
+      <li>
+        <b>Yakuniy tekshiruv.</b>
+        <div class="cmd" data-cmd="rm -f /tmp/zond67.php
+./vendor/bin/pint
+php artisan test 2>&amp;1 | tail -3">rm -f /tmp/zond67.php
+./vendor/bin/pint
+php artisan test 2&gt;&amp;1 | tail -3</div>
+        <p class="expect">Menda <b>121 passed (243
+        assertions)</b>.</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li>Marshrutni <code>route:list</code> bilan
+      topdim</li>
+      <li>Controller → Query yo'lini kuzatdim</li>
+      <li>⚠️ Bug'ni <b>takrorladim</b> (2 ta yopilgan
+      chiqdi)</li>
+      <li>🔍 <code>toSql()</code> bilan qavs
+      yo'qligini ko'rdim</li>
+      <li><code>toRawSql()</code> va
+      <code>DB::listen</code> ni sinadim</li>
+      <li>Test yozdim va u <b>qizardi</b> (4
+      failed)</li>
+      <li>Bitta qavs bilan tuzatdim</li>
+      <li>Testlar yashil bo'ldi (5 passed)</li>
+      <li>Ko'lamni tekshirdim
+      (<code>grep orWhere</code>)</li>
+      <li>To'liq to'plam yashil</li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 12) SINAB KO'RAMIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Yangi tiket:</p>
+    <div class="natija">TIKET #518
+
+"Hisobotdagi 'jami sotuv' raqami noto'g'ri.
+ Menda 3 ta buyurtma bor, jami 150 000 so'm bo'lishi kerak,
+ lekin 100 000 ko'rsatyapti."</div>
+    <p>Kodni topdingiz:</p>
+    <div class="natija">public function jamiSotuv(User $foydalanuvchi): int
+{
+    return $foydalanuvchi->buyurtmalar()
+        ->where('holat', 'tolangan')
+        ->sum('summa');
+}</div>
+    <p>Bazaga qaradingiz — foydalanuvchining uchta
+    buyurtmasi bor:</p>
+    <div class="natija">id   summa    holat
+─────────────────────────────
+101   50 000   tolangan
+102   50 000   tolangan
+103   50 000   Tolangan        ← katta harf bilan</div>
+    <p>Sabab ravshan ko'rindi. Dasturchi shunday
+    tuzatdi:</p>
+    <div class="natija">->whereRaw('lower(holat) = ?', ['tolangan'])</div>
+    <p>Test yozdi, yashil bo'ldi, chiqardi. Bir
+    haftadan keyin <b>yana shikoyat</b> keldi — endi
+    boshqa foydalanuvchidan. Nima
+    bo'lgan?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <p>Dasturchi <b>alomatni</b> tuzatdi,
+        <b>sababni</b> emas.</p>
+        <p>Savol: <code>'Tolangan'</code> bazaga
+        <b>qayerdan</b> tushdi?</p>
+        <div class="natija">Ehtimoliy sabablar:
+   1) admin paneli qo'lda kiritadi        ← yana kiritadi
+   2) import skripti boshqa manba'dan     ← yana import qiladi
+   3) eski kod boshqa qiymat yozadi       ← yana yozadi
+   4) enum yo'q, oddiy matn ustuni        ← ILDIZ SABAB</div>
+        <p class="expect">🔑 <code>lower()</code> bilan
+        tuzatish faqat <b>bitta joyni</b> yamaydi.
+        Bazada hamon <b>ixtiyoriy matn</b> saqlanadi:
+        ertaga <code>'to`langan'</code>,
+        <code>'TOLANGAN'</code>,
+        <code>'tolangan '</code> (bo'sh joy bilan)
+        paydo bo'ladi.</p>
+        <p>⚠️ Va yana bir zarar:
+        <code>lower(holat)</code> — 60-darsdan
+        eslang — <b>indeksdan foydalana
+        olmaydi</b>. Ya'ni hisobot ham
+        sekinlashdi.</p>
+        <p>✅ To'g'ri yo'l — uchta bosqich:</p>
+        <div class="natija">1) DARROV: mavjud ma'lumotni normallashtiring
+   update buyurtmalar set holat = lower(trim(holat));
+
+2) OLDINI OLISH: 63-darsdagi Enum
+   enum Holat: string { case Tolangan = 'tolangan'; ... }
+   protected function casts(): array { return ['holat' => Holat::class]; }
+   →  endi noto'g'ri qiymat YOZILMAYDI
+
+3) KO'LAM: bazada yana qaysi ustunlar "ixtiyoriy matn"?
+   select distinct holat from buyurtmalar;</div>
+        <p>🔑 <b>Umumiy saboq:</b> «Bu qiymat bazaga
+        <b>qayerdan</b> keldi?» — bu savolga javob
+        bermaguningizcha, tuzatish
+        <b>vaqtinchalik</b>.</p>
+        <p>🔍 Va tergov usuli bir xil:
+        <b>takrorla → toraytir → o'lcha → tushun</b>.
+        Bu yerda «o'lchash» —
+        <code>select distinct holat</code>.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span>
+    ⭐ <code>where A and B or C</code> — SQL buni qanday
+    o'qiydi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">AND OR dan kuchliroq bog'lanadi shuning uchun shart buzildi</button></li>
+      <li><button class="quiz-option">OR AND dan kuchliroq bog'lanadi va hamma narsa to'g'ri</button></li>
+      <li><button class="quiz-option">Ikkalasi teng kuchda va tartib umuman ahamiyatga ega emas</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi:
+    <code>where "faol" = ? and "nom" like ? or exists
+    (...)</code> aslida
+    <code>(faol AND nom) OR exists(...)</code>.
+    Ikkinchi shoxda <code>faol</code> <b>yo'q</b> —
+    shuning uchun <b>2 ta yopilgan</b> vakansiya
+    chiqdi.
+    🔑 Matematikadagi kabi: <code>2 + 3 × 4</code> —
+    <code>×</code> oldin. SQL'da <code>AND</code>
+    <code>×</code> o'rnida.
+    ✅ Yechim: <code>where(function ($s) { ... })</code>
+    — Eloquent'da qavs shunday yoziladi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span>
+    Notanish loyihada bug qidirishni qayerdan
+    boshlaysiz?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Marshrutdan controllerga so'ng SQL ga qarab boraman</button></li>
+      <li><button class="quiz-option">Darrov barcha fayllarni boshdan ketma-ket o'qib chiqaman</button></li>
+      <li><button class="quiz-option">Muallifni topib undan hammasini tushuntirib berishni so'rayman</button></li>
+    </ul>
+    <div class="quiz-explain">🔑 <b>Yo'lni kuzating</b> —
+    so'rov qayerdan kirib, qayerdan chiqadi.
+    <code>route:list --path=X</code> → controller →
+    service → model → SQL.
+    ⚠️ Loyihada yuzlab fayl bor, <b>99% i</b> bu bugga
+    aloqador emas.
+    ✅ Va 1-qadam — <b>takrorlash</b>: bug'ni
+    o'z qo'lingizda ko'rmaguningizcha
+    tuzatmang.
+    🔍 Savol berish ham to'g'ri, lekin <b>1–2 soat</b>
+    o'zingiz urinib ko'rgandan keyin va
+    <b>tekshirilgan</b> savol bilan.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span>
+    Bug'ni tushundingiz. Endi nima qilasiz?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Avval bug'ni ushlaydigan test yozib uni qizartiraman</button></li>
+      <li><button class="quiz-option">Avval kodni tuzatib keyin testni yozib qo'yaman</button></li>
+      <li><button class="quiz-option">Test yozmasdan darrov tuzatib commit qilib yuboraman</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi: test bug bilan
+    <b>4 failed, 1 passed</b>; tuzatilgach
+    <b>5 passed</b>.
+    🔑 Qizargan test uchta narsani isbotlaydi:
+    <b>1)</b> bug'ni haqiqatan tushundingiz ·
+    <b>2)</b> tuzatish ishladi · <b>3)</b> u
+    qaytmaydi.
+    ✅ Va <b>ilgak</b> test ham yozing — bug bilan ham
+    yashil bo'lgani («kompaniya nomi bo'yicha ham
+    topadi») tuzatish <b>ishlayotgan narsani
+    buzmasligini</b> tekshiradi.</div>
+  </div>
+
+  <!-- ═══════════════ 13) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+
+    <p>Javobni ovoz chiqarib ayting, keyin ochib
+    solishtiring.</p>
+
+    <details class="recall">
+      <summary>Tergov tartibini sanab bering</summary>
+      <div class="answer"><b>1)</b> TAKRORLA — bug'ni
+      o'z qo'lingizda ko'ring.
+      <b>2)</b> TORAYTIR —
+      <code>route:list</code>, <code>grep</code>.
+      <b>3)</b> KUZAT — controller → service →
+      model.
+      <b>4)</b> O'LCHA — <code>toSql</code>,
+      <code>DB::listen</code>, log, <code>dd</code>.
+      <b>5)</b> TUSHUN — <b>nega</b> bunday
+      bo'lyapti?
+      <b>6)</b> TEST YOZ — <b>qizarishi shart</b>.
+      <b>7)</b> TUZAT.
+      <b>8)</b> KO'LAMNI TEKSHIR — yana qayerda
+      shunday?
+      ⚠️ 1-qadamni o'tkazib yubormang: «kodga
+      qarab tushundim» — eng ko'p vaqt
+      yo'qotadigan yo'l.</div>
+    </details>
+
+    <details class="recall">
+      <summary>⭐ Bizning bugimiz nima edi?</summary>
+      <div class="answer"><code>orWhereHas</code>
+      <b>qavssiz</b> yozilgan edi.
+      🔍 SQL: <code>where "faol" = ? and "nom" like ?
+      or exists (...)</code> — <code>AND</code>
+      <code>OR</code> dan kuchliroq bog'langani
+      uchun bu <code>(faol AND nom) OR
+      exists(...)</code> bo'ldi.
+      Natija: <b>2 ta yopilgan</b> vakansiya chiqdi
+      (kompaniya nomi mos kelgani uchun).
+      ✅ Tuzatish — bitta qavs:
+      <code>where(function ($s) { ... })</code> →
+      <code>where "faol" = ? and ("nom" like ? or
+      exists (...))</code>.
+      🔑 Tuzatish hajmi bilan topish qiyinligi
+      <b>bog'liq emas</b>.</div>
+    </details>
+
+    <details class="recall">
+      <summary>Eloquent so'rovini qanday
+      ko'rasiz?</summary>
+      <div class="answer"><code>$q-&gt;toSql()</code> —
+      <code>?</code> belgilar bilan ·
+      <code>$q-&gt;getBindings()</code> — qiymatlar ·
+      <code>$q-&gt;toRawSql()</code> — ikkalasi birga
+      (bazaga nusxalash uchun).
+      Zanjir ichida: <code>$q-&gt;dump()</code> (davom
+      etadi) · <code>$q-&gt;dd()</code>
+      (to'xtaydi) · <code>$q-&gt;dumpRawSql()</code>.
+      🔍 Butun oqim uchun:
+      <code>DB::listen(fn ($q) =&gt; ...)</code> — har
+      so'rovni <b>vaqti bilan</b> ko'rsatadi
+      (menda <code>[0.60 ms]</code>).
+      ⚠️ <code>dd()</code> ni commit qilmang —
+      ishlab chiqarishda sahifani
+      to'xtatadi.</div>
+    </details>
+
+    <details class="recall">
+      <summary>⚠️ Eng ko'p qilinadigan xato
+      nima?</summary>
+      <div class="answer"><b>Tushunmasdan tuzatish</b> —
+      alomatni yamash.
+      Misol: yopilganlar chiqyapti →
+      <code>$natija-&gt;filter(fn ($v) =&gt;
+      $v-&gt;faol)</code>.
+      ⚠️ Oqibati: <code>LIMIT 10</code> dan keyin
+      filtrlash 10 emas 6 ta beradi · sahifalash
+      buziladi · <b>asl sabab qoladi</b>.
+      🔑 Ikki savol: <b>1)</b> NEGA bunday
+      bo'lyapti? <b>2)</b> Yana QAYERDA shunday
+      bo'lishi mumkin?
+      ✅ Ikkinchisi uchun:
+      <code>grep -rn 'orWhere' app/</code>. Bitta bug
+      ko'pincha <b>yolg'iz emas</b>.</div>
+    </details>
+
+    <details class="recall">
+      <summary>«Menda ishlayapti-ku» —
+      nima farq qilishi mumkin?</summary>
+      <div class="answer"><b>Ma'lumot</b> (5 va
+      500 000 yozuv) · <b>sozlama</b>
+      (<code>.env</code>, <code>config:cache</code>) ·
+      <b>vaqt zonasi</b> · <b>baza</b> (SQLite va
+      MySQL — 61-dars!) · <b>foydalanuvchi</b> (siz
+      adminsiz) · <b>brauzer/til</b>.
+      ✅ Birinchi savol: «sizda <b>qanday
+      ma'lumot</b> bilan takrorlandi?» — va
+      <b>o'sha</b> ma'lumotni yarating.
+      🔑 Boshqa vosita: <code>git bisect</code> — «oldin
+      ishlardi» holatida aybdor commit'ni
+      <b>10 ta</b> sinovda topadi.</div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 14) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Xulosa</span>
+    <ul>
+      <li>Ishdagi birinchi vazifa odatda <b>bug
+      topish</b>, funksiya yozish emas.</li>
+      <li><b>1) Takrorla</b> — bug'ni
+      o'z qo'lingizda ko'rmaguningizcha
+      tuzatmang.</li>
+      <li><b>2) Toraytir</b> —
+      <code>route:list --path=X</code>,
+      <code>grep -rn</code>.</li>
+      <li><b>3) Kuzat</b> — controller → service →
+      model. <b>Faqat kerakli</b> fayllar.</li>
+      <li>🔍 <b>4) O'lcha</b> —
+      <code>toSql()</code> · <code>getBindings()</code>
+      · <code>toRawSql()</code> ·
+      <code>DB::listen</code>.</li>
+      <li>⭐ 🔍 Bizning bug: <code>where "faol" = ? and
+      "nom" like ? <b>or</b> exists (...)</code> —
+      qavs yo'q.</li>
+      <li><code>AND</code> <code>OR</code> dan
+      <b>kuchliroq</b> bog'lanadi.</li>
+      <li>🔍 Natija: <b>2 ta yopilgan</b> vakansiya
+      chiqdi.</li>
+      <li><b>6) Avval test</b> — 🔍 bug bilan
+      <b>4 failed</b>, tuzatilgach
+      <b>5 passed</b>.</li>
+      <li><b>Ilgak</b> test ham yozing — ishlayotgan
+      narsa buzilmasin.</li>
+      <li>Tuzatish — <b>bitta qavs</b>:
+      <code>where(function ($s) { ... })</code>.</li>
+      <li>⚠️ Alomatni emas, <b>sababni</b> tuzating.</li>
+      <li><b>8) Ko'lamni tekshir</b> — bitta bug
+      <b>yolg'iz emas</b>.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p>Kodimiz tayyor. Endi uni <b>o'z
+    kompyuteringizdan tashqarida</b> ishlatish
+    vaqti.</p>
+    <p>Birinchi muammo — 61-darsdagi «menda
+    ishlayapti-ku». Sizda PHP 8.3, hamkasbingizda
+    8.2; sizda SQLite, serverda MySQL; sizda Redis
+    bor, unda yo'q.</p>
+    <p>68-darsda <b>Docker va Laravel Sail</b> ni
+    o'rganamiz: butun muhitni —
+    PHP, baza, Redis — <b>bitta faylga</b>
+    yozamiz. Shunda «menda ishlayapti» degan
+    gap <b>ma'noga ega</b> bo'ladi: hammada
+    <b>aynan bir xil</b> muhit.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel — Debugging</b>:
+    <a href="https://laravel.com/docs/13.x/queries#debugging"><code>dd</code>,
+    <code>dump</code>,
+    <code>dumpRawSql</code></a>.<sup><a href="#fn1">1</a></sup><br>
+    <b>Laravel — Artisan</b>:
+    <a href="https://laravel.com/docs/13.x/artisan"><code>route:list</code>,
+    <code>tinker</code>,
+    <code>pail</code></a>.<sup><a href="#fn2">2</a></sup><br>
+    <b>Git — <code>bisect</code></b>:
+    <a href="https://git-scm.com/docs/git-bisect">aybdor
+    commit'ni ikkilamchi qidiruv bilan
+    topish</a>.<sup><a href="#fn3">3</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b>
+    «bug'ni takrorlay olmasam nima qilaman?»,
+    «qancha vaqt o'zim urinishim kerak?»,
+    «xdebug kerakmi?» — har qanday savol yaxshi.
+    Birinchisiga qisqa javob: <b>ma'lumotni
+    so'rang</b> — aynan qaysi foydalanuvchi, qaysi
+    yozuv, qaysi vaqtda. Takrorlanmaydigan bug —
+    odatda <b>ma'lumotga bog'liq</b> bug.
+    Uchinchisiga: <code>dd()</code> va log 90% holatda
+    yetadi; xdebug murakkab oqimlarda (navbat,
+    hodisalar zanjiri) foydali.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0066-xavfsizlik.html">Oldingi: Xavfsizlik</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel 13 — <a href="https://laravel.com/docs/13.x/queries#debugging">Query Builder: Debugging</a>.</li>
+      <li id="fn2">Laravel 13 — <a href="https://laravel.com/docs/13.x/artisan">Artisan Console</a>.</li>
+      <li id="fn3">Git — <a href="https://git-scm.com/docs/git-bisect">git-bisect</a>.</li>
+      <li id="fn4">Barchasi jonli o'lchangan (PHP 8.3.32,
+      Laravel 13.26.1, Pest 4.7.8):
+      <code>route:list --path=tavsiya</code> →
+      <code>GET|HEAD api/v1/tavsiya ... api.v1.tavsiya ›
+      Api\TavsiyaController</code> ·
+      ⭐ bug'li <code>toSql()</code>:
+      <code>select * from "vakansiyalar" where "faol" = ?
+      and "nom" like ? or exists (select * from
+      "kompaniyalar" where
+      "vakansiyalar"."kompaniya_id" =
+      "kompaniyalar"."id" and "nom" like ?) and "shahar"
+      = ?</code>,
+      <code>getBindings()</code> →
+      <code>[true,"%php%","%php%","Toshkent"]</code> ·
+      besh yozuvli nazorat to'plamida bug'li kod
+      <code>bajar('php')</code> uchun <b>4 ta</b>
+      qaytardi — ulardan <code>Sotuvchi</code> va
+      <code>Kuryer</code> <b>yopilgan</b>;
+      <code>bajar('php', 'Toshkent')</code> uchun
+      <b>2 ta</b> — <code>Kuryer</code> yopilgan ·
+      tuzatilgan <code>toSql()</code>:
+      <code>where "faol" = ? and ("nom" like ? or exists
+      (...))</code>; natijalar <b>2 ta</b> va <b>1 ta</b>,
+      hammasi faol ·
+      <code>toRawSql()</code> →
+      <code>where "faol" = 1 and ("nom" like '%php%' or
+      exists (...)) and "shahar" = 'Toshkent'</code> ·
+      <code>DB::listen</code> → <code>[0.60 ms] select *
+      from "vakansiyalar" ... limit 10</code> ·
+      <code>TavsiyaTest</code>: bug bilan <b>4 failed,
+      1 passed (6 assertions)</b>, tuzatilgach
+      <b>5 passed (9 assertions)</b> ·
+      yakuniy to'plam: <b>121 passed (243 assertions),
+      0.95s</b>.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

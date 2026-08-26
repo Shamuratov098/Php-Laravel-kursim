@@ -17,7 +17,7 @@
   muhit ma'lumotlari. Har dars yangi buyruq o'rgatilsa, shu yerga qo'shiladi.</p>
 
   <p class="lesson-meta">
-    <span>Qamrov: <b>1&ndash;66-darslar</b> — muhitdan API'gacha</span>
+    <span>Qamrov: <b>1&ndash;67-darslar</b> — muhitdan API'gacha</span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>💻 Amaliyotga mos</span>
   </p>
@@ -1826,6 +1826,54 @@
     <code>database</code> · <code>redis</code> (ishlab
     chiqarish, teglar bor).
     Redis nafaqat kesh: navbat, sessiya va cheklov ham.</p>
+  </div>
+
+  <h2>Bug tergovi (67-darsdan) ⭐</h2>
+  <table class="sheet">
+    <tr><th>Qadam</th><th class="note-cell">Buyruq / usul</th></tr>
+    <tr><td><b>1. Takrorla</b></td><td class="note-cell">Nazorat ma'lumotini yarating — bug'ni <b>ko'ring</b></td></tr>
+    <tr><td><b>2. Toraytir</b></td><td class="note-cell"><code>route:list --path=X</code> · <code>grep -rn</code></td></tr>
+    <tr><td><b>3. Kuzat</b></td><td class="note-cell">controller → service → query → model</td></tr>
+    <tr><td><b>4. O'lcha</b></td><td class="note-cell"><code>toSql()</code> · <code>getBindings()</code> · <code>toRawSql()</code></td></tr>
+    <tr><td></td><td class="note-cell"><code>DB::listen(fn ($q) =&gt; ...)</code> · <code>Log::debug</code> · <code>pail</code></td></tr>
+    <tr><td><b>5. Tushun</b></td><td class="note-cell"><b>Nega</b> bunday bo'lyapti?</td></tr>
+    <tr><td><b>6. Test yoz</b></td><td class="note-cell">🔑 <b>Qizarishi shart</b> + «ilgak» test</td></tr>
+    <tr><td><b>7. Tuzat</b></td><td class="note-cell">Test yashil bo'lguncha</td></tr>
+    <tr><td><b>8. Ko'lam</b></td><td class="note-cell">Yana qayerda shunday? <code>grep</code></td></tr>
+  </table>
+  <table class="sheet">
+    <tr><th>Vosita</th><th class="note-cell">Nima uchun</th></tr>
+    <tr><td><code>route:list -v</code></td><td class="note-cell">Middleware ro'yxati — «nega 401?»</td></tr>
+    <tr><td><code>git log -p -- fayl</code> · <code>git blame</code></td><td class="note-cell">Kod <b>nega</b> shunday yozilgan</td></tr>
+    <tr><td><code>git bisect</code></td><td class="note-cell">«Oldin ishlardi» — 1000 commit → 10 sinov</td></tr>
+    <tr><td><code>git bisect run php artisan test</code></td><td class="note-cell">Butunlay avtomatik</td></tr>
+    <tr><td><code>select distinct ustun from jadval</code></td><td class="note-cell">Ma'lumot qanday shakllarda bor</td></tr>
+  </table>
+  <div class="callout note">
+    <p>⭐ 🔍 <b>Bizning bug:</b>
+    <code>where "faol" = ? and "nom" like ? <b>or</b>
+    exists (...)</code> — qavs yo'q.
+    <code>AND</code> <code>OR</code> dan <b>kuchliroq</b>
+    bog'lanadi, demak bu
+    <code>(faol AND nom) OR exists(...)</code>.
+    Natijada <b>2 ta yopilgan</b> vakansiya chiqdi.</p>
+    <p>✅ Tuzatish — bitta qavs:
+    <code>-&gt;where(function (Builder $s) { ... })</code> →
+    <code>where "faol" = ? and ("nom" like ? or exists
+    (...))</code>.</p>
+    <p>🔍 Testlar: bug bilan <b>4 failed, 1 passed</b>;
+    tuzatilgach <b>5 passed</b>.
+    <br>🔑 Bug bilan ham yashil bo'lgan test —
+    <b>«ilgak»</b>: tuzatish ishlayotgan narsani
+    buzmasligini tekshiradi.</p>
+    <p>⚠️ <b>Eng ko'p qilinadigan xato:</b> alomatni
+    yamash — <code>$natija-&gt;filter(...)</code>.
+    Oqibati: <code>LIMIT</code> dan keyin filtrlash,
+    sahifalash buzilishi, <b>asl sabab qolishi</b>.</p>
+    <p>🔑 <b>«Menda ishlayapti»</b> farqlari: ma'lumot
+    hajmi · <code>.env</code>/<code>config:cache</code> ·
+    vaqt zonasi · <b>baza</b> (SQLite va MySQL) ·
+    foydalanuvchi roli · til.</p>
   </div>
 
   <h2>Xavfsizlik (66-darsdan)</h2>

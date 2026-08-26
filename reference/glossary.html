@@ -18,7 +18,7 @@
   izoh esa o'zbekcha.</p>
 
   <p class="lesson-meta">
-    <span>Atamalar: <b>280 ta</b></span>
+    <span>Atamalar: <b>283 ta</b></span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>📱 O'qishga mos</span>
   </p>
@@ -26,7 +26,7 @@
   <div class="callout note">
     <span class="label">Bu hujjat o'sib boradi</span>
     <p>Atama faqat <b>o'z darsi yozilganda</b> qo'shiladi — oldindan emas. Hozir:
-    Modul A–I (1–66-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
+    Modul A–J (1–67-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
     bosqichida qat'iy belgilangan va 73 dars bo'ylab o'zgarmaydi).</p>
   </div>
 
@@ -916,6 +916,80 @@
       <b>majburiy</b>. Xato ko'rinishi: <code>no such table: vakansiyas</code>.
       Tekshirish: <code>(new Vakansiya)-&gt;getTable()</code>.
       <span class="eg">protected $table = 'vakansiyalar';</span></dd>
+    </div>
+
+    <div class="term" id="tergov-tartibi">
+      <dt>bug tergovi <span class="uz">— sakkiz qadam</span></dt>
+      <dd>⭐ <b>1)</b> TAKRORLA — bug'ni o'z
+      qo'lingizda ko'ring ·
+      <b>2)</b> TORAYTIR
+      (<code>route:list --path=X</code>,
+      <code>grep -rn</code>) ·
+      <b>3)</b> KUZAT (controller → service → model) ·
+      <b>4)</b> O'LCHA (<code>toSql</code>,
+      <code>DB::listen</code>, log, <code>dd</code>) ·
+      <b>5)</b> TUSHUN — <b>nega</b>? ·
+      <b>6)</b> TEST YOZ — <b>qizarishi shart</b> ·
+      <b>7)</b> TUZAT ·
+      <b>8)</b> KO'LAMNI TEKSHIR.
+      ⚠️ 1-qadamni o'tkazib yubormang: «kodga
+      qarab tushundim» — eng ko'p vaqt
+      yo'qotadigan yo'l.
+      ⚠️ Va eng ko'p qilinadigan xato —
+      <b>alomatni</b> yamash (natijani
+      <code>filter</code> qilish), <b>sababni</b>
+      emas.
+      🔑 Ikki savol: «NEGA bunday bo'lyapti?» va
+      «Yana QAYERDA shunday bo'lishi mumkin?»
+      <span class="eg">php artisan route:list --path=tavsiya</span></dd>
+    </div>
+
+    <div class="term" id="or-qavs">
+      <dt>orWhere va qavs <span class="uz">— AND, OR dan kuchliroq</span></dt>
+      <dd>⭐ SQL'da <code>AND</code> <code>OR</code> dan
+      <b>kuchliroq</b> bog'lanadi — xuddi
+      <code>×</code> va <code>+</code> kabi.
+      🔍 O'lchandi:
+      <code>where "faol" = ? and "nom" like ? or exists
+      (...)</code> aslida
+      <code>(faol AND nom) OR exists(...)</code> —
+      ikkinchi shoxda <code>faol</code> <b>yo'q</b>.
+      Natija: <b>2 ta yopilgan</b> vakansiya chiqdi.
+      ✅ Eloquent'da qavs —
+      <code>where(function (Builder $s) { ... })</code>:
+      <code>where "faol" = ? and ("nom" like ? or exists
+      (...))</code>.
+      🔑 Naqsh: <b>filtr</b> + <b>qidiruv</b> birga
+      bo'lsa, qidiruv shoxlari <b>doim</b> qavsda
+      bo'lsin.
+      ⚠️ Tekshiruv: <code>grep -rn 'orWhere' app/</code>
+      — bitta bug ko'pincha yolg'iz emas.
+      <span class="eg">->where(fn ($s) => $s->whereLike(...)->orWhereHas(...))</span></dd>
+    </div>
+
+    <div class="term" id="sorov-korish">
+      <dt>so'rovni ko'rish <span class="uz">— toSql, toRawSql, DB::listen</span></dt>
+      <dd><code>$q-&gt;toSql()</code> — <code>?</code>
+      belgilar bilan ·
+      <code>$q-&gt;getBindings()</code> — qiymatlar ·
+      <code>$q-&gt;toRawSql()</code> — ikkalasi birga
+      (bazaga to'g'ridan-to'g'ri nusxalash uchun).
+      Zanjir ichida: <code>-&gt;dump()</code> (davom
+      etadi) · <code>-&gt;dd()</code> (to'xtaydi) ·
+      <code>-&gt;dumpRawSql()</code>.
+      Butun oqim uchun:
+      <code>DB::listen(fn ($q) =&gt; ...)</code> — har
+      so'rov <b>vaqti bilan</b> (🔍 menda
+      <code>[0.60 ms]</code>).
+      🔑 <code>dump</code> va <code>dd</code> farqi:
+      <b>dump and die</b> — siklda
+      <code>dump()</code> ishlating.
+      ⚠️ <code>dd()</code> ni commit qilmang.
+      🔍 Log kerak bo'ladigan joylar: navbatdagi job,
+      rejalashtirilgan buyruq, ishlab chiqarish —
+      <code>php artisan pail</code> bilan jonli
+      kuzating.
+      <span class="eg">$q->toRawSql()</span></dd>
     </div>
 
     <div class="term" id="mass-assignment">
