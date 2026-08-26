@@ -17,7 +17,7 @@
   muhit ma'lumotlari. Har dars yangi buyruq o'rgatilsa, shu yerga qo'shiladi.</p>
 
   <p class="lesson-meta">
-    <span>Qamrov: <b>1&ndash;63-darslar</b> — muhitdan API'gacha</span>
+    <span>Qamrov: <b>1&ndash;64-darslar</b> — muhitdan API'gacha</span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>💻 Amaliyotga mos</span>
   </p>
@@ -1826,6 +1826,47 @@
     <code>database</code> · <code>redis</code> (ishlab
     chiqarish, teglar bor).
     Redis nafaqat kesh: navbat, sessiya va cheklov ham.</p>
+  </div>
+
+  <h2>DTO va chegaralar (64-darsdan)</h2>
+  <table class="sheet">
+    <tr><th>Kod</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>final readonly class VakansiyaMalumoti</code></td><td class="note-cell">DTO — faqat shakl, mantiq yo'q</td></tr>
+    <tr><td><code>public function __construct(public string $nom, ...)</code></td><td class="note-cell">Konstruktor xossalari (PHP 8.0+)</td></tr>
+    <tr><td><code>public ?int $maosh = null</code></td><td class="note-cell">Ixtiyoriy + standart qiymat ko'rinadi</td></tr>
+    <tr><td><code>new X(nom: 'PHP', maosh: 900)</code></td><td class="note-cell">Nomlangan argumentlar — tartibsiz, o'qiladigan</td></tr>
+    <tr><td><code>declare(strict_types=1)</code></td><td class="note-cell">⭐ <b>Chaqiruvchi</b> faylda hal bo'ladi</td></tr>
+    <tr><td><code>static function soRovdan(Request $r): self</code></td><td class="note-cell">HTTP chegarasi — <code>(int)</code> cast shu yerda</td></tr>
+    <tr><td><code>function jadvalGa(): array</code></td><td class="note-cell"><code>kompaniyaId</code> → <code>kompaniya_id</code></td></tr>
+    <tr><td><code>-&gt;throws(Error::class, 'Cannot modify readonly')</code></td><td class="note-cell">Pest'da istisnoni tekshirish</td></tr>
+    <tr><td><code>Pul::somdan(150)</code></td><td class="note-cell">Value Object — <b>ma'no</b> tipga aylandi</td></tr>
+  </table>
+  <div class="callout note">
+    <p>🔍 <b>Massiv jim, DTO ovozli:</b>
+    <br><code>$m['maoshi'] ?? null</code> → <b>NULL</b>, xato yo'q ⚠️
+    <br><code>$dto-&gt;maoshi</code> → <code>Undefined property</code>
+    <br><code>$dto-&gt;maosh = 1000</code> → <code>Cannot modify readonly property</code>
+    <br>majburiy maydonsiz → <code>ArgumentCountError</code></p>
+    <p>⭐ ⚠️ <b><code>strict_types</code> chaqiruvchi faylda
+    hal bo'ladi.</b> DTO faylida u bor bo'lsa ham:
+    chaqiruvchida yo'q → <code>'900'</code> jimgina
+    <code>int 900</code> ga aylanadi.
+    ✅ Har faylga yozing — <code>tests/</code> ga ham.</p>
+    <p>🔍 <b>Shartnoma o'zgarganda:</b>
+    <code>TypeError: ... must be of type
+    App\Data\VakansiyaMalumoti, array given, called in
+    tests/Feature/AmalTest.php on line 14</code> —
+    tip tizimi <b>hamma</b> chaqiruv joyini ko'rsatdi.
+    Massivda bunday bo'lmaydi.</p>
+    <p>✅ <b>DTO KERAK:</b> qatlam chegarasi (HTTP → mantiq,
+    mantiq → navbat, tashqi API) · 3+ maydon · ixtiyoriy
+    maydonlar · qayta ishlatiladi.
+    <br>❌ <b>KERAK EMAS:</b> bitta maydon ·
+    <code>Resource</code> massivi · <code>config()</code> ·
+    <b>Eloquent modelining o'zi</b>.</p>
+    <p>🔑 DTO <b>tipni</b> kafolatlaydi, <b>ma'noni</b>
+    emas. «Bu qanday birlikda?» savol tug'ilsa —
+    Value Object.</p>
   </div>
 
   <h2>SOLID amalda (63-darsdan)</h2>

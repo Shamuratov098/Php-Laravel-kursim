@@ -18,7 +18,7 @@
   izoh esa o'zbekcha.</p>
 
   <p class="lesson-meta">
-    <span>Atamalar: <b>268 ta</b></span>
+    <span>Atamalar: <b>271 ta</b></span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>📱 O'qishga mos</span>
   </p>
@@ -26,7 +26,7 @@
   <div class="callout note">
     <span class="label">Bu hujjat o'sib boradi</span>
     <p>Atama faqat <b>o'z darsi yozilganda</b> qo'shiladi — oldindan emas. Hozir:
-    Modul A–I (1–63-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
+    Modul A–I (1–64-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
     bosqichida qat'iy belgilangan va 73 dars bo'ylab o'zgarmaydi).</p>
   </div>
 
@@ -2609,6 +2609,90 @@
       uchraydigan xato — <code>EXPLAIN</code> ni
       o'tkazib yuborish.
       <span class="eg">DB::select("EXPLAIN QUERY PLAN $sql", $bog)</span></dd>
+    </div>
+
+    <div class="term" id="dto">
+      <dt>DTO (Data Transfer Object) <span class="uz">— ma'lumot uchun sinf</span></dt>
+      <dd>Faqat ma'lumot saqlaydigan sinf: mantiq yo'q,
+      baza yo'q, HTTP yo'q — faqat <b>shakl</b>.
+      <code>final readonly class</code> + konstruktor
+      xossalari (PHP 8.0+).
+      16 qatorda to'rt narsani aytadi: <b>qaysi</b>
+      maydonlar · <b>tipi</b> · qaysilari
+      <b>majburiy</b> · <b>standart</b> qiymat. Massiv
+      hech birini aytmaydi.
+      🔍 O'lchandi — massiv <b>jim</b>, DTO
+      <b>ovozli</b>:
+      <code>$m['maoshi'] ?? null</code> → <b>NULL</b>;
+      <code>$dto-&gt;maoshi</code> →
+      <code>Undefined property</code> ·
+      <code>$dto-&gt;maosh = 1000</code> →
+      <code>Error: Cannot modify readonly property</code> ·
+      majburiy maydonsiz →
+      <code>ArgumentCountError: Argument #1 ($nom) not
+      passed</code>.
+      ✅ Chegarada yaratiladi (<code>soRovdan()</code>) —
+      HTTP dan hamma narsa <b>matn</b> keladi, shuning
+      uchun <code>(int)</code> cast shu yerda.
+      <code>jadvalGa()</code> DTO nomlarini
+      (<code>kompaniyaId</code>) ustun nomlaridan
+      (<code>kompaniya_id</code>) ajratadi.
+      ⚠️ Har massivni sinfga aylantirmang — Eloquent
+      modeli ko'p hollarda yetarli. DTO qatlam
+      <b>chegarasi</b> uchun.
+      🔑 DTO <b>tipni</b> kafolatlaydi,
+      <b>ma'noni</b> emas — buning uchun
+      [[value-object]].
+      <span class="eg">new VakansiyaMalumoti(nom: 'PHP', shahar: 'Toshkent', maosh: 900)</span></dd>
+    </div>
+
+    <div class="term" id="strict-types">
+      <dt>declare(strict_types=1) <span class="uz">— chaqiruvchi faylda hal bo'ladi</span></dt>
+      <dd>⭐ PHP haqidagi eng ko'p noto'g'ri
+      tushuniladigan narsalardan biri: u sinf
+      <b>e'lon qilingan</b> faylga emas, sinf
+      <b>chaqirilgan</b> faylga ta'sir qiladi.
+      🔍 O'lchandi (DTO faylida
+      <code>strict_types</code> <b>bor</b> holda,
+      ikkita chaqiruvchi fayl):
+      chaqiruvchida <b>bor</b> →
+      <code>TypeError: Argument #3 ($maosh) must be of
+      type ?int, string given</code>;
+      chaqiruvchida <b>yo'q</b> → xato yo'q,
+      <code>'900'</code> jimgina
+      <code>int 900</code> ga aylandi.
+      🔑 Sabab mantiqiy: «tiplarni qat'iy ishlataman» —
+      <b>kod yozuvchining</b> qarori, kutubxona
+      muallifi uni hal qila olmaydi.
+      ⚠️ Laravel uni ishlatmaydi (moslik uchun),
+      <code>make:</code> buyruqlari qo'shmaydi —
+      <b>o'zingiz</b> yozasiz.
+      ✅ Har faylga: <code>app/</code> ga ham,
+      <code>tests/</code> ga ham (tip xatolarini
+      <b>tutish</b> uchun).
+      <span class="eg">&lt;?php
+
+declare(strict_types=1);</span></dd>
+    </div>
+
+    <div class="term" id="value-object">
+      <dt>Value Object <span class="uz">— ma'noni tipga aylantirish</span></dt>
+      <dd>DTO ma'lumotni <b>tashiydi</b>, Value Object
+      bitta qiymatning <b>ma'nosini</b> saqlaydi.
+      🔑 Sinov: agar qiymat haqida «bu qanday
+      birlikda?» degan savol tug'ilsa — u
+      <code>int</code> emas, o'z tipiga loyiq.
+      <code>int $summa</code> tiyindami yoki
+      so'mdami — <b>hech kim bilmaydi</b>.
+      ✅ Konstruktorni <code>private</code> qiling va
+      nomlangan yaratuvchilar bering — shunda birlik
+      <b>har chaqiruvda ko'rinadi</b>:
+      <code>Pul::somdan(150)</code>,
+      <code>Pul::tiyindan(15000)</code>.
+      Laravel'dagi misollar: <code>Carbon</code>,
+      <code>Stringable</code>,
+      <code>Collection</code>.
+      <span class="eg">private function __construct(public int $tiyin) {}</span></dd>
     </div>
 
     <div class="term" id="solid">

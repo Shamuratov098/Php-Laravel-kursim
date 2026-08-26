@@ -1,0 +1,1441 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 64 — DTO va qatlamlar orasidagi chegara</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 64 · MODUL I — ISHLAB CHIQARISHGA TAYYORGARLIK</p>
+  <h1>DTO va qatlamlar orasidagi chegara</h1>
+  <p class="lead">62-darsda mantiqni Action ga ko'chirdik. Lekin
+  ma'lumot hamon <code>array $malumot</code> bo'lib
+  yuribdi — ichida <b>nima</b> borligini faqat kodni
+  o'qib bilasiz. Bugun uni <b>nomlangan va tipli</b>
+  obyektga solamiz. Va PHP haqida bir haqiqatni
+  o'lchaymiz — ko'pchilik uni noto'g'ri
+  biladi.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 17 daqiqa</span>
+    <span>💻 Amaliyot ≈ 30 daqiqa</span>
+    <span>Kerak: <a href="0063-solid-amalda.html">Dars 63</a></span>
+  </p>
+
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b>Massivning uchta muammosi</b>
+        <span class="nima">🔍 Kalitni xato yozsangiz —
+        <b>jimgina <code>null</code></b>.</span></li>
+      <li><b>DTO nima</b>
+        <span class="nima">Ma'lumot uchun sinf.
+        Mantiq yo'q, faqat <b>shakl</b>.</span></li>
+      <li><b><code>readonly</code> va konstruktor
+        xossalari</b>
+        <span class="nima">🔍 O'zgartirsangiz:
+        <code>Cannot modify readonly
+        property</code>.</span></li>
+      <li><b>Nomlangan argumentlar</b>
+        <span class="nima">Yettita parametr ham
+        <b>o'qiladigan</b> bo'ladi.</span></li>
+      <li><b>🔍 Xato darrov chiqadi</b>
+        <span class="nima"><code>Undefined
+        property</code> ·
+        <code>ArgumentCountError</code>.</span></li>
+      <li><b>⭐ <code>declare(strict_types=1)</code>
+        haqidagi haqiqat</b>
+        <span class="nima">🔍 O'lchandi: u
+        <b>chaqiruvchi</b> faylda hal
+        bo'ladi.</span></li>
+      <li><b>🔍 Strictsiz nima bo'ladi</b>
+        <span class="nima"><code>'900'</code>
+        jimgina <code>int 900</code> ga
+        aylandi.</span></li>
+      <li><b><code>FormRequest</code> bilan
+        bog'lash</b>
+        <span class="nima"><code>soRovdan()</code> —
+        HTTP chegarasi shu yerda
+        tugaydi.</span></li>
+      <li><b>🔍 Shartnomani o'zgartirish</b>
+        <span class="nima">Tip tizimi <b>hamma</b>
+        chaqiruv joyini ko'rsatdi.</span></li>
+      <li><b><code>jadvalGa()</code></b>
+        <span class="nima">DTO nomlari va ustun
+        nomlari — <b>alohida</b>
+        narsa.</span></li>
+      <li><b>⚠️ Qachon DTO kerak emas</b>
+        <span class="nima">Har massivni sinfga
+        aylantirish — <b>xato</b>.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima">Enum · kolleksiya ·
+        <code>with()</code> · navbat ·
+        paketlar.</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Massiv — qulay, lekin jim</span>
+    <p>62-darsdagi Action imizga qarang:</p>
+    <div class="natija">public function bajar(array $malumot, User $egasi): Vakansiya</div>
+    <p>Savol: <code>$malumot</code> ichida <b>nima</b>
+    bor?</p>
+    <p>Javob: <b>bilmaysiz</b>. Buni aniqlash uchun
+    metod ichini o'qish kerak, keyin
+    <code>Vakansiya::create()</code> ni, keyin
+    <code>$fillable</code> ni, keyin
+    migratsiyani.</p>
+    <p>Va bu shunchaki noqulaylik emas —
+    <b>xatolarning manbai</b>:</p>
+    <div class="natija">$malumot = ['nom' => 'PHP dasturchi', 'shahar' => 'Toshkent', 'maosh' => 900];
+
+$malumot['maosh']    ->  900
+$malumot['maoshi']   ->  NULL          ⚠️  jimgina. Xato YO'Q.</div>
+    <p>Bitta harf. Xato yo'q, ogohlantirish yo'q
+    (<code>??</code> bilan), test yashil. Va maosh
+    <code>null</code> bo'lib bazaga tushadi.</p>
+    <p>Yana ikki muammo:</p>
+    <div class="natija">2) IDE yordam bermaydi   →  avtomatik to'ldirish yo'q
+3) O'zgartirish oson    →  massiv har joyda o'zgartirilishi mumkin</div>
+  </div>
+
+  <!-- ═══════════════ 2) DTO ═══════════════ -->
+  <h2>DTO — ma'lumot uchun sinf</h2>
+
+  <p><b>DTO</b> — Data Transfer Object. Nomi
+  qo'rqinchli, o'zi juda oddiy: <b>faqat
+  ma'lumot saqlaydigan sinf</b>. Mantiq yo'q,
+  baza yo'q, HTTP yo'q — faqat
+  <b>shakl</b>.</p>
+
+  <div class="codefile">
+    <div class="fname">app/Data/VakansiyaMalumoti.php</div>
+    <code class="cmd">&lt;?php
+
+declare(strict_types=1);
+
+namespace App\Data;
+
+final readonly class VakansiyaMalumoti
+{
+    public function __construct(
+        public string $nom,
+        public string $shahar,
+        public ?int $maosh = null,
+        public ?int $kompaniyaId = null,
+        public bool $faol = true,
+    ) {}
+}</code>
+  </div>
+
+  <p>Bu <b>16 qator</b>da to'rt narsani aytadi, massiv
+  esa <b>hech birini</b> aytmaydi:</p>
+
+  <div class="natija">1) QAYSI maydonlar bor         (nom, shahar, maosh, kompaniyaId, faol)
+2) Ularning TIPI qanday        (string, ?int, bool)
+3) Qaysilari MAJBURIY          (nom, shahar)
+4) Standart qiymat nima        (faol = true)</div>
+
+  <div class="callout tip">
+    <span class="label">🔑 Uchta kalit so'z</span>
+    <div class="natija">final     →  meros olinmasin (63-dars: LSP buzilishini oldini oladi)
+readonly  →  yaratilgach O'ZGARMASIN (62-dars: holatsizlik)
+public    →  konstruktorda xossa e'lon qilish (PHP 8.0+)</div>
+    <p>Oxirgisi eng ko'p vaqt tejaydi. PHP 8 dan oldin
+    xuddi shu sinf <b>40 qatordan</b> ortiq bo'lardi:
+    xossalar, konstruktor, getterlar.</p>
+    <p>🔍 <code>readonly class</code> (PHP 8.2+) —
+    har xossaga alohida yozish shart emas, butun sinf
+    <code>readonly</code>.</p>
+  </div>
+
+  <!-- ═══════════════ 3) XATOLAR ═══════════════ -->
+  <h2>🔍 Xato darrov chiqadi</h2>
+
+  <p>Massiv bilan solishtiramiz. Har uchala holatni
+  o'lchadik:</p>
+
+  <div class="natija">1) KALIT / XOSSA NOMIDA XATO
+
+   $malumot['maoshi'] ?? null    ->  NULL                          ⚠️  jim
+   $dto->maoshi                  ->  ErrorException:
+                                     Undefined property:
+                                     VakansiyaMalumoti::$maoshi    ✅ ovozli
+                                     (tinker'da: WARNING)
+
+2) O'ZGARTIRISHGA URINISH
+
+   $malumot['maosh'] = 1000      ->  o'zgardi                      ⚠️
+   $dto->maosh = 1000            ->  Error: Cannot modify
+                                     readonly property             ✅
+
+3) MAJBURIY MAYDON TUSHIB QOLDI
+
+   ['shahar' => 'T']             ->  hech narsa                    ⚠️
+   new VakansiyaMalumoti(shahar: 'T')
+                                 ->  ArgumentCountError:
+                                     Argument #1 ($nom) not passed ✅</div>
+
+  <p>Naqsh aniq: <b>massiv jim, DTO ovozli</b>. Va
+  «ovozli» — bu yaxshi. Xato <b>yozilayotgan
+  paytda</b> chiqadi, foydalanuvchi shikoyat
+  qilganda emas.</p>
+
+  <!-- ═══════════════ 4) NOMLANGAN ARGUMENTLAR ═══════════════ -->
+  <h2>Nomlangan argumentlar</h2>
+
+  <p>DTO ning ikkinchi foydasi — chaqirish
+  <b>o'qiladigan</b> bo'ladi:</p>
+
+  <div class="natija">❌ new VakansiyaMalumoti('PHP dasturchi', 'Toshkent', 900, 7, true);
+//                                                    ↑  ↑  ↑ qaysi biri qaysi?
+
+✅ new VakansiyaMalumoti(
+       nom: 'PHP dasturchi',
+       shahar: 'Toshkent',
+       maosh: 900,
+       kompaniyaId: 7,
+   );</div>
+
+  <p>🔑 Va nomlangan argumentlar <b>tartibga
+  bog'liq emas</b>: ixtiyoriylarini
+  o'tkazib yuborishingiz mumkin.
+  <code>faol</code> ni yozmadik — standart qiymati
+  ishlatildi:</p>
+
+  <div class="natija">$dto->faol  =  true      <-- standart qiymat</div>
+
+  <!-- ═══════════════ 5) ⭐ STRICT_TYPES ═══════════════ -->
+  <h2>⭐ <code>declare(strict_types=1)</code> haqidagi haqiqat</h2>
+
+  <p>DTO da <code>public ?int $maosh</code> deb
+  yozdik. Demak matn o'tkazsak xato beradi,
+  to'g'rimi?</p>
+
+  <div class="natija">new VakansiyaMalumoti(nom: 'PHP', shahar: 'T', maosh: '900');</div>
+
+  <p>Sinab ko'ramiz. Testda yozdik:</p>
+
+  <div class="natija">it('noto\'g\'ri tipni qabul qilmaydi', function () {
+    new VakansiyaMalumoti(nom: 'PHP dasturchi', shahar: 'Toshkent', maosh: '900');
+})->throws(TypeError::class);</div>
+
+  <div class="natija">FAILED  Tests\Feature\MalumotTest > it noto'g'ri tipni qabul qilmaydi
+
+  Failed asserting that exception of type "TypeError" is thrown.     ⚠️</div>
+
+  <p>Xato <b>chiqmadi</b>. Lekin DTO faylida
+  <code>declare(strict_types=1)</code> <b>bor</b>
+  edi-ku?</p>
+
+  <div class="callout warn">
+    <span class="label">⚠️ <code>strict_types</code> chaqiruvchi faylda hal bo'ladi</span>
+    <p>Buni aniq o'lchash uchun ikkita fayl yozdik.
+    Ikkalasi ham <b>bir xil</b> DTO ni chaqiradi —
+    farq faqat <b>o'z</b> boshidagi
+    e'londa:</p>
+    <div class="natija">chaqiruvchida strict BOR  ->  TypeError
+chaqiruvchida strict YO'Q ->  xato YO'Q, maosh = 900 (int)     ⚠️</div>
+    <p>Ya'ni <code>'900'</code> jimgina <code>int
+    900</code> ga aylantirildi.</p>
+    <p class="expect">🔑 <b>Bu PHP haqidagi eng ko'p
+    noto'g'ri tushuniladigan narsalardan biri.</b>
+    <code>declare(strict_types=1)</code> — sinf
+    <b>e'lon qilingan</b> faylga emas, sinf
+    <b>chaqirilgan</b> faylga ta'sir qiladi.</p>
+    <p>Sabab mantiqan tushunarli: «men tiplarni qat'iy
+    ishlataman» degan qaror — <b>kod
+    yozuvchining</b> qarori. Kutubxona muallifi uni
+    siz uchun hal qila olmaydi.</p>
+  </div>
+
+  <p>Test faylining boshiga bir qator qo'shdik:</p>
+
+  <div class="natija">&lt;?php
+
+declare(strict_types=1);</div>
+
+  <div class="natija">Tests: 5 passed (9 assertions)     ✅</div>
+
+  <div class="callout tip">
+    <span class="label">✅ Amaliy xulosa</span>
+    <div class="natija">declare(strict_types=1) ni HAR FAYLGA yozing:
+   app/ dagi sinflarga        (o'z ichidagi chaqiruvlar uchun)
+   tests/ dagi testlarga      (tip xatolarini TUTISH uchun)</div>
+    <p>⚠️ Laravel'ning o'zi uni ishlatmaydi (moslik
+    uchun), shuning uchun <code>make:</code>
+    buyruqlari ham qo'shmaydi — <b>o'zingiz</b>
+    yozasiz.</p>
+    <p>🔍 65-darsda ko'ramiz: buni har faylga
+    <b>avtomatik</b> qo'yadigan vosita ham
+    bor.</p>
+  </div>
+
+  <!-- ═══════════════ 6) FORMREQUEST ═══════════════ -->
+  <h2><code>FormRequest</code> bilan bog'lash</h2>
+
+  <p>Endi savol: DTO <b>qayerda</b> yaratiladi?</p>
+
+  <p>Javob — <b>HTTP chegarasida</b>. Ya'ni tashqi
+  dunyodan (so'rov) ichki dunyoga
+  (mantiq) o'tayotgan joyda:</p>
+
+  <div class="codefile">
+    <div class="fname">app/Data/VakansiyaMalumoti.php (davomi)</div>
+    <code class="cmd">public static function soRovdan(VakansiyaRequest $request): self
+{
+    $tekshirilgan = $request-&gt;validated();
+
+    return new self(
+        nom: $tekshirilgan['nom'],
+        shahar: $tekshirilgan['shahar'],
+        maosh: isset($tekshirilgan['maosh']) ? (int) $tekshirilgan['maosh'] : null,
+        kompaniyaId: isset($tekshirilgan['kompaniya_id'])
+            ? (int) $tekshirilgan['kompaniya_id']
+            : null,
+    );
+}</code>
+  </div>
+
+  <p>⚠️ <code>(int)</code> castlariga e'tibor bering.
+  HTTP dan hamma narsa <b>matn</b> bo'lib keladi —
+  <code>maosh=900</code> aslida
+  <code>'900'</code>. Tekshiruv
+  (<code>'integer'</code>) uni <b>qabul
+  qiladi</b>, lekin <b>aylantirmaydi</b>.</p>
+
+  <p>🔑 Ya'ni cast bu yerda <b>shart</b> — va
+  aynan shuning uchun DTO chegarada
+  turadi: <b>tashqi tartibsizlikni ichkariga
+  o'tkazmaydi</b>.</p>
+
+  <p>Controller endi:</p>
+
+  <div class="natija">public function store(VakansiyaRequest $request, VakansiyaYarat $yarat)
+{
+    $vakansiya = $yarat->bajar(VakansiyaMalumoti::soRovdan($request), $request->user());
+
+    return VakansiyaResource::make($vakansiya)
+        ->response()->setStatusCode(201);
+}</div>
+
+  <p>Va Action:</p>
+
+  <div class="natija">public function bajar(VakansiyaMalumoti $malumot, User $egasi): Vakansiya
+{
+    $vakansiya = Vakansiya::create($malumot->jadvalGa() + ['user_id' => $egasi->id]);
+
+    VakansiyaYaratildi::dispatch($vakansiya);
+
+    return $vakansiya->fresh();
+}</div>
+
+  <div class="callout tip">
+    <span class="label">🔑 <code>jadvalGa()</code> nega kerak?</span>
+    <div class="natija">DTO da:      kompaniyaId       (PHP uslubi — camelCase)
+Jadvalda:    kompaniya_id      (SQL uslubi — snake_case)</div>
+    <p>Bu <b>ataylab</b> ajratilgan. DTO —
+    <b>ilovangizning</b> tili, jadval ustunlari —
+    <b>bazaning</b> tili. Ular bir-biriga
+    bog'lanib qolmasin.</p>
+    <p>✅ Foydasi: ertaga ustun nomi o'zgarsa,
+    faqat <code>jadvalGa()</code> o'zgaradi —
+    DTO ni ishlatgan <b>hech qaysi</b> kod
+    tegilmaydi.</p>
+  </div>
+
+  <!-- ═══════════════ 7) SHARTNOMA O'ZGARISHI ═══════════════ -->
+  <h2>🔍 Shartnomani o'zgartirganda nima bo'ldi</h2>
+
+  <p>Action imizning imzosini o'zgartirdik:</p>
+
+  <div class="natija">- public function bajar(array $malumot, User $egasi): Vakansiya
++ public function bajar(VakansiyaMalumoti $malumot, User $egasi): Vakansiya</div>
+
+  <p>Testlarni ishga tushirdik:</p>
+
+  <div class="natija">Tests:  2 failed, 98 passed (204 assertions)
+
+TypeError: App\Actions\VakansiyaYarat::bajar():
+Argument #1 ($malumot) must be of type App\Data\VakansiyaMalumoti,
+array given, called in tests/Feature/AmalTest.php on line 14</div>
+
+  <div class="callout tip">
+    <span class="label">🔑 Bu — foyda, muammo emas</span>
+    <p>Tip tizimi <b>hamma</b> chaqiruv joyini
+    ko'rsatdi: fayl nomi, qator raqami, kutilgan
+    tip, kelgan tip.</p>
+    <p>Massiv bilan bunday bo'lmasdi. Massivning
+    «shakli» o'zgarsa —
+    <b>hech narsa</b> sezilmaydi, kod ishlashda
+    davom etadi va noto'g'ri natija beradi.</p>
+    <div class="natija">massiv shakli o'zgardi   →  jimgina null lar, xato YO'Q     ⚠️
+DTO tipi o'zgardi        →  TypeError, aniq manzil bilan   ✅</div>
+    <p>🔍 Va bu <b>refaktoringni xavfsiz</b> qiladi:
+    ikkita joyni tuzatdik va yana <b>105 ta test
+    yashil</b> bo'ldi.</p>
+  </div>
+
+  <p>Testlar ham tozalandi — endi ular
+  <b>o'qiladigan</b>:</p>
+
+  <div class="natija">$vakansiya = (new VakansiyaYarat)->bajar(
+    new VakansiyaMalumoti(
+        nom: 'PHP dasturchi',
+        shahar: 'Toshkent',
+        maosh: 900,
+        kompaniyaId: $kompaniya->id,
+    ),
+    $egasi,
+);</div>
+
+  <!-- ═══════════════ 8) QACHON KERAK EMAS ═══════════════ -->
+  <h2>⚠️ Qachon DTO kerak emas</h2>
+
+  <p>63-darsdagi ogohlantirish shu yerda ham amal
+  qiladi: <b>har massivni sinfga aylantirish —
+  xato</b>.</p>
+
+  <div class="natija">❌ KERAK EMAS:
+   ['nom' => 'x']                    →  bitta maydon. Shunchaki parametr qiling.
+   Resource ichidagi javob massivi   →  u JSON ga ketyapti, chegara emas
+   config() qaytargan massiv         →  o'qish uchun, uzatish uchun emas
+   Eloquent modelining o'zi          →  u allaqachon tipli obyekt</div>
+
+  <div class="natija">✅ KERAK:
+   1) QATLAM CHEGARASI     →  HTTP → mantiq, mantiq → navbat
+   2) UCHTA+ MAYDON        →  nomlangan argumentlar o'qishni osonlashtiradi
+   3) IXTIYORIY MAYDONLAR  →  qaysilari majburiyligi ko'rinib tursin
+   4) QAYTA ISHLATILADI    →  bir necha joydan bir xil shakl uzatiladi</div>
+
+  <div class="callout warn">
+    <span class="label">⚠️ Eng ko'p uchraydigan haddan oshirish</span>
+    <p>«Har controller uchun Request DTO, har javob
+    uchun Response DTO, har model uchun Model
+    DTO».</p>
+    <p>Natija: bitta maydon qo'shish uchun
+    <b>to'rt fayl</b> ochiladi, va ularning uchtasi
+    bir xil narsani takrorlaydi.</p>
+    <p>🔑 <b>Eloquent modeli DTO emas, lekin ko'p
+    hollarda uning o'rnini bosadi.</b> U tipli,
+    nomlangan va IDE ko'radi. Chegara kesib
+    o'tilmayotgan bo'lsa —
+    modelning o'zi yetarli.</p>
+  </div>
+
+  <!-- ═══════════════ 9) HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir
+  bir marta o'qing, keyin kerak bo'lganda qaytib
+  qarang.</p>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 1</span>
+    <h4>DTO ichida Enum</h4>
+    <div class="natija">final readonly class VakansiyaMalumoti
+{
+    public function __construct(
+        public string $nom,
+        public Rol $kimUchun = Rol::Ishberuvchi,     // matn emas, ENUM
+    ) {}
+}</div>
+    <p>✅ Endi noto'g'ri qiymat <b>umuman</b>
+    yozib bo'lmaydi — <code>'ishberuvci'</code> deb
+    xato yozsangiz, PHP darrov aytadi.</p>
+    <p>🔑 63-darsdagi <code>match</code> naqshi bilan
+    birga: yangi rol qo'shilsa,
+    <code>UnhandledMatchError</code> sizni
+    tutadi.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 2</span>
+    <h4>Ro'yxat: tipli kolleksiya</h4>
+    <div class="natija">public function __construct(
+    /** @var array&lt;int, KonikmaMalumoti&gt; */
+    public array $konikmalar = [],
+) {}</div>
+    <p>⚠️ PHP <b>massiv ichidagi</b> tipni
+    tekshirmaydi — <code>array</code> deyish
+    mumkin, <code>KonikmaMalumoti[]</code>
+    deb <b>yozib bo'lmaydi</b>.</p>
+    <p>✅ Ikki yechim: PHPDoc
+    (<code>@var array&lt;int, X&gt;</code>) — statik
+    tahlil ko'radi; yoki konstruktorda
+    tekshirish:</p>
+    <div class="natija">foreach ($konikmalar as $k) {
+    if (! $k instanceof KonikmaMalumoti) {
+        throw new InvalidArgumentException('Faqat KonikmaMalumoti');
+    }
+}</div>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 3</span>
+    <h4>Nusxa olib o'zgartirish</h4>
+    <div class="natija">public function maoshBilan(?int $maosh): self
+{
+    return new self(
+        nom: $this->nom,
+        shahar: $this->shahar,
+        maosh: $maosh,              // faqat shu o'zgardi
+        kompaniyaId: $this->kompaniyaId,
+        faol: $this->faol,
+    );
+}</div>
+    <p><code>readonly</code> obyektni
+    o'zgartirib bo'lmaydi — lekin
+    <b>o'zgartirilgan nusxasini</b> qaytarish
+    mumkin.</p>
+    <p>✅ Bu naqsh
+    (<b>immutable with-er</b>) Laravel'da ham bor:
+    <code>$date-&gt;addDay()</code> yangi
+    <code>Carbon</code> qaytaradi.</p>
+    <p>🔑 Maydonlar ko'payib ketsa, PHP 8.3 dan
+    beri <code>clone with</code> muhokama
+    qilinyapti — hozircha qo'lda yoziladi.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 4</span>
+    <h4>Navbatga uzatish (55-dars)</h4>
+    <div class="natija">class VakansiyalarniEksport implements ShouldQueue
+{
+    public function __construct(public VakansiyaMalumoti $malumot) {}
+}</div>
+    <p>⚠️ Job navbatga <b>serializatsiya</b> qilinadi.
+    <code>readonly</code> sinflar buni normal
+    ko'taradi, lekin ichida <b>model</b>
+    bo'lsa — <code>SerializesModels</code>
+    kerak.</p>
+    <p>✅ Shuning uchun DTO ichida <b>model emas,
+    <code>id</code></b> saqlash afzal
+    (bizda <code>kompaniyaId</code>).</p>
+    <p>🔑 Yon foyda: DTO da model bo'lmasa,
+    navbatdagi job eskirgan ma'lumot bilan
+    ishlamaydi.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 5</span>
+    <h4>DTO ichiga mantiq qo'yish</h4>
+    <div class="natija">❌ final readonly class VakansiyaMalumoti
+   {
+       public function saqla(): Vakansiya
+       {
+           return Vakansiya::create($this->jadvalGa());    // ⚠️ bazaga tegdi
+       }
+
+       public function soliqHisobla(): int { ... }          // ⚠️ biznes mantiq
+   }</div>
+    <p>DTO — <b>ma'lumot</b>, xizmat emas. Bazaga
+    tegsa, u Action bo'lib qoladi; hisoblasa —
+    Service.</p>
+    <p>✅ Ruxsat etilgani: <b>shakl</b> bilan bog'liq
+    metodlar — <code>jadvalGa()</code>,
+    <code>soRovdan()</code>,
+    <code>maoshBilan()</code>.</p>
+    <p>🔑 Sinov: «bu metod bazaga, tarmoqqa yoki
+    vaqtga tegadimi?» Ha bo'lsa — DTO da
+    emas.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 6</span>
+    <h4>Tayyor paketlar</h4>
+    <div class="natija">spatie/laravel-data     →  DTO + tekshiruv + Resource, hammasi bitta sinfda
+cuyz/valinor           →  massivdan tipli obyektga xavfsiz aylantirish</div>
+    <p>Ular ko'p narsani avtomatlashtiradi:
+    <code>FormRequest</code> qoidalari DTO dan
+    chiqariladi, JSON javob ham
+    o'sha sinfdan.</p>
+    <p>⚠️ Lekin ular <b>o'z konventsiyalarini</b>
+    olib keladi va sehr qo'shadi. Kursimiz
+    tamoyili — «sehr yo'q»: avval <b>oddiy
+    PHP</b> bilan qiling.</p>
+    <p>🔑 Paketni <b>og'riq paydo bo'lganda</b>
+    qo'shing (63-dars) — «zamonaviy» bo'lgani
+    uchun emas.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>Chegaralarni topish</h4>
+    <div class="natija">HTTP so'rovi   →  mantiq          ✅ DTO (VakansiyaMalumoti)
+mantiq         →  navbat/job      ✅ DTO
+mantiq         →  tashqi API      ✅ DTO
+tashqi API     →  mantiq          ✅ DTO (javobni tipli qilish)
+
+controller     →  Resource        ❌ model yetarli
+Service        →  Query           ❌ oddiy parametrlar yetarli
+model          →  Blade           ❌ model yetarli</div>
+    <p>🔑 Qoida: <b>ma'lumot «begona» hududga
+    o'tayotgan bo'lsa</b> — DTO. Bir hudud ichida
+    yursa — kerak emas.</p>
+    <p>«Begona hudud» — bu tarmoq, navbat, boshqa
+    jamoa kodi, yoki shunchaki
+    <b>tekshirilmagan tashqi kirish</b>.</p>
+  </div>
+
+  <!-- ═══════════════ 10) AMALIYOT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    💻 Quyida amaliyot bor. Hozir o'qish rejimidasiz — kompyuter
+    yoningizda bo'lganda <b>💻 Amaliyot</b> rejimiga o'ting va
+    shu bo'limdan davom eting.
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <b>⚠️ Massivning jimligini ko'ring.</b>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+php artisan tinker --execute='
+$m = [&quot;nom&quot; => &quot;PHP dasturchi&quot;, &quot;shahar&quot; => &quot;Toshkent&quot;, &quot;maosh&quot; => 900];
+echo &quot;  m[maosh]  = &quot;, var_export($m[&quot;maosh&quot;] ?? null, true), PHP_EOL;
+echo &quot;  m[maoshi] = &quot;, var_export($m[&quot;maoshi&quot;] ?? null, true), &quot;   <-- XATO YOZILGAN, jimgina null&quot;, PHP_EOL;
+echo &quot;  kalitlar: &quot;, implode(&quot;, &quot;, array_keys($m)), PHP_EOL;
+echo &quot;  faol bormi? &quot;, array_key_exists(&quot;faol&quot;, $m) ? &quot;HA&quot; : &quot;YOQ&quot;, PHP_EOL;'">cd ~/Projects/Learn/ishtop
+php artisan tinker --execute='
+$m = [&quot;nom&quot; =&gt; &quot;PHP dasturchi&quot;, &quot;shahar&quot; =&gt; &quot;Toshkent&quot;, &quot;maosh&quot; =&gt; 900];
+echo &quot;  m[maosh]  = &quot;, var_export($m[&quot;maosh&quot;] ?? null, true), PHP_EOL;
+echo &quot;  m[maoshi] = &quot;, var_export($m[&quot;maoshi&quot;] ?? null, true), &quot;   &lt;-- XATO YOZILGAN, jimgina null&quot;, PHP_EOL;
+echo &quot;  kalitlar: &quot;, implode(&quot;, &quot;, array_keys($m)), PHP_EOL;
+echo &quot;  faol bormi? &quot;, array_key_exists(&quot;faol&quot;, $m) ? &quot;HA&quot; : &quot;YOQ&quot;, PHP_EOL;'</div>
+        <p class="expect">⚠️ <code>maoshi</code> →
+        <code>NULL</code>. Xato yo'q.</p>
+      </li>
+
+      <li>
+        <b>DTO yozing.</b>
+        <div class="cmd" data-cmd="mkdir -p app/Data
+cat > app/Data/VakansiyaMalumoti.php <<'PHPEOF'
+&lt;?php
+
+declare(strict_types=1);
+
+namespace App\Data;
+
+use App\Http\Requests\VakansiyaRequest;
+
+final readonly class VakansiyaMalumoti
+{
+    public function __construct(
+        public string $nom,
+        public string $shahar,
+        public ?int $maosh = null,
+        public ?int $kompaniyaId = null,
+        public bool $faol = true,
+    ) {}
+
+    public static function soRovdan(VakansiyaRequest $request): self
+    {
+        $tekshirilgan = $request->validated();
+
+        return new self(
+            nom: $tekshirilgan['nom'],
+            shahar: $tekshirilgan['shahar'],
+            maosh: isset($tekshirilgan['maosh']) ? (int) $tekshirilgan['maosh'] : null,
+            kompaniyaId: isset($tekshirilgan['kompaniya_id'])
+                ? (int) $tekshirilgan['kompaniya_id']
+                : null,
+        );
+    }
+
+    public function jadvalGa(): array
+    {
+        return [
+            'nom' => $this->nom,
+            'shahar' => $this->shahar,
+            'maosh' => $this->maosh,
+            'kompaniya_id' => $this->kompaniyaId,
+            'faol' => $this->faol,
+        ];
+    }
+}
+PHPEOF
+php -l app/Data/VakansiyaMalumoti.php">mkdir -p app/Data
+cat &gt; app/Data/VakansiyaMalumoti.php &lt;&lt;'PHPEOF'
+&lt;?php
+
+declare(strict_types=1);
+
+namespace App\Data;
+
+use App\Http\Requests\VakansiyaRequest;
+
+final readonly class VakansiyaMalumoti
+{
+    public function __construct(
+        public string $nom,
+        public string $shahar,
+        public ?int $maosh = null,
+        public ?int $kompaniyaId = null,
+        public bool $faol = true,
+    ) {}
+
+    public static function soRovdan(VakansiyaRequest $request): self
+    {
+        $tekshirilgan = $request-&gt;validated();
+
+        return new self(
+            nom: $tekshirilgan['nom'],
+            shahar: $tekshirilgan['shahar'],
+            maosh: isset($tekshirilgan['maosh']) ? (int) $tekshirilgan['maosh'] : null,
+            kompaniyaId: isset($tekshirilgan['kompaniya_id'])
+                ? (int) $tekshirilgan['kompaniya_id']
+                : null,
+        );
+    }
+
+    public function jadvalGa(): array
+    {
+        return [
+            'nom' =&gt; $this-&gt;nom,
+            'shahar' =&gt; $this-&gt;shahar,
+            'maosh' =&gt; $this-&gt;maosh,
+            'kompaniya_id' =&gt; $this-&gt;kompaniyaId,
+            'faol' =&gt; $this-&gt;faol,
+        ];
+    }
+}
+PHPEOF
+php -l app/Data/VakansiyaMalumoti.php</div>
+      </li>
+
+      <li>
+        <b>🔍 DTO ning ovozliligini ko'ring.</b>
+        <div class="cmd" data-cmd="php artisan tinker --execute='
+use App\Data\VakansiyaMalumoti;
+$d = new VakansiyaMalumoti(nom: &quot;PHP dasturchi&quot;, shahar: &quot;Toshkent&quot;, maosh: 900);
+echo &quot;  d->maosh = &quot;, var_export($d->maosh, true), PHP_EOL;
+echo &quot;  d->faol  = &quot;, var_export($d->faol, true), &quot;   <-- standart&quot;, PHP_EOL;
+try { $x = $d->maoshi; } catch (\Throwable $e) { echo &quot;  d->maoshi -> &quot;, get_class($e), &quot;: &quot;, $e->getMessage(), PHP_EOL; }
+try { $d->maosh = 1000; } catch (\Throwable $e) { echo &quot;  d->maosh = 1000 -> &quot;, get_class($e), &quot;: &quot;, $e->getMessage(), PHP_EOL; }
+try { new VakansiyaMalumoti(shahar: &quot;T&quot;); } catch (\Throwable $e) { echo &quot;  nom siz -> &quot;, get_class($e), &quot;: &quot;, $e->getMessage(), PHP_EOL; }'">php artisan tinker --execute='
+use App\Data\VakansiyaMalumoti;
+$d = new VakansiyaMalumoti(nom: &quot;PHP dasturchi&quot;, shahar: &quot;Toshkent&quot;, maosh: 900);
+echo &quot;  d-&gt;maosh = &quot;, var_export($d-&gt;maosh, true), PHP_EOL;
+echo &quot;  d-&gt;faol  = &quot;, var_export($d-&gt;faol, true), &quot;   &lt;-- standart&quot;, PHP_EOL;
+try { $x = $d-&gt;maoshi; } catch (\Throwable $e) { echo &quot;  d-&gt;maoshi -&gt; &quot;, get_class($e), &quot;: &quot;, $e-&gt;getMessage(), PHP_EOL; }
+try { $d-&gt;maosh = 1000; } catch (\Throwable $e) { echo &quot;  d-&gt;maosh = 1000 -&gt; &quot;, get_class($e), &quot;: &quot;, $e-&gt;getMessage(), PHP_EOL; }
+try { new VakansiyaMalumoti(shahar: &quot;T&quot;); } catch (\Throwable $e) { echo &quot;  nom siz -&gt; &quot;, get_class($e), &quot;: &quot;, $e-&gt;getMessage(), PHP_EOL; }'</div>
+        <p class="expect"><code>Undefined property</code>
+        · <code>Cannot modify readonly property</code>
+        · <code>ArgumentCountError</code>.</p>
+        <p>🔍 Nozik farq: <code>tinker</code> birinchisini
+        <code>WARNING Undefined property ...</code> deb
+        ko'rsatadi, oddiy skript yoki testda esa u
+        <code>ErrorException</code> bo'lib
+        <b>tashlanadi</b> — Laravel ogohlantirishlarni
+        istisnoga aylantiradi.</p>
+      </li>
+
+      <li>
+        <b>⭐ <code>strict_types</code> ni sinang.</b>
+        Ikkita fayl yozamiz — <b>bir xil</b> DTO ni
+        chaqiradi, farq faqat birinchi qatorda:
+        <div class="cmd" data-cmd="cat > strict_bor.php <<'PHPEOF'
+&lt;?php
+declare(strict_types=1);
+require __DIR__.'/vendor/autoload.php';
+$app = require __DIR__.'/bootstrap/app.php';
+$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+
+try {
+    $d = new App\Data\VakansiyaMalumoti(nom: 'P', shahar: 'T', maosh: '900');
+    echo '  strict BOR  -> xato YO\'Q, maosh = ', var_export($d->maosh, true), PHP_EOL;
+} catch (\TypeError $e) {
+    echo '  strict BOR  -> TypeError: ', $e->getMessage(), PHP_EOL;
+}
+PHPEOF
+sed '2d' strict_bor.php | sed 's/strict BOR /strict YOQ/' > strict_yoq.php
+php strict_bor.php
+php strict_yoq.php">cat &gt; strict_bor.php &lt;&lt;'PHPEOF'
+&lt;?php
+declare(strict_types=1);
+require __DIR__.'/vendor/autoload.php';
+$app = require __DIR__.'/bootstrap/app.php';
+$app-&gt;make(Illuminate\Contracts\Console\Kernel::class)-&gt;bootstrap();
+
+try {
+    $d = new App\Data\VakansiyaMalumoti(nom: 'P', shahar: 'T', maosh: '900');
+    echo '  strict BOR  -&gt; xato YO\'Q, maosh = ', var_export($d-&gt;maosh, true), PHP_EOL;
+} catch (\TypeError $e) {
+    echo '  strict BOR  -&gt; TypeError: ', $e-&gt;getMessage(), PHP_EOL;
+}
+PHPEOF
+sed '2d' strict_bor.php | sed 's/strict BOR /strict YOQ/' &gt; strict_yoq.php
+php strict_bor.php
+php strict_yoq.php</div>
+        <p class="expect">⭐ Menda:
+        <code>strict BOR → TypeError</code>,
+        <code>strict YOQ → xato YO'Q, maosh = 900</code>.
+        DTO faylida <code>strict_types</code> bor
+        bo'lsa ham!</p>
+      </li>
+
+      <li>
+        <b>Action ni DTO qabul qiladigan qiling.</b>
+        <div class="cmd" data-cmd="cat > app/Actions/VakansiyaYarat.php <<'PHPEOF'
+&lt;?php
+
+declare(strict_types=1);
+
+namespace App\Actions;
+
+use App\Data\VakansiyaMalumoti;
+use App\Events\VakansiyaYaratildi;
+use App\Models\User;
+use App\Models\Vakansiya;
+
+final class VakansiyaYarat
+{
+    public function bajar(VakansiyaMalumoti $malumot, User $egasi): Vakansiya
+    {
+        $vakansiya = Vakansiya::create($malumot->jadvalGa() + ['user_id' => $egasi->id]);
+
+        VakansiyaYaratildi::dispatch($vakansiya);
+
+        return $vakansiya->fresh();
+    }
+}
+PHPEOF
+php artisan test 2>&amp;1 | tail -6">cat &gt; app/Actions/VakansiyaYarat.php &lt;&lt;'PHPEOF'
+&lt;?php
+
+declare(strict_types=1);
+
+namespace App\Actions;
+
+use App\Data\VakansiyaMalumoti;
+use App\Events\VakansiyaYaratildi;
+use App\Models\User;
+use App\Models\Vakansiya;
+
+final class VakansiyaYarat
+{
+    public function bajar(VakansiyaMalumoti $malumot, User $egasi): Vakansiya
+    {
+        $vakansiya = Vakansiya::create($malumot-&gt;jadvalGa() + ['user_id' =&gt; $egasi-&gt;id]);
+
+        VakansiyaYaratildi::dispatch($vakansiya);
+
+        return $vakansiya-&gt;fresh();
+    }
+}
+PHPEOF
+php artisan test 2&gt;&amp;1 | tail -6</div>
+        <p class="expect">🔍 <b>2 failed</b> —
+        <code>TypeError ... must be of type
+        App\Data\VakansiyaMalumoti, array given, called
+        in tests/Feature/AmalTest.php on line 14</code>.
+        Tip tizimi <b>hamma</b> joyni
+        ko'rsatdi.</p>
+      </li>
+
+      <li>
+        <b>Controllerni ulang.</b>
+        <div class="cmd" data-cmd="# app/Http/Controllers/Api/VakansiyaController.php
+# use App\Data\VakansiyaMalumoti;   qo'shing
+
+public function store(VakansiyaRequest $request, VakansiyaYarat $yarat)
+{
+    $vakansiya = $yarat->bajar(VakansiyaMalumoti::soRovdan($request), $request->user());
+
+    return VakansiyaResource::make($vakansiya)
+        ->response()->setStatusCode(201);
+}"># app/Http/Controllers/Api/VakansiyaController.php
+# use App\Data\VakansiyaMalumoti;   qo'shing
+
+public function store(VakansiyaRequest $request, VakansiyaYarat $yarat)
+{
+    $vakansiya = $yarat-&gt;bajar(VakansiyaMalumoti::soRovdan($request), $request-&gt;user());
+
+    return VakansiyaResource::make($vakansiya)
+        -&gt;response()-&gt;setStatusCode(201);
+}</div>
+      </li>
+
+      <li>
+        <b>Testlarni DTO ga o'tkazing.</b>
+        <code>tests/Feature/AmalTest.php</code> da
+        massiv o'rniga:
+        <div class="cmd" data-cmd="$vakansiya = (new VakansiyaYarat)->bajar(
+    new VakansiyaMalumoti(
+        nom: 'PHP dasturchi',
+        shahar: 'Toshkent',
+        maosh: 900,
+        kompaniyaId: $kompaniya->id,
+    ),
+    $egasi,
+);">$vakansiya = (new VakansiyaYarat)-&gt;bajar(
+    new VakansiyaMalumoti(
+        nom: 'PHP dasturchi',
+        shahar: 'Toshkent',
+        maosh: 900,
+        kompaniyaId: $kompaniya-&gt;id,
+    ),
+    $egasi,
+);</div>
+      </li>
+
+      <li>
+        <b>DTO uchun test yozing —
+        <code>strict_types</code> bilan.</b>
+        <div class="cmd" data-cmd="cat > tests/Feature/MalumotTest.php <<'PHPEOF'
+&lt;?php
+
+declare(strict_types=1);
+
+use App\Data\VakansiyaMalumoti;
+
+it('nomlangan argumentlar bilan yaratiladi', function () {
+    $m = new VakansiyaMalumoti(nom: 'PHP dasturchi', shahar: 'Toshkent', maosh: 900);
+
+    expect($m->nom)->toBe('PHP dasturchi')
+        ->and($m->maosh)->toBe(900)
+        ->and($m->kompaniyaId)->toBeNull()
+        ->and($m->faol)->toBeTrue();
+});
+
+it('o\'zgartirib bo\'lmaydi', function () {
+    $m = new VakansiyaMalumoti(nom: 'PHP dasturchi', shahar: 'Toshkent');
+
+    $m->maosh = 1000;
+})->throws(Error::class, 'Cannot modify readonly property');
+
+it('noto\'g\'ri tipni qabul qilmaydi', function () {
+    new VakansiyaMalumoti(nom: 'PHP dasturchi', shahar: 'Toshkent', maosh: '900');
+})->throws(TypeError::class);
+
+it('majburiy maydonsiz yaratilmaydi', function () {
+    new VakansiyaMalumoti(shahar: 'Toshkent');
+})->throws(ArgumentCountError::class);
+
+it('jadval ustunlariga aylanadi', function () {
+    $m = new VakansiyaMalumoti(nom: 'PHP', shahar: 'Toshkent', maosh: 900, kompaniyaId: 7);
+
+    expect($m->jadvalGa())->toBe([
+        'nom' => 'PHP',
+        'shahar' => 'Toshkent',
+        'maosh' => 900,
+        'kompaniya_id' => 7,
+        'faol' => true,
+    ]);
+});
+PHPEOF
+php artisan test tests/Feature/MalumotTest.php">cat &gt; tests/Feature/MalumotTest.php &lt;&lt;'PHPEOF'
+&lt;?php
+
+declare(strict_types=1);
+
+use App\Data\VakansiyaMalumoti;
+
+it('nomlangan argumentlar bilan yaratiladi', function () {
+    $m = new VakansiyaMalumoti(nom: 'PHP dasturchi', shahar: 'Toshkent', maosh: 900);
+
+    expect($m-&gt;nom)-&gt;toBe('PHP dasturchi')
+        -&gt;and($m-&gt;maosh)-&gt;toBe(900)
+        -&gt;and($m-&gt;kompaniyaId)-&gt;toBeNull()
+        -&gt;and($m-&gt;faol)-&gt;toBeTrue();
+});
+
+it('o\'zgartirib bo\'lmaydi', function () {
+    $m = new VakansiyaMalumoti(nom: 'PHP dasturchi', shahar: 'Toshkent');
+
+    $m-&gt;maosh = 1000;
+})-&gt;throws(Error::class, 'Cannot modify readonly property');
+
+it('noto\'g\'ri tipni qabul qilmaydi', function () {
+    new VakansiyaMalumoti(nom: 'PHP dasturchi', shahar: 'Toshkent', maosh: '900');
+})-&gt;throws(TypeError::class);
+
+it('majburiy maydonsiz yaratilmaydi', function () {
+    new VakansiyaMalumoti(shahar: 'Toshkent');
+})-&gt;throws(ArgumentCountError::class);
+
+it('jadval ustunlariga aylanadi', function () {
+    $m = new VakansiyaMalumoti(nom: 'PHP', shahar: 'Toshkent', maosh: 900, kompaniyaId: 7);
+
+    expect($m-&gt;jadvalGa())-&gt;toBe([
+        'nom' =&gt; 'PHP',
+        'shahar' =&gt; 'Toshkent',
+        'maosh' =&gt; 900,
+        'kompaniya_id' =&gt; 7,
+        'faol' =&gt; true,
+    ]);
+});
+PHPEOF
+php artisan test tests/Feature/MalumotTest.php</div>
+        <p class="expect"><b>5 passed</b>.</p>
+        <p>⚠️ <code>declare(strict_types=1)</code> ni
+        <b>o'chirib</b> qayta ishga tushiring —
+        «noto'g'ri tipni qabul qilmaydi» testi
+        <b>yiqiladi</b>.</p>
+      </li>
+
+      <li>
+        <b>Tozalang va to'liq to'plamni ishga
+        tushiring.</b>
+        <div class="cmd" data-cmd="rm -f strict_bor.php strict_yoq.php
+php artisan test 2>&amp;1 | tail -3
+wc -l app/Data/VakansiyaMalumoti.php app/Actions/VakansiyaYarat.php">rm -f strict_bor.php strict_yoq.php
+php artisan test 2&gt;&amp;1 | tail -3
+wc -l app/Data/VakansiyaMalumoti.php app/Actions/VakansiyaYarat.php</div>
+        <p class="expect">Menda <b>105 passed (219
+        assertions)</b>.</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li>⚠️ Massivda xato kalit — jimgina
+      <code>null</code></li>
+      <li><code>VakansiyaMalumoti</code> DTO
+      yozildi</li>
+      <li>🔍 <code>Undefined property</code> ni
+      ko'rdim</li>
+      <li>🔍 <code>Cannot modify readonly property</code>
+      ni ko'rdim</li>
+      <li>🔍 <code>ArgumentCountError</code> ni
+      ko'rdim</li>
+      <li>⭐ <code>strict_types</code>
+      <b>chaqiruvchi</b> faylda hal bo'lishini
+      o'lchadim</li>
+      <li>Action DTO qabul qiladi</li>
+      <li>🔍 Shartnoma o'zgarganda tip tizimi hamma
+      joyni ko'rsatdi</li>
+      <li><code>soRovdan()</code> HTTP chegarasida
+      turadi</li>
+      <li>To'liq to'plam yashil</li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 11) SINAB KO'RAMIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Jamoa to'lov DTO sini yozdi:</p>
+    <div class="natija">final readonly class TolovMalumoti
+{
+    public function __construct(
+        public int $summa,          // tiyinda
+        public string $valyuta,
+        public string $karta,
+    ) {}
+}</div>
+    <p>Controller:</p>
+    <div class="natija">$dto = new TolovMalumoti(
+    summa: $request->input('summa'),
+    valyuta: $request->input('valyuta'),
+    karta: $request->input('karta'),
+);
+
+$tolov->bajar($dto);</div>
+    <p><code>FormRequest</code> da tekshiruv bor:
+    <code>'summa' =&gt; ['required', 'integer',
+    'min:1']</code>.</p>
+    <p>Testlar yashil. Ishlab chiqarishda ham ishlayapti.
+    Bir oy o'tib moliya bo'limi aytdi:
+    <b>hisobotdagi summalar noto'g'ri —
+    ba'zilari 100 barobar kichik</b>. Nima
+    bo'lgan?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <p>Ikkita muammo birlashgan.</p>
+        <p><b>1) <code>strict_types</code> yo'q.</b>
+        Controller fayli oddiy Laravel fayli — hech kim
+        <code>declare(strict_types=1)</code>
+        yozmagan.</p>
+        <p>HTTP dan <code>summa</code>
+        <b>matn</b> bo'lib keladi:
+        <code>'150000'</code>. Tekshiruv
+        <code>'integer'</code> uni <b>qabul
+        qiladi</b> (raqamli matn), lekin
+        <b>aylantirmaydi</b>.</p>
+        <p>PHP esa strictsiz uni jimgina
+        <code>int</code> ga aylantiradi — bu yerda
+        <b>to'g'ri</b> ishlaydi.</p>
+        <p class="expect"><b>2) Asl muammo —
+        <code>'150.50'</code>.</b> Foydalanuvchi
+        summani nuqta bilan kiritsa:</p>
+        <div class="natija">'150.50'  →  'integer' tekshiruvi RAD ETADI     ✅ bu yaxshi
+
+Lekin mobil ilova boshqacha yubordi:
+150.50 (JSON number)  →  'integer' tekshiruvi RAD ETADI  ✅
+
+Va nihoyat:
+'15050'  (tiyinda, TO'G'RI)     →  15050
+'150'    (so'mda, XATO)         →  150      ⚠️  100 BAROBAR KICHIK</div>
+        <p>Ya'ni haqiqiy xato tipda emas —
+        <b>ma'noda</b>. <code>int $summa</code>
+        «tiyinda» ekanini <b>hech kim</b>
+        bilmaydi. Kommentariyada yozilgan, lekin
+        mobil jamoasi uni o'qimagan.</p>
+        <p>🔑 <b>DTO tipni kafolatlaydi, ma'noni
+        emas.</b></p>
+        <p>✅ Yechim — ma'noni ham tipga
+        aylantirish:</p>
+        <div class="natija">final readonly class Pul
+{
+    private function __construct(public int $tiyin) {}
+
+    public static function tiyindan(int $tiyin): self { return new self($tiyin); }
+    public static function somdan(int $som): self { return new self($som * 100); }
+
+    public function somda(): float { return $this->tiyin / 100; }
+}
+
+// endi:
+new TolovMalumoti(summa: Pul::somdan(150), ...);     ← ma'no KO'RINADI</div>
+        <p>⚠️ Konstruktor <code>private</code> —
+        shuning uchun <code>new Pul(150)</code> deb
+        <b>yozib bo'lmaydi</b>. Faqat
+        <code>tiyindan()</code> yoki
+        <code>somdan()</code>.</p>
+        <p>🔍 Bu naqsh <b>Value Object</b> deb ataladi:
+        DTO ma'lumotni <b>tashiydi</b>, Value Object
+        esa bitta qiymatning <b>ma'nosini</b>
+        saqlaydi.</p>
+        <p>🔑 <b>Umumiy saboq:</b> agar biror qiymat
+        haqida «bu qanday birlikda?» degan savol
+        tug'ilsa — u <code>int</code> emas,
+        <b>o'z tipiga</b> loyiq.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span>
+    Massivda kalitni xato yozsangiz
+    (<code>$m['maoshi']</code>) nima bo'ladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Jimgina null qaytadi va hech qanday xato bo'lmaydi</button></li>
+      <li><button class="quiz-option">Darrov xato beradi va dastur o'sha yerda to'xtaydi</button></li>
+      <li><button class="quiz-option">IDE ogohlantiradi va kod umuman ishga tushmay qoladi</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi:
+    <code>$m['maoshi'] ?? null</code> → <b>NULL</b>,
+    xato yo'q.
+    DTO'da esa <code>$dto-&gt;maoshi</code> →
+    <code>ErrorException: Undefined property:
+    VakansiyaMalumoti::$maoshi</code>.
+    🔑 Naqsh: <b>massiv jim, DTO ovozli</b>. Va «ovozli»
+    yaxshi — xato yozilayotgan paytda chiqadi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span>
+    ⭐ <code>declare(strict_types=1)</code> qaysi
+    faylda yozilishi muhim?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Chaqiruvchi fayl hal qiladi sinf fayli emas</button></li>
+      <li><button class="quiz-option">Sinf e'lon qilingan fayl hal qiladi albatta</button></li>
+      <li><button class="quiz-option">Ikkala faylda ham yozilgan bo'lishi juda kerak</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi — DTO faylida
+    <code>strict_types</code> <b>bor</b> edi, lekin:
+    <br><code>chaqiruvchida strict BOR → TypeError</code>
+    <br><code>chaqiruvchida strict YO'Q → xato YO'Q,
+    maosh = 900 (int)</code>
+    ⚠️ Ya'ni <code>'900'</code> jimgina
+    <code>int</code> ga aylandi.
+    🔑 Mantiqan tushunarli: «tiplarni qat'iy
+    ishlataman» — <b>kod yozuvchining</b> qarori.
+    ✅ Har faylga yozing —
+    <code>app/</code> ga ham, <code>tests/</code> ga
+    ham.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span>
+    Metod imzosini <code>array</code> dan DTO ga
+    o'zgartirsangiz nima bo'ladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Tip tizimi barcha chaqiruv joylarini darrov ko'rsatadi</button></li>
+      <li><button class="quiz-option">Hech narsa sezilmaydi va xato keyinroq chiqadi</button></li>
+      <li><button class="quiz-option">Faqat yangi yozilgan kodlar uchun ogohlantirish beriladi</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi:
+    <code>2 failed, 98 passed</code> va har birida aniq
+    manzil —
+    <code>TypeError: ... must be of type
+    App\Data\VakansiyaMalumoti, array given, called in
+    tests/Feature/AmalTest.php on line 14</code>.
+    ✅ Bu foyda, muammo emas: massivning «shakli»
+    o'zgarsa hech narsa sezilmaydi, DTO tipi
+    o'zgarsa — <b>aniq manzil</b>.
+    🔍 Ikki joyni tuzatdik → <b>105 passed</b>.</div>
+  </div>
+
+  <!-- ═══════════════ 12) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+
+    <p>Javobni ovoz chiqarib ayting, keyin ochib
+    solishtiring.</p>
+
+    <details class="recall">
+      <summary>DTO nima va massivdan nimasi
+      yaxshi?</summary>
+      <div class="answer"><b>Data Transfer Object</b> —
+      faqat ma'lumot saqlaydigan sinf. Mantiq yo'q,
+      baza yo'q, HTTP yo'q — faqat <b>shakl</b>.
+      16 qatorda to'rt narsani aytadi: <b>qaysi</b>
+      maydonlar · ularning <b>tipi</b> · qaysilari
+      <b>majburiy</b> · <b>standart</b> qiymat.
+      Massiv esa <b>hech birini</b> aytmaydi.
+      🔍 O'lchandi: massivda xato kalit →
+      <b>jimgina NULL</b>; DTO'da →
+      <code>Undefined property</code>.
+      Uchta kalit so'z: <code>final</code>
+      (63-dars, LSP) · <code>readonly</code>
+      (62-dars, holatsizlik) · konstruktor
+      xossalari (PHP 8.0+).</div>
+    </details>
+
+    <details class="recall">
+      <summary>⭐ <code>strict_types</code> haqidagi
+      haqiqat nima?</summary>
+      <div class="answer">U <b>chaqiruvchi</b> faylda hal
+      bo'ladi, sinf e'lon qilingan faylda
+      emas.
+      🔍 O'lchandi (DTO faylida
+      <code>strict_types</code> <b>bor</b> holda):
+      chaqiruvchida bor → <code>TypeError:
+      Argument #3 ($maosh) must be of type ?int, string
+      given</code>;
+      chaqiruvchida yo'q → xato yo'q,
+      <code>'900'</code> → <code>int 900</code>.
+      🔑 Sabab mantiqiy: «tiplarni qat'iy
+      ishlataman» — kod yozuvchining qarori,
+      kutubxona muallifi uni hal qila olmaydi.
+      ⚠️ Laravel uni ishlatmaydi, <code>make:</code>
+      buyruqlari qo'shmaydi — <b>o'zingiz</b>
+      yozasiz.</div>
+    </details>
+
+    <details class="recall">
+      <summary>DTO qayerda yaratiladi va nega
+      <code>(int)</code> cast kerak?</summary>
+      <div class="answer"><b>Qatlam chegarasida</b> —
+      tashqi dunyodan ichkariga o'tayotgan joyda
+      (<code>soRovdan()</code>).
+      ⚠️ HTTP dan hamma narsa <b>matn</b> bo'lib
+      keladi: <code>maosh=900</code> aslida
+      <code>'900'</code>. Tekshiruv
+      (<code>'integer'</code>) uni <b>qabul
+      qiladi</b>, lekin <b>aylantirmaydi</b>.
+      ✅ Shuning uchun DTO chegarada turadi: <b>tashqi
+      tartibsizlikni ichkariga o'tkazmaydi</b>.
+      🔑 <code>jadvalGa()</code> ham shu sabab:
+      DTO'da <code>kompaniyaId</code> (PHP uslubi),
+      jadvalda <code>kompaniya_id</code> (SQL
+      uslubi) — ular bog'lanib
+      qolmasin.</div>
+    </details>
+
+    <details class="recall">
+      <summary>DTO qachon KERAK EMAS?</summary>
+      <div class="answer">Ma'lumot <b>bir hudud
+      ichida</b> yursa.
+      ❌ Kerak emas: bitta maydonli massiv ·
+      <code>Resource</code> ichidagi javob massivi ·
+      <code>config()</code> qaytargani ·
+      <b>Eloquent modelining o'zi</b> (u allaqachon
+      tipli va nomlangan).
+      ✅ Kerak: qatlam <b>chegarasi</b> (HTTP →
+      mantiq, mantiq → navbat, tashqi API) ·
+      uchta+ maydon · ixtiyoriy maydonlar bor ·
+      bir necha joydan bir xil shakl uzatiladi.
+      ⚠️ Eng ko'p uchraydigan haddan oshirish: «har
+      controllerga Request DTO, har javobga Response
+      DTO» — bitta maydon uchun <b>to'rt fayl</b>
+      ochiladi.</div>
+    </details>
+
+    <details class="recall">
+      <summary>DTO nimani kafolatlamaydi?</summary>
+      <div class="answer"><b>Ma'noni.</b> DTO
+      <code>int $summa</code> ekanini kafolatlaydi,
+      lekin u <b>tiyindami yoki so'mdami</b> —
+      aytmaydi.
+      🔑 Agar qiymat haqida «bu qanday birlikda?»
+      degan savol tug'ilsa — u <code>int</code>
+      emas, <b>o'z tipiga</b> loyiq
+      (<b>Value Object</b>):
+      <code>Pul::somdan(150)</code>.
+      ✅ Konstruktorni <code>private</code> qiling —
+      shunda faqat nomlangan yaratuvchilar orqali
+      yaratiladi va birlik <b>har chaqiruvda
+      ko'rinadi</b>.
+      🔍 Farqi: DTO ma'lumotni <b>tashiydi</b>,
+      Value Object bitta qiymatning <b>ma'nosini</b>
+      saqlaydi.</div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 13) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Xulosa</span>
+    <ul>
+      <li>Massiv — qulay, lekin <b>jim</b>: 🔍 xato
+      kalit → <code>NULL</code>, xato yo'q.</li>
+      <li>DTO — faqat ma'lumot saqlaydigan sinf:
+      <b>shakl</b>, mantiq emas.</li>
+      <li><code>final</code> · <code>readonly</code> ·
+      konstruktor xossalari — 16 qatorda to'rt
+      narsa.</li>
+      <li>🔍 DTO <b>ovozli</b>:
+      <code>Undefined property</code> ·
+      <code>Cannot modify readonly property</code> ·
+      <code>ArgumentCountError</code>.</li>
+      <li>Nomlangan argumentlar — yettita parametr ham
+      o'qiladigan bo'ladi.</li>
+      <li>⭐ 🔍 <code>declare(strict_types=1)</code>
+      <b>chaqiruvchi</b> faylda hal bo'ladi.</li>
+      <li>🔍 Strictsiz <code>'900'</code> jimgina
+      <code>int 900</code> ga aylandi.</li>
+      <li>✅ Uni <b>har faylga</b> yozing —
+      <code>app/</code> ga ham,
+      <code>tests/</code> ga ham.</li>
+      <li>DTO <b>chegarada</b> yaratiladi
+      (<code>soRovdan()</code>) va
+      <code>(int)</code> cast shu yerda.</li>
+      <li><code>jadvalGa()</code> — DTO nomlari va ustun
+      nomlari <b>alohida</b> qoladi.</li>
+      <li>🔍 Shartnoma o'zgarganda tip tizimi
+      <b>hamma</b> chaqiruv joyini
+      ko'rsatdi.</li>
+      <li>⚠️ Har massivni sinfga aylantirmang — model
+      ko'p hollarda yetarli.</li>
+      <li>🔑 DTO <b>tipni</b> kafolatlaydi,
+      <b>ma'noni</b> emas — buning uchun Value
+      Object.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p>Modul I ning yakuni yaqin. Bugun
+    <code>declare(strict_types=1)</code> ni
+    <b>qo'lda</b> yozdik va «har faylga yozing»
+    dedik. Realistik savol: <b>kim buni
+    eslab turadi?</b></p>
+    <p>Va yana: qavs qayerda tursin, <code>use</code>
+    lar qanday tartiblansin, bo'sh qator nechta
+    bo'lsin? Bularni har kod ko'rikda muhokama
+    qilish — <b>vaqtni behuda sarflash</b>.</p>
+    <p>65-darsda <b>Laravel Pint</b> ni
+    o'rnatamiz: u kodni <b>bir buyruq bilan</b>
+    yagona uslubga soladi — va
+    <code>declare(strict_types=1)</code> ni ham
+    <b>o'zi qo'shadi</b>. So'ng refaktoringning
+    xavfsiz tartibini ko'rib chiqamiz.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>PHP — Constructor Promotion</b>:
+    <a href="https://www.php.net/manual/en/language.oop5.decon.php#language.oop5.decon.constructor.promotion">konstruktorda
+    xossa e'lon qilish</a>.<sup><a href="#fn1">1</a></sup><br>
+    <b>PHP — <code>readonly</code></b>:
+    <a href="https://www.php.net/manual/en/language.oop5.properties.php#language.oop5.properties.readonly-properties">o'zgarmas
+    xossalar va sinflar</a>.<sup><a href="#fn2">2</a></sup><br>
+    <b>PHP — Strict typing</b>:
+    <a href="https://www.php.net/manual/en/language.types.declarations.php#language.types.declarations.strict">nega
+    u chaqiruvchi faylda
+    hal bo'ladi</a>.<sup><a href="#fn3">3</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b>
+    «DTO va model farqi nima?», «<code>spatie/laravel-data</code>
+    ishlatsammi?», «har faylga <code>strict_types</code>
+    yozish shartmi?» — har qanday savol yaxshi.
+    Birinchisiga qisqa javob: <b>model bazani biladi,
+    DTO bilmaydi</b>. Model saqlanadi, o'zgaradi,
+    bog'lanishlari bor; DTO esa shunchaki
+    <b>bir marta to'ldiriladigan shakl</b>.
+    Uchinchisiga: shart emas, lekin <b>juda tavsiya
+    etiladi</b> — 65-darsda buni avtomatlashtiramiz.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0063-solid-amalda.html">Oldingi: SOLID amalda</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">PHP — <a href="https://www.php.net/manual/en/language.oop5.decon.php#language.oop5.decon.constructor.promotion">Constructor Promotion</a>.</li>
+      <li id="fn2">PHP — <a href="https://www.php.net/manual/en/language.oop5.properties.php#language.oop5.properties.readonly-properties">Readonly properties</a>.</li>
+      <li id="fn3">PHP — <a href="https://www.php.net/manual/en/language.types.declarations.php#language.types.declarations.strict">Strict typing</a>.</li>
+      <li id="fn4">Barchasi jonli o'lchangan (PHP 8.3.32,
+      Laravel 13.26.1, Pest 4.7.8):
+      massivda <code>$m['maoshi'] ?? null</code> →
+      <b>NULL</b> (xato yo'q),
+      <code>array_key_exists('faol', $m)</code> →
+      <b>YO'Q</b> ·
+      DTO'da <code>$dto-&gt;maoshi</code> →
+      <code>ErrorException: Undefined property:
+      VakansiyaMalumoti::$maoshi</code> ·
+      <code>$dto-&gt;maosh = 1000</code> →
+      <code>Error: Cannot modify readonly property
+      VakansiyaMalumoti::$maosh</code> ·
+      <code>new VakansiyaMalumoti(shahar: 'T')</code> →
+      <code>ArgumentCountError:
+      VakansiyaMalumoti::__construct(): Argument #1
+      ($nom) not passed</code> ·
+      ⭐ <code>strict_types</code> (DTO faylida
+      <b>bor</b> holda, ikkita chaqiruvchi fayl
+      solishtirildi): chaqiruvchida <b>bor</b> →
+      <code>TypeError:
+      App\Data\VakansiyaMalumoti::__construct():
+      Argument #3 ($maosh) must be of type ?int, string
+      given</code>; chaqiruvchida <b>yo'q</b> →
+      xato yo'q, <code>maosh = 900 (int)</code> ·
+      Pest testi <code>declare(strict_types=1)</code>
+      siz <b>1 failed</b>
+      («Failed asserting that exception of type
+      "TypeError" is thrown»), qator qo'shilgach
+      <b>5 passed (9 assertions)</b> ·
+      Action imzosi <code>array</code> dan DTO ga
+      o'zgargach: <b>2 failed, 98 passed (204
+      assertions)</b> —
+      <code>TypeError:
+      App\Actions\VakansiyaYarat::bajar(): Argument #1
+      ($malumot) must be of type
+      App\Data\VakansiyaMalumoti, array given, called in
+      tests/Feature/AmalTest.php on line 14</code> ·
+      Reflection bilan tekshirilgan xossa tiplari:
+      <code>nom string</code>,
+      <code>shahar string</code>,
+      <code>maosh ?int</code>,
+      <code>kompaniyaId ?int</code>,
+      <code>faol bool</code> ·
+      qatorlar: <code>VakansiyaMalumoti.php</code>
+      <b>43</b>, <code>VakansiyaYarat.php</code>
+      <b>22</b>, <code>VakansiyaController.php</code>
+      <b>59</b> ·
+      yakuniy to'plam: <b>105 passed (219 assertions),
+      0.87s</b>.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>
