@@ -18,7 +18,7 @@
   izoh esa o'zbekcha.</p>
 
   <p class="lesson-meta">
-    <span>Atamalar: <b>271 ta</b></span>
+    <span>Atamalar: <b>275 ta</b></span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>📱 O'qishga mos</span>
   </p>
@@ -26,7 +26,7 @@
   <div class="callout note">
     <span class="label">Bu hujjat o'sib boradi</span>
     <p>Atama faqat <b>o'z darsi yozilganda</b> qo'shiladi — oldindan emas. Hozir:
-    Modul A–I (1–64-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
+    Modul A–I (1–65-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
     bosqichida qat'iy belgilangan va 73 dars bo'ylab o'zgarmaydi).</p>
   </div>
 
@@ -2609,6 +2609,96 @@
       uchraydigan xato — <code>EXPLAIN</code> ni
       o'tkazib yuborish.
       <span class="eg">DB::select("EXPLAIN QUERY PLAN $sql", $bog)</span></dd>
+    </div>
+
+    <div class="term" id="pint">
+      <dt>Laravel Pint <span class="uz">— uslubni vosita qo'llasin</span></dt>
+      <dd>PHP-CS-Fixer ustiga qurilgan, Laravel uslubini
+      oldindan sozlangan holda beradigan vosita.
+      Yangi loyihada <b>allaqachon o'rnatilgan</b>:
+      <code>vendor/bin/pint</code>.
+      🔍 O'lchandi: loyihamizda
+      <code>FAIL ... 97 files, 25 style issues</code> —
+      <b>16 xil</b> tuzatuvchi, <b>101</b> ta
+      qo'llanish, <b>0.44 s</b> da tuzatildi va testlar
+      <b>o'zgarmadi</b>.
+      Bayroqlar: <code>--test</code> (CI, o'zgartirmaydi) ·
+      <code>--dirty</code> (commit qilinmagan fayllar) ·
+      <code>--diff=main</code> · <code>--repair</code> ·
+      <code>--bail</code> · <code>-v</code> (farqni
+      ko'rsatadi) · <code>--blade</code>.
+      🔑 Chiqish kodi: nomuvofiqlik bor → <b>1</b>, toza →
+      <b>0</b>; <code>--repair</code> tuzatgan bo'lsa ham
+      <b>1</b>.
+      🔍 Terminalda <b>jadval</b> chiqaradi;
+      <code>--format=json</code> faqat fayl nomlarini
+      beradi.
+      ⚠️ Birinchi ishga tushirishdan oldin commit qiling —
+      o'nlab fayl birdan o'zgaradi.
+      <span class="eg">./vendor/bin/pint --dirty</span></dd>
+    </div>
+
+    <div class="term" id="pint-json">
+      <dt>pint.json <span class="uz">— qoidalarni sozlash</span></dt>
+      <dd><code>{"preset": "laravel", "rules": {...}}</code>.
+      Presetlar: <code>laravel</code> (standart) ·
+      <code>psr12</code> · <code>per</code> ·
+      <code>symfony</code> · <code>empty</code>.
+      ⭐ 🔍 <code>declare_strict_types</code> yoqilgach —
+      <b>92 fayl</b> avtomatik
+      <code>declare(strict_types=1)</code> oldi
+      ([[strict-types]] — 64-darsdagi va'da).
+      ⚠️ Bu <b>xavfli</b> o'zgarish: strictsiz ishlab
+      turgan kod endi <code>TypeError</code> berishi
+      mumkin. Bizda <b>105 passed</b> qoldi, lekin buni
+      <b>oldindan aytib bo'lmasdi</b> — xato chiqsa, u
+      <b>haqiqiy</b> muammo.
+      Foydali qoidalar: <code>no_unused_imports</code> ·
+      <code>ordered_class_elements</code>.
+      Chiqarib tashlash: <code>exclude</code> (papka) ·
+      <code>notName</code> (nom naqshi) ·
+      <code>notPath</code> (aniq yo'l).
+      <span class="eg">"rules": {"declare_strict_types": true}</span></dd>
+    </div>
+
+    <div class="term" id="erta-return">
+      <dt>erta return <span class="uz">— ichma-ichlikni tekislash</span></dt>
+      <dd>«Bo'lmasa — darrov chiq». Ichma-ich
+      <code>if/else</code> o'rniga ketma-ket
+      <code>if (! shart) return;</code>.
+      🔍 O'lchandi (haqiqiy refaktorda): ichma-ichlik
+      <b>7 → 3</b>, if/else <b>10 → 4</b>, qatorlar
+      <b>36 → 37</b> — <b>oshdi</b>.
+      🔑 <b>«Kamroq qator» maqsad emas.</b> O'lchash uchun
+      to'g'ri narsalar: ichma-ichlik darajasi ·
+      shoxlanish soni · metod uzunligi · nom aniqligi.
+      ⚠️ Qator sonini maqsad qilsangiz, odamlar bitta
+      qatorga uchta ish tiqishtiradi.
+      ⭐ 🔍 Va Pint buni <b>qila olmaydi</b>: 7 darajali
+      metodga 5 ta tuzatuvchi qo'lladi, lekin qatorlar
+      <b>36 → 36</b>, ichma-ichlik <b>7 → 7</b>. Nomlar,
+      ichma-ichlik va takrorlanish — <b>qaror</b> talab
+      qiladi.
+      <span class="eg">if ($foydalanuvchi === null) { return false; }</span></dd>
+    </div>
+
+    <div class="term" id="dry">
+      <dt>DRY va uning xavfi <span class="uz">— bilim takrorlansa, ko'rinish emas</span></dt>
+      <dd>«Don't Repeat Yourself». Lekin eng ko'p
+      uchraydigan xato — <b>tasodifan o'xshash</b> ikki
+      kodni birlashtirish.
+      🔑 Qoida: <b>kod takrorlanishi emas, BILIM
+      takrorlanishi yomon</b>.
+      Misol: QQS va bonus ikkalasi ham
+      <code>* 1.12</code> → birlashtirdingiz → ertaga QQS
+      15% bo'ldi, bonus 12% qoldi → endi
+      <b>ajratish</b> kerak.
+      ✅ Sinov: «bu ikkitasi <b>doim</b> birga
+      o'zgaradimi?»
+      ✅ Amaliy: <b>uchinchi marta</b> ko'rganingizda
+      birlashtiring — ikki marta hali tasodif
+      bo'lishi mumkin.
+      <span class="eg">function vakansiya(array $ustunlar = []): Vakansiya</span></dd>
     </div>
 
     <div class="term" id="dto">

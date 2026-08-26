@@ -17,7 +17,7 @@
   muhit ma'lumotlari. Har dars yangi buyruq o'rgatilsa, shu yerga qo'shiladi.</p>
 
   <p class="lesson-meta">
-    <span>Qamrov: <b>1&ndash;64-darslar</b> — muhitdan API'gacha</span>
+    <span>Qamrov: <b>1&ndash;65-darslar</b> — muhitdan API'gacha</span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>💻 Amaliyotga mos</span>
   </p>
@@ -1826,6 +1826,51 @@
     <code>database</code> · <code>redis</code> (ishlab
     chiqarish, teglar bor).
     Redis nafaqat kesh: navbat, sessiya va cheklov ham.</p>
+  </div>
+
+  <h2>Pint va refaktoring (65-darsdan)</h2>
+  <table class="sheet">
+    <tr><th>Buyruq</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>./vendor/bin/pint</code></td><td class="note-cell">Hammasini tuzatadi</td></tr>
+    <tr><td><code>pint --test</code></td><td class="note-cell">Faqat ko'rsatadi · <b>CI uchun</b> (exit 1/0)</td></tr>
+    <tr><td><code>pint --test -v</code></td><td class="note-cell">Aniq <b>farqni</b> ko'rsatadi</td></tr>
+    <tr><td><code>pint --dirty</code></td><td class="note-cell">Faqat commit qilinmagan fayllar</td></tr>
+    <tr><td><code>pint --diff=main</code></td><td class="note-cell"><code>main</code> dan keyin o'zgarganlar</td></tr>
+    <tr><td><code>pint --repair</code></td><td class="note-cell">Tuzatadi, lekin o'zgartirsa exit 1</td></tr>
+    <tr><td><code>pint --bail</code></td><td class="note-cell">Birinchi xatoda to'xtaydi</td></tr>
+    <tr><td><code>pint --blade</code></td><td class="note-cell">Blade fayllarini ham (standart holda tegmaydi)</td></tr>
+    <tr><td><code>pint --parallel</code></td><td class="note-cell">Katta loyiha uchun</td></tr>
+    <tr><td><code>pint.json</code> → <code>declare_strict_types</code></td><td class="note-cell">⭐ Har faylga <code>strict_types</code> qo'shadi</td></tr>
+    <tr><td><code>.git-blame-ignore-revs</code></td><td class="note-cell">Uslub commit'ini <code>git blame</code> dan yashiradi</td></tr>
+  </table>
+  <div class="callout note">
+    <p>🔍 <b>O'lchangan:</b>
+    <code>FAIL ... 97 files, 25 style issues</code> —
+    16 xil tuzatuvchi, 101 qo'llanish, <b>0.44 s</b>.
+    Testlar <b>o'zgarmadi</b>.
+    <br><code>pint.json</code> + <code>declare_strict_types</code>
+    → <b>92 fayl</b>; testlar hamon yashil (⚠️ lekin buni
+    oldindan aytib bo'lmasdi).</p>
+    <p>⭐ ⚠️ <b>Pint QILA OLMAYDIGAN uchta ish:</b>
+    <b>nomlar</b> · <b>ichma-ichlik</b> ·
+    <b>takrorlanish</b>. O'lchandi: 7 darajali metodga
+    5 tuzatuvchi qo'lladi, lekin qatorlar <b>36 → 36</b>,
+    ichma-ichlik <b>7 → 7</b>, if/else <b>10 → 10</b>.</p>
+    <p>✅ <b>Refaktoring tartibi:</b> avval <b>test</b> →
+    bir o'zgarish → test → commit → keyingisi.
+    Refaktoring commit'ini funksiya o'zgarishi bilan
+    <b>aralashtirmang</b>.</p>
+    <p>🔍 <b>Erta return natijasi:</b> ichma-ichlik
+    <b>7 → 3</b>, if/else <b>10 → 4</b>, qatorlar
+    <b>36 → 37</b> (<b>oshdi</b> — va bu normal).
+    🔑 «Kamroq qator» maqsad emas.</p>
+    <p>⚠️ <b>DRY xavfi:</b> bilim takrorlansa
+    birlashtiring; tasodifan o'xshash ko'rinsa —
+    tegmang. Uchinchi marta ko'rganingizda.</p>
+    <p>🔑 <b>Refaktoring signallari:</b> uzun metod ·
+    3+ ichma-ichlik · <code>$data</code>/<code>handle()</code>
+    kabi nomlar · tushuntiruvchi kommentariya ·
+    <b>«tegishga qo'rqaman»</b> (= test yetishmayapti).</p>
   </div>
 
   <h2>DTO va chegaralar (64-darsdan)</h2>

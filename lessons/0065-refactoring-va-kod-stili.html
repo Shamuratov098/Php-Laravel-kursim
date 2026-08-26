@@ -1,0 +1,1557 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 65 — Refactoring va kod stili</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 65 · MODUL I — ISHLAB CHIQARISHGA TAYYORGARLIK</p>
+  <h1>Refactoring va kod stili</h1>
+  <p class="lead">64-darsda «<code>declare(strict_types=1)</code>
+  ni har faylga yozing» dedik. Bugun buni <b>bir buyruq</b>
+  bilan qilamiz — 92 faylga birdan. So'ng Pint
+  <b>qila olmaydigan</b> uchta ishni ko'ramiz. Va
+  bitta natija sizni ajablantiradi: refaktordan keyin
+  qator soni <b>oshdi</b>.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 16 daqiqa</span>
+    <span>💻 Amaliyot ≈ 30 daqiqa</span>
+    <span>Kerak: <a href="0064-dto-va-qatlamlar.html">Dars 64</a></span>
+  </p>
+
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b>Pint nima</b>
+        <span class="nima">🔍 Laravel'da <b>allaqachon
+        o'rnatilgan</b> — <code>vendor/bin/pint</code>.</span></li>
+      <li><b>Loyihamizning holati</b>
+        <span class="nima">🔍 <b>25 fayl</b>, 16 xil
+        tuzatuvchi, <b>101</b> ta
+        qo'llanish.</span></li>
+      <li><b>Bir buyruq — 0.44 soniya</b>
+        <span class="nima">🔍 Va testlar
+        <b>o'zgarmadi</b>: 105 passed.</span></li>
+      <li><b>Avval/keyin misoli</b>
+        <span class="nima"><code>Maosh.php</code> —
+        bir qarashda ko'rinadi.</span></li>
+      <li><b>⭐ <code>pint.json</code> va
+        <code>declare_strict_types</code></b>
+        <span class="nima">🔍 <b>92 faylga</b>
+        o'zi qo'shdi.</span></li>
+      <li><b>Chiqish kodlari</b>
+        <span class="nima">🔍 <code>--test</code> ·
+        <code>--repair</code> · <code>--bail</code> —
+        CI uchun.</span></li>
+      <li><b><code>--dirty</code> va
+        <code>--diff</code></b>
+        <span class="nima">Faqat o'zgargan
+        fayllarni tuzatish.</span></li>
+      <li><b>⚠️ Pint QILA OLMAYDIGAN uchta ish</b>
+        <span class="nima">🔍 O'lchandi: 36 qator,
+        ichma-ichlik <b>7</b> — <b>o'zgarmadi</b>.</span></li>
+      <li><b>Erta return</b>
+        <span class="nima">🔍 Ichma-ichlik
+        <b>7 → 3</b>, if/else <b>10 → 4</b>.</span></li>
+      <li><b>🔍 Ajablanarli natija</b>
+        <span class="nima">Qator soni <b>36 → 37</b> —
+        <b>oshdi</b>.</span></li>
+      <li><b>Nomlash va DRY</b>
+        <span class="nima">⚠️ Erta DRY — <b>zarar</b>
+        keltirishi mumkin.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima">Git hook · CI · katta
+        loyihada boshlash · <code>--parallel</code>.</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Kod ko'rikda muhokama qilinmasligi kerak narsalar</span>
+    <p>Tasavvur qiling, jamoada uch dasturchi bor. Har biri
+    o'z uslubida yozadi:</p>
+    <div class="natija">Ali:    if ($x) { return 1; }              (bir qatorda)
+Vali:   if ($x)
+        {
+            return 1;
+        }                             (qavs pastda)
+Soli:   if($x) {return 1;}            (bo'shliqsiz)</div>
+    <p>Endi har «pull request» da muhokama:
+    «qavsni pastga tushiring», «bo'shliq
+    qo'ying», «<code>use</code> larni
+    tartiblang».</p>
+    <p>Bu — <b>vaqtni behuda sarflash</b>. Bunday
+    savollarning <b>to'g'ri javobi yo'q</b>, faqat
+    <b>kelishuv</b> bor. Va kelishuvni odam emas,
+    <b>vosita</b> qo'llashi kerak.</p>
+    <p>🔑 Kod ko'rikda gaplashish kerak bo'lgan
+    narsalar: <b>mantiq to'g'rimi</b>,
+    <b>nom tushunarlimi</b>, <b>test bormi</b>.
+    Qavs qayerda turishi — <b>emas</b>.</p>
+  </div>
+
+  <!-- ═══════════════ 2) PINT ═══════════════ -->
+  <h2>Pint — allaqachon o'rnatilgan</h2>
+
+  <p>Yaxshi xabar: hech narsa o'rnatish shart emas.
+  Laravel'ning yangi loyihasida u <b>bor</b>:</p>
+
+  <div class="natija">composer.json → require-dev:
+    "laravel/pint": "^1.27"
+
+./vendor/bin/pint --version
+Pint 1.30.5</div>
+
+  <p>Pint — PHP-CS-Fixer ustiga qurilgan, Laravel
+  uslubini <b>oldindan sozlangan</b> holda beradigan
+  vosita.</p>
+
+  <h3>Avval ko'ramiz, keyin tuzatamiz</h3>
+
+  <div class="natija">./vendor/bin/pint --test</div>
+
+  <p><code>--test</code> — «faqat ko'rsat,
+  o'zgartirma». Loyihamizda:</p>
+
+  <div class="natija">  ──────────────────────────────────────────────────── Laravel
+    FAIL   ................................. 97 files, 25 style issues
+  ⨯ app/Models/Vakansiya.php blank_line_after_opening_tag, braces_position…
+  ⨯ app/Support/Maosh.php blank_line_after_opening_tag, concat_space…
+  ⨯ app/Enums/Rol.php blank_line_after_opening_tag, blank_line_after_names…
+  ...</div>
+
+  <p>Ya'ni <b>97 fayl</b> tekshirildi, <b>25</b> tasida
+  nomuvofiqlik bor. Har qatorda qaysi
+  <b>tuzatuvchilar</b> ishlashi ko'rsatilgan (uzunligi
+  sabab qisqartirilgan).</p>
+
+  <p>🔍 Nomuvofiqliklarni sanadik — <b>16 xil</b>
+  tuzatuvchi, jami <b>101</b> ta qo'llanish:</p>
+
+  <div class="natija">    17  blank_line_after_opening_tag     &lt;?php dan keyin bo'sh qator
+    15  single_line_after_imports        use lardan keyin bitta qator
+    13  blank_line_after_namespace       namespace dan keyin bo'sh qator
+    10  braces_position                  qavs qayerda tursin
+    10  class_attributes_separation      xossalar orasida bo'sh qator
+     7  statement_indentation            chekinish
+     6  fully_qualified_strict_types     to'liq nomni use ga chiqarish
+     5  ordered_imports                  use larni alifbo tartibida</div>
+
+  <p>Aniq <b>farqni</b> ko'rish uchun
+  <code>-v</code>:</p>
+
+  <div class="natija">./vendor/bin/pint --test -v
+
+  +
+  +class Zond
+  +{
+  +    public function a()
+  +    {
+  +        return 1;
+  +    }
+  +}</div>
+
+  <p>🔍 <code>--format=json</code> ham bor, lekin u
+  faqat <b>fayl nomlarini</b> beradi —
+  tuzatuvchilarni emas.</p>
+
+  <div class="callout tip">
+    <span class="label">🔑 Chiqish kodi — CI uchun eng muhimi</span>
+    <div class="natija">./vendor/bin/pint --test  →  exit 1   (nomuvofiqlik bor)
+./vendor/bin/pint --test  →  exit 0   (hammasi toza)</div>
+    <p>Ya'ni CI da bitta qator yetarli: uslub buzilgan
+    bo'lsa, build <b>qizil</b> bo'ladi. Modul J'da buni
+    GitHub Actions'ga qo'yamiz.</p>
+  </div>
+
+  <!-- ═══════════════ 3) TUZATISH ═══════════════ -->
+  <h2>Bir buyruq — 0.44 soniya</h2>
+
+  <div class="natija">./vendor/bin/pint
+
+  ──────────────────────────────────────────────────── Laravel
+    FIXED   ................................ 97 files, 25 style issues
+
+vaqt: 0.44 s</div>
+
+  <p>Bir fayl misolida ko'ramiz:</p>
+
+  <div class="natija">AVVAL — app/Support/Maosh.php
+
+&lt;?php
+namespace App\Support;
+class Maosh
+{
+    public static function format(?int $miqdor): string
+    {
+        if ($miqdor === null) { return 'Kelishuv asosida'; }
+        return number_format($miqdor, 0, '.', ' ') . " so'm";
+    }
+}</div>
+
+  <div class="natija">KEYIN
+
+&lt;?php
+
+namespace App\Support;
+
+class Maosh
+{
+    public static function format(?int $miqdor): string
+    {
+        if ($miqdor === null) {
+            return 'Kelishuv asosida';
+        }
+
+        return number_format($miqdor, 0, '.', ' ')." so'm";
+    }
+}</div>
+
+  <p>Nima o'zgardi: bo'sh qatorlar qo'shildi,
+  bir qatorli <code>if</code> yoyildi,
+  <code>return</code> dan oldin bo'sh qator,
+  <code>.</code> atrofidagi bo'shliqlar
+  olindi.</p>
+
+  <div class="callout tip">
+    <span class="label">🔍 Eng muhim tekshiruv</span>
+    <div class="natija">php artisan test
+
+Tests:  105 passed (219 assertions)     ✅  o'zgarmadi</div>
+    <p>Pint <b>faqat uslubni</b> o'zgartiradi. Xulq
+    tegilmaydi — bu 62-darsdagi refaktoring
+    ta'rifining eng sof ko'rinishi.</p>
+    <p>⚠️ Shunga qaramay: Pint ni <b>birinchi marta</b>
+    ishga tushirishdan oldin hamma ishingizni
+    commit qiling. 25 fayl birdan
+    o'zgaradi.</p>
+  </div>
+
+  <!-- ═══════════════ 4) ⭐ PINT.JSON ═══════════════ -->
+  <h2>⭐ <code>pint.json</code> — va 64-darsdagi va'da</h2>
+
+  <p>64-darsda <code>declare(strict_types=1)</code> ni
+  har faylga yozish kerakligini o'lchab
+  ko'rdik. Va'da bergandik: buni
+  avtomatlashtiramiz.</p>
+
+  <p>Loyiha ildizida <code>pint.json</code>:</p>
+
+  <div class="codefile">
+    <div class="fname">pint.json</div>
+    <code class="cmd">{
+    "preset": "laravel",
+    "rules": {
+        "declare_strict_types": true,
+        "ordered_class_elements": true,
+        "no_unused_imports": true
+    }
+}</code>
+  </div>
+
+  <div class="natija">./vendor/bin/pint
+
+    FIXED   ................................ 97 files, 92 style issues
+
+sanaganda:
+    92  declare_strict_types             ← HAR BIRIGA qo'shdi
+    92  blank_line_after_opening_tag
+    20  braces_position
+    13  class_definition
+     8  single_line_empty_body</div>
+
+  <p>Va fayllar shunday ko'rinishga keldi:</p>
+
+  <div class="natija">&lt;?php
+
+declare(strict_types=1);
+
+namespace App\Support;</div>
+
+  <div class="callout warn">
+    <span class="label">⚠️ Bu xavfli o'zgarish — o'lchash SHART</span>
+    <p>92 faylga <code>strict_types</code> qo'shish —
+    <b>xulqni o'zgartirishi mumkin</b>. 64-darsda
+    ko'rdik: strictsiz <code>'900'</code> jimgina
+    <code>int</code> ga aylanadi, strict bilan esa
+    <code>TypeError</code>.</p>
+    <p>Ya'ni ilgari «ishlab turgan» kod endi
+    <b>yiqilishi</b> mumkin.</p>
+    <div class="natija">php artisan test
+
+Tests:  105 passed (219 assertions)      ✅</div>
+    <p>Bizda hammasi o'tdi — chunki kodimiz
+    62–64-darslarda allaqachon tiplangan edi.</p>
+    <p class="expect">🔑 Lekin buni <b>oldindan
+    aytib bo'lmasdi</b> — o'lchash kerak edi. Eski
+    loyihada bu o'zgarish o'nlab xato chiqarishi
+    mumkin.</p>
+    <p>✅ Shuning uchun: <code>declare_strict_types</code>
+    ni yoqing → testlarni ishga tushiring →
+    <b>xatolarni birma-bir tuzating</b>. Ular
+    <b>haqiqiy</b> muammolar — ilgari yashiringan
+    edi.</p>
+  </div>
+
+  <p>🔍 Uchta qoidaning qolgan ikkitasi:</p>
+
+  <div class="natija">no_unused_imports        →  ishlatilmayotgan use larni O'CHIRADI
+ordered_class_elements   →  konstantalar, xossalar, metodlarni tartiblaydi</div>
+
+  <!-- ═══════════════ 5) BAYROQLAR ═══════════════ -->
+  <h2>Kerakli bayroqlar</h2>
+
+  <div class="natija">pint                        hammasini tuzat
+pint --test                 faqat ko'rsat (exit 1 agar nomuvofiqlik bo'lsa)
+pint --dirty                faqat commit qilinmagan fayllarni
+pint --diff=main            main dan keyin o'zgargan fayllarni
+pint --repair               tuzat, LEKIN o'zgartirgan bo'lsa exit 1
+pint --bail                 birinchi xatoda to'xta
+pint app/Models             faqat shu papkani
+pint --parallel             parallel (katta loyiha uchun)</div>
+
+  <div class="callout tip">
+    <span class="label">🔑 Qaysi biri qachon</span>
+    <div class="natija">mahalliy ishda   →  pint --dirty     (faqat o'z ishingizni tegasiz)
+commit dan oldin →  pint            (git hook — HOLAT 1)
+CI da            →  pint --test     (o'zgartirmaydi, faqat aytadi)</div>
+    <p>🔍 <code>--repair</code> ning farqi o'lchandi:</p>
+    <div class="natija">--repair  (o'zgartirdi)  →  exit 1
+--repair  (toza edi)     →  exit 0</div>
+    <p>Ya'ni u <b>tuzatadi ham, aytadi ham</b> — CI da
+    «men tuzatdim, lekin siz commit qilishingiz
+    kerak» degani.</p>
+  </div>
+
+  <p>🔍 Bir kuzatuv: Pint terminalda <b>jadval</b>
+  chiqaradi. <code>--format=json</code> ham bor, lekin
+  u faqat <b>fayl nomlarini</b> beradi —
+  tuzatuvchilar ro'yxatini emas. Shuning uchun
+  skriptda ishlatish uchun <b>chiqish kodi</b>
+  (<code>--test</code> → 0 yoki 1) eng ishonchli
+  yo'l.</p>
+
+  <!-- ═══════════════ 6) ⭐ PINT QILA OLMAYDIGAN ═══════════════ -->
+  <h2>⭐ Pint qila olmaydigan uchta ish</h2>
+
+  <p>Endi darsning ikkinchi yarmi. Pint uslubni
+  tuzatadi — <b>shaklni</b> emas.</p>
+
+  <p>Realistik «semiz» metod yozdik. U vakansiyaga
+  murojaat qilish mumkinmi-yo'qligini
+  tekshiradi:</p>
+
+  <div class="natija">class Tekshiruv
+{
+    public function check($v, $u)
+    {
+        $r = false;
+        if ($v->faol == true) {
+            if ($v->muddat == null || $v->muddat >= now()) {
+                if ($u != null) {
+                    if ($u->id != $v->user_id) {
+                        if ($v->kompaniya_id != null) {
+                            $r = true;
+                        } else {
+                            $r = false;
+                        }
+                    } else {
+                        $r = false;
+                    }
+                } else {
+                    $r = false;
+                }
+            } else {
+                $r = false;
+            }
+        } else {
+            $r = false;
+        }
+        return $r;
+    }
+}</div>
+
+  <div class="natija">qatorlar:             36
+eng chuqur ichma-ich:  7
+if/else soni:         10</div>
+
+  <p>Pint ni ishga tushiramiz:</p>
+
+  <div class="natija">tuzatuvchilar: declare_strict_types, blank_line_after_opening_tag,
+               no_unused_imports, blank_line_after_namespace,
+               blank_line_before_statement
+
+qatorlar:             36     ← O'ZGARMADI
+eng chuqur ichma-ich:  7     ← O'ZGARMADI
+if/else soni:         10     ← O'ZGARMADI</div>
+
+  <div class="callout warn">
+    <span class="label">⚠️ Pint tuzata olmaydigan narsalar</span>
+    <div class="natija">1) NOMLAR        →  check, $v, $u, $r     ← nima qilishi noma'lum
+2) ICHMA-ICHLIK  →  7 daraja chuqurlik    ← o'qib bo'lmaydi
+3) TAKRORLANISH  →  $r = false  yetti marta</div>
+    <p>Bularning har biri <b>qaror</b> talab qiladi.
+    Vosita qaror qabul qila olmaydi — buni
+    <b>siz</b> qilasiz.</p>
+    <p>🔍 Yon kuzatuv: <code>no_unused_imports</code>
+    <code>User</code> va <code>Vakansiya</code>
+    <code>use</code> larini <b>o'chirib
+    yubordi</b>. Nega? Chunki parametrlar
+    <b>tipsiz</b> edi (<code>$v</code>,
+    <code>$u</code>) — ya'ni sinf nomlari hech
+    qayerda ishlatilmayotgan edi.</p>
+    <p>🔑 Vosita to'g'ri ishladi. Lekin natija
+    shuni ko'rsatadi: <b>yomon kod vositani
+    ham chalg'itadi</b>.</p>
+  </div>
+
+  <!-- ═══════════════ 7) REFAKTOR ═══════════════ -->
+  <h2>Qo'lda refaktoring — xavfsiz tartibda</h2>
+
+  <p>62-darsdagi qoida: <b>avval test</b>. Hozirgi
+  xulqni mixlaymiz — <b>hammasini</b>, hatto
+  noto'g'ri ko'ringanini ham:</p>
+
+  <div class="codefile">
+    <div class="fname">tests/Feature/TekshiruvTest.php</div>
+    <code class="cmd">it('ochiq vakansiyaga begona foydalanuvchi murojaat qila oladi', function () {
+    expect((new Tekshiruv)-&gt;check(vakansiya(), User::factory()-&gt;create()))-&gt;toBeTrue();
+});
+
+it('yopilgan vakansiyaga murojaat qilib bo\'lmaydi', function () {
+    expect((new Tekshiruv)-&gt;check(vakansiya(['faol' =&gt; false]), User::factory()-&gt;create()))-&gt;toBeFalse();
+});
+
+it('muddati o\'tgan vakansiyaga murojaat qilib bo\'lmaydi', ...);
+it('mehmon murojaat qila olmaydi', ...);
+it('o\'z vakansiyasiga murojaat qilib bo\'lmaydi', ...);
+it('kompaniyasiz vakansiyaga murojaat qilib bo\'lmaydi', ...);</code>
+  </div>
+
+  <div class="natija">Tests:  6 passed (6 assertions)     ← xulq MIXLANDI</div>
+
+  <h3>Uchta o'zgarish</h3>
+
+  <p><b>1) Nomlash.</b> <code>check</code> nimani
+  tekshiradi? Javob nomda bo'lsin:</p>
+
+  <div class="natija">check($v, $u)   →   murojaatQilaOladimi(Vakansiya $vakansiya, ?User $foydalanuvchi)</div>
+
+  <p><b>2) Erta return.</b> «Bo'lmasa —
+  darrov chiq»:</p>
+
+  <div class="natija">❌ if (shart) {
+       if (boshqa shart) {
+           $r = true;
+       } else { $r = false; }
+   } else { $r = false; }
+
+✅ if (! shart) {
+       return false;
+   }
+
+   if (! boshqa shart) {
+       return false;
+   }
+
+   return true;</div>
+
+  <p><b>3) Nom bergan shart.</b> Murakkab shartni
+  metodga chiqarish:</p>
+
+  <div class="natija">$v->muddat == null || $v->muddat >= now()
+
+    →   private function muddatiOtganmi(Vakansiya $vakansiya): bool</div>
+
+  <div class="codefile">
+    <div class="fname">app/Support/Tekshiruv.php (refaktordan keyin)</div>
+    <code class="cmd">final class Tekshiruv
+{
+    public function murojaatQilaOladimi(Vakansiya $vakansiya, ?User $foydalanuvchi): bool
+    {
+        if ($foydalanuvchi === null) {
+            return false;
+        }
+
+        if (! $vakansiya-&gt;faol) {
+            return false;
+        }
+
+        if ($this-&gt;muddatiOtganmi($vakansiya)) {
+            return false;
+        }
+
+        if ($vakansiya-&gt;kompaniya_id === null) {
+            return false;
+        }
+
+        return $foydalanuvchi-&gt;id !== $vakansiya-&gt;user_id;
+    }
+
+    private function muddatiOtganmi(Vakansiya $vakansiya): bool
+    {
+        return $vakansiya-&gt;muddat !== null &amp;&amp; $vakansiya-&gt;muddat-&gt;isPast();
+    }
+}</code>
+  </div>
+
+  <div class="natija">Tests:  6 passed (6 assertions)     ✅  xulq o'zgarmadi</div>
+
+  <!-- ═══════════════ 8) AJABLANARLI NATIJA ═══════════════ -->
+  <h2>🔍 Ajablanarli natija</h2>
+
+  <div class="natija">                        AVVAL   KEYIN
+qatorlar:                 36  ->  37      ⚠️  OSHDI
+eng chuqur ichma-ich:      7  ->   3      ✅
+if/else soni:             10  ->   4      ✅</div>
+
+  <div class="callout tip">
+    <span class="label">🔑 «Kamroq qator» — maqsad emas</span>
+    <p>Refaktoring qildik va kod <b>uzunroq</b>
+    bo'ldi. Bu <b>normal</b>.</p>
+    <p>Nima yaxshilandi? Har <code>if</code> endi
+    <b>bitta</b> savolga javob beradi va darrov
+    chiqadi. O'quvchi butun blokni miyasida
+    saqlashi shart emas.</p>
+    <div class="natija">O'lchash uchun to'g'ri narsalar:
+   ichma-ichlik darajasi     (7 -> 3)
+   shoxlanish soni           (10 -> 4)
+   metod uzunligi            (bitta ish qiladimi?)
+   nomning aniqligi          (check -> murojaatQilaOladimi)
+
+O'lchash uchun YOMON narsa:
+   qatorlar soni             (36 -> 37 ... va bu yaxshi!)</div>
+    <p>⚠️ «Kod qatorini kamaytirish» maqsad qilinsa,
+    odamlar <b>bitta qatorga uchta ish</b>
+    tiqishtiradi — va o'qish yomonlashadi.</p>
+  </div>
+
+  <!-- ═══════════════ 9) DRY ═══════════════ -->
+  <h2>DRY — va uning xavfi</h2>
+
+  <p>DRY — «Don't Repeat Yourself», takrorlanmang.
+  Testlarimizda oltita joyda bir xil
+  tayyorgarlik bor edi:</p>
+
+  <div class="natija">Vakansiya::factory()->create([
+    'kompaniya_id' => Kompaniya::factory(),
+    'user_id' => User::factory(),
+    'faol' => true,
+    'muddat' => null,
+]);</div>
+
+  <p>Uni bitta yordamchiga chiqardik:</p>
+
+  <div class="natija">function vakansiya(array $ustunlar = []): Vakansiya
+{
+    return Vakansiya::factory()->create($ustunlar + [...]);
+}
+
+// endi:
+vakansiya(['faol' => false])</div>
+
+  <div class="callout warn">
+    <span class="label">⚠️ Lekin DRY ni erta qo'llash — zarar</span>
+    <p>Eng ko'p uchraydigan xato: <b>o'xshash
+    ko'ringan</b> ikki kodni birlashtirish.</p>
+    <div class="natija">// bugun bir xil ko'rinadi:
+function narxHisobla($summa) { return $summa * 1.12; }     // QQS
+function bonusHisobla($summa) { return $summa * 1.12; }    // bonus
+
+// birlashtirdik:
+function koeffitsiyentBilan($summa) { return $summa * 1.12; }
+
+// ertaga QQS 15% bo'ldi. Bonus esa 12% qoldi.       ⚠️
+// Endi birlashtirilgan funksiyani AJRATISH kerak.</div>
+    <p>🔑 Qoida: <b>kod takrorlanishi emas,
+    BILIM takrorlanishi yomon</b>.</p>
+    <div class="natija">Bir xil BILIM ikki joyda    →  birlashtiring    ✅
+Tasodifan bir xil KO'RINISH →  tegmang          ⚠️</div>
+    <p>Sinov: «bu ikkitasi <b>doim</b> birga
+    o'zgaradimi?» Ha bo'lsa — birlashtiring.
+    Yo'q bo'lsa — qoldiring.</p>
+    <p>✅ Amaliy maslahat: takrorlanishni
+    <b>uchinchi marta</b> ko'rganingizda
+    birlashtiring. Ikki marta — hali tasodif
+    bo'lishi mumkin.</p>
+  </div>
+
+  <!-- ═══════════════ 10) HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir
+  bir marta o'qing, keyin kerak bo'lganda qaytib
+  qarang.</p>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 1</span>
+    <h4>Git hook — commit dan oldin</h4>
+    <div class="natija"># .git/hooks/pre-commit
+#!/bin/sh
+./vendor/bin/pint --dirty
+git add $(git diff --name-only --cached --diff-filter=ACM | grep '\.php$')</div>
+    <p>Faylni bajariladigan qiling:
+    <code>chmod +x .git/hooks/pre-commit</code>.</p>
+    <p>⚠️ Kamchiligi: <code>.git/hooks/</code>
+    <b>commit qilinmaydi</b> — har dasturchi
+    o'zi o'rnatadi.</p>
+    <p>✅ Shuning uchun hook <b>qulaylik</b>,
+    CI esa <b>kafolat</b>. Ikkalasi ham
+    kerak.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 2</span>
+    <h4>Katta eski loyihada boshlash</h4>
+    <div class="natija">⚠️ Butun loyihaga birdan pint ishlatsangiz:
+   500 fayl o'zgaradi  →  git blame buziladi
+                       →  ochiq PR lar konflikt beradi
+                       →  ko'rib chiqish imkonsiz</div>
+    <p>✅ Ikki bosqichli yo'l:</p>
+    <div class="natija">1) Bir marta hammasini tuzating, ALOHIDA commit qiling
+   ("uslub: pint qo'llandi" — mantiq o'zgarishisiz)
+
+2) .git-blame-ignore-revs fayliga o'sha commit hash ini yozing
+   →  git blame uni O'TKAZIB YUBORADI</div>
+    <p>🔑 Yoki asta: <code>pint --dirty</code> bilan
+    faqat tegayotgan fayllaringizni
+    tuzatib boring.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 3</span>
+    <h4>Papkalarni chiqarib tashlash</h4>
+    <div class="natija">{
+    "preset": "laravel",
+    "exclude": ["storage", "bootstrap/cache"],
+    "notName": ["*.blade.php"],
+    "notPath": ["database/migrations/2019_*.php"]
+}</div>
+    <p>✅ <code>exclude</code> — papka,
+    <code>notName</code> — fayl nomi naqshi,
+    <code>notPath</code> — aniq yo'l.</p>
+    <p>⚠️ Blade fayllarini Pint standart holda
+    <b>tegmaydi</b> — <code>--blade</code>
+    bayrog'i kerak.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 4</span>
+    <h4>Presetlar</h4>
+    <div class="natija">laravel    →  standart. Laravel'ning o'z uslubi
+psr12      →  PHP hamjamiyatining rasmiy standarti
+per        →  PSR-12 ning yangilangan davomchisi
+symfony    →  Symfony uslubi
+empty      →  hech qanday qoida (o'zingiz yozasiz)</div>
+    <p>✅ Laravel loyihasida <code>laravel</code>
+    presetida qoling — u PSR-12 ga
+    asoslangan va freymvork kodi bilan bir
+    xil.</p>
+    <p>🔑 Preset tanlash — <b>bir martalik</b>
+    qaror. Muhimi qaysi biri emas, <b>bittasi
+    tanlangani</b>.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 5</span>
+    <h4>Refaktoringni funksiya bilan aralashtirish</h4>
+    <div class="natija">❌ bitta commit:
+   - metodni bo'lakladim
+   - nomlarni o'zgartirdim
+   - va bir joyda shartni tuzatdim (chunki xato edi)</div>
+    <p>Endi ko'rib chiqayotgan odam <b>200 qator
+    farq</b> ichidan o'sha bitta mantiq
+    o'zgarishini topishi kerak.</p>
+    <p>✅ Ikki alohida commit:</p>
+    <div class="natija">1) "refaktor: Tekshiruv — erta return"      (testlar O'ZGARMAYDI)
+2) "tuzatish: muddat solishtiruvi noto'g'ri edi"  (test QO'SHILADI)</div>
+    <p>🔑 Sinov: refaktoring commit'ida test fayli
+    o'zgargan bo'lsa — <b>ehtimol u
+    refaktoring emas</b>.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 6</span>
+    <h4>Pint boshqa vositalar bilan</h4>
+    <div class="natija">Pint       →  USLUB (bo'shliq, qavs, tartib)          ✅ bugun
+PHPStan    →  XATO topish (tip nomuvofiqligi, null)
+Rector     →  KODNI YANGILASH (PHP 8.4 sintaksisiga o'tkazish)</div>
+    <p>Uchalasi <b>boshqa</b> ish qiladi va birga
+    ishlatiladi.</p>
+    <p>🔍 Rector'ni Modul J'da ko'ramiz — PHP
+    versiyasini yangilashda u eski sintaksisni
+    yangisiga <b>o'zi</b> ko'chiradi.</p>
+    <p>⚠️ Tartib muhim: avval Rector/PHPStan, keyin
+    Pint. Aks holda Pint tuzatgan uslubni
+    boshqasi qayta buzadi.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>Refaktoring uchun beshta signal</h4>
+    <div class="natija">1) UZUN METOD        →  ekranga sig'maydi
+2) CHUQUR ICHMA-ICH  →  3 darajadan ortiq
+3) YOMON NOM         →  $data, $temp, handle(), process()
+4) KOMMENTARIYA      →  "bu yerda nima bo'layotganini tushuntiraman"
+5) QO'RQUV           →  "bu faylga tegishga qo'rqaman"</div>
+    <p>🔑 To'rtinchisi eng qiziq: kommentariya
+    ko'pincha <b>yomon nomning o'rnini
+    bosadi</b>.</p>
+    <div class="natija">❌ // faol va muddati o'tmagan vakansiyalar
+   $x = $q->where('faol', true)->where('muddat', '>=', now())->get();
+
+✅ $ochiqVakansiyalar = Vakansiya::ochiq()->get();</div>
+    <p>⚠️ Beshinchisi eng jiddiy: qo'rquv —
+    <b>testlar yetishmayotganini</b> bildiradi.
+    Refaktoringni <b>test yozishdan</b>
+    boshlang.</p>
+  </div>
+
+  <!-- ═══════════════ 11) AMALIYOT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    💻 Quyida amaliyot bor. Hozir o'qish rejimidasiz — kompyuter
+    yoningizda bo'lganda <b>💻 Amaliyot</b> rejimiga o'ting va
+    shu bo'limdan davom eting.
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <div class="callout warn">
+      <span class="label">⚠️ Avval commit qiling</span>
+      <p>Pint <b>o'nlab faylni</b> birdan
+      o'zgartiradi. Ishingiz commit qilinmagan
+      bo'lsa, farqni ajrata olmaysiz.</p>
+    </div>
+
+    <ol class="steps">
+      <li>
+        <b>Holatni o'lchang.</b>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+git add -A &amp;&amp; git commit -m &quot;pint dan oldin&quot; || true
+./vendor/bin/pint --version
+./vendor/bin/pint --test 2>&amp;1 | tail -3
+echo &quot;exit: $?&quot;">cd ~/Projects/Learn/ishtop
+git add -A &amp;&amp; git commit -m &quot;pint dan oldin&quot; || true
+./vendor/bin/pint --version
+./vendor/bin/pint --test 2&gt;&amp;1 | tail -3
+echo &quot;exit: $?&quot;</div>
+        <p class="expect">Menda
+        <code>FAIL ... 97 files, 25 style issues</code>
+        va <code>exit: 1</code>.</p>
+      </li>
+
+      <li>
+        <b>Nechta tuzatuvchi ishlashini sanang.</b>
+        <div class="cmd" data-cmd="./vendor/bin/pint --test | tail -12">./vendor/bin/pint --test | tail -12</div>
+        <p class="expect">Har qatorda fayl nomi va
+        tuzatuvchilar. Menda <b>16 xil</b> tuzatuvchi,
+        jami <b>101</b> ta qo'llanish edi.</p>
+        <p>Aniq farqni ko'rish uchun:</p>
+        <div class="cmd" data-cmd="./vendor/bin/pint --test -v app/Support/Maosh.php">./vendor/bin/pint --test -v app/Support/Maosh.php</div>
+      </li>
+
+      <li>
+        <b>Bitta faylni avval/keyin solishtiring.</b>
+        <div class="cmd" data-cmd="cat app/Support/Maosh.php
+./vendor/bin/pint
+echo '─── keyin ───'
+cat app/Support/Maosh.php">cat app/Support/Maosh.php
+./vendor/bin/pint
+echo '─── keyin ───'
+cat app/Support/Maosh.php</div>
+      </li>
+
+      <li>
+        <b>🔍 Eng muhim tekshiruv: xulq
+        o'zgarmadimi?</b>
+        <div class="cmd" data-cmd="php artisan test 2>&amp;1 | tail -3
+./vendor/bin/pint --test 2>&amp;1 | tail -1">php artisan test 2&gt;&amp;1 | tail -3
+./vendor/bin/pint --test 2&gt;&amp;1 | tail -1</div>
+        <p class="expect"><b>105 passed</b> va
+        <code>PASS ... 97 files</code>.</p>
+      </li>
+
+      <li>
+        <b>⭐ <code>pint.json</code> yarating — 64-darsdagi
+        va'da.</b>
+        <div class="cmd" data-cmd="cat > pint.json <<'EOF'
+{
+    &quot;preset&quot;: &quot;laravel&quot;,
+    &quot;rules&quot;: {
+        &quot;declare_strict_types&quot;: true,
+        &quot;ordered_class_elements&quot;: true,
+        &quot;no_unused_imports&quot;: true
+    }
+}
+EOF
+./vendor/bin/pint | tail -6
+head -5 app/Support/Maosh.php">cat &gt; pint.json &lt;&lt;'EOF'
+{
+    &quot;preset&quot;: &quot;laravel&quot;,
+    &quot;rules&quot;: {
+        &quot;declare_strict_types&quot;: true,
+        &quot;ordered_class_elements&quot;: true,
+        &quot;no_unused_imports&quot;: true
+    }
+}
+EOF
+./vendor/bin/pint | tail -6
+head -5 app/Support/Maosh.php</div>
+        <p class="expect">Menda
+        <code>92 style issues</code> va har faylga
+        <code>declare(strict_types=1)</code>
+        qo'shildi.</p>
+      </li>
+
+      <li>
+        <b>⚠️ Xavfli o'zgarishni o'lchang.</b>
+        <div class="cmd" data-cmd="php artisan test 2>&amp;1 | tail -3">php artisan test 2&gt;&amp;1 | tail -3</div>
+        <p class="expect">Menda <b>105 passed</b> —
+        lekin buni <b>oldindan aytib
+        bo'lmasdi</b>. Xato chiqsa, ular
+        <b>haqiqiy</b> muammolar (64-dars).</p>
+      </li>
+
+      <li>
+        <b>Chiqish kodlarini o'lchang.</b>
+        <div class="cmd" data-cmd="printf '&lt;?php\nnamespace App\\Support;\nclass Zond { }\n' > app/Support/Zond.php
+./vendor/bin/pint --test --bail app/Support/Zond.php >/dev/null 2>&amp;1; echo &quot;  --test --bail exit: $?&quot;
+./vendor/bin/pint --repair app/Support/Zond.php >/dev/null 2>&amp;1; echo &quot;  --repair exit: $?  (o'zgartirdi)&quot;
+./vendor/bin/pint --repair app/Support/Zond.php >/dev/null 2>&amp;1; echo &quot;  --repair exit: $?  (endi toza)&quot;
+rm -f app/Support/Zond.php">printf '&lt;?php\nnamespace App\\Support;\nclass Zond { }\n' &gt; app/Support/Zond.php
+./vendor/bin/pint --test --bail app/Support/Zond.php &gt;/dev/null 2&gt;&amp;1; echo &quot;  --test --bail exit: $?&quot;
+./vendor/bin/pint --repair app/Support/Zond.php &gt;/dev/null 2&gt;&amp;1; echo &quot;  --repair exit: $?  (o'zgartirdi)&quot;
+./vendor/bin/pint --repair app/Support/Zond.php &gt;/dev/null 2&gt;&amp;1; echo &quot;  --repair exit: $?  (endi toza)&quot;
+rm -f app/Support/Zond.php</div>
+        <p class="expect"><b>1</b>, <b>1</b>,
+        <b>0</b>.</p>
+      </li>
+
+      <li>
+        <b>⭐ Pint qila olmaydigan ishni
+        ko'ring.</b> «Semiz» metod yozing:
+        <div class="cmd" data-cmd="cat > app/Support/Tekshiruv.php <<'PHPEOF'
+&lt;?php
+
+namespace App\Support;
+
+use App\Models\User;
+use App\Models\Vakansiya;
+
+class Tekshiruv
+{
+    public function check($v, $u)
+    {
+        $r = false;
+        if ($v->faol == true) {
+            if ($v->muddat == null || $v->muddat >= now()) {
+                if ($u != null) {
+                    if ($u->id != $v->user_id) {
+                        if ($v->kompaniya_id != null) {
+                            $r = true;
+                        } else {
+                            $r = false;
+                        }
+                    } else {
+                        $r = false;
+                    }
+                } else {
+                    $r = false;
+                }
+            } else {
+                $r = false;
+            }
+        } else {
+            $r = false;
+        }
+        return $r;
+    }
+}
+PHPEOF
+echo &quot;  qatorlar: $(wc -l < app/Support/Tekshiruv.php)&quot;
+echo &quot;  if/else:  $(grep -c 'if \|else' app/Support/Tekshiruv.php)&quot;
+./vendor/bin/pint app/Support/Tekshiruv.php >/dev/null 2>&amp;1
+echo '─── pint dan keyin ───'
+echo &quot;  qatorlar: $(wc -l < app/Support/Tekshiruv.php)&quot;
+echo &quot;  if/else:  $(grep -c 'if \|else' app/Support/Tekshiruv.php)&quot;
+head -8 app/Support/Tekshiruv.php">cat &gt; app/Support/Tekshiruv.php &lt;&lt;'PHPEOF'
+&lt;?php
+
+namespace App\Support;
+
+use App\Models\User;
+use App\Models\Vakansiya;
+
+class Tekshiruv
+{
+    public function check($v, $u)
+    {
+        $r = false;
+        if ($v-&gt;faol == true) {
+            if ($v-&gt;muddat == null || $v-&gt;muddat &gt;= now()) {
+                if ($u != null) {
+                    if ($u-&gt;id != $v-&gt;user_id) {
+                        if ($v-&gt;kompaniya_id != null) {
+                            $r = true;
+                        } else {
+                            $r = false;
+                        }
+                    } else {
+                        $r = false;
+                    }
+                } else {
+                    $r = false;
+                }
+            } else {
+                $r = false;
+            }
+        } else {
+            $r = false;
+        }
+        return $r;
+    }
+}
+PHPEOF
+echo &quot;  qatorlar: $(wc -l &lt; app/Support/Tekshiruv.php)&quot;
+echo &quot;  if/else:  $(grep -c 'if \|else' app/Support/Tekshiruv.php)&quot;
+./vendor/bin/pint app/Support/Tekshiruv.php &gt;/dev/null 2&gt;&amp;1
+echo '─── pint dan keyin ───'
+echo &quot;  qatorlar: $(wc -l &lt; app/Support/Tekshiruv.php)&quot;
+echo &quot;  if/else:  $(grep -c 'if \|else' app/Support/Tekshiruv.php)&quot;
+head -8 app/Support/Tekshiruv.php</div>
+        <p class="expect">⚠️ <b>36 → 36</b>, if/else
+        <b>10 → 10</b>. Va <code>use</code> lar
+        <b>yo'qoldi</b> — parametrlar tipsiz
+        edi.</p>
+      </li>
+
+      <li>
+        <b>Avval TEST — xulqni mixlang.</b>
+        <div class="cmd" data-cmd="cat > tests/Feature/TekshiruvTest.php <<'PHPEOF'
+&lt;?php
+
+declare(strict_types=1);
+
+use App\Models\Kompaniya;
+use App\Models\User;
+use App\Models\Vakansiya;
+use App\Support\Tekshiruv;
+
+function vakansiya(array $ustunlar = []): Vakansiya
+{
+    return Vakansiya::factory()->create($ustunlar + [
+        'kompaniya_id' => Kompaniya::factory(),
+        'user_id' => User::factory(),
+        'faol' => true,
+        'muddat' => null,
+    ]);
+}
+
+it('ochiq vakansiyaga begona foydalanuvchi murojaat qila oladi', function () {
+    expect((new Tekshiruv)->check(vakansiya(), User::factory()->create()))->toBeTrue();
+});
+
+it('yopilgan vakansiyaga murojaat qilib bo\'lmaydi', function () {
+    expect((new Tekshiruv)->check(vakansiya(['faol' => false]), User::factory()->create()))->toBeFalse();
+});
+
+it('muddati o\'tgan vakansiyaga murojaat qilib bo\'lmaydi', function () {
+    expect((new Tekshiruv)->check(vakansiya(['muddat' => now()->subDay()]), User::factory()->create()))->toBeFalse();
+});
+
+it('mehmon murojaat qila olmaydi', function () {
+    expect((new Tekshiruv)->check(vakansiya(), null))->toBeFalse();
+});
+
+it('o\'z vakansiyasiga murojaat qilib bo\'lmaydi', function () {
+    $egasi = User::factory()->create();
+
+    expect((new Tekshiruv)->check(vakansiya(['user_id' => $egasi->id]), $egasi))->toBeFalse();
+});
+
+it('kompaniyasiz vakansiyaga murojaat qilib bo\'lmaydi', function () {
+    expect((new Tekshiruv)->check(vakansiya(['kompaniya_id' => null]), User::factory()->create()))->toBeFalse();
+});
+PHPEOF
+php artisan test tests/Feature/TekshiruvTest.php 2>&amp;1 | tail -4">cat &gt; tests/Feature/TekshiruvTest.php &lt;&lt;'PHPEOF'
+&lt;?php
+
+declare(strict_types=1);
+
+use App\Models\Kompaniya;
+use App\Models\User;
+use App\Models\Vakansiya;
+use App\Support\Tekshiruv;
+
+function vakansiya(array $ustunlar = []): Vakansiya
+{
+    return Vakansiya::factory()-&gt;create($ustunlar + [
+        'kompaniya_id' =&gt; Kompaniya::factory(),
+        'user_id' =&gt; User::factory(),
+        'faol' =&gt; true,
+        'muddat' =&gt; null,
+    ]);
+}
+
+it('ochiq vakansiyaga begona foydalanuvchi murojaat qila oladi', function () {
+    expect((new Tekshiruv)-&gt;check(vakansiya(), User::factory()-&gt;create()))-&gt;toBeTrue();
+});
+
+it('yopilgan vakansiyaga murojaat qilib bo\'lmaydi', function () {
+    expect((new Tekshiruv)-&gt;check(vakansiya(['faol' =&gt; false]), User::factory()-&gt;create()))-&gt;toBeFalse();
+});
+
+it('muddati o\'tgan vakansiyaga murojaat qilib bo\'lmaydi', function () {
+    expect((new Tekshiruv)-&gt;check(vakansiya(['muddat' =&gt; now()-&gt;subDay()]), User::factory()-&gt;create()))-&gt;toBeFalse();
+});
+
+it('mehmon murojaat qila olmaydi', function () {
+    expect((new Tekshiruv)-&gt;check(vakansiya(), null))-&gt;toBeFalse();
+});
+
+it('o\'z vakansiyasiga murojaat qilib bo\'lmaydi', function () {
+    $egasi = User::factory()-&gt;create();
+
+    expect((new Tekshiruv)-&gt;check(vakansiya(['user_id' =&gt; $egasi-&gt;id]), $egasi))-&gt;toBeFalse();
+});
+
+it('kompaniyasiz vakansiyaga murojaat qilib bo\'lmaydi', function () {
+    expect((new Tekshiruv)-&gt;check(vakansiya(['kompaniya_id' =&gt; null]), User::factory()-&gt;create()))-&gt;toBeFalse();
+});
+PHPEOF
+php artisan test tests/Feature/TekshiruvTest.php 2&gt;&amp;1 | tail -4</div>
+        <p class="expect"><b>6 passed</b> — xulq
+        mixlandi.</p>
+      </li>
+
+      <li>
+        <b>Endi refaktoring qiling.</b>
+        <div class="cmd" data-cmd="cat > app/Support/Tekshiruv.php <<'PHPEOF'
+&lt;?php
+
+declare(strict_types=1);
+
+namespace App\Support;
+
+use App\Models\User;
+use App\Models\Vakansiya;
+
+final class Tekshiruv
+{
+    public function murojaatQilaOladimi(Vakansiya $vakansiya, ?User $foydalanuvchi): bool
+    {
+        if ($foydalanuvchi === null) {
+            return false;
+        }
+
+        if (! $vakansiya->faol) {
+            return false;
+        }
+
+        if ($this->muddatiOtganmi($vakansiya)) {
+            return false;
+        }
+
+        if ($vakansiya->kompaniya_id === null) {
+            return false;
+        }
+
+        return $foydalanuvchi->id !== $vakansiya->user_id;
+    }
+
+    private function muddatiOtganmi(Vakansiya $vakansiya): bool
+    {
+        return $vakansiya->muddat !== null &amp;&amp; $vakansiya->muddat->isPast();
+    }
+}
+PHPEOF
+sed -i 's/->check(/->murojaatQilaOladimi(/g' tests/Feature/TekshiruvTest.php
+php artisan test tests/Feature/TekshiruvTest.php 2>&amp;1 | tail -3">cat &gt; app/Support/Tekshiruv.php &lt;&lt;'PHPEOF'
+&lt;?php
+
+declare(strict_types=1);
+
+namespace App\Support;
+
+use App\Models\User;
+use App\Models\Vakansiya;
+
+final class Tekshiruv
+{
+    public function murojaatQilaOladimi(Vakansiya $vakansiya, ?User $foydalanuvchi): bool
+    {
+        if ($foydalanuvchi === null) {
+            return false;
+        }
+
+        if (! $vakansiya-&gt;faol) {
+            return false;
+        }
+
+        if ($this-&gt;muddatiOtganmi($vakansiya)) {
+            return false;
+        }
+
+        if ($vakansiya-&gt;kompaniya_id === null) {
+            return false;
+        }
+
+        return $foydalanuvchi-&gt;id !== $vakansiya-&gt;user_id;
+    }
+
+    private function muddatiOtganmi(Vakansiya $vakansiya): bool
+    {
+        return $vakansiya-&gt;muddat !== null &amp;&amp; $vakansiya-&gt;muddat-&gt;isPast();
+    }
+}
+PHPEOF
+sed -i 's/-&gt;check(/-&gt;murojaatQilaOladimi(/g' tests/Feature/TekshiruvTest.php
+php artisan test tests/Feature/TekshiruvTest.php 2&gt;&amp;1 | tail -3</div>
+        <p class="expect"><b>6 passed</b> — xulq
+        <b>o'zgarmadi</b>.</p>
+      </li>
+
+      <li>
+        <b>🔍 Yaxshilanishni o'lchang.</b>
+        <div class="cmd" data-cmd="echo &quot;  qatorlar:             36  ->  $(wc -l < app/Support/Tekshiruv.php)&quot;
+echo &quot;  if/else soni:         10  ->  $(grep -c 'if \|else' app/Support/Tekshiruv.php)&quot;
+awk 'BEGIN{m=0} /[^ ]/ {n=0; for(i=1;i&lt;=length($0);i++){c=substr($0,i,1); if(c==&quot; &quot;)n++; else break}; d=int(n/4); if(d&gt;m)m=d} END{print &quot;  eng chuqur ichma-ich:  7  ->  &quot; m}' app/Support/Tekshiruv.php">echo &quot;  qatorlar:             36  -&gt;  $(wc -l &lt; app/Support/Tekshiruv.php)&quot;
+echo &quot;  if/else soni:         10  -&gt;  $(grep -c 'if \|else' app/Support/Tekshiruv.php)&quot;
+awk 'BEGIN{m=0} /[^ ]/ {n=0; for(i=1;i&lt;=length($0);i++){c=substr($0,i,1); if(c==&quot; &quot;)n++; else break}; d=int(n/4); if(d&gt;m)m=d} END{print &quot;  eng chuqur ichma-ich:  7  -&gt;  &quot; m}' app/Support/Tekshiruv.php</div>
+        <p class="expect">🔍 Ichma-ichlik <b>7 → 3</b>,
+        if/else <b>10 → 4</b>, qatorlar
+        <b>36 → 37</b> — <b>oshdi</b>, va bu
+        normal.</p>
+      </li>
+
+      <li>
+        <b>Yakuniy tekshiruv.</b>
+        <div class="cmd" data-cmd="./vendor/bin/pint
+php artisan test 2>&amp;1 | tail -3
+./vendor/bin/pint --test 2>&amp;1 | tail -1">./vendor/bin/pint
+php artisan test 2&gt;&amp;1 | tail -3
+./vendor/bin/pint --test 2&gt;&amp;1 | tail -1</div>
+        <p class="expect">Menda <b>111 passed (225
+        assertions)</b>.</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li>🔍 25 fayl, 16 tuzatuvchi, 101 qo'llanish
+      o'lchandi</li>
+      <li><code>pint</code> ishga tushdi, testlar
+      o'zgarmadi</li>
+      <li>⭐ <code>pint.json</code> +
+      <code>declare_strict_types</code> → 92 fayl</li>
+      <li>⚠️ Xavfli o'zgarishdan keyin testlar
+      tekshirildi</li>
+      <li>Chiqish kodlari o'lchandi (1 / 1 / 0)</li>
+      <li>⭐ Pint shaklni tuzatmasligini
+      ko'rdim</li>
+      <li>Refaktordan oldin test yozildi</li>
+      <li>Erta return qo'llandi</li>
+      <li>🔍 Ichma-ichlik 7 → 3, qator soni
+      <b>oshdi</b></li>
+      <li>To'liq to'plam yashil</li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 12) SINAB KO'RAMIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Yangi dasturchi jamoaga qo'shildi. Birinchi
+    kuni loyihani ochdi va uslub tarqoqligini
+    ko'rdi.</p>
+    <p>«Buni tuzatib qo'yaman» deb, ishonch bilan
+    yozdi:</p>
+    <div class="natija">./vendor/bin/pint
+git add -A
+git commit -m "kod stili tozalandi"
+git push</div>
+    <p>Testlar yashil. CI yashil. Kod ko'rikda
+    hech kim e'tiroz bildirmadi — axir faqat
+    bo'shliqlar o'zgargan.</p>
+    <p>Ertasi kuni <b>uchta</b> odam shikoyat qildi.
+    Nima bo'lgan?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <p>Uchta alohida muammo:</p>
+        <p><b>1) Ochiq PR lar konflikt berdi.</b>
+        Jamoada beshta ochiq pull request bor edi.
+        Ularning hammasi endi
+        <code>main</code> bilan
+        <b>to'qnashadi</b> — chunki 400 fayl
+        o'zgargan.</p>
+        <p>Har PR muallifi endi qo'lda
+        birlashtirishi kerak.</p>
+        <p><b>2) <code>git blame</code> buzildi.</b>
+        Endi har qatorda «kod stili tozalandi»
+        deb turibdi. «Bu qatorni kim va nega
+        yozgan?» degan savolga javob
+        <b>yo'qoldi</b>.</p>
+        <p class="expect"><b>3) Eng jiddiysi — sezilmagan
+        mantiq o'zgarishi.</b> Pint konfiguratsiyasiz
+        ishga tushirilgan bo'lsa ham, ba'zi
+        tuzatuvchilar <b>xulqqa tegishi</b>
+        mumkin.</p>
+        <div class="natija">Masalan no_unused_imports:
+   use App\Models\User;      ← "ishlatilmayapti" deb o'chirdi
+   ...
+   class_exists('App\Models\User')     ← MATNDA ishlatilgan edi  ⚠️</div>
+        <p>Bunday holatlar kam, lekin bo'ladi — va
+        <b>test bo'lmasa</b> sezilmaydi.</p>
+        <p>✅ To'g'ri yo'l:</p>
+        <div class="natija">1) Avval jamoa bilan KELISHING (pint.json ni birga tanlang)
+2) Ochiq PR lar birlashtirilishini kuting
+3) ALOHIDA commit qiling — faqat uslub, boshqa hech narsa
+4) Testlarni ishga tushiring
+5) .git-blame-ignore-revs ga o'sha commit hash ini yozing:
+      echo "&lt;hash&gt;" >> .git-blame-ignore-revs
+      git config blame.ignoreRevsFile .git-blame-ignore-revs
+6) CI ga pint --test qo'shing — endi qaytmaydi</div>
+        <p>🔑 <b>Umumiy saboq:</b> texnik jihatdan
+        to'g'ri o'zgarish ham <b>jamoaga
+        zarar</b> keltirishi mumkin. Katta
+        avtomatik o'zgarishlar —
+        <b>muvofiqlashtirish</b> talab qiladi.</p>
+        <p>🔍 Va e'tibor bering: uchala muammoning
+        ham <b>kodga aloqasi yo'q</b>. Ular
+        <b>vaqtlash</b> va <b>xabardor
+        qilish</b> muammosi.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span>
+    ⭐ Chuqur ichma-ich shartlarga to'la metodga
+    Pint ishlatilsa nima bo'ladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Uslubni tuzatadi lekin ichma-ichlik va nomlar o'zgarmaydi</button></li>
+      <li><button class="quiz-option">Ichma-ich shartlarni ham tekislaydi va nomlarni yaxshilaydi</button></li>
+      <li><button class="quiz-option">Faqat bo'sh qatorlarni oladi boshqa narsa qilmaydi</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi: Pint
+    <b>5 ta</b> tuzatuvchi qo'lladi, lekin qatorlar
+    <b>36 → 36</b>, ichma-ichlik <b>7 → 7</b>,
+    if/else <b>10 → 10</b>.
+    ⚠️ Pint tuzata olmaydigan uchtasi: <b>nomlar</b> ·
+    <b>ichma-ichlik</b> · <b>takrorlanish</b> — ular
+    <b>qaror</b> talab qiladi.
+    🔍 Yon kuzatuv: <code>no_unused_imports</code>
+    <code>use</code> larni o'chirdi — parametrlar
+    tipsiz edi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span>
+    Erta return bilan refaktoringdan keyin nima
+    o'zgardi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Ichma-ichlik yetti dan uchga tushdi qator soni oshdi</button></li>
+      <li><button class="quiz-option">Qator soni ham ichma-ichlik ham juda sezilarli kamaydi</button></li>
+      <li><button class="quiz-option">Hech qanday o'lchanadigan yaxshilanish bu yerda umuman bo'lmadi</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi: ichma-ichlik
+    <b>7 → 3</b>, if/else <b>10 → 4</b>, qatorlar
+    <b>36 → 37</b> — <b>oshdi</b>.
+    🔑 «Kamroq qator» maqsad emas. O'lchash uchun
+    to'g'ri narsalar: ichma-ichlik, shoxlanish,
+    metod uzunligi, nom aniqligi.
+    ✅ Va eng muhimi: <b>6 test</b> avval ham,
+    keyin ham yashil — xulq o'zgarmadi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span>
+    <code>pint.json</code> da
+    <code>declare_strict_types</code> yoqilsa nima
+    bo'ladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">To'qson ikkita faylga o'zi qo'shib chiqib berdi</button></li>
+      <li><button class="quiz-option">Har faylga qo'lda yozib chiqish kerak bo'ladi</button></li>
+      <li><button class="quiz-option">Laravel buni barcha yangi fayllarga o'zi qo'shadi</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi: <b>92 fayl</b>
+    <code>declare(strict_types=1)</code> oldi — 64-darsda
+    va'da qilingan avtomatlashtirish.
+    ⚠️ Lekin bu <b>xavfli</b> o'zgarish: strictsiz
+    ishlab turgan kod endi <code>TypeError</code>
+    berishi mumkin. Bizda <b>105 passed</b> qoldi,
+    chunki kod allaqachon tiplangan edi — lekin buni
+    <b>oldindan aytib bo'lmasdi</b>.
+    ✅ Xato chiqsa, u <b>haqiqiy</b> muammo — ilgari
+    yashiringan edi.</div>
+  </div>
+
+  <!-- ═══════════════ 13) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+
+    <p>Javobni ovoz chiqarib ayting, keyin ochib
+    solishtiring.</p>
+
+    <details class="recall">
+      <summary>Pint nima qiladi va qanday
+      ishlatiladi?</summary>
+      <div class="answer">PHP-CS-Fixer ustiga qurilgan,
+      Laravel uslubini oldindan sozlangan holda
+      beradigan vosita. <b>Allaqachon
+      o'rnatilgan</b>:
+      <code>vendor/bin/pint</code>.
+      🔍 O'lchandi: loyihamizda <b>25 fayl</b>,
+      <b>16 xil</b> tuzatuvchi, <b>101</b> ta
+      qo'llanish — <b>0.44 soniya</b>da
+      tuzatildi va testlar <b>o'zgarmadi</b>
+      (105 passed).
+      Bayroqlar: <code>--test</code> (CI) ·
+      <code>--dirty</code> (mahalliy) ·
+      <code>--diff=main</code> ·
+      <code>--repair</code> ·
+      <code>--bail</code>.
+      🔑 Chiqish kodi: nomuvofiqlik bor → <b>1</b>,
+      toza → <b>0</b>.</div>
+    </details>
+
+    <details class="recall">
+      <summary>⭐ Pint QILA OLMAYDIGAN uchta ish
+      nima?</summary>
+      <div class="answer"><b>1) Nomlar</b>
+      (<code>check</code>, <code>$v</code>,
+      <code>$r</code>) ·
+      <b>2) Ichma-ichlik</b> ·
+      <b>3) Takrorlanish</b>.
+      🔍 O'lchandi: 7 darajali ichma-ichlikka ega
+      metodga Pint <b>5 ta</b> tuzatuvchi qo'lladi,
+      lekin qatorlar <b>36 → 36</b>, ichma-ichlik
+      <b>7 → 7</b>, if/else <b>10 → 10</b>.
+      🔑 Bularning har biri <b>qaror</b> talab qiladi
+      — vosita qaror qabul qila olmaydi.
+      🔍 Yon kuzatuv: <code>no_unused_imports</code>
+      <code>use</code> larni o'chirdi, chunki
+      parametrlar <b>tipsiz</b> edi — yomon kod
+      vositani ham chalg'itadi.</div>
+    </details>
+
+    <details class="recall">
+      <summary>Refaktoringni qanday tartibda
+      qilasiz?</summary>
+      <div class="answer"><b>1)</b> Avval <b>test</b> —
+      hozirgi xulqni mixlang (hatto noto'g'ri
+      ko'ringanini ham).
+      <b>2)</b> Bir o'zgarish qiling —
+      nomlash, erta return, shartni metodga
+      chiqarish.
+      <b>3)</b> Test — yashilmi?
+      <b>4)</b> Commit.
+      <b>5)</b> Keyingisi.
+      ⚠️ Refaktoring commit'ini <b>funksiya
+      o'zgarishi bilan aralashtirmang</b>. Sinov:
+      refaktoring commit'ida test fayli
+      o'zgargan bo'lsa — ehtimol u refaktoring
+      emas.
+      🔑 «Bu faylga tegishga qo'rqaman» degan his
+      — <b>testlar yetishmayotganini</b>
+      bildiradi.</div>
+    </details>
+
+    <details class="recall">
+      <summary>🔍 Nima uchun qator soni oshdi va bu
+      yomonmi?</summary>
+      <div class="answer">🔍 O'lchandi: <b>36 → 37</b>.
+      Yomon <b>emas</b>. Ichma-ichlik <b>7 → 3</b>,
+      if/else <b>10 → 4</b>.
+      Erta return har shartni <b>alohida</b> qatorga
+      chiqaradi — shuning uchun qator ko'payadi,
+      lekin har biri <b>bitta</b> savolga javob
+      beradi.
+      🔑 <b>«Kamroq qator» maqsad emas.</b>
+      O'lchash uchun to'g'ri narsalar:
+      ichma-ichlik · shoxlanish soni · metod
+      uzunligi · nom aniqligi.
+      ⚠️ Qator sonini maqsad qilsangiz, odamlar bitta
+      qatorga uchta ish tiqishtiradi.</div>
+    </details>
+
+    <details class="recall">
+      <summary>DRY qachon zarar keltiradi?</summary>
+      <div class="answer">Ikki kod <b>tasodifan</b>
+      o'xshash bo'lsa.
+      🔑 Qoida: <b>kod takrorlanishi emas, BILIM
+      takrorlanishi yomon</b>.
+      Misol: QQS va bonus ikkalasi ham
+      <code>* 1.12</code> — birlashtirdingiz.
+      Ertaga QQS 15% bo'ldi, bonus 12% qoldi →
+      endi <b>ajratish</b> kerak.
+      ✅ Sinov: «bu ikkitasi <b>doim</b> birga
+      o'zgaradimi?»
+      ✅ Amaliy maslahat: <b>uchinchi marta</b>
+      ko'rganingizda birlashtiring. Ikki marta —
+      hali tasodif bo'lishi mumkin.</div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 14) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Xulosa</span>
+    <ul>
+      <li>Uslub — <b>kelishuv</b>, muhokama mavzusi
+      emas. Uni <b>vosita</b> qo'llasin.</li>
+      <li>Pint Laravel'da <b>allaqachon
+      o'rnatilgan</b>: <code>vendor/bin/pint</code>.</li>
+      <li>🔍 Loyihamizda: <b>25 fayl</b>, 16 tuzatuvchi,
+      <b>101</b> qo'llanish, <b>0.44s</b>.</li>
+      <li>🔍 Testlar <b>o'zgarmadi</b> — Pint faqat
+      uslubga tegadi.</li>
+      <li>Chiqish kodi CI uchun:
+      <code>--test</code> nomuvofiq → <b>1</b>, toza →
+      <b>0</b>.</li>
+      <li>⭐ 🔍 <code>declare_strict_types</code> —
+      <b>92 faylga</b> o'zi qo'shdi
+      (64-darsdagi va'da).</li>
+      <li>⚠️ Bu <b>xavfli</b> o'zgarish —
+      o'lchash shart. Xato chiqsa, u
+      <b>haqiqiy</b> muammo.</li>
+      <li>⭐ 🔍 Pint <b>shaklni</b> tuzatmaydi:
+      36 → 36 qator, ichma-ichlik 7 → 7.</li>
+      <li>Uchtasi <b>qaror</b> talab qiladi: nomlar ·
+      ichma-ichlik · takrorlanish.</li>
+      <li>Refaktoring tartibi: <b>avval test</b> → bir
+      o'zgarish → test → commit.</li>
+      <li>🔍 Erta return: ichma-ichlik <b>7 → 3</b>,
+      if/else <b>10 → 4</b>, qatorlar
+      <b>36 → 37</b>.</li>
+      <li>🔑 «Kamroq qator» — <b>maqsad emas</b>.</li>
+      <li>⚠️ DRY: <b>bilim</b> takrorlansa
+      birlashtiring, <b>ko'rinish</b> tasodifan
+      o'xshasa — tegmang.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p>Kodimiz endi bir xil ko'rinishda, mantiq
+    o'z joyida, tiplar aniq. Bitta savol
+    qoldi — va u eng jiddiysi.</p>
+    <p><b>Bu kod xavfsizmi?</b></p>
+    <p>39-darsda tekshiruv yozdik, 44-darsda token
+    berdik, 48-darsda cheklov qo'ydik. Lekin
+    hech qachon <b>hujumchi ko'zi bilan</b>
+    qaramadik.</p>
+    <p>66-darsda <b>xavfsizlik</b> bilan
+    shug'ullanamiz: SQL inyeksiya, XSS, CSRF,
+    ommaviy tayinlash (mass assignment), sirlarni
+    saqlash. Va har birini <b>o'z ilovamizda</b>
+    sinab ko'ramiz — Laravel qaysilarini
+    o'zi to'sadi, qaysilarini
+    <b>yo'q</b>.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel Pint</b>:
+    <a href="https://laravel.com/docs/13.x/pint">o'rnatish,
+    presetlar, <code>pint.json</code></a>.<sup><a href="#fn1">1</a></sup><br>
+    <b>PHP-CS-Fixer — Rules</b>:
+    <a href="https://cs.symfony.com/doc/rules/index.html">barcha
+    tuzatuvchilar ro'yxati</a>.<sup><a href="#fn2">2</a></sup><br>
+    <b>Martin Fowler — Refactoring Catalog</b>:
+    <a href="https://refactoring.com/catalog/">nomlangan
+    refaktoringlar to'plami</a>.<sup><a href="#fn3">3</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b>
+    «qaysi presetni tanlayman?», «PHPStan ham
+    kerakmi?», «eski loyihada qanday boshlayman?» —
+    har qanday savol yaxshi. Birinchisiga qisqa javob:
+    Laravel loyihasida <code>laravel</code> presetida
+    <b>qoling</b> — muhimi qaysi biri emas,
+    <b>bittasi tanlangani</b>. Uchinchisiga: bir
+    marta hammasini tuzatib <b>alohida commit</b>
+    qiling va hash ni
+    <code>.git-blame-ignore-revs</code> ga yozing —
+    shunda <code>git blame</code> uni o'tkazib
+    yuboradi.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0064-dto-va-qatlamlar.html">Oldingi: DTO va qatlamlar</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel 13 — <a href="https://laravel.com/docs/13.x/pint">Laravel Pint</a>.</li>
+      <li id="fn2">PHP-CS-Fixer — <a href="https://cs.symfony.com/doc/rules/index.html">Rules</a>.</li>
+      <li id="fn3">Martin Fowler — <a href="https://refactoring.com/catalog/">Refactoring Catalog</a>.</li>
+      <li id="fn4">Barchasi jonli o'lchangan (PHP 8.3.32,
+      Laravel 13.26.1, <b>Pint 1.30.5</b>, Pest 4.7.8):
+      <code>pint --test</code> →
+      <code>FAIL ... 97 files, 25 style issues</code>,
+      <b>16 xil</b> tuzatuvchi, <b>101</b> ta qo'llanish,
+      <code>exit 1</code>; eng ko'p uchraganlari
+      <code>blank_line_after_opening_tag</code> <b>17</b>,
+      <code>single_line_after_imports</code> <b>15</b>,
+      <code>blank_line_after_namespace</code> <b>13</b>,
+      <code>braces_position</code> <b>10</b>,
+      <code>class_attributes_separation</code> <b>10</b> ·
+      <code>pint</code> → 25 fayl <b>0.44 s</b> da
+      tuzatildi, so'ng <code>php artisan test</code> →
+      <b>105 passed (219 assertions)</b>,
+      <code>pint --test</code> →
+      <code>PASS ... 97 files</code>, <code>exit 0</code> ·
+      ⭐ <code>pint.json</code> da
+      <code>declare_strict_types</code>,
+      <code>ordered_class_elements</code>,
+      <code>no_unused_imports</code> yoqilgach →
+      <code>FIXED ... 97 files, 92 style issues</code>
+      (<code>declare_strict_types</code> <b>92</b>,
+      <code>braces_position</code> <b>20</b>,
+      <code>class_definition</code> <b>13</b>), testlar
+      <b>105 passed</b> qoldi; loyihada
+      <code>declare(strict_types=1)</code> bo'lgan fayllar
+      <b>96 ta</b> ·
+      chiqish kodlari: <code>--test --bail</code> (nomuvofiq)
+      <b>1</b>, <code>--repair</code> (o'zgartirdi)
+      <b>1</b>, <code>--repair</code> (toza) <b>0</b> ·
+      ⭐ 7 darajali ichma-ichlikka ega
+      <code>Tekshiruv::check()</code> ga Pint <b>5</b> ta
+      tuzatuvchi qo'lladi
+      (<code>declare_strict_types</code>,
+      <code>blank_line_after_opening_tag</code>,
+      <code>no_unused_imports</code>,
+      <code>blank_line_after_namespace</code>,
+      <code>blank_line_before_statement</code>) — qatorlar
+      <b>36 → 36</b>, ichma-ichlik <b>7 → 7</b>, if/else
+      <b>10 → 10</b>; <code>no_unused_imports</code>
+      <code>User</code> va <code>Vakansiya</code>
+      <code>use</code> larini o'chirdi (parametrlar tipsiz
+      edi) ·
+      qo'lda refaktordan keyin: ichma-ichlik <b>7 → 3</b>,
+      if/else <b>10 → 4</b>, qatorlar <b>36 → 37</b>
+      (<b>oshdi</b>), <code>TekshiruvTest</code>
+      <b>6 passed (6 assertions)</b> — refaktordan
+      <b>oldin ham, keyin ham</b> ·
+      yakuniy to'plam: <b>111 passed (225 assertions),
+      1.18s</b>.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>
