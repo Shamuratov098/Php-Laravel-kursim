@@ -18,7 +18,7 @@
   izoh esa o'zbekcha.</p>
 
   <p class="lesson-meta">
-    <span>Atamalar: <b>275 ta</b></span>
+    <span>Atamalar: <b>280 ta</b></span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>📱 O'qishga mos</span>
   </p>
@@ -26,7 +26,7 @@
   <div class="callout note">
     <span class="label">Bu hujjat o'sib boradi</span>
     <p>Atama faqat <b>o'z darsi yozilganda</b> qo'shiladi — oldindan emas. Hozir:
-    Modul A–I (1–65-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
+    Modul A–I (1–66-darslar) atamalari + <b>IshTop</b> loyihasining domen atamalari (ular reja
     bosqichida qat'iy belgilangan va 73 dars bo'ylab o'zgarmaydi).</p>
   </div>
 
@@ -2609,6 +2609,127 @@
       uchraydigan xato — <code>EXPLAIN</code> ni
       o'tkazib yuborish.
       <span class="eg">DB::select("EXPLAIN QUERY PLAN $sql", $bog)</span></dd>
+    </div>
+
+    <div class="term" id="mass-assignment">
+      <dt>ommaviy tayinlash (mass assignment) <span class="uz">— hujumchi o'zini admin qiladi</span></dt>
+      <dd>⭐ <code>create()</code>/<code>update()</code> ga
+      foydalanuvchi kiritmasini <b>to'g'ridan-to'g'ri</b>
+      berish.
+      🔍 O'lchandi: <code>rol</code>
+      <code>#[Fillable]</code> da bo'lgani uchun
+      <code>User::create([..., 'rol' =&gt; 'admin'])</code> →
+      foydalanuvchi <b>admin bo'ldi</b>. Xato yo'q, log
+      toza, ro'yxatdan o'tish muvaffaqiyatli.
+      ✅ Ikki qatlam: modelda
+      <code>#[Fillable]</code>/<code>$fillable</code> +
+      so'rovda <code>validated()</code>
+      (<code>all()</code> emas).
+      ⚠️ <b>Tuzoq:</b> maydonni <code>fillable</code> dan
+      olib tashlasangiz, u <b>jimgina tashlab
+      yuboriladi</b> — 🔍 o'lchandi:
+      <code>Failed asserting that null is identical to
+      1</code>. Server qo'yadigan maydonni
+      <b>alohida</b> yozing:
+      <code>$v-&gt;user_id = $egasi-&gt;id;</code>
+      🔑 <code>fillable</code> &gt; <code>guarded</code>:
+      birinchisi «ruxsat etilganlar», ikkinchisida yangi
+      ustun <b>avtomatik ruxsat etilgan</b> bo'ladi.
+      <span class="eg">#[Fillable(['name', 'email', 'password'])]</span></dd>
+    </div>
+
+    <div class="term" id="sql-injection">
+      <dt>SQL inyeksiya <span class="uz">— bog'lash himoya qiladi</span></dt>
+      <dd>🔍 O'lchandi (5 kompaniya, kirish
+      <code>' OR '1'='1</code>):
+      <code>where('nom', $yovuz)</code> → <b>0</b> yozuv;
+      <code>DB::select("... nom = '$yovuz'")</code> →
+      <b>5</b> — hammasi.
+      Laravel qiymatni SQL'ga <b>qo'shmaydi</b>:
+      <code>where "nom" = ?</code> +
+      <code>["' OR '1'='1"]</code> — baza uni
+      <b>ma'lumot</b> deb qabul qiladi.
+      ⚠️ Xavfli joylar: <code>whereRaw</code> ·
+      <code>orderByRaw</code> · <code>selectRaw</code> ·
+      <code>DB::select("...$x...")</code>.
+      🔍 <code>orderBy()</code> esa <b>xavfsiz</b>:
+      <code>order by "nom; drop table vakansiyalar"
+      asc</code> — butun matnni ustun nomi deb
+      qo'shtirnoqqa oladi (so'rov xato beradi, lekin
+      inyeksiya yo'q).
+      ✅ Ustun nomlarini <b>qat'iy ro'yxatdan</b> tanlang
+      ([[action-service-query]] dagi
+      <code>TARTIBLAR</code>).
+      <span class="eg">Vakansiya::where('nom', $q)->get()</span></dd>
+    </div>
+
+    <div class="term" id="xss">
+      <dt>XSS va JSON API <span class="uz">— kim qochiradi?</span></dt>
+      <dd>🔍 O'lchandi:
+      <code>{{ $x }}</code> →
+      <code>&amp;lt;script&amp;gt;alert(1)&amp;lt;/script&amp;gt;</code>
+      (qochirildi) · <code>{!! $x !!}</code> → <b>xom</b> ·
+      <code>response()-&gt;json()</code> →
+      <code>{"nom":"&lt;script&gt;alert(1)&lt;\/script&gt;"}</code>
+      — <code>&lt;script&gt;</code> <b>saqlanadi</b>.
+      🔑 Va JSON uchun bu <b>to'g'ri</b>: JSON —
+      ma'lumot, HTML emas. API qochirsa, mobil ilova
+      <code>&amp;lt;script&amp;gt;</code> ko'rsatadi.
+      Mas'uliyat <b>mijozda</b>.
+      ⚠️ <code>dangerouslySetInnerHTML</code> va
+      <code>v-html</code> — <code>{!! !!}</code> ning
+      o'zi.
+      ✅ Tekshiruv: <code>grep -rn '{!!'
+      resources/views</code>.
+      <span class="eg">{{ $vakansiya->nom }}</span></dd>
+    </div>
+
+    <div class="term" id="csrf">
+      <dt>CSRF <span class="uz">— va nega uni testda tekshirib bo'lmaydi</span></dt>
+      <dd>Boshqa sayt sizning nomingizdan so'rov
+      yuboradi; brauzer cookie'ni <b>o'zi</b>
+      qo'shadi. Himoya — har formada maxfiy token.
+      🔍 O'lchandi (haqiqiy <code>artisan serve</code> +
+      <code>curl</code>): web POST → <b>419</b>
+      («CSRF token mismatch»), API POST → <b>401</b>
+      (autentifikatsiya, CSRF emas).
+      🔑 API'da CSRF <b>kerak emas</b> — u cookie emas,
+      token ishlatadi va brauzer
+      <code>Authorization</code> sarlavhasini
+      o'zi qo'shmaydi.
+      ⚠️ Testda CSRF <b>butunlay o'chirilgan</b>:
+      <code>PreventRequestForgery::handle()</code> ichida
+      <code>$this-&gt;runningUnitTests()</code> sharti bor.
+      Shuning uchun uni faqat haqiqiy server bilan
+      tekshirasiz.
+      🔍 Laravel 13 da sinf nomi
+      <code>PreventRequestForgery</code>;
+      <code>ValidateCsrfToken</code> <b>eskirgan</b>.
+      <span class="eg">curl -X POST http://127.0.0.1:8000/zond-web -d 'a=1'</span></dd>
+    </div>
+
+    <div class="term" id="app-debug">
+      <dt>APP_DEBUG <span class="uz">— eng qimmat bir harf</span></dt>
+      <dd>⭐ 🔍 O'lchandi (xato matnida sir bilan):
+      <code>APP_DEBUG=true</code> → javob
+      <b>877 560 bayt</b>, sir <b>4 marta</b>
+      ko'rindi;
+      <code>false</code> → <b>6 592 bayt</b>,
+      <b>0 marta</b>.
+      Ichida: xato matni, to'liq stack trace, fayl
+      yo'llari, <b>manba kodingiz</b>, so'rov
+      ma'lumotlari, paketlar, server sozlamalari.
+      ⚠️ Eng ko'p uchraydigan jiddiy xato — sabab:
+      <code>.env.example</code> da <code>true</code>
+      turadi va serverda o'zgartirish unutiladi.
+      ✅ Ishlab chiqarishda:
+      <code>APP_ENV=production</code>,
+      <code>APP_DEBUG=false</code>.
+      🔑 Sirlar: <code>.env</code> git'da bo'lmasin ·
+      <code>#[Hidden]</code> ·
+      sir logga tushmasin · sir tarixga tushsa
+      <b>avval almashtiring</b>, keyin tozalang.
+      <span class="eg">APP_DEBUG=false</span></dd>
     </div>
 
     <div class="term" id="pint">

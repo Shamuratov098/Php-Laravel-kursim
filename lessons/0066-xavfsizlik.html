@@ -1,0 +1,1390 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>DARS 66 — Xavfsizlik</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script defer src="../assets/app.js"></script>
+</head>
+<body>
+<main class="lesson">
+
+  <p class="kicker">DARS 66 · MODUL I — ISHLAB CHIQARISHGA TAYYORGARLIK</p>
+  <h1>Xavfsizlik</h1>
+  <p class="lead">Bugun birinchi marta ilovamizga
+  <b>hujumchi ko'zi bilan</b> qaraymiz. Va ikkita
+  haqiqiy zaiflik topamiz — ular kursimiz boshidan beri
+  kodda turgan ekan. Birinchisi bilan foydalanuvchi
+  <b>o'zini admin qila oladi</b>.</p>
+
+  <p class="lesson-meta">
+    <span>📱 O'qish ≈ 20 daqiqa</span>
+    <span>💻 Amaliyot ≈ 35 daqiqa</span>
+    <span>Kerak: <a href="0065-refactoring-va-kod-stili.html">Dars 65</a></span>
+  </p>
+
+  <!-- ═══════════════ 0) QAMROV ═══════════════ -->
+  <div class="qamrov">
+    <span class="label">Bu darsda nimalar bor</span>
+    <ol>
+      <li><b>⭐ Ommaviy tayinlash (mass assignment)</b>
+        <span class="nima">🔍 O'lchandi: hujumchi
+        <code>rol = 'admin'</code> yozdi va
+        <b>admin bo'ldi</b>.</span></li>
+      <li><b>Ikkinchi zaiflik: <code>user_id</code></b>
+        <span class="nima">🔍 U <code>fillable</code>
+        da ekan — vakansiyani <b>begonaga</b>
+        yozish mumkin.</span></li>
+      <li><b>⚠️ Tuzatishning tuzog'i</b>
+        <span class="nima">🔍
+        <code>fillable</code> dan olib tashlasangiz —
+        <b>jimgina <code>null</code></b>.</span></li>
+      <li><b>SQL inyeksiya</b>
+        <span class="nima">🔍 Bog'lash bilan
+        <b>0</b> yozuv, birlashtirish bilan
+        <b>5</b> — hammasi.</span></li>
+      <li><b><code>orderBy</code> va
+        <code>orderByRaw</code></b>
+        <span class="nima">🔍 Biri qo'shtirnoqqa
+        oladi, ikkinchisi <b>yo'q</b>.</span></li>
+      <li><b>XSS va Blade</b>
+        <span class="nima">🔍 <code>{{ }}</code>
+        qochiradi, <code>{!! !!}</code>
+        <b>yo'q</b>.</span></li>
+      <li><b>🔍 JSON API va XSS</b>
+        <span class="nima"><code>&lt;script&gt;</code>
+        JSON'da <b>saqlanadi</b> — kim
+        qochiradi?</span></li>
+      <li><b>CSRF</b>
+        <span class="nima">🔍 Haqiqiy serverda
+        <b>419</b>. ⚠️ Testda esa
+        <b>o'chirilgan</b>.</span></li>
+      <li><b>⭐ <code>APP_DEBUG</code> — eng qimmat
+        xato</b>
+        <span class="nima">🔍 Javob <b>877 560
+        bayt</b>, sir <b>4 marta</b>
+        ko'rindi.</span></li>
+      <li><b>Sirlarni saqlash</b>
+        <span class="nima"><code>.env</code>,
+        <code>#[Hidden]</code>, log,
+        <code>APP_KEY</code>.</span></li>
+      <li><b>Xavfsizlik testlari</b>
+        <span class="nima">Zaiflik ham
+        <b>testga</b> aylanadi.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima">Fayl yuklash · IDOR ·
+        parol · <code>unguarded</code> ·
+        bog'liqliklar.</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════ 1) NEGA KERAK ═══════════════ -->
+  <div class="callout why">
+    <span class="label">Laravel ko'p narsani o'zi to'sadi. Lekin hammasini emas.</span>
+    <p>Bu darsning maqsadi qo'rqitish emas. Maqsad —
+    <b>chegarani aniq bilish</b>:</p>
+    <div class="natija">Laravel O'ZI to'sadi:          Siz TO'SASIZ:
+   SQL inyeksiya (Eloquent)      ommaviy tayinlash (fillable)
+   XSS ({{ }} da)                begona yozuvni ko'rish (IDOR)
+   CSRF (web marshrutlarida)     sirlarni saqlash
+   parolni hash qilish           APP_DEBUG
+                                 fayl yuklash</div>
+    <p>⚠️ Va eng xavflisi — <b>o'rtadagi</b>lar:
+    Laravel himoya <b>beradi</b>, lekin siz uni
+    <b>o'chirib qo'yishingiz</b> mumkin —
+    bilmasdan.</p>
+    <p>Bugun har birini <b>o'z ilovamizda</b> sinab
+    ko'ramiz. Va ikkita haqiqiy zaiflik topamiz —
+    ular 22-darsdan beri kodda turgan.</p>
+  </div>
+
+  <!-- ═══════════════ 2) ⭐ MASS ASSIGNMENT ═══════════════ -->
+  <h2>⭐ 1-zaiflik: hujumchi o'zini admin qiladi</h2>
+
+  <p>Laravel 13 da <code>User</code> modeli shunday
+  yozilgan:</p>
+
+  <div class="natija">#[Fillable(['name', 'email', 'password', 'rol'])]
+#[Hidden(['password', 'remember_token'])]
+class User extends Authenticatable</div>
+
+  <p><code>rol</code> — <code>fillable</code> ro'yxatida.
+  Ya'ni uni <b>ommaviy tayinlash</b> orqali yozish
+  mumkin.</p>
+
+  <p>Endi tasavvur qiling, ro'yxatdan o'tish kodi
+  shunday:</p>
+
+  <div class="natija">User::create($request->all());</div>
+
+  <p>Hujumchi oddiy formaga yashirin maydon
+  qo'shadi:</p>
+
+  <div class="natija">yuborilgan: {"name":"Hujumchi","email":"h@x.uz","password":"parol123","rol":"admin"}
+
+User::create($request->all())  ->  rol = 'admin'      ⚠️
+rol siz                        ->  rol = NULL</div>
+
+  <div class="callout warn">
+    <span class="label">⚠️ Nima bo'ldi?</span>
+    <p>Hujumchi <b>admin</b> bo'ldi. Bir qator
+    qo'shib.</p>
+    <p>Xato yo'q. Ogohlantirish yo'q. Log toza.
+    Ro'yxatdan o'tish <b>muvaffaqiyatli</b>.</p>
+    <p>🔑 Bu <b>ommaviy tayinlash</b> (mass assignment)
+    zaifligi. Nomi shundan: bir marta <b>ommaviy</b>
+    ravishda hamma maydonni tayinlaysiz —
+    va ular orasida <b>tayinlanmasligi kerak
+    bo'lgani</b> ham bor.</p>
+  </div>
+
+  <h3>✅ Tuzatish — ikki qatlam</h3>
+
+  <div class="natija">1-QATLAM: modelda
+   #[Fillable(['name', 'email', 'password'])]     ← rol OLIB TASHLANDI
+
+2-QATLAM: so'rovda
+   $request->validate([...])                       ← rol qoidalarda YO'Q
+   User::create($request->validated())             ← faqat tekshirilgani o'tadi</div>
+
+  <p>🔑 <b>Ikkalasi ham kerak.</b> Birinchisi —
+  «hech qachon», ikkinchisi — «bu yerda».
+  Biri unutilsa, ikkinchisi ushlab qoladi.</p>
+
+  <p>⚠️ Va <code>$request-&gt;all()</code> ni
+  <b>hech qachon</b> to'g'ridan-to'g'ri
+  <code>create()</code> ga bermang. Har doim
+  <code>validated()</code>.</p>
+
+  <!-- ═══════════════ 3) IKKINCHI ZAIFLIK ═══════════════ -->
+  <h2>2-zaiflik: <code>user_id</code></h2>
+
+  <p>O'z modelimizga qaraymiz:</p>
+
+  <div class="natija">protected $fillable = ['nom', 'maosh', 'shahar', 'faol',
+                       'kompaniya_id', 'user_id', 'muddat'];
+                                        ↑ XAVF</div>
+
+  <p><code>user_id</code> — vakansiyaning
+  <b>egasi</b>. Uni foydalanuvchi
+  <b>yozmasligi</b> kerak — server o'zi
+  qo'yadi.</p>
+
+  <div class="natija">Vakansiya::create(['user_id' => $qurbon->id, ...])
+   ->  user_id = QURBON      <-- yozildi</div>
+
+  <p>🔍 Hozircha bizni <b>tekshiruv</b> qutqaradi:
+  <code>VakansiyaRequest</code> qoidalarida
+  <code>user_id</code> yo'q, demak
+  <code>validated()</code> uni chiqarib
+  tashlaydi.</p>
+
+  <p>Lekin bu — <b>bitta</b> qatlam. Kimdir ertaga
+  yangi controller yozsa va
+  <code>$request-&gt;all()</code> ishlatsa — zaiflik
+  <b>ochiladi</b>.</p>
+
+  <!-- ═══════════════ 4) ⚠️ TUZOQ ═══════════════ -->
+  <h2>⚠️ Tuzatishning tuzog'i</h2>
+
+  <p>Yechim ravshan: <code>user_id</code> ni
+  <code>fillable</code> dan olib tashlaymiz.</p>
+
+  <div class="natija">protected $fillable = ['nom', 'maosh', 'shahar', 'faol',
+                       'kompaniya_id', 'muddat'];</div>
+
+  <p>Testlarni ishga tushiramiz:</p>
+
+  <div class="natija">Tests:  3 failed, 1 skipped, 112 passed (229 assertions)
+
+FAILED  Tests\Feature\AmalTest > it vakansiya yaratadi va egasini biriktiradi
+
+  Failed asserting that null is identical to 1.</div>
+
+  <div class="callout warn">
+    <span class="label">⚠️ <code>null</code> — bu eng muhim so'z</span>
+    <p><code>fillable</code> da bo'lmagan maydon
+    <b>xato bermaydi</b> —
+    u <b>jimgina tashlab yuboriladi</b>.</p>
+    <div class="natija">Vakansiya::create([... 'user_id' => 5])
+
+   user_id fillable da BOR   ->  user_id = 5
+   user_id fillable da YO'Q  ->  user_id = null      ⚠️  xato YO'Q</div>
+    <p>Ya'ni «himoya qo'ydim» deb o'ylab, aslida
+    <b>egasi yo'q</b> vakansiyalar yaratgan
+    bo'lardingiz.</p>
+    <p>🔑 Bizni <b>test</b> qutqardi. Testsiz bu
+    ishlab chiqarishga chiqib ketardi — va faqat
+    «nega mening vakansiyalarim
+    ko'rinmayapti?» degan shikoyatdan keyin
+    bilinardi.</p>
+  </div>
+
+  <h3>✅ To'g'ri tuzatish</h3>
+
+  <div class="natija">public function bajar(VakansiyaMalumoti $malumot, User $egasi): Vakansiya
+{
+    $vakansiya = new Vakansiya($malumot->jadvalGa());
+    $vakansiya->user_id = $egasi->id;        // ← ALOHIDA, ommaviy emas
+    $vakansiya->save();
+
+    VakansiyaYaratildi::dispatch($vakansiya);
+
+    return $vakansiya->fresh();
+}</div>
+
+  <p>Endi <code>user_id</code> ni <b>faqat kod</b>
+  yoza oladi, foydalanuvchi kiritmasi orqali
+  <b>hech qachon</b>.</p>
+
+  <div class="natija">Tests:  116 passed (234 assertions)      ✅</div>
+
+  <!-- ═══════════════ 5) SQL INYEKSIYA ═══════════════ -->
+  <h2>SQL inyeksiya</h2>
+
+  <p>Klassik hujum. Bazada 5 ta kompaniya bor.
+  Hujumchi qidiruvga shuni yozadi:</p>
+
+  <div class="natija">' OR '1'='1</div>
+
+  <p>Ikki xil yozilgan kodni solishtiramiz:</p>
+
+  <div class="natija">where('nom', $yovuz)                          ->  0 ta      ✅
+DB::select("select * from kompaniyalar
+            where nom = '$yovuz'")            ->  5 ta      ⚠️</div>
+
+  <p>Ikkinchisi <b>hamma</b> yozuvni qaytardi. Agar bu
+  kirish tekshiruvi bo'lganida — hujumchi
+  <b>parolsiz kirgan</b> bo'lardi.</p>
+
+  <div class="callout tip">
+    <span class="label">🔑 Nega birinchisi xavfsiz?</span>
+    <p>Laravel qiymatni SQL'ga <b>qo'shmaydi</b>. U
+    alohida yuboriladi:</p>
+    <div class="natija">SQL:      select * from "kompaniyalar" where "nom" = ?
+bog'lash: ["' OR '1'='1"]</div>
+    <p>Baza <code>?</code> o'rniga qiymatni
+    <b>ma'lumot</b> sifatida qo'yadi — hech
+    qachon <b>buyruq</b> sifatida emas.</p>
+    <p>🔑 Bu «bog'langan parametr» (prepared statement)
+    deb ataladi va u <b>eng ishonchli</b>
+    himoya.</p>
+  </div>
+
+  <h3><code>orderBy</code> va <code>orderByRaw</code></h3>
+
+  <p>Ustun nomlarini bog'lab bo'lmaydi — ular
+  SQL'ning bir qismi. Laravel nima qiladi?</p>
+
+  <div class="natija">Vakansiya::orderBy('nom; drop table vakansiyalar')
+   ->  order by "nom; drop table vakansiyalar" asc      ✅ qo'shtirnoqda
+
+Vakansiya::orderByRaw('nom; drop table vakansiyalar')
+   ->  order by nom; drop table vakansiyalar            ⚠️ XOM</div>
+
+  <p><code>orderBy()</code> butun matnni <b>bitta ustun
+  nomi</b> deb qo'shtirnoqqa oladi. Natijada
+  so'rov <b>xato beradi</b> — lekin
+  inyeksiya <b>bo'lmaydi</b>.</p>
+
+  <p>⚠️ <code>orderByRaw()</code> esa — hech narsa
+  qilmaydi. Foydalanuvchi kiritmasi u yerga
+  <b>hech qachon</b> tushmasin.</p>
+
+  <p>✅ Bizda 62-darsdagi <code>TARTIBLAR</code>
+  qat'iy ro'yxati bor — foydalanuvchi faqat
+  <b>beshta</b> qiymatdan birini tanlay oladi,
+  boshqasi <b>422</b> beradi.</p>
+
+  <!-- ═══════════════ 6) XSS ═══════════════ -->
+  <h2>XSS — brauzerdagi hujum</h2>
+
+  <p>Foydalanuvchi vakansiya nomiga shuni
+  yozadi:</p>
+
+  <div class="natija">&lt;script&gt;alert(1)&lt;/script&gt;</div>
+
+  <p>Blade ikki usulni beradi:</p>
+
+  <div class="natija">{{ $x }}     ->  &amp;lt;script&amp;gt;alert(1)&amp;lt;/script&amp;gt;      ✅ qochirildi
+{!! $x !!}   ->  &lt;script&gt;alert(1)&lt;/script&gt;                ⚠️ XOM</div>
+
+  <p>Birinchisi — <b>standart</b>. Ya'ni Blade sizni
+  <b>o'zi</b> himoya qiladi.</p>
+
+  <div class="callout warn">
+    <span class="label">⚠️ <code>{!! !!}</code> qachon ishlatiladi?</span>
+    <p>Faqat <b>siz yozgan</b> HTML uchun. Masalan
+    Markdown'dan yaratilgan matn yoki
+    tarjima fayli.</p>
+    <p>❌ <b>Hech qachon</b> foydalanuvchi kiritmasi
+    uchun — hatto «tozalab olganman» desangiz
+    ham.</p>
+    <p>🔑 Qidirish oson: <code>grep -rn '{!!'
+    resources/views</code>. Har topilganini
+    tekshiring.</p>
+  </div>
+
+  <h3>🔍 JSON API — kim qochiradi?</h3>
+
+  <p>Bizning ilovamiz JSON qaytaradi. Tekshiramiz:</p>
+
+  <div class="natija">response()->json(['nom' => '&lt;script&gt;alert(1)&lt;/script&gt;'])
+
+   ->  {"nom":"&lt;script&gt;alert(1)&lt;\/script&gt;"}</div>
+
+  <p><code>&lt;script&gt;</code> <b>saqlanib qoldi</b>
+  (faqat <code>/</code> qochirildi — bu JSON
+  qoidasi, xavfsizlik emas).</p>
+
+  <div class="callout tip">
+    <span class="label">🔑 Va bu — TO'G'RI</span>
+    <p>JSON — <b>ma'lumot</b>, HTML emas. API
+    qochirmasligi kerak, chunki:</p>
+    <div class="natija">API qochirsa      ->  mobil ilova "&amp;lt;script&amp;gt;" ko'rsatadi   ❌
+API qochirmasa    ->  har mijoz O'ZIGA kerakligicha ishlatadi   ✅</div>
+    <p>⚠️ Demak mas'uliyat <b>mijozda</b>: React,
+    Vue, mobil ilova — hammasi o'z tomonida
+    qochirishi kerak.</p>
+    <p>🔑 Zamonaviy freymvorklar buni o'zi qiladi
+    (React <code>{x}</code> qochiradi), lekin
+    <code>dangerouslySetInnerHTML</code> yoki
+    <code>v-html</code> — o'sha
+    <code>{!! !!}</code> ning o'zi.</p>
+  </div>
+
+  <!-- ═══════════════ 7) CSRF ═══════════════ -->
+  <h2>CSRF</h2>
+
+  <p>Hujum shunday ishlaydi: siz saytimizga kirgansiz.
+  Keyin boshqa saytga borasiz, va o'sha yerda
+  yashirin forma <b>bizning</b> saytimizga POST
+  yuboradi. Brauzer cookie'ni <b>o'zi</b>
+  qo'shadi — server sizni tanidi.</p>
+
+  <p>Himoya: har formada <b>maxfiy token</b>.</p>
+
+  <p>Haqiqiy serverda sinadik:</p>
+
+  <div class="natija">curl -X POST http://127.0.0.1:8077/zond-web -d 'a=1'
+   ->  419      ✅ CSRF token mismatch
+
+curl -X POST http://127.0.0.1:8077/api/v1/vakansiyalar -d 'nom=x'
+   ->  401      ← CSRF emas, autentifikatsiya</div>
+
+  <p><b>419</b> — Laravel'ning maxsus kodi:
+  «token yo'q yoki eskirgan».</p>
+
+  <div class="callout tip">
+    <span class="label">🔑 Nega API'da CSRF yo'q?</span>
+    <p>CSRF hujumi <b>cookie</b> ga tayanadi.
+    API esa cookie emas, <b>token</b> ishlatadi
+    (44-dars) — va brauzer
+    <code>Authorization</code> sarlavhasini
+    <b>o'zi qo'shmaydi</b>.</p>
+    <p>Shuning uchun <code>routes/api.php</code> da
+    CSRF <b>kerak emas</b> va Laravel uni
+    qo'ymaydi ham.</p>
+  </div>
+
+  <div class="callout warn">
+    <span class="label">⚠️ CSRF ni testda tekshirib bo'lmaydi</span>
+    <p>Test yozmoqchi bo'ldik — <b>200</b> qaytdi,
+    419 emas. Sabab freymvork kodida:</p>
+    <div class="natija">// Illuminate\Foundation\Http\Middleware\PreventRequestForgery
+
+public function handle($request, Closure $next)
+{
+    if (
+        $this->isReading($request) ||
+        $this->runningUnitTests() ||        // ← MANA
+        ...</div>
+    <p>Testda CSRF <b>butunlay o'chiriladi</b> — aks
+    holda har testda token olish kerak
+    bo'lardi.</p>
+    <p>✅ Demak CSRF ni <b>faqat haqiqiy server</b> bilan
+    tekshirasiz (yuqoridagi <code>curl</code>
+    kabi).</p>
+    <p>🔍 Yon eslatma: Laravel 13 da sinf nomi
+    <code>PreventRequestForgery</code>.
+    <code>ValidateCsrfToken</code> hamon ishlaydi,
+    lekin <b>eskirgan</b> deb belgilangan.</p>
+  </div>
+
+  <!-- ═══════════════ 8) ⭐ APP_DEBUG ═══════════════ -->
+  <h2>⭐ <code>APP_DEBUG</code> — eng qimmat bir harf</h2>
+
+  <p>Bitta marshrut yozdik. U ataylab xato tashlaydi va
+  xato matnida <b>sir</b> bor:</p>
+
+  <div class="natija">Route::get('/zond-xato', fn () => throw new RuntimeException('Baza paroli: sirli-parol'));</div>
+
+  <p>Ikki holatda o'lchadik:</p>
+
+  <div class="natija">APP_DEBUG=true    status: 500   hajm: 877 560 bayt   sir: 4 marta   ⚠️
+APP_DEBUG=false   status: 500   hajm:   6 592 bayt   sir: 0 marta   ✅</div>
+
+  <div class="callout warn">
+    <span class="label">⚠️ 877 560 bayt ichida nima bor?</span>
+    <div class="natija">xato matni (sir bilan)      ← 4 marta takrorlangan
+to'liq stack trace          ← fayl yo'llari, qator raqamlari
+har freymning KODI          ← manba kodingiz
+so'rov ma'lumotlari
+o'rnatilgan paketlar
+PHP va server sozlamalari</div>
+    <p>Ya'ni <code>APP_DEBUG=true</code> bilan
+    ishlab chiqarishga chiqsangiz — <b>har xato
+    sahifasi</b> hujumchiga sovg'a.</p>
+    <p class="expect">🔑 Va bu <b>eng ko'p
+    uchraydigan</b> jiddiy xato. Sabab oddiy:
+    <code>.env.example</code> da
+    <code>APP_DEBUG=true</code> turadi, va
+    serverda uni o'zgartirish
+    <b>unutiladi</b>.</p>
+    <p>✅ Ishlab chiqarishda:</p>
+    <div class="natija">APP_ENV=production
+APP_DEBUG=false</div>
+  </div>
+
+  <!-- ═══════════════ 9) SIRLAR ═══════════════ -->
+  <h2>Sirlarni saqlash</h2>
+
+  <div class="natija">1) .env HECH QACHON git ga tushmasin
+   .gitignore da:   .env  .env.backup  .env.production      ✅ bizda bor
+
+2) .env.example da HAQIQIY qiymat bo'lmasin
+   ✅ DB_PASSWORD=
+   ❌ DB_PASSWORD=sirli-parol-123
+
+3) Parol va token javobda ko'rinmasin
+   #[Hidden(['password', 'remember_token'])]                ✅ bizda bor
+
+4) Sirlar LOGGA tushmasin
+   Log::info('So\'rov', $request->all())    ⚠️ parol ham tushadi
+
+5) APP_KEY — shifrlash kaliti
+   O'zgartirsangiz: sessiyalar va shifrlangan ma'lumot YO'QOLADI</div>
+
+  <p>🔍 <code>#[Hidden]</code> ni tekshirdik —
+  <code>toArray()</code> da <code>password</code> ham,
+  <code>remember_token</code> ham <b>yo'q</b>.</p>
+
+  <div class="callout tip">
+    <span class="label">🔑 Sir git tarixiga tushib qolsa</span>
+    <p>Faylni o'chirish <b>yetarli emas</b> — u
+    tarixda qoladi.</p>
+    <div class="natija">1) Sirni DARROV almashtiring (eng muhimi)
+2) Keyin tarixni tozalash haqida o'ylang</div>
+    <p>⚠️ Tartib aynan shunday: tarix tozalanguncha
+    sir allaqachon nusxalangan bo'lishi mumkin.
+    <b>Almashtirish</b> — yagona ishonchli
+    javob.</p>
+  </div>
+
+  <!-- ═══════════════ 10) TESTLAR ═══════════════ -->
+  <h2>Zaiflikni testga aylantirish</h2>
+
+  <p>Har tuzatilgan zaiflik — <b>test</b> bo'lishi
+  kerak. Aks holda u qaytadi (60-darsdagi kabi).</p>
+
+  <div class="codefile">
+    <div class="fname">tests/Feature/XavfsizlikTest.php</div>
+    <code class="cmd">it('hujumchi user_id ni boshqa odamga yoza olmaydi', function () {
+    $hujumchi = User::factory()-&gt;create();
+    $qurbon = User::factory()-&gt;create();
+    $kompaniya = Kompaniya::factory()-&gt;create();
+
+    Sanctum::actingAs($hujumchi, ['vakansiya:yozish']);
+
+    $this-&gt;postJson('/api/v1/vakansiyalar', [
+        'nom' =&gt; 'PHP dasturchi',
+        'shahar' =&gt; 'Toshkent',
+        'kompaniya_id' =&gt; $kompaniya-&gt;id,
+        'user_id' =&gt; $qurbon-&gt;id,          // ← HUJUM
+    ])-&gt;assertCreated();
+
+    expect(Vakansiya::latest('id')-&gt;first()-&gt;user_id)-&gt;toBe($hujumchi-&gt;id);
+});
+
+it('rol ommaviy tayinlash orqali o\'zgartirilmaydi', function () {
+    expect(User::create([
+        'name' =&gt; 'Oddiy',
+        'email' =&gt; 'oddiy@ishtop.uz',
+        'password' =&gt; 'parol123',
+        'rol' =&gt; 'admin',                  // ← HUJUM
+    ])-&gt;rol?-&gt;value)-&gt;not-&gt;toBe('admin');
+});
+
+it('parol va token javobda ko\'rinmaydi', function () {
+    $foydalanuvchi = User::factory()-&gt;create();
+
+    expect($foydalanuvchi-&gt;toArray())
+        -&gt;not-&gt;toHaveKey('password')
+        -&gt;not-&gt;toHaveKey('remember_token');
+});
+
+it('foydalanuvchi kiritmasi so\'rovga bog\'lash orqali qo\'shiladi', function () {
+    $so_rov = Vakansiya::where('nom', "' OR '1'='1");
+
+    expect($so_rov-&gt;toSql())-&gt;toContain('"nom" = ?')
+        -&gt;and($so_rov-&gt;getBindings())-&gt;toBe(["' OR '1'='1"]);
+});
+
+it('saralash ustuni qat\'iy ro\'yxatdan tanlanadi', function () {
+    $javob = $this-&gt;getJson('/api/v1/vakansiyalar?sort=nom;drop table vakansiyalar');
+
+    $javob-&gt;assertStatus(422);
+    expect(Vakansiya::query()-&gt;count())-&gt;toBe(0);
+});</code>
+  </div>
+
+  <div class="natija">Tests:  116 passed (234 assertions)</div>
+
+  <p>🔑 E'tibor bering: bu testlar <b>hujumni</b>
+  yozadi va <b>u ishlamasligini</b> tekshiradi.
+  Ular hujjat ham: yangi dasturchi «nega
+  <code>user_id</code> alohida yoziladi?» deb
+  so'rasa — javob shu yerda.</p>
+
+  <!-- ═══════════════ 11) HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir
+  bir marta o'qing, keyin kerak bo'lganda qaytib
+  qarang.</p>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 1</span>
+    <h4>IDOR — begona yozuvni ko'rish</h4>
+    <div class="natija">❌ GET /api/v1/buyurtmalar/1042
+   public function show(Buyurtma $buyurtma)
+   {
+       return BuyurtmaResource::make($buyurtma);    // KIMNIKI ekani tekshirilmadi
+   }</div>
+    <p>Hujumchi shunchaki <code>id</code> ni
+    o'zgartiradi: 1042, 1043, 1044... va
+    <b>begonalarning</b> ma'lumotini
+    o'qiydi.</p>
+    <p>Nomi: <b>IDOR</b> — Insecure Direct Object
+    Reference.</p>
+    <p>✅ Yechim — 38-darsdagi Policy:</p>
+    <div class="natija">$this->authorize('view', $buyurtma);</div>
+    <p>🔑 Sinov: «bu endpointda <b>id ni
+    o'zgartirsam</b> nima bo'ladi?» Har
+    endpoint uchun so'rang.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 2</span>
+    <h4>Fayl yuklash</h4>
+    <div class="natija">❌ $request->file('rasm')->storeAs('public', $request->file('rasm')->getClientOriginalName());</div>
+    <p>Uchta muammo: <b>1)</b> nomi hujumchidan
+    (<code>../../.env</code>), <b>2)</b> turi
+    tekshirilmagan (<code>.php</code> yuklash
+    mumkin), <b>3)</b> hajmi cheklanmagan.</p>
+    <div class="natija">✅ 'rasm' => ['required', 'image', 'mimes:jpg,png', 'max:2048'],
+
+   $yol = $request->file('rasm')->store('rasmlar');   // nomni Laravel o'zi beradi</div>
+    <p>⚠️ <code>mimes:</code> fayl <b>mazmunini</b>
+    tekshiradi, kengaytmasini emas —
+    <code>zararli.php</code> ni
+    <code>rasm.jpg</code> deb nomlash
+    yordam bermaydi.</p>
+    <p>🔑 Va yuklangan fayllarni <b>bajariladigan</b>
+    papkada saqlamang.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 3</span>
+    <h4>Parol qoidalari</h4>
+    <div class="natija">'password' => ['required', Password::min(8)->letters()->numbers()->uncompromised()],</div>
+    <p><code>uncompromised()</code> — parol
+    <b>ommaviy sizib chiqqan</b> ro'yxatda
+    bormi, shuni tekshiradi.</p>
+    <p>🔑 U parolni <b>yubormaydi</b>: SHA-1 hashning
+    faqat <b>birinchi 5 belgisi</b> jo'natiladi
+    (k-anonymity).</p>
+    <p>✅ <code>'password' =&gt; 'hashed'</code> casti
+    (bizda bor) parolni <b>o'zi</b> hash
+    qiladi — <code>Hash::make()</code> yozish
+    shart emas.</p>
+    <p>⚠️ Ikki marta hash qilmang: cast <b>va</b>
+    <code>Hash::make()</code> birga
+    ishlatilsa, parol buziladi.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 4</span>
+    <h4><code>Model::unguard()</code></h4>
+    <div class="natija">❌ Model::unguard();     // fillable BUTUNLAY o'chadi
+   User::create($request->all());</div>
+    <p>Ba'zan seederlarda uchraydi. Agar u
+    <code>AppServiceProvider</code> ga tushib
+    qolsa — <b>butun ilova</b> himoyasiz
+    qoladi.</p>
+    <p>✅ Faqat vaqtincha va aniq chegarada:</p>
+    <div class="natija">Model::unguarded(function () {
+    // faqat shu ichida
+});</div>
+    <p>🔑 Qidiring: <code>grep -rn 'unguard'
+    app/ database/</code>.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 5</span>
+    <h4>Bog'liqliklardagi zaifliklar</h4>
+    <div class="natija">composer audit           →  ma'lum zaifliklarni ko'rsatadi
+composer outdated        →  eskirgan paketlar
+composer update          →  yangilaydi (testlarni ishga tushiring!)</div>
+    <p>Kodingiz mukammal bo'lsa ham, ishlatgan
+    paketingizda zaiflik bo'lishi mumkin.</p>
+    <p>✅ <code>composer audit</code> ni CI'ga
+    qo'ying (Modul J'da).</p>
+    <p>⚠️ Va <code>composer.lock</code> ni
+    <b>albatta</b> commit qiling — usiz har
+    o'rnatishda boshqa versiya
+    tushadi.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 6</span>
+    <h4>Cheklov ham xavfsizlik</h4>
+    <div class="natija">48-darsdan:
+   RateLimiter::for('kirish', fn ($r) => Limit::perMinute(5)->by($r->ip()));</div>
+    <p>Bu <b>parolni taxminlash</b> hujumini
+    to'sadi: soatiga 300 urinish bilan
+    parolni topib bo'lmaydi.</p>
+    <p>✅ Cheklov <b>kirish</b>, <b>parolni tiklash</b>
+    va <b>SMS yuborish</b> uchun ayniqsa
+    muhim.</p>
+    <p>🔑 Va 47-darsdagi qoida esda tursin: kirish
+    xatosi <b>«email yoki parol xato»</b> desin —
+    «bunday foydalanuvchi yo'q» <b>demasin</b>.
+    Aks holda hujumchi qaysi emaillar
+    ro'yxatdan o'tganini bilib oladi.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>Chiqishdan oldingi ro'yxat</h4>
+    <div class="natija">1) APP_DEBUG=false  ·  APP_ENV=production        ← eng muhimi
+2) .env git da yo'qmi?  ·  .env.example toza mi?
+3) grep -rn '$request->all()' app/          ← har birini tekshiring
+4) grep -rn '{!!' resources/views           ← har birini tekshiring
+5) grep -rn 'Raw(' app/                     ← whereRaw, orderByRaw
+6) grep -rn 'unguard' app/ database/
+7) fillable ro'yxatlari: id, rol, user_id, is_admin bormi?
+8) har endpoint: "id ni o'zgartirsam?"      ← IDOR
+9) composer audit
+10) HTTPS yoqilganmi? (Modul J'da)</div>
+    <p>🔑 Bu ro'yxat <b>10 daqiqada</b> bajariladi va
+    eng ko'p uchraydigan zaifliklarni
+    tutadi.</p>
+  </div>
+
+  <!-- ═══════════════ 12) AMALIYOT ═══════════════ -->
+  <div class="mode-hint" data-mode="read">
+    💻 Quyida amaliyot bor. Hozir o'qish rejimidasiz — kompyuter
+    yoningizda bo'lganda <b>💻 Amaliyot</b> rejimiga o'ting va
+    shu bo'limdan davom eting.
+  </div>
+
+  <div data-mode="do">
+    <h2>Amaliyot</h2>
+
+    <ol class="steps">
+      <li>
+        <b>⭐ Birinchi zaiflikni o'z ko'zingiz bilan
+        ko'ring.</b>
+        <div class="cmd" data-cmd="cd ~/Projects/Learn/ishtop
+grep -n 'Fillable' app/Models/User.php
+php artisan tinker --execute='
+DB::beginTransaction();
+$u = App\Models\User::create([&quot;name&quot; => &quot;Hujumchi&quot;, &quot;email&quot; => &quot;h&quot;.uniqid().&quot;@x.uz&quot;, &quot;password&quot; => &quot;parol123&quot;, &quot;rol&quot; => &quot;admin&quot;]);
+echo &quot;  rol = &quot;, var_export($u->rol?->value, true), PHP_EOL;
+DB::rollBack();'">cd ~/Projects/Learn/ishtop
+grep -n 'Fillable' app/Models/User.php
+php artisan tinker --execute='
+DB::beginTransaction();
+$u = App\Models\User::create([&quot;name&quot; =&gt; &quot;Hujumchi&quot;, &quot;email&quot; =&gt; &quot;h&quot;.uniqid().&quot;@x.uz&quot;, &quot;password&quot; =&gt; &quot;parol123&quot;, &quot;rol&quot; =&gt; &quot;admin&quot;]);
+echo &quot;  rol = &quot;, var_export($u-&gt;rol?-&gt;value, true), PHP_EOL;
+DB::rollBack();'</div>
+        <p class="expect">⚠️ <code>rol = 'admin'</code> —
+        hujumchi admin bo'ldi.</p>
+      </li>
+
+      <li>
+        <b>Tuzating.</b>
+        <code>app/Models/User.php</code> da:
+        <div class="cmd" data-cmd="# AVVAL:
+#[Fillable(['name', 'email', 'password', 'rol'])]
+
+# KEYIN:
+#[Fillable(['name', 'email', 'password'])]"># AVVAL:
+#[Fillable(['name', 'email', 'password', 'rol'])]
+
+# KEYIN:
+#[Fillable(['name', 'email', 'password'])]</div>
+        <div class="cmd" data-cmd="php artisan tinker --execute='
+DB::beginTransaction();
+$u = App\Models\User::create([&quot;name&quot; => &quot;Hujumchi&quot;, &quot;email&quot; => &quot;h&quot;.uniqid().&quot;@x.uz&quot;, &quot;password&quot; => &quot;parol123&quot;, &quot;rol&quot; => &quot;admin&quot;]);
+echo &quot;  rol = &quot;, var_export($u->rol?->value, true), PHP_EOL;
+DB::rollBack();'">php artisan tinker --execute='
+DB::beginTransaction();
+$u = App\Models\User::create([&quot;name&quot; =&gt; &quot;Hujumchi&quot;, &quot;email&quot; =&gt; &quot;h&quot;.uniqid().&quot;@x.uz&quot;, &quot;password&quot; =&gt; &quot;parol123&quot;, &quot;rol&quot; =&gt; &quot;admin&quot;]);
+echo &quot;  rol = &quot;, var_export($u-&gt;rol?-&gt;value, true), PHP_EOL;
+DB::rollBack();'</div>
+        <p class="expect">✅ <code>rol = NULL</code>.</p>
+      </li>
+
+      <li>
+        <b>⚠️ Ikkinchi zaiflik va uning tuzog'i.</b>
+        <code>app/Models/Vakansiya.php</code> da
+        <code>'user_id'</code> ni
+        <code>$fillable</code> dan olib tashlang:
+        <div class="cmd" data-cmd="php artisan test 2>&amp;1 | grep -E 'Tests:|FAILED' | head -5">php artisan test 2&gt;&amp;1 | grep -E 'Tests:|FAILED' | head -5</div>
+        <p class="expect">⚠️ <b>3 failed</b> —
+        <code>Failed asserting that null is identical
+        to 1</code>. Maydon <b>jimgina tashlab
+        yuborildi</b>.</p>
+      </li>
+
+      <li>
+        <b>To'g'ri tuzating.</b>
+        <div class="cmd" data-cmd="cat > app/Actions/VakansiyaYarat.php <<'PHPEOF'
+&lt;?php
+
+declare(strict_types=1);
+
+namespace App\Actions;
+
+use App\Data\VakansiyaMalumoti;
+use App\Events\VakansiyaYaratildi;
+use App\Models\User;
+use App\Models\Vakansiya;
+
+final class VakansiyaYarat
+{
+    public function bajar(VakansiyaMalumoti $malumot, User $egasi): Vakansiya
+    {
+        $vakansiya = new Vakansiya($malumot->jadvalGa());
+        $vakansiya->user_id = $egasi->id;
+        $vakansiya->save();
+
+        VakansiyaYaratildi::dispatch($vakansiya);
+
+        return $vakansiya->fresh();
+    }
+}
+PHPEOF
+php artisan test 2>&amp;1 | tail -3">cat &gt; app/Actions/VakansiyaYarat.php &lt;&lt;'PHPEOF'
+&lt;?php
+
+declare(strict_types=1);
+
+namespace App\Actions;
+
+use App\Data\VakansiyaMalumoti;
+use App\Events\VakansiyaYaratildi;
+use App\Models\User;
+use App\Models\Vakansiya;
+
+final class VakansiyaYarat
+{
+    public function bajar(VakansiyaMalumoti $malumot, User $egasi): Vakansiya
+    {
+        $vakansiya = new Vakansiya($malumot-&gt;jadvalGa());
+        $vakansiya-&gt;user_id = $egasi-&gt;id;
+        $vakansiya-&gt;save();
+
+        VakansiyaYaratildi::dispatch($vakansiya);
+
+        return $vakansiya-&gt;fresh();
+    }
+}
+PHPEOF
+php artisan test 2&gt;&amp;1 | tail -3</div>
+        <p class="expect">✅ Hammasi yashil.</p>
+      </li>
+
+      <li>
+        <b>SQL inyeksiyani sinang.</b>
+        <div class="cmd" data-cmd="php artisan tinker --execute='
+DB::beginTransaction();
+DB::table(&quot;vakansiyalar&quot;)->delete(); DB::table(&quot;kompaniyalar&quot;)->delete();
+App\Models\Kompaniya::factory()->count(5)->create();
+$yovuz = &quot;\x27 OR \x271\x27=\x271&quot;;
+echo &quot;  jami kompaniya: &quot;, DB::table(&quot;kompaniyalar&quot;)->count(), PHP_EOL;
+echo &quot;  where() bilan:  &quot;, DB::table(&quot;kompaniyalar&quot;)->where(&quot;nom&quot;, $yovuz)->count(), PHP_EOL;
+echo &quot;  xom SQL bilan:  &quot;, count(DB::select(&quot;select * from kompaniyalar where nom = \x27$yovuz\x27&quot;)), PHP_EOL;
+DB::rollBack();'">php artisan tinker --execute='
+DB::beginTransaction();
+DB::table(&quot;vakansiyalar&quot;)-&gt;delete(); DB::table(&quot;kompaniyalar&quot;)-&gt;delete();
+App\Models\Kompaniya::factory()-&gt;count(5)-&gt;create();
+$yovuz = &quot;\x27 OR \x271\x27=\x271&quot;;
+echo &quot;  jami kompaniya: &quot;, DB::table(&quot;kompaniyalar&quot;)-&gt;count(), PHP_EOL;
+echo &quot;  where() bilan:  &quot;, DB::table(&quot;kompaniyalar&quot;)-&gt;where(&quot;nom&quot;, $yovuz)-&gt;count(), PHP_EOL;
+echo &quot;  xom SQL bilan:  &quot;, count(DB::select(&quot;select * from kompaniyalar where nom = \x27$yovuz\x27&quot;)), PHP_EOL;
+DB::rollBack();'</div>
+        <p class="expect">⚠️ <code>where()</code>
+        <b>0</b>, xom SQL <b>5</b> — hammasi.</p>
+      </li>
+
+      <li>
+        <b><code>orderBy</code> farqini
+        ko'ring.</b>
+        <div class="cmd" data-cmd="php artisan tinker --execute='
+echo &quot;  orderBy:    &quot;, App\Models\Vakansiya::orderBy(&quot;nom; drop table vakansiyalar&quot;)->toSql(), PHP_EOL;
+echo &quot;  orderByRaw: &quot;, App\Models\Vakansiya::orderByRaw(&quot;nom; drop table vakansiyalar&quot;)->toSql(), PHP_EOL;'">php artisan tinker --execute='
+echo &quot;  orderBy:    &quot;, App\Models\Vakansiya::orderBy(&quot;nom; drop table vakansiyalar&quot;)-&gt;toSql(), PHP_EOL;
+echo &quot;  orderByRaw: &quot;, App\Models\Vakansiya::orderByRaw(&quot;nom; drop table vakansiyalar&quot;)-&gt;toSql(), PHP_EOL;'</div>
+        <p class="expect">Biri qo'shtirnoqda, ikkinchisi
+        <b>xom</b>.</p>
+      </li>
+
+      <li>
+        <b>XSS ni sinang.</b>
+        <div class="cmd" data-cmd="php artisan tinker --execute='
+$y = &quot;&lt;script&gt;alert(1)&lt;/script&gt;&quot;;
+echo &quot;  {{ }}   -> &quot;, Blade::render(&quot;{{ \$x }}&quot;, [&quot;x&quot; => $y]), PHP_EOL;
+echo &quot;  {!! !!} -> &quot;, Blade::render(&quot;{!! \$x !!}&quot;, [&quot;x&quot; => $y]), PHP_EOL;
+echo &quot;  json    -> &quot;, response()->json([&quot;nom&quot; => $y])->getContent(), PHP_EOL;'">php artisan tinker --execute='
+$y = &quot;&lt;script&gt;alert(1)&lt;/script&gt;&quot;;
+echo &quot;  {{ }}   -&gt; &quot;, Blade::render(&quot;{{ \$x }}&quot;, [&quot;x&quot; =&gt; $y]), PHP_EOL;
+echo &quot;  {!! !!} -&gt; &quot;, Blade::render(&quot;{!! \$x !!}&quot;, [&quot;x&quot; =&gt; $y]), PHP_EOL;
+echo &quot;  json    -&gt; &quot;, response()-&gt;json([&quot;nom&quot; =&gt; $y])-&gt;getContent(), PHP_EOL;'</div>
+        <p class="expect">Birinchisi qochirilgan,
+        qolgan ikkitasi <b>xom</b>.</p>
+      </li>
+
+      <li>
+        <b>CSRF ni haqiqiy serverda sinang.</b>
+        <code>routes/web.php</code> oxiriga
+        vaqtincha qo'shing:
+        <div class="cmd" data-cmd="echo '
+Route::post(&quot;/zond-web&quot;, fn () => &quot;ok&quot;);' >> routes/web.php
+php artisan serve --port=8077 &amp;
+sleep 4
+curl -s -o /dev/null -w '  web POST: %{http_code}\n' -X POST http://127.0.0.1:8077/zond-web -d 'a=1'
+curl -s -o /dev/null -w '  api POST: %{http_code}\n' -X POST http://127.0.0.1:8077/api/v1/vakansiyalar -H 'Accept: application/json' -d 'nom=x'
+kill %1
+sed -i '/zond-web/d' routes/web.php">echo '
+Route::post(&quot;/zond-web&quot;, fn () =&gt; &quot;ok&quot;);' &gt;&gt; routes/web.php
+php artisan serve --port=8077 &amp;
+sleep 4
+curl -s -o /dev/null -w '  web POST: %{http_code}\n' -X POST http://127.0.0.1:8077/zond-web -d 'a=1'
+curl -s -o /dev/null -w '  api POST: %{http_code}\n' -X POST http://127.0.0.1:8077/api/v1/vakansiyalar -H 'Accept: application/json' -d 'nom=x'
+kill %1
+sed -i '/zond-web/d' routes/web.php</div>
+        <p class="expect"><b>419</b> va <b>401</b>.
+        ⚠️ Buni <b>testda</b> tekshirib
+        bo'lmaydi.</p>
+      </li>
+
+      <li>
+        <b>⭐ <code>APP_DEBUG</code> narxini
+        o'lchang.</b>
+        <div class="cmd" data-cmd="echo '
+Route::get(&quot;/zond-xato&quot;, fn () => throw new RuntimeException(&quot;Baza paroli: sirli-parol&quot;));' >> routes/web.php
+olch() {
+  php artisan config:clear >/dev/null 2>&amp;1
+  php artisan serve --port=$2 >/dev/null 2>&amp;1 &amp;
+  sleep 4
+  printf '  APP_DEBUG=%-5s  hajm: %s bayt  sir: %s marta\n' &quot;$1&quot; \
+    &quot;$(curl -s http://127.0.0.1:$2/zond-xato | wc -c)&quot; \
+    &quot;$(curl -s http://127.0.0.1:$2/zond-xato | grep -c 'sirli-parol')&quot;
+  kill %1 2>/dev/null
+  sleep 1
+}
+sed -i 's/^APP_DEBUG=.*/APP_DEBUG=true/' .env
+olch true 8081
+sed -i 's/^APP_DEBUG=.*/APP_DEBUG=false/' .env
+olch false 8082
+sed -i '/zond-xato/d' routes/web.php
+php artisan config:clear">echo '
+Route::get(&quot;/zond-xato&quot;, fn () =&gt; throw new RuntimeException(&quot;Baza paroli: sirli-parol&quot;));' &gt;&gt; routes/web.php
+olch() {
+  php artisan config:clear &gt;/dev/null 2&gt;&amp;1
+  php artisan serve --port=$2 &gt;/dev/null 2&gt;&amp;1 &amp;
+  sleep 4
+  printf '  APP_DEBUG=%-5s  hajm: %s bayt  sir: %s marta\n' &quot;$1&quot; \
+    &quot;$(curl -s http://127.0.0.1:$2/zond-xato | wc -c)&quot; \
+    &quot;$(curl -s http://127.0.0.1:$2/zond-xato | grep -c 'sirli-parol')&quot;
+  kill %1 2&gt;/dev/null
+  sleep 1
+}
+sed -i 's/^APP_DEBUG=.*/APP_DEBUG=true/' .env
+olch true 8081
+sed -i 's/^APP_DEBUG=.*/APP_DEBUG=false/' .env
+olch false 8082
+sed -i '/zond-xato/d' routes/web.php
+php artisan config:clear</div>
+        <p class="expect">⚠️ Menda <b>877 560</b> bayt /
+        sir <b>4 marta</b>, va <b>6 592</b> bayt /
+        <b>0 marta</b>.</p>
+      </li>
+
+      <li>
+        <b>Xavfsizlik testlarini yozing.</b> Yuqoridagi
+        <code>tests/Feature/XavfsizlikTest.php</code> ni
+        ko'chiring:
+        <div class="cmd" data-cmd="php artisan test tests/Feature/XavfsizlikTest.php">php artisan test tests/Feature/XavfsizlikTest.php</div>
+        <p class="expect"><b>5 passed</b>.</p>
+      </li>
+
+      <li>
+        <b>Chiqishdan oldingi ro'yxatni bajaring.</b>
+        <div class="cmd" data-cmd="grep -n 'APP_DEBUG\|APP_ENV' .env
+grep -n '^\.env' .gitignore
+echo '--- $request->all() ---'; grep -rn 'request()->all()\|\$request->all()' app/ || echo '  yo\x27q'
+echo '--- {!! !!} ---';         grep -rn '{!!' resources/views/ || echo '  yo\x27q'
+echo '--- Raw( ---';            grep -rn 'Raw(' app/ || echo '  yo\x27q'
+echo '--- unguard ---';         grep -rn 'unguard' app/ database/ || echo '  yo\x27q'">grep -n 'APP_DEBUG\|APP_ENV' .env
+grep -n '^\.env' .gitignore
+echo '--- $request-&gt;all() ---'; grep -rn 'request()-&gt;all()\|\$request-&gt;all()' app/ || echo '  yo\x27q'
+echo '--- {!! !!} ---';         grep -rn '{!!' resources/views/ || echo '  yo\x27q'
+echo '--- Raw( ---';            grep -rn 'Raw(' app/ || echo '  yo\x27q'
+echo '--- unguard ---';         grep -rn 'unguard' app/ database/ || echo '  yo\x27q'</div>
+      </li>
+
+      <li>
+        <b>Yakuniy tekshiruv.</b>
+        <div class="cmd" data-cmd="./vendor/bin/pint
+php artisan test 2>&amp;1 | tail -3">./vendor/bin/pint
+php artisan test 2&gt;&amp;1 | tail -3</div>
+        <p class="expect">Menda <b>116 passed (234
+        assertions)</b>.</p>
+      </li>
+    </ol>
+
+    <ul class="checklist">
+      <li>⭐ <code>rol = 'admin'</code> zaifligini
+      ko'rdim va tuzatdim</li>
+      <li>⚠️ <code>fillable</code> dan olib tashlash
+      <b>jim</b> ekanini ko'rdim</li>
+      <li><code>user_id</code> alohida yoziladigan
+      bo'ldi</li>
+      <li>SQL inyeksiyani sinadim (0 va 5)</li>
+      <li><code>orderBy</code> va
+      <code>orderByRaw</code> farqini
+      ko'rdim</li>
+      <li>XSS: <code>{{ }}</code> va
+      <code>{!! !!}</code></li>
+      <li>CSRF: 419 va 401 (haqiqiy serverda)</li>
+      <li>⭐ <code>APP_DEBUG</code> narxini
+      o'lchadim</li>
+      <li>Xavfsizlik testlari yozildi</li>
+      <li>Chiqishdan oldingi ro'yxat bajarildi</li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 13) SINAB KO'RAMIZ ═══════════════ -->
+  <h2>Sinab ko'ramiz</h2>
+
+  <div class="predict">
+    <span class="label">Natijani taxmin qiling</span>
+    <p>Jamoa profil tahrirlash sahifasini yozdi:</p>
+    <div class="natija">// UserController
+public function update(Request $request)
+{
+    $malumot = $request->validate([
+        'name' => ['required', 'string', 'max:120'],
+        'email' => ['required', 'email'],
+    ]);
+
+    $request->user()->update($malumot);
+
+    return back()->with('holat', 'Saqlandi');
+}</div>
+    <p>Ko'rib chiqishda hammasi joyida ko'rindi:
+    <code>validate()</code> ishlatilgan,
+    <code>$request-&gt;all()</code> yo'q,
+    <code>$request-&gt;user()</code> — o'z
+    profili.</p>
+    <p>Uch oydan keyin qo'llab-quvvatlash xizmatiga
+    savol keldi: <b>«nega mening emailim boshqa
+    odamniki bilan bir xil?»</b></p>
+    <p>Bazada ikkita foydalanuvchi bir xil email bilan
+    turibdi. Nima bo'lgan?</p>
+    <details>
+      <summary>Javobni ko'rish</summary>
+      <div class="answer">
+        <p>Tekshiruvda <code>unique</code>
+        <b>yo'q</b>.</p>
+        <div class="natija">'email' => ['required', 'email'],
+//                          ↑ formati to'g'rimi — TEKSHIRILDI
+//                            band emasmi     — TEKSHIRILMADI  ⚠️</div>
+        <p>Ro'yxatdan o'tishda <code>unique</code> bor
+        edi. Tahrirlashda — <b>ko'chirilmagan</b>.</p>
+        <p class="expect">🔑 Va bu <b>xavfsizlik</b>
+        muammosi, shunchaki ma'lumot xatosi
+        emas:</p>
+        <div class="natija">1) hujumchi qurbonning emailiga o'z profilini o'zgartiradi
+2) "parolni unutdim" ni bosadi
+3) tiklash havolasi... QAY BIRIGA ketadi?
+   -> User::where('email', $email)->first()   ← BIRINCHISI</div>
+        <p>Ya'ni hujumchi <b>qurbonning hisobini
+        egallashi</b> mumkin.</p>
+        <p>✅ To'g'ri qoida:</p>
+        <div class="natija">'email' => [
+    'required', 'email',
+    Rule::unique('users')->ignore($request->user()->id),
+],</div>
+        <p><code>ignore()</code> shart — usiz
+        foydalanuvchi <b>o'z</b> emailini saqlay
+        olmaydi («band» deydi).</p>
+        <p>⚠️ Va baza darajasida ham:</p>
+        <div class="natija">$table->string('email')->unique();     ← migratsiyada</div>
+        <p>🔑 <b>Umumiy saboq:</b> tekshiruv qoidalari
+        <b>ko'chirilmaydi</b>. Har endpoint
+        o'ziniki. «Yaratishda tekshirdim» —
+        tahrirlashda <b>hech narsa</b> bildirmaydi.</p>
+        <p>🔍 Sinov: har <code>update</code> metodini
+        <code>store</code> bilan yonma-yon qo'ying.
+        Qoidalar farq qilsa — <b>nega</b> farq
+        qilishini tushuntira olasizmi?</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 1</span>
+    <code>' OR '1'='1</code> kiritmasini ikki xil kodga
+    berdik. Natija?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Bog'langan so'rov nolta yozuv xom so'rov esa beshtasini qaytardi</button></li>
+      <li><button class="quiz-option">Ikkala so'rov ham bir xil nolta yozuv qaytarib berdi</button></li>
+      <li><button class="quiz-option">Bog'langan so'rov beshta xom so'rov esa nolta yozuv qaytardi</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi:
+    <code>where('nom', $yovuz)</code> → <b>0</b>;
+    <code>DB::select("... nom = '$yovuz'")</code> →
+    <b>5</b> (hammasi).
+    🔑 Laravel qiymatni SQL'ga <b>qo'shmaydi</b>:
+    <code>where "nom" = ?</code> +
+    <code>["' OR '1'='1"]</code>. Baza uni
+    <b>ma'lumot</b> deb qabul qiladi, buyruq
+    emas.
+    ⚠️ <code>orderByRaw</code> ham xavfli:
+    <code>order by nom; drop table vakansiyalar</code> —
+    <code>orderBy</code> esa qo'shtirnoqqa
+    oladi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 2</span>
+    ⭐ <code>APP_DEBUG=true</code> bilan xato sahifasi
+    qanday bo'ladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Javob sakkiz yuz ming bayt sir to'rt marta ko'rindi</button></li>
+      <li><button class="quiz-option">Javob bir xil qoladi va hech qanday sir chiqmaydi</button></li>
+      <li><button class="quiz-option">Xato umuman ko'rsatilmaydi va foydalanuvchi ham hech narsa ko'rmaydi</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi:
+    <code>APP_DEBUG=true</code> → <b>877 560 bayt</b>,
+    sir <b>4 marta</b>;
+    <code>false</code> → <b>6 592 bayt</b>,
+    <b>0 marta</b>.
+    Ichida: xato matni, to'liq stack trace, <b>manba
+    kodingiz</b>, so'rov ma'lumotlari, paketlar,
+    server sozlamalari.
+    ⚠️ Eng ko'p uchraydigan jiddiy xato — chunki
+    <code>.env.example</code> da
+    <code>true</code> turadi va serverda
+    o'zgartirish unutiladi.</div>
+  </div>
+
+  <div class="quiz">
+    <p class="quiz-q"><span class="num">SAVOL 3</span>
+    Maydonni <code>fillable</code> dan olib tashlab,
+    uni <code>create()</code> ga bersangiz nima
+    bo'ladi?</p>
+    <ul class="quiz-options">
+      <li><button class="quiz-option" data-correct="true">Jimgina null bo'ladi va hech qanday xato chiqmaydi</button></li>
+      <li><button class="quiz-option">Darrov xato beradi va so'rov o'sha yerda to'xtaydi</button></li>
+      <li><button class="quiz-option">Qiymat baribir yoziladi chunki fillable bu faqat maslahat</button></li>
+    </ul>
+    <div class="quiz-explain">🔍 O'lchandi:
+    <code>user_id</code> ni olib tashlagach —
+    <code>Failed asserting that null is identical to
+    1</code>. Maydon <b>jimgina tashlab
+    yuborildi</b>.
+    ⚠️ Ya'ni «himoya qo'ydim» deb o'ylab, aslida
+    <b>egasi yo'q</b> yozuvlar yaratgan
+    bo'lardingiz. Bizni <b>test</b> qutqardi.
+    ✅ To'g'ri yechim — alohida yozish:
+    <code>$vakansiya-&gt;user_id = $egasi-&gt;id;</code></div>
+  </div>
+
+  <!-- ═══════════════ 14) ESLAB AYTING ═══════════════ -->
+  <div data-mode="read">
+    <h2>Eslab ayting</h2>
+
+    <p>Javobni ovoz chiqarib ayting, keyin ochib
+    solishtiring.</p>
+
+    <details class="recall">
+      <summary>⭐ Ommaviy tayinlash zaifligi nima?</summary>
+      <div class="answer"><code>create()</code> yoki
+      <code>update()</code> ga foydalanuvchi
+      kiritmasini <b>to'g'ridan-to'g'ri</b>
+      berish.
+      🔍 O'lchandi: <code>rol</code>
+      <code>#[Fillable]</code> da bo'lgani uchun
+      <code>User::create([... 'rol' =&gt; 'admin'])</code>
+      → foydalanuvchi <b>admin bo'ldi</b>. Xato yo'q,
+      log toza.
+      ✅ Ikki qatlam: <b>1)</b> modeldan olib tashlash,
+      <b>2)</b> <code>validated()</code> ishlatish
+      (<code>all()</code> emas).
+      🔑 Ikkalasi ham kerak: biri «hech qachon»,
+      ikkinchisi «bu yerda».
+      ⚠️ Tuzoq: <code>fillable</code> dan olib
+      tashlansa, maydon <b>jimgina
+      <code>null</code></b> bo'ladi — alohida
+      yozing.</div>
+    </details>
+
+    <details class="recall">
+      <summary>SQL inyeksiyadan nima himoya
+      qiladi?</summary>
+      <div class="answer"><b>Bog'langan parametrlar</b>
+      (prepared statements). Laravel qiymatni SQL'ga
+      qo'shmaydi:
+      <code>where "nom" = ?</code> +
+      <code>["' OR '1'='1"]</code>.
+      🔍 O'lchandi: bog'lash bilan <b>0</b> yozuv, xom
+      birlashtirish bilan <b>5</b> — hammasi.
+      ⚠️ Xavfli joylar: <code>whereRaw</code> ·
+      <code>orderByRaw</code> ·
+      <code>DB::select("...$x...")</code> ·
+      <code>selectRaw</code>.
+      🔍 <code>orderBy()</code> esa <b>xavfsiz</b> — u
+      butun matnni qo'shtirnoqqa oladi
+      (so'rov xato beradi, lekin inyeksiya
+      yo'q).
+      ✅ Ustun nomlarini <b>qat'iy ro'yxatdan</b>
+      tanlang (62-darsdagi
+      <code>TARTIBLAR</code>).</div>
+    </details>
+
+    <details class="recall">
+      <summary>XSS va JSON API — kim
+      qochiradi?</summary>
+      <div class="answer">Blade'da <code>{{ }}</code>
+      <b>o'zi</b> qochiradi
+      (<code>&amp;lt;script&amp;gt;</code>),
+      <code>{!! !!}</code> — <b>yo'q</b>.
+      🔍 JSON'da esa <code>&lt;script&gt;</code>
+      <b>saqlanadi</b> — va bu <b>to'g'ri</b>:
+      JSON ma'lumot, HTML emas.
+      🔑 Mas'uliyat <b>mijozda</b>: React, Vue, mobil
+      ilova o'z tomonida qochiradi.
+      ⚠️ <code>dangerouslySetInnerHTML</code> va
+      <code>v-html</code> — o'sha
+      <code>{!! !!}</code> ning o'zi.
+      ✅ Qidiring: <code>grep -rn '{!!'
+      resources/views</code>.</div>
+    </details>
+
+    <details class="recall">
+      <summary>CSRF nima va nega uni testda tekshirib
+      bo'lmaydi?</summary>
+      <div class="answer">Boshqa sayt sizning nomingizdan
+      so'rov yuboradi — brauzer cookie'ni
+      <b>o'zi</b> qo'shadi. Himoya: har formada
+      maxfiy token.
+      🔍 O'lchandi (haqiqiy serverda): web POST →
+      <b>419</b>, API POST → <b>401</b>.
+      API'da CSRF <b>kerak emas</b> — u cookie emas,
+      token ishlatadi.
+      ⚠️ Testda CSRF <b>butunlay o'chirilgan</b>:
+      <code>PreventRequestForgery::handle()</code> da
+      <code>$this-&gt;runningUnitTests()</code> sharti
+      bor.
+      ✅ Shuning uchun uni faqat
+      <code>curl</code> bilan tekshirasiz.</div>
+    </details>
+
+    <details class="recall">
+      <summary>Chiqishdan oldin nimalarni
+      tekshirasiz?</summary>
+      <div class="answer"><b>1)</b>
+      <code>APP_DEBUG=false</code>,
+      <code>APP_ENV=production</code> — eng muhimi
+      (🔍 877 560 bayt / 4 marta sir).
+      <b>2)</b> <code>.env</code> git'da yo'qmi,
+      <code>.env.example</code> toza mi.
+      <b>3)</b> <code>grep -rn '$request-&gt;all()'
+      app/</code>
+      <b>4)</b> <code>grep -rn '{!!'
+      resources/views</code>
+      <b>5)</b> <code>grep -rn 'Raw(' app/</code>
+      <b>6)</b> <code>grep -rn 'unguard'</code>
+      <b>7)</b> <code>fillable</code> da
+      <code>rol</code>/<code>user_id</code>/<code>is_admin</code>
+      bormi
+      <b>8)</b> har endpoint: «id ni
+      o'zgartirsam?» (IDOR)
+      <b>9)</b> <code>composer audit</code>.
+      🔑 10 daqiqada bajariladi.</div>
+    </details>
+  </div>
+
+  <!-- ═══════════════ 15) XULOSA ═══════════════ -->
+  <div class="recap">
+    <span class="label">Xulosa</span>
+    <ul>
+      <li>⭐ 🔍 <b>Ommaviy tayinlash:</b>
+      <code>rol =&gt; 'admin'</code> yuborilgach
+      foydalanuvchi <b>admin bo'ldi</b>.</li>
+      <li>Ikki qatlam kerak: modelda
+      <code>fillable</code>, so'rovda
+      <code>validated()</code>.</li>
+      <li>⚠️ <code>$request-&gt;all()</code> ni
+      <b>hech qachon</b> <code>create()</code> ga
+      bermang.</li>
+      <li>⚠️ 🔍 <code>fillable</code> dan olib tashlash
+      <b>jim</b>: maydon <code>null</code>
+      bo'ladi, xato yo'q.</li>
+      <li>✅ Server qo'yadigan maydonni <b>alohida</b>
+      yozing:
+      <code>$v-&gt;user_id = $egasi-&gt;id;</code></li>
+      <li>🔍 <b>SQL inyeksiya:</b> bog'lash <b>0</b>,
+      xom birlashtirish <b>5</b> — hammasi.</li>
+      <li>🔍 <code>orderBy</code> qo'shtirnoqqa oladi,
+      <code>orderByRaw</code> — <b>yo'q</b>.</li>
+      <li>🔍 <b>XSS:</b> <code>{{ }}</code> qochiradi,
+      <code>{!! !!}</code> yo'q.</li>
+      <li>🔍 JSON'da <code>&lt;script&gt;</code>
+      saqlanadi — va bu <b>to'g'ri</b>. Mijoz
+      qochiradi.</li>
+      <li>🔍 <b>CSRF:</b> web <b>419</b>, API
+      <b>401</b>. ⚠️ Testda <b>o'chirilgan</b>.</li>
+      <li>⭐ 🔍 <b><code>APP_DEBUG</code>:</b>
+      <b>877 560</b> bayt / sir <b>4 marta</b> va
+      <b>6 592</b> bayt / <b>0 marta</b>.</li>
+      <li><code>.env</code> git'da bo'lmasin ·
+      <code>#[Hidden]</code> · sir logga
+      tushmasin.</li>
+      <li>🔑 Sir tarixga tushsa — <b>avval
+      almashtiring</b>, keyin tozalang.</li>
+      <li>Har tuzatilgan zaiflik — <b>test</b>
+      bo'lsin.</li>
+    </ul>
+  </div>
+
+  <div class="callout win">
+    <span class="label">🌱 Keyingi dars</span>
+    <p><b>Modul I tugadi.</b> Kodimiz endi
+    tuzilgan, tiplangan, bir xil uslubda va
+    xavfsiz.</p>
+    <p>Modul J boshlanadi — <b>ishga tushirish</b>.
+    Lekin undan oldin bitta muhim ko'nikma
+    bor.</p>
+    <p>Ishda sizga <b>o'zingiz yozmagan</b> kod
+    beriladi va «bu yerda bug bor, toping»
+    deyishadi. Hujjat yo'q, muallif ketgan,
+    testlar ham yo'q.</p>
+    <p>67-darsda aynan shuni mashq qilamiz:
+    <b>notanish kodni o'qib, bug topamiz</b>.
+    Bu — kursimizning eng amaliy
+    darslaridan biri.</p>
+  </div>
+
+  <div class="primary-source">
+    <span class="label">Asosiy manba</span>
+    <p><b>Laravel — Mass Assignment</b>:
+    <a href="https://laravel.com/docs/13.x/eloquent#mass-assignment">fillable,
+    guarded, unguarded</a>.<sup><a href="#fn1">1</a></sup><br>
+    <b>Laravel — CSRF Protection</b>:
+    <a href="https://laravel.com/docs/13.x/csrf">token,
+    <code>except</code>, SPA</a>.<sup><a href="#fn2">2</a></sup><br>
+    <b>OWASP Top Ten</b>:
+    <a href="https://owasp.org/www-project-top-ten/">eng
+    keng tarqalgan veb
+    zaifliklar</a>.<sup><a href="#fn3">3</a></sup></p>
+  </div>
+
+  <div class="ask-teacher">
+    📣 <b>Tushunmagan joy bo'lsa — menga yozing.</b>
+    «<code>guarded</code> yaxshiroqmi yoki
+    <code>fillable</code>?», «HTTPS majburiymi?»,
+    «zaiflikni qanday xabar qilaman?» — har qanday
+    savol yaxshi. Birinchisiga qisqa javob:
+    <b><code>fillable</code></b> — chunki u
+    «ruxsat etilganlar ro'yxati». <code>guarded</code>
+    esa «taqiqlanganlar ro'yxati»: yangi ustun
+    qo'shsangiz, u <b>avtomatik ruxsat
+    etilgan</b> bo'lib qoladi. Ikkinchisiga:
+    <b>ha</b> — parol yoki token yuboriladigan har
+    saytda majburiy.
+  </div>
+
+  <nav class="lesson-nav">
+    <a class="prev" href="0065-refactoring-va-kod-stili.html">Oldingi: Refactoring va kod stili</a>
+    <a href="../index.html">Kurs bosh sahifasi</a>
+    <a href="../reference/glossary.html">Atamalar lug'ati</a>
+    <a href="../reference/kod-varaqasi.html">Kod varaqasi</a>
+  </nav>
+
+  <section class="footnotes">
+    <ol>
+      <li id="fn1">Laravel 13 — <a href="https://laravel.com/docs/13.x/eloquent#mass-assignment">Mass Assignment</a>.</li>
+      <li id="fn2">Laravel 13 — <a href="https://laravel.com/docs/13.x/csrf">CSRF Protection</a>.</li>
+      <li id="fn3">OWASP — <a href="https://owasp.org/www-project-top-ten/">Top Ten</a>.</li>
+      <li id="fn4">Barchasi jonli o'lchangan (PHP 8.3.32,
+      Laravel 13.26.1, Pest 4.7.8), o'z ilovamizda:
+      ⭐ <code>User::create(['name' =&gt; 'Hujumchi', ...,
+      'rol' =&gt; 'admin'])</code> → <code>rol = 'admin'</code>
+      (<code>rol</code> <code>#[Fillable]</code> da edi);
+      olib tashlangach → <code>rol = NULL</code> ·
+      <code>user_id</code> <code>$fillable</code> da edi;
+      olib tashlangach <b>3 failed</b> —
+      <code>Failed asserting that null is identical to
+      1</code> (maydon <b>jimgina</b> tashlab yuborildi);
+      <code>$vakansiya-&gt;user_id = $egasi-&gt;id;</code>
+      bilan tuzatilgach <b>116 passed</b> ·
+      SQL inyeksiya (5 kompaniya, kirish
+      <code>' OR '1'='1</code>):
+      <code>where('nom', $yovuz)</code> → <b>0</b>,
+      <code>DB::select("... nom = '$yovuz'")</code> →
+      <b>5</b>; yaratilgan SQL
+      <code>where "nom" = ?</code> bog'lash
+      <code>["' OR '1'='1"]</code> ·
+      <code>orderBy('nom; drop table vakansiyalar')</code> →
+      <code>order by "nom; drop table vakansiyalar"
+      asc</code>;
+      <code>orderByRaw(...)</code> →
+      <code>order by nom; drop table vakansiyalar</code> ·
+      XSS: <code>{{ $x }}</code> →
+      <code>&amp;lt;script&amp;gt;alert(1)&amp;lt;/script&amp;gt;</code>,
+      <code>{!! $x !!}</code> → xom,
+      <code>response()-&gt;json()</code> →
+      <code>{"nom":"&lt;script&gt;alert(1)&lt;\/script&gt;"}</code> ·
+      CSRF (haqiqiy <code>artisan serve</code> +
+      <code>curl</code>): web POST → <b>419</b>, API POST →
+      <b>401</b>; testda o'chirilgan —
+      <code>PreventRequestForgery::handle()</code> ichida
+      <code>$this-&gt;runningUnitTests()</code>
+      (<code>ValidateCsrfToken</code> eskirgan) ·
+      ⭐ <code>APP_DEBUG</code>: <code>true</code> →
+      status 500, <b>877 560 bayt</b>, sir
+      <b>4 marta</b>; <code>false</code> → status 500,
+      <b>6 592 bayt</b>, sir <b>0 marta</b> ·
+      <code>#[Hidden(['password', 'remember_token'])]</code>
+      → <code>toArray()</code> da ikkalasi ham yo'q ·
+      <code>.gitignore</code> da <code>.env</code>,
+      <code>.env.backup</code>,
+      <code>.env.production</code> ·
+      <code>XavfsizlikTest</code> — <b>5 passed</b>;
+      yakuniy to'plam <b>116 passed (234 assertions),
+      1.09s</b>.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

@@ -17,7 +17,7 @@
   muhit ma'lumotlari. Har dars yangi buyruq o'rgatilsa, shu yerga qo'shiladi.</p>
 
   <p class="lesson-meta">
-    <span>Qamrov: <b>1&ndash;65-darslar</b> — muhitdan API'gacha</span>
+    <span>Qamrov: <b>1&ndash;66-darslar</b> — muhitdan API'gacha</span>
     <span>Har dars bilan to'ldiriladi</span>
     <span>💻 Amaliyotga mos</span>
   </p>
@@ -1826,6 +1826,58 @@
     <code>database</code> · <code>redis</code> (ishlab
     chiqarish, teglar bor).
     Redis nafaqat kesh: navbat, sessiya va cheklov ham.</p>
+  </div>
+
+  <h2>Xavfsizlik (66-darsdan)</h2>
+  <table class="sheet">
+    <tr><th>Tekshiruv</th><th class="note-cell">Nima qidiriladi</th></tr>
+    <tr><td><code>grep -n 'APP_DEBUG\|APP_ENV' .env</code></td><td class="note-cell">⭐ <code>false</code> va <code>production</code></td></tr>
+    <tr><td><code>grep -n '^\.env' .gitignore</code></td><td class="note-cell">Sir git'da bo'lmasin</td></tr>
+    <tr><td><code>grep -rn '$request-&gt;all()' app/</code></td><td class="note-cell">Ommaviy tayinlash xavfi</td></tr>
+    <tr><td><code>grep -rn '{!!' resources/views</code></td><td class="note-cell">XSS xavfi</td></tr>
+    <tr><td><code>grep -rn 'Raw(' app/</code></td><td class="note-cell"><code>whereRaw</code>, <code>orderByRaw</code></td></tr>
+    <tr><td><code>grep -rn 'unguard' app/ database/</code></td><td class="note-cell">Himoya butunlay o'chganmi</td></tr>
+    <tr><td><code>fillable</code> ro'yxatlari</td><td class="note-cell"><code>rol</code>, <code>user_id</code>, <code>is_admin</code> bormi</td></tr>
+    <tr><td>Har endpoint: «id ni o'zgartirsam?»</td><td class="note-cell">IDOR — Policy bilan to'sing</td></tr>
+    <tr><td><code>composer audit</code></td><td class="note-cell">Paketlardagi ma'lum zaifliklar</td></tr>
+  </table>
+  <table class="sheet">
+    <tr><th>Kod</th><th class="note-cell">Nima qiladi</th></tr>
+    <tr><td><code>#[Fillable([...])]</code> · <code>#[Hidden([...])]</code></td><td class="note-cell">Laravel 13 atributlari</td></tr>
+    <tr><td><code>$request-&gt;validated()</code></td><td class="note-cell">✅ <code>all()</code> emas — har doim shu</td></tr>
+    <tr><td><code>$v-&gt;user_id = $egasi-&gt;id; $v-&gt;save();</code></td><td class="note-cell">Server qo'yadigan maydon — <b>alohida</b></td></tr>
+    <tr><td><code>Rule::unique('users')-&gt;ignore($id)</code></td><td class="note-cell">Tahrirlashda ham <code>unique</code> kerak</td></tr>
+    <tr><td><code>Password::min(8)-&gt;uncompromised()</code></td><td class="note-cell">Sizib chiqqan parolni rad etadi</td></tr>
+    <tr><td><code>'rasm' =&gt; ['image', 'mimes:jpg,png', 'max:2048']</code></td><td class="note-cell">Fayl <b>mazmuni</b> tekshiriladi</td></tr>
+    <tr><td><code>Model::unguarded(fn () =&gt; ...)</code></td><td class="note-cell">⚠️ Faqat vaqtincha, aniq chegarada</td></tr>
+  </table>
+  <div class="callout note">
+    <p>⭐ 🔍 <b>Ommaviy tayinlash:</b>
+    <code>User::create([..., 'rol' =&gt; 'admin'])</code> →
+    foydalanuvchi <b>admin bo'ldi</b>. Xato yo'q.
+    <br>⚠️ <b>Tuzoq:</b> <code>fillable</code> dan olib
+    tashlash <b>jim</b> — maydon <code>null</code>
+    bo'ladi (<code>Failed asserting that null is
+    identical to 1</code>).</p>
+    <p>🔍 <b>SQL inyeksiya:</b> bog'lash bilan <b>0</b>
+    yozuv, xom birlashtirish bilan <b>5</b> — hammasi.
+    <br><code>orderBy</code> qo'shtirnoqqa oladi ✅ ·
+    <code>orderByRaw</code> — <b>yo'q</b> ⚠️</p>
+    <p>🔍 <b>XSS:</b> <code>{{ }}</code> qochiradi ·
+    <code>{!! !!}</code> yo'q · JSON'da
+    <code>&lt;script&gt;</code> <b>saqlanadi</b> (va bu
+    to'g'ri — mijoz qochiradi).</p>
+    <p>🔍 <b>CSRF:</b> web <b>419</b>, API <b>401</b>.
+    ⚠️ Testda <b>o'chirilgan</b>
+    (<code>runningUnitTests()</code>) — faqat haqiqiy
+    server bilan tekshiriladi.</p>
+    <p>⭐ 🔍 <b><code>APP_DEBUG=true</code>:</b>
+    <b>877 560 bayt</b>, sir <b>4 marta</b>.
+    <code>false</code>: <b>6 592 bayt</b>, <b>0
+    marta</b>.</p>
+    <p>🔑 Sir git tarixiga tushsa — <b>avval
+    almashtiring</b>, keyin tarixni tozalash haqida
+    o'ylang.</p>
   </div>
 
   <h2>Pint va refaktoring (65-darsdan)</h2>
