@@ -27,20 +27,55 @@
   <div class="qamrov">
     <span class="label">Bu darsda nimalar bor</span>
     <ol>
-      <li><b>Massiv — bitta nom, ko'p qiymat</b>
-        <span class="nima">Yozilishi, <code>print_r</code> va <code>var_dump</code> bilan ko'rish.</span></li>
-      <li><b>Ro'yxat va lug'at — aslida bitta narsa</b>
-        <span class="nima">PHP massivi <b>kalit → qiymat</b> jadvali; raqamli kalit ham kalit.</span></li>
-      <li><b>Qo'shish va sanash</b>
-        <span class="nima"><code>$a[] = 'x'</code> va <code>count()</code>.</span></li>
+      <li><b>Massiv — nomlangan qutilar to'plami</b>
+        <span class="nima">Bitta o'zgaruvchida
+        ko'p qiymat.</span></li>
+      <li><b>Ro'yxat va lug'at</b>
+        <span class="nima">Sonli kalit
+        (<code>[0]</code>) va matn kalit
+        (<code>["nom"]</code>).</span></li>
       <li><b><code>foreach</code></b>
-        <span class="nima">Kalit va qiymat bilan aylanib chiqish.</span></li>
+        <span class="nima">Har element bo'ylab
+        yurish — <code>as $v</code> va
+        <code>as $k =&gt; $v</code>.</span></li>
+      <li><b><code>print_r</code> va
+        <code>var_dump</code></b>
+        <span class="nima">Massiv ichini
+        ko'rishning ikki yo'li.</span></li>
       <li><b>Ichma-ich massiv</b>
-        <span class="nima">Bazadan keladigan ma'lumotning shakli — Modul C uchun poydevor.</span></li>
-      <li><b>Yo'q kalitni o'qish</b>
-        <span class="nima"><b>Warning</b> va <code>??</code> bilan himoya.</span></li>
-      <li><b>Tuzoq: keyingi kalit qanday tanlanadi</b>
-        <span class="nima"><code>$a[5] = 'c'; $a[] = 'd';</code> — <code>d</code> qaysi kalitga tushadi.</span></li>
+        <span class="nima">Massiv ichida massiv —
+        jadval shakli.</span></li>
+      <li><b>🔍 Keyingi kalit qanday tanlanadi</b>
+        <span class="nima">O'lchandi:
+        <code>unset</code> dan keyin kalit
+        <b>qayta ishlatilmaydi</b>.</span></li>
+      <li><b>⚠️ Kalit tiplari</b>
+        <span class="nima">🔍 <code>"1"</code>,
+        <code>1</code>, <code>true</code>,
+        <code>1.9</code> — <b>bitta</b>
+        kalit.</span></li>
+      <li><b><code>foreach</code> nusxa bilan
+        ishlaydi</b>
+        <span class="nima">🔍 <code>$v</code> ni
+        o'zgartirish massivga <b>ta'sir
+        qilmaydi</b>.</span></li>
+      <li><b>☠️ PHP'ning eng mashhur tuzog'i</b>
+        <span class="nima">🔍
+        <code>&amp;$v</code> dan keyingi sikl —
+        natija <code>[a, b, b]</code>.</span></li>
+      <li><b>⚠️ <code>+</code> va
+        <code>array_merge()</code></b>
+        <span class="nima">🔍 Birinchisida
+        <b>ikkita element yo'qoldi</b>.</span></li>
+      <li><b>Mavjud bo'lmagan kalit</b>
+        <span class="nima"><code>Undefined array
+        key</code> va <code>??</code>
+        yechimi.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima"><code>count</code> ·
+        <code>isset</code> va
+        <code>array_key_exists</code> · eng ko'p
+        ishlatiladigan funksiyalar.</span></li>
     </ol>
   </div>
 
@@ -354,6 +389,183 @@ git commit -m "05-dars: massiv va foreach"</div>
   </div>
 
   <!-- ═══════════════ 5) TAXMIN + QUIZ ═══════════════ -->
+
+  <!-- ═══════════════ HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir bir
+  marta o'qing, keyin kerak bo'lganda qaytib qarang.</p>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 1</span>
+    <h4>🔍 Keyingi kalit qanday tanlanadi</h4>
+    <div class="natija">$a = ["a", "b", "c"];   // kalitlar: 0, 1, 2
+unset($a[1]);           // 1 o'chdi
+$a[] = "d";             // yangi element
+
+print_r($a);
+   [0] =&gt; a   [2] =&gt; c   [3] =&gt; d      ⚠️ 1 QAYTA ISHLATILMADI</div>
+    <p>PHP <b>eng katta</b> ishlatilgan sonli
+    kalitni eslab qoladi va <b>undan keyingisini</b>
+    beradi.</p>
+    <div class="natija">$a = [3 =&gt; "x"];
+$a[] = "y";
+array_keys($a)   →  [3, 4]        ← 0 dan emas, 4 dan</div>
+    <p>🔑 Shuning uchun massivdan element
+    o'chirgach, kalitlar <b>uzluksiz
+    bo'lmay qoladi</b>.</p>
+    <p>✅ Kalitlarni qayta tartiblash kerak bo'lsa:
+    <code>array_values($a)</code>.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 2</span>
+    <h4>⚠️ Kalit tiplari — beshtasi ikkitaga aylandi</h4>
+    <div class="natija">$a["1"]  = "matn kaliti";
+$a[1]    = "son kaliti";
+$a[true] = "bool";
+$a[1.9]  = "float";
+$a[null] = "null";
+
+var_dump($a);
+   array(2) {
+     [1]  =&gt; "float"      ⚠️ to'rttasi BITTA kalitga tushdi
+     [""] =&gt; "null"
+   }</div>
+    <p>Massiv kaliti faqat <b>int</b> yoki
+    <b>string</b> bo'la oladi. Qolganlari
+    aylantiriladi:</p>
+    <div class="natija">"1"    →  1        (raqamli matn songa)
+true   →  1
+1.9    →  1        (kasr qismi TASHLANADI, yaxlitlanmaydi)
+null   →  ""       (bo'sh matn)</div>
+    <p>⚠️ Natija: to'rtta yozuv bir-birini
+    <b>ustma-ust yozdi</b> va oxirgisi
+    (<code>"float"</code>) qoldi.</p>
+    <p>🔑 Amalda bu shunday chiqadi: formadan kelgan
+    <code>"1"</code> va koddagi <code>1</code> —
+    <b>bitta</b> kalit.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 3</span>
+    <h4><code>foreach</code> nusxa bilan ishlaydi</h4>
+    <div class="natija">$a = [1, 2, 3];
+
+foreach ($a as $v)  { $v *= 10; }
+print_r($a);   →  [1, 2, 3]        ← o'zgarmadi
+
+foreach ($a as &amp;$v) { $v *= 10; }
+print_r($a);   →  [10, 20, 30]     ← o'zgardi</div>
+    <p>🔑 <code>$v</code> — massiv elementining
+    <b>nusxasi</b>. Uni o'zgartirish massivga
+    ta'sir qilmaydi.</p>
+    <p><code>&amp;$v</code> — <b>havola</b>: bu
+    endi nusxa emas, <b>o'sha element</b>.</p>
+    <p>✅ Odatda nusxa <b>to'g'ri</b> tanlov —
+    tasodifiy o'zgarishlardan himoya qiladi.
+    Massivni o'zgartirish kerak bo'lsa,
+    ko'pincha yangi massiv yasash
+    yaxshiroq.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 4</span>
+    <h4>☠️ PHP'ning eng mashhur tuzog'i</h4>
+    <div class="natija">$a = ["a", "b", "c"];
+
+foreach ($a as &amp;$v) {}    // birinchi sikl
+foreach ($a as $v)  {}    // ikkinchi sikl
+
+print_r($a);
+   [0] =&gt; a   [1] =&gt; b   [2] =&gt; b     ☠️ oxirgisi "c" EMAS!</div>
+    <p>Nima bo'ldi? Birinchi sikldan keyin
+    <code>$v</code> hamon <b>oxirgi elementga
+    havola</b> bo'lib qoladi.</p>
+    <p>Ikkinchi sikl esa har aylanishda
+    <code>$v</code> ga qiymat yozadi — ya'ni
+    <b>oxirgi elementga</b> yozadi:</p>
+    <div class="natija">1-aylanish:  $v = "a"   →  $a[2] = "a"
+2-aylanish:  $v = "b"   →  $a[2] = "b"
+3-aylanish:  $v = $a[2] →  $a[2] = "b"     ← o'zini o'ziga</div>
+    <p>✅ Yechim — havolali sikldan keyin
+    <b>darrov</b>:</p>
+    <div class="natija">foreach ($a as &amp;$v) { ... }
+unset($v);              ← havolani uzing</div>
+    <p>🔑 Yoki eng oddiysi: <code>&amp;$v</code> ni
+    <b>umuman ishlatmang</b>.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 5</span>
+    <h4><code>+</code> va <code>array_merge()</code></h4>
+    <div class="natija">$a = ["x", "y"];        // kalitlar 0, 1
+$b = ["p", "q", "r"];   // kalitlar 0, 1, 2
+
+$a + $b            →  [x, y, r]              ⚠️ ikkitasi YO'QOLDI
+array_merge($a,$b) →  [x, y, p, q, r]        ✅</div>
+    <p>🔑 <code>+</code> — «chapdagi kalitni
+    <b>saqla</b>, o'ngdagi faqat
+    <b>yetishmaganini</b> qo'shsin».
+    <code>0</code> va <code>1</code> chapda bor
+    edi, shuning uchun <code>"p"</code> va
+    <code>"q"</code> <b>tushib qoldi</b>.</p>
+    <p><code>array_merge()</code> esa sonli
+    kalitlarni <b>qayta raqamlaydi</b> — hech
+    narsa yo'qolmaydi.</p>
+    <p>⚠️ Matn kalitlarda teskarisi:
+    <code>array_merge</code> da o'ngdagi
+    <b>ustun keladi</b>, <code>+</code> da esa
+    chapdagi.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 6</span>
+    <h4><code>count()</code> va mavjud bo'lmagan kalit</h4>
+    <div class="natija">count([])                          →  0
+count([[1,2],[3]])                →  2      ← faqat yuqori daraja
+count([[1,2],[3]], COUNT_RECURSIVE) →  5    ← ichkarisi bilan</div>
+    <div class="natija">$a = ["nom" =&gt; "Ali"];
+
+echo $a["yosh"];
+   PHP Warning: Undefined array key "yosh"
+
+echo $a["yosh"] ?? "yo'q";
+   yo'q                                     ✅ ogohlantirishsiz</div>
+    <p>🔑 2-darsdagi <code>??</code> shu yerda ham
+    ishlaydi — va massivlar bilan u
+    <b>ayniqsa</b> kerak.</p>
+    <p>✅ Kalit borligini tekshirish uchun:
+    <code>isset($a["yosh"])</code> yoki
+    <code>array_key_exists("yosh", $a)</code>.</p>
+    <p>⚠️ Farqi: <code>isset()</code> qiymati
+    <code>null</code> bo'lgan kalitni
+    <b>«yo'q»</b> deydi,
+    <code>array_key_exists()</code> esa
+    <b>«bor»</b>.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>Amalda eng ko'p ishlatiladigan funksiyalar</h4>
+    <div class="natija">array_values($a)     kalitlarni 0 dan qayta raqamlaydi
+array_keys($a)       faqat kalitlarni beradi
+in_array($x, $a, true)   bormi?   ← uchinchi argument! (3-dars)
+array_key_exists($k, $a) kalit bormi?
+array_map(fn, $a)    har elementni o'zgartiradi
+array_filter($a, fn) shartga mos elementlarni qoldiradi
+array_sum($a)        yig'indi
+implode(", ", $a)    massivni matnga
+explode(",", $s)     matnni massivga</div>
+    <p>🔑 Bularni hozir <b>yodlash shart emas</b> —
+    kerak bo'lganda qaytib qarang.</p>
+    <p>✅ Va yaxshi xabar: Laravel'da bularning
+    ko'pi <b>Collection</b> deb ataladigan
+    ancha qulay shaklga o'raladi. Uni kursning
+    davomida ko'rasiz — lekin <b>ichida</b>
+    aynan shu funksiyalar turadi.</p>
+  </div>
+
   <h2>Sinab ko'ramiz</h2>
 
   <div class="predict">
@@ -544,7 +756,34 @@ echo count($a), PHP_EOL;</code>
       Rasmiy <code>php.net</code> bu tarmoqdan ochilmaydi.</li>
       <li id="fn3">Barcha natijalar PHP <b>8.3.32</b> da jonli sinab ko'rilgan —
       shu jumladan taxmin mashqidagi <code>[5]</code> va <code>[6]</code> kalitlari.</li>
-    </ol>
+          <li id="fn4">Holatlar bo'limidagi barchasi jonli
+      o'lchangan (PHP <b>8.3.32</b>):
+      <code>unset($a[1])</code> dan keyin <code>$a[]</code>
+      → kalitlar <b>0, 2, 3</b> (1 qayta ishlatilmadi);
+      <code>[3=&gt;"x"]</code> ga <code>$a[]</code> →
+      kalitlar <b>3, 4</b> ·
+      kalit tiplari: <code>"1"</code>, <code>1</code>,
+      <code>true</code>, <code>1.9</code> — to'rttasi
+      <b>bitta</b> kalitga (<code>1</code>) tushdi,
+      <code>null</code> → <code>""</code>; natijada
+      <code>array(2)</code> ·
+      <code>foreach ($a as $v)</code> massivni
+      <b>o'zgartirmadi</b> ([1,2,3]),
+      <code>&amp;$v</code> bilan <b>o'zgartirdi</b>
+      ([10,20,30]) ·
+      ☠️ ikkita ketma-ket sikl (<code>&amp;$v</code> so'ng
+      <code>$v</code>) → <code>[a, b, b]</code> —
+      oxirgisi <code>"c"</code> emas ·
+      <code>["x","y"] + ["p","q","r"]</code> →
+      <code>[x, y, r]</code>;
+      <code>array_merge</code> → <code>[x, y, p, q, r]</code> ·
+      <code>count([])</code>=<b>0</b>,
+      <code>count([[1,2],[3]])</code>=<b>2</b>,
+      <code>COUNT_RECURSIVE</code> bilan <b>5</b> ·
+      <code>$a["yosh"]</code> →
+      <code>Warning: Undefined array key "yosh"</code>,
+      <code>?? "yo'q"</code> bilan ogohlantirishsiz.</li>
+</ol>
   </section>
 
 </main>
