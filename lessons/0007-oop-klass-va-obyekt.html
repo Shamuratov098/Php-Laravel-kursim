@@ -28,20 +28,49 @@
   <div class="qamrov">
     <span class="label">Bu darsda nimalar bor</span>
     <ol>
-      <li><b>Klass — chizma, obyekt — nusxa</b>
-        <span class="nima"><code>class</code> · <code>new</code> · bir chizmadan ko'p obyekt.</span></li>
+      <li><b>Klass — shakl, obyekt — nusxa</b>
+        <span class="nima"><code>class</code> yozasiz,
+        <code>new</code> bilan nusxa
+        olasiz.</span></li>
       <li><b>Xossa va metod</b>
-        <span class="nima">Ma'lumot va mantiq <b>birga</b> yashaydi.</span></li>
+        <span class="nima">Ma'lumot va u bilan
+        ishlaydigan mantiq <b>birga</b>.</span></li>
       <li><b><code>$this</code></b>
-        <span class="nima">«Aynan shu obyekt» degan ma'no.</span></li>
-      <li><b><code>__construct</code></b>
-        <span class="nima">Obyekt yaratilishida ishlaydigan metod.</span></li>
-      <li><b>Obyekt — yangi tip</b>
-        <span class="nima"><code>var_dump</code> unda klass nomini ko'rsatadi.</span></li>
-      <li><b>Bir klass — bir fayl</b>
-        <span class="nima">Kelishuv va nima uchun u 12-darsda kerak bo'ladi.</span></li>
-      <li><b>Tuzoq: nusxalash</b>
-        <span class="nima">Massiv <b>nusxalanadi</b>, obyekt esa <b>yo'q</b> — ikkisi bir xil o'zgaradi.</span></li>
+        <span class="nima">Metod ichida «<b>shu</b>
+        obyekt» degani.</span></li>
+      <li><b>Konstruktor</b>
+        <span class="nima">Obyekt tug'ilgan
+        paytda bajariladi.</span></li>
+      <li><b>🔍 Konstruktor xossalari (PHP 8)</b>
+        <span class="nima">Uch marta takrorlash
+        o'rniga <b>bir marta</b>.</span></li>
+      <li><b>⚠️ Obyekt — nusxa emas, havola</b>
+        <span class="nima">🔍 <code>$b = $a</code>
+        yangi obyekt <b>yaratmaydi</b>;
+        <code>clone</code> yaratadi.</span></li>
+      <li><b>⚠️ E'lon qilinmagan xossa</b>
+        <span class="nima">🔍 <code>Deprecated:
+        Creation of dynamic property</code>.</span></li>
+      <li><b>Tiplangan xossa</b>
+        <span class="nima">🔍 Qiymatsiz o'qilsa —
+        <code>must not be accessed before
+        initialization</code>.</span></li>
+      <li><b><code>static</code> — klassga tegishli</b>
+        <span class="nima">🔍 Hamma obyektlar uchun
+        <b>bitta</b> qiymat.</span></li>
+      <li><b>Obyekt ichini ko'rish</b>
+        <span class="nima"><code>var_dump</code> tipni
+        ham ko'rsatadi; <code>#1</code> — obyekt
+        raqami.</span></li>
+      <li><b>Klass qachon kerak, qachon yo'q</b>
+        <span class="nima">Sinov savoli: «bu
+        ma'lumotning <b>o'z qoidalari</b>
+        bormi?»</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima">Havola va
+        <code>clone</code> · dinamik xossa ·
+        <code>static</code> · <code>var_dump</code> ·
+        klass chegarasi.</span></li>
     </ol>
   </div>
 
@@ -348,6 +377,194 @@ git commit -m "07-dars: klass va obyekt"</div>
   </div>
 
   <!-- ═══════════════ 5) TAXMIN + QUIZ ═══════════════ -->
+
+  <!-- ═══════════════ HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir bir
+  marta o'qing, keyin kerak bo'lganda qaytib qarang.</p>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 1</span>
+    <h4>⚠️ Obyekt — nusxa emas, havola</h4>
+    <div class="natija">class V { public $nom = "eski"; }
+
+function f(V $v) { $v-&gt;nom = "yangi"; }
+$a = new V;  f($a);
+echo $a-&gt;nom;        →  yangi        ⚠️ o'zgardi!
+
+$b = $a;  $b-&gt;nom = "b orqali";
+echo $a-&gt;nom;        →  b orqali     ⚠️ $a ham o'zgardi
+
+$c = clone $a;  $c-&gt;nom = "c orqali";
+echo $a-&gt;nom;        →  b orqali     ✅ clone — haqiqiy nusxa</div>
+    <p>🔑 Bu massiv bilan <b>tubdan farq
+    qiladi</b>. 5-darsda massiv funksiyaga
+    <b>nusxa</b> bo'lib o'tgandi; obyekt esa
+    <b>o'zi</b> o'tadi.</p>
+    <p>⚠️ <code>$b = $a</code> yangi obyekt
+    <b>yaratmaydi</b> — u <b>o'sha</b>
+    obyektga ikkinchi yorliq qo'yadi.</p>
+    <p>✅ Haqiqiy nusxa kerak bo'lsa —
+    <code>clone</code>.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 2</span>
+    <h4>⚠️ E'lon qilinmagan xossa</h4>
+    <div class="natija">class V { public string $nom = "Ali"; }
+$v = new V;
+
+$v-&gt;yosh = 30;
+   PHP Deprecated: Creation of dynamic property V::$yosh
+   is deprecated
+
+echo $v-&gt;yoq;
+   PHP Warning: Undefined property: V::$yoq</div>
+    <p>PHP 8.2 gacha obyektga <b>istalgan</b>
+    xossani qo'shish mumkin edi. Endi bu
+    <b>eskirgan</b> deb belgilangan va
+    kelajakda <b>xato</b> bo'ladi.</p>
+    <p>🔑 Va bu <b>yaxshi</b>: <code>$v->nom</code>
+    o'rniga <code>$v->norn</code> deb xato
+    yozsangiz, PHP sizga <b>aytadi</b> — jimgina
+    yangi xossa yaratmaydi.</p>
+    <p>✅ Klassda ishlatiladigan <b>hamma</b>
+    xossani oldindan e'lon qiling.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 3</span>
+    <h4>Tiplangan xossa — boshlang'ich qiymatsiz</h4>
+    <div class="natija">class V { public string $nom; }
+$v = new V;
+echo $v-&gt;nom;
+   PHP Fatal error: Uncaught Error: Typed property V::$nom
+   must not be accessed before initialization
+
+class V { public string $nom = ""; }
+var_dump($v-&gt;nom);   →  string(0) ""        ✅</div>
+    <p>🔑 Bu <code>null</code> emas —
+    <b>«hali qiymat berilmagan»</b> degan
+    <b>uchinchi</b> holat.</p>
+    <p>✅ Uch yechim: boshlang'ich qiymat berish ·
+    konstruktorda to'ldirish ·
+    <code>?string</code> qilib
+    <code>null</code> ga ruxsat berish.</p>
+    <p>🔍 Amalda deyarli har doim <b>ikkinchisi</b>
+    ishlatiladi — keyingi holatda
+    ko'rasiz.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 4</span>
+    <h4>Konstruktor xossalari (PHP 8)</h4>
+    <div class="natija">// ESKI shakl — uch marta takrorlash
+class Eski {
+    public string $nom;
+    public int $maosh;
+    public function __construct(string $nom, int $maosh) {
+        $this-&gt;nom = $nom;
+        $this-&gt;maosh = $maosh;
+    }
+}
+
+// YANGI shakl — bir marta
+class Yangi {
+    public function __construct(public string $nom, public int $maosh) {}
+}</div>
+    <p>🔍 Ikkalasi ham <b>bir xil</b> ishlaydi:
+    <code>PHP 900</code>.</p>
+    <p>🔑 Parametr oldiga <code>public</code>
+    yozilsa, PHP <b>o'zi</b> xossa yaratadi va
+    <b>o'zi</b> to'ldiradi.</p>
+    <p>✅ Yangi kodda <b>doim</b> shu shakl
+    ishlatiladi. Kursning davomida uni juda
+    ko'p ko'rasiz.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 5</span>
+    <h4><code>$this</code> va <code>static</code></h4>
+    <div class="natija">class V {
+    public static int $soni = 0;
+    public function __construct(public string $nom) { self::$soni++; }
+    public function ayt(): string  { return "men " . $this-&gt;nom; }
+    public static function nechta(): int { return self::$soni; }
+}
+
+$a = new V("a");  $b = new V("b");
+$a-&gt;ayt()      →  men a          ← OBYEKTGA tegishli
+V::nechta()    →  2              ← KLASSGA tegishli</div>
+    <p>🔑 <code>$this</code> — «<b>shu</b> obyekt».
+    <code>static</code> esa obyektga emas,
+    <b>klassga</b> tegishli — hamma obyektlar
+    uchun <b>bitta</b>.</p>
+    <p>⚠️ Aralashtirib bo'lmaydi:</p>
+    <div class="natija">V::ayt();
+   Fatal error: Uncaught Error: Non-static method V::ayt()
+   cannot be called statically</div>
+    <p>✅ Boshlanishida <code>static</code> deyarli
+    kerak emas. Uni <b>hisoblagich</b> yoki
+    <b>yordamchi funksiya</b> kerak bo'lgandagina
+    ishlating.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 6</span>
+    <h4>Obyekt ichini ko'rish</h4>
+    <div class="natija">class V { public function __construct(
+    public string $nom = "PHP",
+    public ?int $maosh = null
+) {} }
+
+var_dump(new V);
+   object(V)#1 (2) {
+     ["nom"]   =&gt; string(3) "PHP"
+     ["maosh"] =&gt; NULL
+   }
+
+print_r(new V);
+   V Object ( [nom] =&gt; PHP [maosh] =&gt; )</div>
+    <p>🔑 <code>var_dump</code> <b>tipni ham</b>
+    ko'rsatadi (<code>string(3)</code>,
+    <code>NULL</code>) — shuning uchun
+    <b>tekshirish</b> uchun u afzal.</p>
+    <p>🔍 <code>#1</code> — obyektning ichki
+    raqami. Ikkita o'zgaruvchi <b>bir xil</b>
+    raqamni ko'rsatsa, demak ular
+    <b>bitta</b> obyekt (HOLAT 1).</p>
+    <p>⚠️ <code>print_r</code> da
+    <code>null</code> <b>bo'sh</b> ko'rinadi —
+    <code>""</code> dan farqi
+    bilinmaydi.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>Klass qachon kerak, qachon yo'q</h4>
+    <div class="natija">✅ KLASS YAXSHI:
+   ma'lumot va u bilan ishlaydigan mantiq BIRGA yursa
+   (vakansiya + uning maoshini formatlash)
+
+   bir xil shakldagi ko'p nusxa kerak bo'lsa
+   (yuzlab vakansiya — har biri o'z nomi, maoshi bilan)
+
+❌ KLASS ORTIQCHA:
+   bitta funksiya yetadigan joyda
+   faqat ma'lumot saqlanadigan joyda — massiv yetadi
+   "shunchaki OOP ishlatish kerak" degan sabab bilan</div>
+    <p>🔑 Sinov savoli: «bu ma'lumotning
+    <b>o'z qoidalari</b> bormi?» Vakansiyaning
+    bor: maoshi manfiy bo'lmaydi, nomi
+    bo'sh bo'lmaydi. Massiv bu qoidalarni
+    <b>bilmaydi</b>, klass esa —
+    <b>biladi</b>.</p>
+    <p>🔍 Keyingi darsda aynan shuni ko'ramiz:
+    obyekt o'z ma'lumotini <b>qanday
+    himoya qiladi</b>.</p>
+  </div>
+
   <h2>Sinab ko'ramiz</h2>
 
   <div class="predict">
@@ -541,7 +758,35 @@ echo $a-&gt;nom;</code>
       <li id="fn3">Barcha natijalar PHP <b>8.3.32</b> da jonli sinab ko'rilgan — shu
       jumladan obyekt/massiv nusxalanish farqi va <code>Typed property ... must not be
       accessed before initialization</code> xatosi.</li>
-    </ol>
+          <li id="fn4">Holatlar bo'limidagi barchasi jonli
+      o'lchangan (PHP <b>8.3.32</b>):
+      obyekt funksiyaga uzatilgach <code>$a-&gt;nom</code>
+      <b>yangi</b> bo'ldi; <code>$b = $a</code> dan keyin
+      <code>$a-&gt;nom</code> → <code>b orqali</code>;
+      <code>clone</code> dan keyin <code>$a</code>
+      <b>o'zgarmadi</b> ·
+      <code>$v-&gt;yosh = 30</code> →
+      <code>PHP Deprecated: Creation of dynamic property
+      V::$yosh is deprecated</code>;
+      <code>echo $v-&gt;yoq</code> →
+      <code>PHP Warning: Undefined property: V::$yoq</code> ·
+      <code>public string $nom;</code> (qiymatsiz) →
+      <code>Fatal error: Uncaught Error: Typed property
+      V::$nom must not be accessed before
+      initialization</code> ·
+      eski va yangi konstruktor shakllari — ikkalasi
+      <code>PHP 900</code> ·
+      <code>$a-&gt;ayt()</code> → <code>men a</code>,
+      <code>V::nechta()</code> → <b>2</b>;
+      <code>V::ayt()</code> →
+      <code>Fatal error: Uncaught Error: Non-static method
+      V::ayt() cannot be called statically</code> ·
+      <code>var_dump(new V)</code> →
+      <code>object(V)#1 (2) { ["nom"]=&gt; string(3) "PHP"
+      ["maosh"]=&gt; NULL }</code>,
+      <code>print_r</code> esa
+      <code>V Object ( [nom] =&gt; PHP [maosh] =&gt; )</code>.</li>
+</ol>
   </section>
 
 </main>

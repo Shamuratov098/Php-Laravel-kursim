@@ -29,17 +29,50 @@
     <span class="label">Bu darsda nimalar bor</span>
     <ol>
       <li><b>Funksiyaning tuzilishi</b>
-        <span class="nima"><code>function</code> · parametr · <code>return</code>.</span></li>
+        <span class="nima"><code>function</code> ·
+        parametr · <code>return</code>.</span></li>
       <li><b>Standart qiymat va parametr tartibi</b>
-        <span class="nima">Standart qiymatli parametr <b>oxirida</b> turishi kerak.</span></li>
+        <span class="nima">🔍 Noto'g'ri tartibda
+        <code>Deprecated</code> ogohlantirishi
+        chiqadi.</span></li>
       <li><b>Doira (scope)</b>
-        <span class="nima">Funksiya — yopiq xona: tashqi o'zgaruvchi ichida ko'rinmaydi.</span></li>
+        <span class="nima">🔍 O'lchandi: tashqi
+        <code>$x</code> funksiya ichida
+        <b>ko'rinmaydi</b>.</span></li>
       <li><b>🔑 Type hint kafolat bermaydi</b>
-        <span class="nima"><code>int $x</code> yozilsa ham matn o'tib ketadi — <code>declare(strict_types=1)</code> nima qiladi.</span></li>
+        <span class="nima">🔍 <code>f("5")</code> →
+        <code>int(10)</code>;
+        <code>declare(strict_types=1)</code> nima
+        qiladi.</span></li>
       <li><b>🎯 4-darsning qarzi to'landi</b>
-        <span class="nima">Uch qatlamli stack trace endi ma'noli o'qiladi.</span></li>
-      <li><b><code>array_map</code> va <code>array_filter</code></b>
-        <span class="nima">Massiv ustida funksiya ishlatish.</span></li>
+        <span class="nima">Uch qatlamli xato
+        endi to'liq tushunarli.</span></li>
+      <li><b>Qaytish tipi</b>
+        <span class="nima">🔍 <code>: string</code>
+        yozilsa, son <b>matnga</b>
+        aylantiriladi.</span></li>
+      <li><b><code>return</code> bo'lmasa</b>
+        <span class="nima">🔍 Uch xil holatda ham
+        natija — <b>NULL</b>.</span></li>
+      <li><b>Qiymat va havola bilan uzatish</b>
+        <span class="nima">🔍 <code>&amp;$a</code>
+        bilan massiv <b>o'zgardi</b>, usiz —
+        yo'q.</span></li>
+      <li><b>Nomlangan argumentlar (PHP 8)</b>
+        <span class="nima">🔍
+        <code>xabar(matn: "Salom", qalin: true)</code>
+        — tartib shart emas.</span></li>
+      <li><b><code>: void</code> nima uchun kerak</b>
+        <span class="nima">«Bu funksiya hech narsa
+        qaytarmaydi» degan <b>e'lon</b>.</span></li>
+      <li><b>Bir nechta qiymat qaytarish</b>
+        <span class="nima">Massiv +
+        destructuring:
+        <code>["ok" =&gt; $ok] = f()</code>.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima">Scope · havola · nomlangan
+        argument · <code>strict_types</code> ·
+        parametr tartibi.</span></li>
     </ol>
   </div>
 
@@ -431,6 +464,179 @@ git commit -m "06-dars: funksiya va tiplar"</div>
   </div>
 
   <!-- ═══════════════ 5) TAXMIN + QUIZ ═══════════════ -->
+
+  <!-- ═══════════════ HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir bir
+  marta o'qing, keyin kerak bo'lganda qaytib qarang.</p>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 1</span>
+    <h4>🔍 Doira (scope) — funksiya yopiq xona</h4>
+    <div class="natija">$x = 10;
+
+function f() {
+    var_dump($x ?? "KO'RINMAYDI");
+}
+
+f();          →  string(11) "KO'RINMAYDI"     ← ichkarida YO'Q
+var_dump($x); →  int(10)                      ← tashqarida BOR</div>
+    <p>🔑 Bu <b>ataylab</b> shunday. Funksiya
+    tashqaridagi o'zgaruvchilarni
+    <b>ko'rmaydi</b> — shuning uchun uni
+    <b>alohida</b> sinash va boshqa joyda qayta
+    ishlatish mumkin.</p>
+    <p>⚠️ PHP'da <code>global $x;</code> degan usul
+    ham bor — lekin uni <b>ishlatmang</b>. U
+    funksiyani tashqi holatga bog'lab
+    qo'yadi va sinashni imkonsiz qiladi.</p>
+    <p>✅ Kerak bo'lgan narsani <b>parametr</b>
+    orqali bering, natijani <b>return</b> bilan
+    qaytaring. Boshqa yo'l yo'q.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 2</span>
+    <h4>Qiymat va havola bilan uzatish</h4>
+    <div class="natija">function f($a)        { $a[] = "yangi"; }
+$m = ["a"]; f($m);
+print_r($m);   →  [a]              ← o'zgarmadi (nusxa)
+
+function f(array &amp;$a) { $a[] = "yangi"; }
+$m = ["a"]; f($m);
+print_r($m);   →  [a, yangi]       ← o'zgardi (havola)</div>
+    <p>🔑 5-darsdagi <code>foreach</code> bilan bir
+    xil qoida: <b>standart holda nusxa</b>,
+    <code>&amp;</code> bilan <b>havola</b>.</p>
+    <p>✅ Havola kamdan-kam kerak bo'ladi. Odatda
+    yangi qiymat <b>qaytarish</b> aniqroq:</p>
+    <div class="natija">function qosh(array $a): array { $a[] = "yangi"; return $a; }
+$m = qosh($m);      ← nima o'zgarayotgani KO'RINIB turadi</div>
+    <p>⚠️ Havolali funksiya «jimgina» ishlaydi —
+    chaqirgan joyga qarab uning nima
+    o'zgartirishini <b>bilib bo'lmaydi</b>.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 3</span>
+    <h4>Nomlangan argumentlar (PHP 8)</h4>
+    <div class="natija">function xabar(string $matn, string $kim = "mehmon", bool $qalin = false)
+
+xabar("Salom", "Ali", true)              →  **Ali: Salom
+xabar(matn: "Salom", qalin: true)        →  **mehmon: Salom</div>
+    <p>Ikkinchi shaklda <code>$kim</code> ni
+    <b>o'tkazib yubordik</b> — u standart
+    qiymatida qoldi.</p>
+    <p>🔑 Foydasi ikkita: <b>1)</b> tartibni eslash
+    shart emas · <b>2)</b> chaqiruv
+    <b>o'zini o'zi tushuntiradi</b>.</p>
+    <div class="natija">❌ hisobla($x, true, false, null, 3)     ← bu nima?
+✅ hisobla($x, qalin: true, soni: 3)</div>
+    <p>✅ Uch-to'rtta argumentdan ortiq bo'lsa,
+    nomlangan shaklni tanlang. Kursning
+    davomida bu naqsh juda ko'p
+    uchraydi.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 4</span>
+    <h4>⚠️ <code>int $x</code> kafolat bermaydi</h4>
+    <div class="natija">function f(int $x): int { return $x * 2; }
+
+f("5")      →  int(10)      ⚠️ MATN o'tdi va SONGA aylandi
+f("abc")    →  Fatal error: Uncaught TypeError: f(): Argument #1
+               ($x) must be of type int, string given</div>
+    <p>PHP standart holda <b>«bo'sh» rejimda</b>
+    ishlaydi: matn songa <b>o'xshasa</b>, uni
+    aylantiradi.</p>
+    <p>✅ Qat'iy rejim — fayl boshida <b>bitta
+    qator</b>:</p>
+    <div class="natija">declare(strict_types=1);
+
+f("5")   →  Fatal error: Uncaught TypeError: f(): Argument #1
+            ($x) must be of type int, string given      ✅</div>
+    <p>🔑 <b>Muhim nozik jihat:</b> bu qator
+    funksiya <b>yozilgan</b> faylga emas,
+    funksiya <b>chaqirilgan</b> faylga
+    ta'sir qiladi.</p>
+    <p>✅ Shuning uchun uni <b>har faylga</b>
+    yozish odat qilinadi.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 5</span>
+    <h4>Qaytish tipi ham majburlaydi</h4>
+    <div class="natija">function f(int $x): string { return $x * 2; }
+f(5)    →  string(2) "10"      ← son MATNGA aylantirildi
+
+function f() { $x = 5; }        →  NULL
+function f() { return; }        →  NULL
+function f(): void { return; }  →  NULL</div>
+    <p>🔑 <code>return</code> yozilmasa, funksiya
+    <b>har doim <code>null</code></b>
+    qaytaradi.</p>
+    <p>✅ <code>: void</code> — «bu funksiya
+    <b>hech narsa qaytarmaydi</b>» degan
+    <b>e'lon</b>. Uni yozsangiz va xatoga
+    <code>return $x;</code> qo'shsangiz, PHP
+    <b>darrov</b> aytadi.</p>
+    <p>🔍 Qaytish tipini yozish odati keyinchalik
+    juda qadrlanadi: kod o'qiganda funksiya
+    ichiga <b>kirmasdan</b> nima berishini
+    bilasiz.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 6</span>
+    <h4>⚠️ Standart qiymatli parametr tartibi</h4>
+    <div class="natija">function f($a = 1, $b) { }
+
+PHP Deprecated: Optional parameter $a declared before required
+parameter $b is implicitly treated as a required parameter</div>
+    <p>Sabab mantiqiy: <code>f(5)</code> deb
+    chaqirsangiz, <code>5</code> qaysi
+    parametrga tushishi kerak? PHP
+    <code>$a</code> ga beradi — va
+    <code>$b</code> <b>bo'sh</b> qoladi.</p>
+    <p>✅ Ikki yechim:</p>
+    <div class="natija">1) tartibni to'g'rilang:   function f($b, $a = 1)
+2) nullable qiling:        function f(?int $a, int $b = 2)</div>
+    <p>🔑 Qoida: <b>standart qiymatli parametrlar
+    oxirida</b> turadi.</p>
+    <p>⚠️ Va <code>Deprecated</code> — bu
+    <b>ogohlantirish</b>: hozir ishlaydi, lekin
+    kelajakdagi PHP versiyasida <b>xato</b>
+    bo'ladi.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>Bir nechta qiymat qaytarish</h4>
+    <div class="natija">function f() {
+    return ["ok" =&gt; true, "soni" =&gt; 3];
+}
+
+["ok" =&gt; $ok, "soni" =&gt; $n] = f();
+echo $ok, $n;      →  true 3</div>
+    <p>PHP funksiyadan <b>bitta</b> qiymat
+    qaytaradi. Lekin u massiv bo'lsa —
+    ichidan bir nechta qiymatni
+    <b>bir yo'la</b> ajratib olish
+    mumkin.</p>
+    <p>🔑 Bunga <b>destructuring</b> deyiladi.
+    5-darsdagi massiv bilishingiz shu yerda
+    ish beradi.</p>
+    <p>⚠️ Lekin ehtiyot bo'ling: uchtadan ortiq
+    qiymat qaytarayotgan funksiya odatda
+    <b>ikkita ish</b> qilayotgan bo'ladi.
+    Uni <b>bo'lish</b> haqida
+    o'ylang.</p>
+    <p>✅ Keyinroq bunday holatlar uchun ancha
+    aniqroq yechim ko'rasiz — qiymatlarni
+    <b>nomlangan obyektga</b> solish.</p>
+  </div>
+
   <h2>Sinab ko'ramiz</h2>
 
   <div class="predict">
@@ -618,7 +824,36 @@ var_dump(ikkilantir("5"));</code>
       <li id="fn3">Barcha natijalar — shu jumladan <code>TypeError</code> xabari va
       uch bosqichli stack trace — PHP <b>8.3.32</b> da jonli chiqarilgan va
       shundayligicha ko'chirilgan.</li>
-    </ol>
+          <li id="fn4">Holatlar bo'limidagi barchasi jonli
+      o'lchangan (PHP <b>8.3.32</b>):
+      funksiya ichida tashqi <code>$x</code> —
+      <code>KO'RINMAYDI</code>, tashqarida
+      <code>int(10)</code> ·
+      qiymat bilan uzatilganda massiv
+      <code>[a]</code> qoldi, <code>&amp;$a</code>
+      bilan <code>[a, yangi]</code> bo'ldi ·
+      <code>xabar("Salom", "Ali", true)</code> →
+      <code>**Ali: Salom</code>;
+      <code>xabar(matn: "Salom", qalin: true)</code> →
+      <code>**mehmon: Salom</code> ·
+      <code>f("5")</code> → <code>int(10)</code>,
+      <code>f("abc")</code> →
+      <code>TypeError: f(): Argument #1 ($x) must be of
+      type int, string given</code>;
+      <code>declare(strict_types=1)</code> bilan
+      <code>f("5")</code> ham <b>TypeError</b> ·
+      <code>function f(int $x): string</code> →
+      <code>string(2) "10"</code> ·
+      <code>return</code> siz, bo'sh
+      <code>return</code> va <code>: void</code> —
+      uchalasi <b>NULL</b> ·
+      <code>function f($a = 1, $b)</code> →
+      <code>PHP Deprecated: Optional parameter $a declared
+      before required parameter $b is implicitly treated as
+      a required parameter</code> ·
+      destructuring: <code>["ok" =&gt; $ok, "soni" =&gt; $n]
+      = f()</code> → <code>true</code> va <code>3</code>.</li>
+</ol>
   </section>
 
 </main>
