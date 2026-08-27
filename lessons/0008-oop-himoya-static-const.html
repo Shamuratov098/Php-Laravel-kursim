@@ -27,18 +27,54 @@
   <div class="qamrov">
     <span class="label">Bu darsda nimalar bor</span>
     <ol>
-      <li><b>Uch daraja: <code>public</code>, <code>private</code>, <code>protected</code></b>
-        <span class="nima">Kim qayerdan ko'ra oladi.</span></li>
-      <li><b>Enkapsulyatsiya</b>
-        <span class="nima">Ma'lumotga <b>metod orqali</b> murojaat qilish va nima uchun bu foydali.</span></li>
-      <li><b>Constructor property promotion</b>
-        <span class="nima">PHP 8 ning qisqa yozuvi — 5 qator o'rniga 1 qator.</span></li>
-      <li><b><code>const</code></b>
-        <span class="nima">O'zgarmas qiymat va uni klass ichida saqlash.</span></li>
-      <li><b><code>static</code></b>
-        <span class="nima">Obyektga emas, <b>klassga</b> tegishli xossa va metod.</span></li>
-      <li><b><code>::</code> va <code>-&gt;</code> farqi</b>
-        <span class="nima">Qaysi holatda qaysi belgi ishlatiladi.</span></li>
+      <li><b>Uch daraja</b>
+        <span class="nima"><code>public</code> ·
+        <code>protected</code> ·
+        <code>private</code> — kim
+        ko'radi.</span></li>
+      <li><b>🔍 Ularning aniq xatolari</b>
+        <span class="nima"><code>Cannot access private
+        property</code> — matnini tanib
+        oling.</span></li>
+      <li><b>Getter va setter</b>
+        <span class="nima">Ma'lumotga
+        <b>eshik</b> qo'yish.</span></li>
+      <li><b>Nima uchun himoya kerak</b>
+        <span class="nima">🔍 O'lchandi:
+        <code>maoshBer(-5)</code> →
+        <code>InvalidArgumentException</code>.</span></li>
+      <li><b><code>readonly</code> (PHP 8.1)</b>
+        <span class="nima">🔍 O'qish mumkin, yozish —
+        <code>Cannot modify readonly
+        property</code>.</span></li>
+      <li><b><code>private</code> metod</b>
+        <span class="nima">🔍 Ichkaridan
+        <b>108</b>, tashqaridan
+        <code>Call to private method</code>.</span></li>
+      <li><b>Ommaviy shartnoma va ichki tafsilot</b>
+        <span class="nima"><code>public</code> qismi
+        kichik bo'lsa — o'zgartirish
+        oson.</span></li>
+      <li><b>🔍 <code>private</code> klassga tegishli</b>
+        <span class="nima">Boshqa <b>nusxaning</b>
+        private xossasini o'qish —
+        <b>ruxsat</b>.</span></li>
+      <li><b><code>var_dump</code> darajani
+        ko'rsatadi</b>
+        <span class="nima"><code>["c":"V":private]</code>
+        — kimga tegishli ekani ham.</span></li>
+      <li><b>⚠️ <code>__get</code> sehri</b>
+        <span class="nima">🔍 Yo'q xossa
+        <b>NULL</b> qaytardi — xato ham,
+        ogohlantirish ham yo'q.</span></li>
+      <li><b>Qayerdan boshlash</b>
+        <span class="nima">Hammasini
+        <code>private</code> dan — ochish
+        oson, yopish qiyin.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima">Darajalar ·
+        <code>readonly</code> · private metod ·
+        <code>__get</code> narxi.</span></li>
     </ol>
   </div>
 
@@ -507,6 +543,200 @@ git commit -m "08-dars: himoya, static va const"</div>
   </div>
 
   <!-- ═══════════════ 5) TAXMIN + QUIZ ═══════════════ -->
+
+  <!-- ═══════════════ HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir bir
+  marta o'qing, keyin kerak bo'lganda qaytib qarang.</p>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 1</span>
+    <h4>🔍 Uch daraja va ularning xatolari</h4>
+    <div class="natija">class V { private int $maosh = 900; }
+$v-&gt;maosh;
+   Fatal error: Uncaught Error: Cannot access private
+   property V::$maosh
+
+class V { protected int $maosh = 900; }
+$v-&gt;maosh;
+   Fatal error: Uncaught Error: Cannot access protected
+   property V::$maosh</div>
+    <p>🔑 Uchtasi bir jumlada:</p>
+    <div class="natija">public     →  hamma joydan
+protected  →  shu klass VA undan meros olganlar
+private    →  faqat shu klass</div>
+    <p>✅ Amaliy qoida: <b>hammasini
+    <code>private</code> dan boshlang</b>. Kerak
+    bo'lganda <b>ochasiz</b> — teskarisi ancha
+    qiyin.</p>
+    <p>🔍 <code>protected</code> ning ma'nosi
+    keyingi darsda ochiladi — u yerda
+    <b>meros</b> bilan tanishasiz.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 2</span>
+    <h4><code>var_dump</code> darajani ko'rsatadi</h4>
+    <div class="natija">class V { public $a = 1; protected $b = 2; private $c = 3; }
+
+var_dump(new V);
+   object(V)#1 (3) {
+     ["a"]            =&gt; int(1)
+     ["b":protected]  =&gt; int(2)
+     ["c":"V":private] =&gt; int(3)
+   }</div>
+    <p>🔑 <code>var_dump</code> <b>hammasini</b>
+    ko'rsatadi — hatto <code>private</code> ni
+    ham. Bu <b>himoyani buzish emas</b>:
+    <code>var_dump</code> nosozlik qidirish
+    vositasi.</p>
+    <p>🔍 <code>["c":"V":private]</code> —
+    «<code>c</code> xossasi <code>V</code>
+    klassiga tegishli va private». Meros
+    bo'lganda bu ma'lumot foydali
+    bo'ladi.</p>
+    <p>⚠️ Va 4-darsdagi qoida esda tursin:
+    <code>var_dump</code> ni ishlab chiqarish
+    kodida <b>qoldirmang</b>.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 3</span>
+    <h4><code>readonly</code> — bir marta yoziladi</h4>
+    <div class="natija">class V {
+    public function __construct(public readonly int $maosh) {}
+}
+
+$v = new V(900);
+echo $v-&gt;maosh;      →  900        ✅ o'qish mumkin
+$v-&gt;maosh = 1000;
+   Fatal error: Uncaught Error: Cannot modify readonly
+   property V::$maosh                                  ✅</div>
+    <p>🔑 <code>private</code> dan farqi:
+    <code>readonly</code> xossa
+    <b>tashqaridan o'qiladi</b>, lekin
+    <b>hech qayerdan</b> — hatto klass ichidan
+    ham — <b>ikkinchi marta</b>
+    yozilmaydi.</p>
+    <p>✅ Ideal holat: obyekt yaratilgach
+    o'zgarmaydigan ma'lumot uchun —
+    identifikator, yaratilgan vaqt, valyuta
+    kodi.</p>
+    <p>🔍 Bu PHP 8.1 dan beri bor va zamonaviy
+    kodda tez-tez uchraydi.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 4</span>
+    <h4>Nima uchun setter kerak — himoya shu yerda</h4>
+    <div class="natija">class V {
+    private int $maosh = 0;
+
+    public function maoshBer(int $m): void {
+        if ($m &lt; 0) {
+            throw new InvalidArgumentException("Maosh manfiy bo'lmaydi: $m");
+        }
+        $this-&gt;maosh = $m;
+    }
+
+    public function maosh(): int { return $this-&gt;maosh; }
+}
+
+$v-&gt;maoshBer(900);   →  900
+$v-&gt;maoshBer(-5);    →  InvalidArgumentException:
+                        Maosh manfiy bo'lmaydi: -5</div>
+    <p>🔑 <b>Mana shu</b> — «obyekt o'z
+    ma'lumotini himoya qiladi» degan gapning
+    aniq ma'nosi.</p>
+    <p>⚠️ Xossa <code>public</code> bo'lganda bu
+    <b>imkonsiz</b>: kim xohlasa
+    <code>$v->maosh = -5</code> deb yozadi va
+    hech kim to'sa olmaydi.</p>
+    <p>✅ E'tibor bering: <code>maoshBer()</code>
+    faqat <b>saqlamaydi</b> — u
+    <b>qaror qabul qiladi</b>. Shuning uchun
+    unga «setter» deyish ham to'liq
+    to'g'ri emas.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 5</span>
+    <h4><code>private</code> metod</h4>
+    <div class="natija">class V {
+    public function hisobla(): int { return $this-&gt;soliq(900); }
+    private function soliq(int $m): int { return (int)($m * 0.12); }
+}
+
+$v-&gt;hisobla();   →  108        ✅ ichkaridan chaqirildi
+$v-&gt;soliq(900);
+   Fatal error: Uncaught Error: Call to private method
+   V::soliq() from global scope</div>
+    <p>🔑 <code>private</code> metod — «bu
+    <b>ichki ish</b>, tashqi dunyoga
+    aloqasi yo'q».</p>
+    <p>✅ Foydasi: uni <b>istalgan payt
+    o'zgartirsangiz</b> ham, tashqarida hech
+    narsa buzilmaydi — chunki uni hech kim
+    chaqirmaydi.</p>
+    <p>🔍 Bu «ommaviy shartnoma» va «ichki
+    tafsilot» ajratmasi. Klassning
+    <code>public</code> qismi qanchalik kichik
+    bo'lsa, uni o'zgartirish shuncha
+    oson.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 6</span>
+    <h4>🔍 <code>private</code> — obyektga emas, KLASSGA tegishli</h4>
+    <div class="natija">class V {
+    public function __construct(private int $m) {}
+
+    public function kattaroqmi(V $b): bool {
+        return $this-&gt;m &gt; $b-&gt;m;     ← BOSHQA obyektning private xossasi
+    }
+}
+
+(new V(900))-&gt;kattaroqmi(new V(500))   →  true      ✅ RUXSAT</div>
+    <p>Kutilmagan bo'lishi mumkin, lekin qoida
+    aynan shunday: <code>private</code>
+    <b>obyektni</b> emas, <b>klassni</b>
+    himoya qiladi.</p>
+    <p>🔑 Ya'ni <code>V</code> klassining kodi
+    <b>har qanday</b> <code>V</code> nusxasining
+    ichini ko'ra oladi.</p>
+    <p>✅ Bu foydali: solishtirish, teng-ligini
+    tekshirish, nusxa olish kabi metodlar shu
+    tufayli yoziladi.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>⚠️ <code>__get</code> — sehr va uning narxi</h4>
+    <div class="natija">class V {
+    private array $d = ["nom" =&gt; "PHP"];
+    public function __get($k) { return $this-&gt;d[$k] ?? null; }
+}
+
+$v-&gt;nom   →  PHP      ← xossa YO'Q, lekin ishladi
+$v-&gt;yoq   →  NULL     ⚠️ xato ham, ogohlantirish ham YO'Q</div>
+    <p>PHP mavjud bo'lmagan xossa
+    so'ralganda <code>__get()</code> ni
+    chaqiradi. Bu qulay ko'rinadi —
+    <b>lekin</b>:</p>
+    <div class="natija">1) IDE nima borligini bilmaydi — avtomatik to'ldirish yo'q
+2) Nom xato yozilsa — NULL qaytadi, xato YO'Q  (2-darsdagi tuzoq)
+3) O'qiganda "bu xossa qayerdan keldi?" degan savol tug'iladi</div>
+    <p>🔑 Kursimizning tamoyili — <b>«sehr
+    yo'q»</b>. Xossalarni <b>ochiq</b>
+    e'lon qiling.</p>
+    <p>⚠️ Lekin buni <b>bilish</b> kerak: ba'zi
+    kutubxonalar aynan shunday ishlaydi, va
+    o'shanda «bu xossa qayerda
+    e'lon qilingan?» degan savolga javob
+    <b>hech qayerda</b> bo'ladi.</p>
+  </div>
+
   <h2>Sinab ko'ramiz</h2>
 
   <div class="predict">
@@ -726,7 +956,33 @@ echo $a-&gt;oddiy, " ", $b-&gt;oddiy, " ", Hisoblagich::$umumiy;</code>
       <li id="fn3">Barcha natijalar PHP <b>8.3.32</b> da jonli sinab ko'rilgan — shu
       jumladan <code>Cannot access private property</code> xatosi va taxmin mashqidagi
       <code>1 1 2</code> natijasi.</li>
-    </ol>
+          <li id="fn4">Holatlar bo'limidagi barchasi jonli
+      o'lchangan (PHP <b>8.3.32</b>):
+      <code>Cannot access private property V::$maosh</code>
+      va <code>Cannot access protected property
+      V::$maosh</code> ·
+      <code>var_dump</code> →
+      <code>["a"]=&gt;int(1) ["b":protected]=&gt;int(2)
+      ["c":"V":private]=&gt;int(3)</code> ·
+      <code>readonly</code>: o'qish <b>900</b>, yozishda
+      <code>Cannot modify readonly property
+      V::$maosh</code> ·
+      setter: <code>maoshBer(900)</code> → <b>900</b>,
+      <code>maoshBer(-5)</code> →
+      <code>InvalidArgumentException: Maosh manfiy
+      bo'lmaydi: -5</code> ·
+      private metod: ichkaridan <b>108</b>, tashqaridan
+      <code>Call to private method V::soliq() from global
+      scope</code> ·
+      🔍 <code>private</code> klassga tegishli —
+      <code>(new V(900))-&gt;kattaroqmi(new V(500))</code>
+      boshqa nusxaning private xossasini o'qidi va
+      <b>true</b> qaytardi ·
+      <code>__get</code>: <code>$v-&gt;nom</code> →
+      <code>PHP</code>, <code>$v-&gt;yoq</code> →
+      <b>NULL</b> (xato ham, ogohlantirish ham
+      yo'q).</li>
+</ol>
   </section>
 
 </main>
