@@ -109,6 +109,26 @@
     <b>bitta xato</b> bor edi va API uni ochib tashlaydi.</p>
   </div>
 
+  <div class="callout note">
+    <span class="label">📌 Testlar soni haqida — bir marta aytiladi</span>
+    <p>45-darsda to'liq to'plam <b>60 passed</b> edi. Shu
+    darsdan boshlab men o'lchovlarni <b>qayta qurilgan,
+    API'ga qaratilgan</b> loyihada olaman — unda web
+    (Blade) tomoni yo'q. Shuning uchun «to'liq to'plam»
+    raqamlari <b>noldan qayta boshlanadi</b>:
+    47-darsda <b>15</b>, 48-darsda <b>19</b> va
+    hokazo.</p>
+    <p>🔑 <b>Sizda bunday bo'lmaydi.</b> Agar 1-darsdan
+    beri bitta loyihada yurgan bo'lsangiz, sizning
+    to'plamingiz <b>kattaroq</b> bo'ladi — va bu
+    <b>to'g'ri</b>.</p>
+    <p>✅ Shuning uchun raqamga emas, <b>ikkita narsaga</b>
+    qarang: yangi testlar <b>yashilmi</b> va eskilari
+    <b>buzilmadimi</b>. 56-darsdan boshlab raqamlar
+    yana o'sib boradi va kurs oxirigacha shunday
+    qoladi (<b>121 passed</b>).</p>
+  </div>
+
   <!-- ═══════════════ 2) PAGINATE JSON ═══════════════ -->
   <h2><code>paginate()</code> API'da: uchta yuqori kalit</h2>
 
@@ -355,7 +375,8 @@ order by "maosh"", (select password from users) --" asc
   <!-- ═══════════════ 5) VALIDATSIYA ═══════════════ -->
   <h2>Query parametr ham tekshiriladi</h2>
 
-  <p>35-darsda «tekshirilmagan ma'lumot ichkariga kirmasin» degandik.
+  <p>35-darsda tekshiruvni «o'z uyiga» — <code>FormRequest</code> ga
+  ko'chirgandik.
   Query parametr ham <b>ma'lumot</b> — u ham tekshirilishi kerak. Va
   <code>$request-&gt;validate()</code> GET so'rovda ham xuddi shunday
   ishlaydi:</p>

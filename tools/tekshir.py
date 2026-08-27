@@ -138,6 +138,26 @@ idx = open('index.html').read()
 hrefs = re.findall(r'href="lessons/(\d{4})[^"]*"', idx)
 if len(hrefs) != len(LESSONS): bad(f'INDEX: {len(hrefs)} havola, {len(LESSONS)} dars fayli')
 
+# 10a) «Iqtibos» + dars raqami: keltirilgan gap manba darsda haqiqatan bormi
+def _norm(x):
+    return re.sub(r"[^a-z0-9' ]", ' ', x.lower().replace('\u2019', "'").replace('\u2018', "'"))
+
+_matn = {}
+for _f in LESSONS:
+    _n = int(os.path.basename(_f)[:4])
+    _matn[_n] = ' '.join(re.sub(r'<[^>]+>', ' ', open(_f).read()).split())
+for _n, _t in _matn.items():
+    for _m in re.finditer(r'(\d{1,2})-dars[a-z]*\s*\u00ab([^\u00bb]{6,70})\u00bb', _t):
+        _d, _q = int(_m.group(1)), _m.group(2)
+        if _d == _n or _d not in _matn:
+            continue
+        _k = [w for w in _norm(_q).split() if len(w) > 3]
+        if not _k:
+            continue
+        _manba = _norm(_matn[_d])
+        if sum(1 for w in _k if w in _manba) < max(1, len(_k) // 2):
+            bad(f'IQTIBOS {_n}-dars: «{_q}» — {_d}-darsda bunday gap yo\'q')
+
 # 10) Oldinga raqamli havola bo'lmasin (faqat modul harfi) — keyingi dars mustasno
 nxt = len(LESSONS) + 1
 for f in LESSONS:
