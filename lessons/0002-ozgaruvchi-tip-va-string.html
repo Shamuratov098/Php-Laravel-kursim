@@ -28,17 +28,52 @@
     <span class="label">Bu darsda nimalar bor</span>
     <ol>
       <li><b>O'zgaruvchi — yorliqli quti</b>
-        <span class="nima"><code>$nom</code> yozilishi, nom qo'yish qoidalari.</span></li>
+        <span class="nima"><code>$nom</code> yozilishi, nom
+        qo'yish qoidalari.</span></li>
       <li><b>Tip qiymatda yashaydi</b>
-        <span class="nima">Dinamik tiplash: bir o'zgaruvchi bugun matn, ertaga son bo'lishi mumkin.</span></li>
+        <span class="nima">Dinamik tiplash: bir
+        o'zgaruvchi bugun matn, ertaga son
+        bo'lishi mumkin.</span></li>
       <li><b>Beshta asosiy tip</b>
-        <span class="nima"><code>string</code> · <code>int</code> · <code>float</code> · <code>bool</code> · <code>null</code>.</span></li>
+        <span class="nima"><code>string</code> ·
+        <code>int</code> · <code>float</code> ·
+        <code>bool</code> · <code>null</code>.</span></li>
       <li><b><code>var_dump()</code> — asosiy asbob</b>
-        <span class="nima">«Nima bo'lyapti?» degan savolga javob beradigan birinchi vosita.</span></li>
+        <span class="nima">«Nima bo'lyapti?» degan savolga
+        javob beradigan birinchi vosita.</span></li>
       <li><b>Matn ichiga qiymat qo'yish</b>
-        <span class="nima">Interpolatsiya (<code>"Salom $nom"</code>) va biriktirish (<code>.</code>) farqi.</span></li>
-      <li><b>Tuzoq: <code>"5" + 5</code></b>
-        <span class="nima">PHP matnni songa aylantirib qo'yadi — <code>"5" . "5"</code> bilan solishtiring.</span></li>
+        <span class="nima">Interpolatsiya
+        (<code>"Salom $nom"</code>) va biriktirish
+        (<code>.</code>) farqi.</span></li>
+      <li><b>🔍 Qo'shtirnoq va apostrof</b>
+        <span class="nima">O'lchandi:
+        <code>'Salom $n'</code> →
+        <code>Salom $n</code> — o'zgarmadi.</span></li>
+      <li><b>⚠️ <code>"$ismlar"</code> tuzog'i</b>
+        <span class="nima">🔍 Natija <b>bo'sh</b> —
+        PHP boshqa o'zgaruvchini
+        qidirdi.</span></li>
+      <li><b>Aniqlanmagan o'zgaruvchi</b>
+        <span class="nima"><code>Undefined
+        variable</code> va <code>??</code>
+        yechimi.</span></li>
+      <li><b>⚠️ <code>0.1 + 0.2</code> nima beradi</b>
+        <span class="nima">🔍 O'lchandi:
+        <code>0.30000000000000004</code> —
+        <b>pulni float'da saqlamang</b>.</span></li>
+      <li><b>⚠️ Registr farq qiladi</b>
+        <span class="nima">🔍 <code>$Ism</code> va
+        <code>$ism</code> — <b>ikki xil</b>
+        quti.</span></li>
+      <li><b>PHP tiplarni o'zi almashtiradi</b>
+        <span class="nima">🔍 <code>"5" + 3</code> →
+        <b>8</b>, <code>"5" . 3</code> →
+        <b>"53"</b>.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima"><code>{$...}</code> ·
+        <code>??</code> · float · nom qoidalari ·
+        <code>empty</code> va
+        <code>isset</code>.</span></li>
     </ol>
   </div>
 
@@ -317,6 +352,159 @@ git commit -m "02-dars: o'zgaruvchi va tiplar"</div>
   </div>
 
   <!-- ═══════════════ 5) TAXMIN + QUIZ ═══════════════ -->
+
+  <!-- ═══════════════ HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir bir
+  marta o'qing, keyin kerak bo'lganda qaytib qarang.</p>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 1</span>
+    <h4>Qo'shtirnoq va apostrof — eng ko'p chalkashadigan joy</h4>
+    <div class="natija">$n = "Ali";
+
+"Salom $n"      →  Salom Ali        ← o'zgaruvchi QIYMATGA almashdi
+'Salom $n'      →  Salom $n         ← xom matn, hech narsa o'zgarmadi</div>
+    <p>🔑 Qoida oddiy: <b>qo'shtirnoq ichida
+    o'zgaruvchi ishlaydi</b>, apostrof ichida
+    <b>yo'q</b>.</p>
+    <p>✅ Amalda: o'zgaruvchi kerak bo'lsa
+    qo'shtirnoq, oddiy matn bo'lsa apostrof.
+    Apostrof biroz tezroq ham — PHP uning ichini
+    <b>tekshirmaydi</b>.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 2</span>
+    <h4>⚠️ Qavs qachon kerak: <code>{$...}</code></h4>
+    <div class="natija">$ism = "Ali";
+$a = ["nom" =&gt; "Vali"];
+
+"$ism ning"         →  Ali ning        ✅ bo'shliq chegara bo'ldi
+"$a[nom]"           →  Vali            ✅ oddiy massiv — ishlaydi
+"{$a['nom']}"       →  Vali            ✅ eng ishonchli shakl
+
+"$ismlar"           →  (bo'sh)         ⚠️ $ismlar deb O'QIDI!</div>
+    <p>⚠️ Oxirgisi <b>jimgina</b> xato: siz
+    <code>$ism</code> dan keyin «lar» qo'shmoqchi
+    edingiz, PHP esa <code>$ismlar</code> degan
+    <b>boshqa</b> o'zgaruvchini qidirdi va
+    topmadi.</p>
+    <p>✅ Yechim — qavs:</p>
+    <div class="natija">"{$ism}lar"    →  Alilar        ✅</div>
+    <p>🔑 Shubha bo'lsa <b>doim</b> qavs qo'ying.
+    U hech qachon zarar qilmaydi.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 3</span>
+    <h4>Aniqlanmagan o'zgaruvchi</h4>
+    <div class="natija">echo $yoq;
+
+PHP Warning: Undefined variable $yoq in ... on line 1
+(va bo'sh natija)</div>
+    <p>Bu <b>xato emas, ogohlantirish</b> — dastur
+    davom etadi. Lekin u deyarli har doim
+    <b>haqiqiy muammoni</b> bildiradi: nom
+    xato yozilgan yoki qiymat berilmagan.</p>
+    <p>✅ Standart qiymat berish uchun
+    <code>??</code>:</p>
+    <div class="natija">echo $yoq ?? "standart";    →  standart      ← ogohlantirish YO'Q</div>
+    <p>🔑 <code>??</code> — «chapdagisi yo'q yoki
+    <code>null</code> bo'lsa, o'ngdagisini ol».
+    Kursning davomida uni juda ko'p
+    ishlatasiz.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 4</span>
+    <h4>⚠️ <code>float</code> — 0.1 + 0.2 nima beradi?</h4>
+    <div class="natija">var_dump(0.1 + 0.2);          →  float(0.30000000000000004)
+var_dump(0.1 + 0.2 == 0.3);   →  bool(false)              ⚠️
+printf("%.20f", 0.1 + 0.2);   →  0.30000000000000004441</div>
+    <p>Bu PHP'ning kamchiligi <b>emas</b> — deyarli
+    <b>hamma</b> tilda shunday. Sabab: kompyuter
+    kasr sonlarni ikkilik sanoqda saqlaydi va
+    <code>0.1</code> u yerda <b>aniq</b>
+    ifodalanmaydi.</p>
+    <p>☠️ Shuning uchun <b>pul</b>ni
+    <code>float</code> da saqlamang.</p>
+    <p>✅ Yechim: pulni <b>tiyinda</b>, ya'ni butun
+    son (<code>int</code>) sifatida saqlang.
+    <code>150.50 so'm</code> emas,
+    <code>15050 tiyin</code>.</p>
+    <p>🔑 Bu qoidani hozir eslab qoling — kursning
+    oxirida u yana chiqadi.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 5</span>
+    <h4>Nom qo'yish qoidalari</h4>
+    <div class="natija">$_a = 1;  $a1 = 2;      →  ✅ pastki chiziq va raqam MUMKIN
+$1a = 1;                →  ⚠️ PHP Parse error: syntax error,
+                              unexpected integer "1"
+
+$Ism = "A";  $ism = "B";
+echo $Ism, $ism;        →  AB       ← BU IKKI XIL o'zgaruvchi</div>
+    <p>🔑 Uchta qoida: <b>1)</b> raqam bilan
+    <b>boshlanmaydi</b> · <b>2)</b> harf,
+    raqam va <code>_</code> mumkin ·
+    <b>3)</b> <b>katta-kichik harf farq
+    qiladi</b>.</p>
+    <p>⚠️ Uchinchisi ko'p vaqt yo'qotadi:
+    <code>$Vakansiya</code> va
+    <code>$vakansiya</code> — <b>boshqa-boshqa</b>
+    qutilar.</p>
+    <p>✅ Kelishuv: o'zgaruvchi nomi <b>kichik
+    harf</b> bilan boshlanadi.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 6</span>
+    <h4>⚠️ PHP tiplarni o'zi almashtiradi</h4>
+    <div class="natija">"5" + 3        →  int(8)          ← matn SONGA aylandi
+"5" . 3        →  string(2) "53"  ← son MATNGA aylandi
+true + true    →  int(2)          ← bool SONGA aylandi
+"abc" == 0     →  bool(false)     ← PHP 8 dan beri</div>
+    <p>🔑 <code>+</code> — <b>qo'shish</b>,
+    <code>.</code> — <b>biriktirish</b>. PHP
+    qaysi amalni ko'rsa, qiymatni <b>o'shanga
+    moslaydi</b>.</p>
+    <p>🔍 Oxirgisi muhim: PHP 7 da
+    <code>"abc" == 0</code> <b>true</b> edi va bu
+    juda ko'p xatoga sabab bo'lgan. PHP 8 buni
+    tuzatdi.</p>
+    <p>⚠️ Shunga qaramay <code>==</code> ga
+    ishonmang — <b>3-darsda</b> nega
+    <code>===</code> yaxshiroq ekanini
+    ko'ramiz.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>«Bo'sh» nimani anglatadi</h4>
+    <div class="natija">qiymat     empty()   isset()   (bool)
+────────────────────────────────────────
+0          true      true      false
+"0"        true      true      false      ⚠️ matn "0" ham BO'SH
+""         true      true      false
+null       true      FALSE     false      ← faqat shunda isset false
+[]         true      true      false
+0.0        true      true      false
+"a"        false     true      true</div>
+    <p>🔑 Ikki funksiya, ikki savol:
+    <code>isset()</code> — «<b>bor</b>mi?»,
+    <code>empty()</code> — «<b>bo'sh</b>mi?».</p>
+    <p>⚠️ Eng xavflisi — <code>"0"</code>: u
+    <b>matn</b>, ichida belgi bor, lekin PHP uni
+    <b>bo'sh</b> deb hisoblaydi.</p>
+    <p>🔍 Bu jadval hozir quruq ko'rinishi mumkin.
+    Lekin kursning davomida u <b>haqiqiy bug</b>
+    sabab bo'ladi — va o'shanda bu yerga
+    qaytasiz.</p>
+  </div>
+
   <h2>Sinab ko'ramiz</h2>
 
   <div class="predict">
@@ -499,7 +687,40 @@ string(2) "55"</div>
       Eski PHP versiyalarida ba'zi chiqishlar farq qilishi mumkin — masalan aniqlanmagan
       o'zgaruvchi PHP 8 dan boshlab <code>Warning</code>, undan oldin <code>Notice</code>
       edi.</li>
-    </ol>
+          <li id="fn4">Holatlar bo'limidagi barchasi jonli
+      o'lchangan (PHP <b>8.3.32</b>):
+      <code>"Salom $n"</code> → <code>Salom Ali</code>,
+      <code>'Salom $n'</code> → <code>Salom $n</code> ·
+      <code>"$ism ning"</code> → <code>Ali ning</code>,
+      <code>"$a[nom]"</code> → <code>Vali</code>,
+      <code>"{$a['nom']}"</code> → <code>Vali</code>,
+      ⚠️ <code>"$ismlar"</code> → <b>bo'sh</b> ·
+      <code>echo $yoq</code> →
+      <code>PHP Warning: Undefined variable $yoq</code>;
+      <code>$yoq ?? "standart"</code> →
+      <code>standart</code> (ogohlantirishsiz) ·
+      <code>0.1 + 0.2</code> →
+      <code>float(0.30000000000000004)</code>,
+      <code>0.1 + 0.2 == 0.3</code> →
+      <code>bool(false)</code>,
+      <code>%.20f</code> bilan
+      <code>0.30000000000000004441</code> ·
+      <code>$1a = 1;</code> →
+      <code>PHP Parse error: syntax error, unexpected
+      integer "1"</code>; <code>$Ism</code> va
+      <code>$ism</code> — ikki xil qiymat
+      (<code>AB</code>) ·
+      <code>"5" + 3</code> → <code>int(8)</code>,
+      <code>"5" . 3</code> → <code>string(2) "53"</code>,
+      <code>true + true</code> → <code>int(2)</code>,
+      <code>"abc" == 0</code> → <code>bool(false)</code> ·
+      <code>empty()</code>/<code>isset()</code>/<code>(bool)</code>
+      jadvali <code>0</code>, <code>"0"</code>,
+      <code>""</code>, <code>null</code>, <code>[]</code>,
+      <code>0.0</code>, <code>"a"</code> uchun
+      o'lchangan — <code>null</code> yagona
+      <code>isset() === false</code>.</li>
+</ol>
   </section>
 
 </main>

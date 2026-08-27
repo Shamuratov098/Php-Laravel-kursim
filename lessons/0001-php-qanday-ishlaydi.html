@@ -28,15 +28,49 @@
     <span class="label">Bu darsda nimalar bor</span>
     <ol>
       <li><b>So'rov va javob zanjiri</b>
-        <span class="nima">Brauzer → server → PHP → HTML. PHP <b>matn ishlab chiqaradi</b>, brauzer esa faqat natijani ko'radi.</span></li>
+        <span class="nima">Brauzer → server → PHP → HTML.
+        PHP <b>matn</b> ishlab chiqaradi, brauzer esa faqat
+        natijani ko'radi.</span></li>
       <li><b>PHP hududi: <code>&lt;?php</code></b>
-        <span class="nima">Fayl ichida ikki hudud bor — HTML va PHP. <code>?&gt;</code> dan keyingi bo'shliqning taqdiri.</span></li>
+        <span class="nima">Fayl ichida ikki hudud bor — HTML
+        va PHP.</span></li>
       <li><b><code>echo</code> — chiqarish</b>
-        <span class="nima">Eng birinchi buyruq; nuqtali vergul nima uchun kerak.</span></li>
+        <span class="nima">Eng birinchi buyruq; nuqtali vergul
+        nima uchun kerak.</span></li>
       <li><b>PHP'ning o'z veb-serveri</b>
-        <span class="nima"><code>php -S localhost:8000</code> — terminal band bo'lib qolishi va <code>Ctrl+C</code>.</span></li>
+        <span class="nima"><code>php -S localhost:8000</code> —
+        terminal band bo'lib qolishi va
+        <code>Ctrl+C</code>.</span></li>
       <li><b>Brauzerda manbani ko'rish</b>
-        <span class="nima"><code>Ctrl+U</code> — PHP kodi brauzerga <b>yetib bormaganini</b> tekshirish.</span></li>
+        <span class="nima"><code>Ctrl+U</code> — PHP kodi
+        brauzerga yetib bormaganini tekshirish.</span></li>
+      <li><b>🔍 Fayl va brauzer — yonma-yon</b>
+        <span class="nima">O'lchandi: faylda
+        <code>&lt;?php ... ?&gt;</code>, brauzerda
+        <code>&lt;p&gt;PHP: 2026&lt;/p&gt;</code>.</span></li>
+      <li><b>⚠️ <code>?&gt;</code> dan keyingi bo'sh
+        qator</b>
+        <span class="nima">🔍 O'lchandi: <b>bitta</b>
+        yangi qator yutiladi, ikkinchisi
+        <b>chiqadi</b>.</span></li>
+      <li><b>⚠️ Va uning oqibati</b>
+        <span class="nima"><code>Cannot modify header
+        information</code> — kelajakdagi eng ko'p
+        uchraydigan xato.</span></li>
+      <li><b><code>&lt;?=</code> qisqa yozuv</b>
+        <span class="nima"><code>&lt;?php echo $x; ?&gt;</code>
+        ning qisqartmasi.</span></li>
+      <li><b>⚠️ Kengaytma: CLI va server farqi</b>
+        <span class="nima">🔍 O'lchandi: serverda
+        <code>.txt</code> <b>kodni ochib
+        qo'yadi</b>.</span></li>
+      <li><b>Xato qanday ko'rinadi</b>
+        <span class="nima">🔍 Terminalda chiqish kodi
+        <b>255</b>, brauzerda <b>500</b>.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima"><code>php -l</code> ·
+        <code>index.php</code> · <code>print</code> ·
+        <code>php -a</code> · haqiqiy server.</span></li>
     </ol>
   </div>
 
@@ -295,6 +329,165 @@ git commit -m "01-dars: birinchi PHP sahifasi"</div>
   </div>
 
   <!-- ═══════════════ 5) TAXMIN + QUIZ ═══════════════ -->
+
+  <!-- ═══════════════ HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir bir
+  marta o'qing, keyin kerak bo'lganda qaytib qarang. Hozir
+  hammasini tushunmasangiz — <b>normal</b>.</p>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 1</span>
+    <h4>Faylda nima bor, brauzer nimani oladi</h4>
+    <div class="natija">FAYLDA:
+&lt;!doctype html&gt;
+&lt;h1&gt;Sarlavha&lt;/h1&gt;
+&lt;?php echo "&lt;p&gt;PHP: ".date("Y") . "&lt;/p&gt;"; ?&gt;
+&lt;footer&gt;Oxiri&lt;/footer&gt;
+
+BRAUZER OLADI:
+&lt;!doctype html&gt;
+&lt;h1&gt;Sarlavha&lt;/h1&gt;
+&lt;p&gt;PHP: 2026&lt;/p&gt;&lt;footer&gt;Oxiri&lt;/footer&gt;</div>
+    <p>🔑 Uchta narsa e'tiborga loyiq: HTML
+    <b>o'zgarmasdan</b> o'tdi ·
+    <code>&lt;?php ... ?&gt;</code> <b>natijaga</b>
+    almashdi · <code>&lt;?php</code> so'zining
+    o'zi <b>hech qayerda yo'q</b>.</p>
+    <p>✅ Bu darsning butun mohiyati shu. Uni
+    <code>Ctrl+U</code> bilan o'z ko'zingiz bilan
+    ko'rasiz.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 2</span>
+    <h4>⚠️ <code>?&gt;</code> dan keyingi bo'sh qator</h4>
+    <div class="natija">fayl oxiri              chiqish
+────────────────────────────────────
+?&gt; yo'q                 1 bayt:  A
+?&gt; + bitta \n           1 bayt:  A          ← yutildi
+?&gt; + ikkita \n          2 bayt:  A \n        ⚠️ bittasi CHIQDI
+?&gt; + uchta \n           3 bayt:  A \n \n     ⚠️</div>
+    <p>PHP <code>?&gt;</code> dan keyingi
+    <b>bitta</b> yangi qatorni yutadi — qolgani
+    <b>chiqishga tushadi</b>.</p>
+    <p>⚠️ Ko'rinmas bo'shliq, lekin oqibati aniq:</p>
+    <div class="natija">PHP Warning: Cannot modify header information -
+headers already sent by (output started at b.php:2)</div>
+    <p>🔑 Bu — PHP'dagi <b>eng ko'p uchraydigan</b>
+    sirli xatolardan biri. Sababi shunchaki
+    <b>bo'sh qator</b>.</p>
+    <p>✅ Shuning uchun faqat PHP kodi bo'lgan faylda
+    <code>?&gt;</code> <b>yozilmaydi</b> — bu
+    tasodif emas, <b>qoida</b>.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 3</span>
+    <h4><code>&lt;?=</code> — qisqa yozuv</h4>
+    <div class="natija">&lt;?php $n = "Ali"; ?&gt;
+Salom, &lt;?php echo $n; ?&gt;!      →  Salom, Ali!
+Salom, &lt;?= $n ?&gt;!              →  Salom, Ali!</div>
+    <p>🔍 Ikkalasi <b>bir xil</b> natija beradi.
+    <code>&lt;?=</code> — bu <code>&lt;?php echo</code>
+    ning qisqartmasi.</p>
+    <p>✅ HTML orasida qiymat chiqarayotganda
+    <code>&lt;?=</code> qulayroq va o'qishga
+    osonroq.</p>
+    <p>🔑 E'tibor bering: oxirida nuqtali vergul
+    <b>shart emas</b> — <code>?&gt;</code> uning
+    o'rnini bosadi.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 4</span>
+    <h4>⚠️ Kengaytma: terminal va server farqi</h4>
+    <div class="natija">TERMINALDA (php fayl):
+  php d.txt   →  ishladi        ← kengaytma MUHIM EMAS
+
+SERVERDA (php -S):
+  /srv.php    →  PHP ishladi                        ✅
+  /srv.txt    →  &lt;?php echo "PHP ishladi";          ☠️ KOD KO'RINDI</div>
+    <p>Server faqat <code>.php</code> fayllarni PHP
+    sifatida <b>bajaradi</b>. Boshqasini
+    <b>xom matn</b> sifatida beradi.</p>
+    <p>☠️ Ya'ni <code>.txt</code> yoki
+    <code>.bak</code> qilib qoldirilgan fayl —
+    kodingizni, hatto parollaringizni
+    <b>internetga ochib qo'yadi</b>.</p>
+    <p>🔑 Qoida: PHP fayli <b>doim</b>
+    <code>.php</code> bilan tugasin. Zaxira nusxa
+    kerak bo'lsa — loyihadan <b>tashqariga</b>
+    qo'ying.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 5</span>
+    <h4>Xato qanday ko'rinadi</h4>
+    <div class="natija">Xato: 2-qatorda nuqtali vergul yo'q
+
+TERMINALDA:
+  PHP Parse error: syntax error, unexpected token "echo",
+  expecting "," or ";" in e.php on line 3
+  chiqish kodi: 255              (toza faylda: 0)
+
+BRAUZERDA:
+  status: 500                    (sahifa bo'sh bo'lishi mumkin)</div>
+    <p>⚠️ Ikki farq muhim: terminal <b>sababni
+    aytadi</b>, brauzer esa ko'pincha
+    <b>faqat 500</b> beradi.</p>
+    <p>✅ Shuning uchun xatoni <b>terminalda</b>
+    qidiring. Yoki oldindan tekshiring:</p>
+    <div class="natija">php -l e.php
+  PHP Parse error: ... on line 3      ← fayl ishga tushmaydi ham</div>
+    <p>🔑 <code>-l</code> = <b>lint</b>: «bu faylni
+    bajarmasdan, faqat sintaksisini tekshir».
+    Saqlashdan oldin bir soniyalik odat.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 6</span>
+    <h4><code>index.php</code> — papkaning yuzi</h4>
+    <div class="natija">php -S 127.0.0.1:8000
+
+http://127.0.0.1:8000/         →  200, index.php ishladi
+http://127.0.0.1:8000/yoq.php  →  404</div>
+    <p>Papka so'ralsa, server <code>index.php</code> ni
+    qidiradi. Shuning uchun bosh sahifa
+    <b>deyarli har doim</b> shunday
+    nomlanadi.</p>
+    <p>🔑 Bu kelishuv Laravel'da ham saqlanadi — u
+    yerda ham hamma so'rov <code>public/index.php</code>
+    ga tushadi. Buni kursning davomida
+    ko'rasiz.</p>
+    <p>⚠️ <code>php -S</code> — <b>faqat
+    o'rganish va ishlab chiqish uchun</b>. U bir
+    vaqtda bitta so'rovni bajaradi va haqiqiy
+    yuklamaga chidamaydi.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 7</span>
+    <h4><code>echo</code> va <code>print</code></h4>
+    <div class="natija">echo "a", "b", "c";     →  abc        ✅ bir nechta argument
+print "a", "b";         →  PHP Parse error: syntax error,
+                           unexpected token ","          ⚠️
+
+var_dump(print "x");    →  x  va  int(1)   ← print QIYMAT qaytaradi
+                                              echo esa qaytarmaydi</div>
+    <p>🔑 Amalda deyarli har doim
+    <code>echo</code> ishlatiladi — u tezroq va
+    bir nechta qiymatni birdan chiqara
+    oladi.</p>
+    <p>🔍 <code>print</code> ning <code>1</code>
+    qaytarishi ba'zan qisqa hiylalarda ishlatiladi,
+    lekin bu <b>o'qishni qiyinlashtiradi</b> —
+    tavsiya etilmaydi.</p>
+    <p>✅ Sizga hozir bittasi yetadi:
+    <code>echo</code>.</p>
+  </div>
+
   <h2>Sinab ko'ramiz</h2>
 
   <div class="predict">
@@ -462,7 +655,41 @@ git commit -m "01-dars: birinchi PHP sahifasi"</div>
       Modul A davomida foydalanamiz; Laravel'da uning o'rniga
       <code>php artisan serve</code> keladi (16-dars), haqiqiy server esa
       <a href="../reference/yol-xaritasi.html">Modul J da</a>.</li>
-    </ol>
+          <li id="fn4">Holatlar bo'limidagi barchasi jonli
+      o'lchangan (PHP <b>8.3.32</b> CLI, <code>php -S</code>):
+      fayl va brauzer solishtiruvi —
+      <code>&lt;?php echo "&lt;p&gt;PHP: ".date("Y")."&lt;/p&gt;"; ?&gt;</code>
+      brauzerda <code>&lt;p&gt;PHP: 2026&lt;/p&gt;</code> bo'ldi ·
+      ⚠️ <code>?&gt;</code> dan keyingi yangi qatorlar:
+      <code>?&gt;</code> siz <b>1 bayt</b>, bitta
+      <code>\n</code> bilan <b>1 bayt</b>, ikkita bilan
+      <b>2 bayt</b> (<code>A \n</code>), uchta bilan
+      <b>3 bayt</b> — ya'ni <b>bittasi</b> yutiladi ·
+      va oqibati: <code>PHP Warning: Cannot modify header
+      information - headers already sent by (output started
+      at b.php:2)</code> ·
+      <code>&lt;?= $n ?&gt;</code> va
+      <code>&lt;?php echo $n; ?&gt;</code> — ikkalasi
+      <code>Salom, Ali!</code> ·
+      kengaytma: <code>php d.txt</code> terminalda
+      <b>ishladi</b>, lekin <code>php -S</code> orqali
+      <code>/srv.txt</code> so'ralganda javob
+      <code>&lt;?php echo "PHP ishladi";</code> — ya'ni
+      <b>xom kod</b> ·
+      sintaksis xatosi: terminalda <code>PHP Parse error:
+      syntax error, unexpected token "echo", expecting ","
+      or ";" ... on line 3</code>, chiqish kodi <b>255</b>
+      (toza faylda <b>0</b>), brauzerda <b>500</b>;
+      <code>php -l</code> ham o'sha xabarni beradi ·
+      <code>php -S</code>: <code>/</code> →
+      <b>200</b> (<code>index.php</code>),
+      <code>/yoq.php</code> → <b>404</b> ·
+      <code>echo "a", "b", "c"</code> → <code>abc</code>;
+      <code>print "a", "b"</code> →
+      <code>PHP Parse error: syntax error, unexpected token
+      ","</code>; <code>var_dump(print "x")</code> →
+      <code>x</code> va <code>int(1)</code>.</li>
+</ol>
   </section>
 
 </main>
