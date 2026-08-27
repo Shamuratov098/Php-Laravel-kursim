@@ -28,17 +28,52 @@
     <span class="label">Bu darsda nimalar bor</span>
     <ol>
       <li><b><code>interface</code> — shartnoma</b>
-        <span class="nima">«Bu metodlar bo'lishi shart» degan e'lon, tanasiz.</span></li>
-      <li><b>Kod shartnomaga tayanadi</b>
-        <span class="nima">Klassga emas, interfeysga tayanish nimani ochadi.</span></li>
-      <li><b>Bir nechta shartnoma</b>
-        <span class="nima">Bitta klass bir necha interfeysni bajarishi mumkin.</span></li>
-      <li><b><code>trait</code></b>
-        <span class="nima">Qayta ishlatiladigan kod bo'lagi — merossiz.</span></li>
-      <li><b>Qaysi birini qachon</b>
-        <span class="nima">interface — <b>nima qilishi</b>, trait — <b>qanday qilishi</b>.</span></li>
-      <li><b>Tuzoq: ustuvorlik tartibi</b>
-        <span class="nima">O'z klassi &gt; trait &gt; ota klass.</span></li>
+        <span class="nima">«Nima qila olishi» kerakligini
+        aytadi, <b>qanday</b> emas.</span></li>
+      <li><b><code>implements</code></b>
+        <span class="nima">🔍 Bajarilmasa —
+        9-darsdagi <b>o'sha</b> xato
+        matni.</span></li>
+      <li><b><code>trait</code> — qayta ishlatiladigan
+        kod</b>
+        <span class="nima">Meros emas, «nusxa
+        ko'chirish» — lekin
+        avtomatik.</span></li>
+      <li><b>Interfeys va trait farqi</b>
+        <span class="nima">Biri <b>talab qiladi</b>,
+        ikkinchisi <b>beradi</b>.</span></li>
+      <li><b>🔍 Bitta ota, ko'p interfeys</b>
+        <span class="nima"><code>extends X, Y</code> →
+        <code>Parse error</code>;
+        <code>implements A, B</code> —
+        ✅.</span></li>
+      <li><b>⚠️ Interfeysda xossa bo'lmaydi</b>
+        <span class="nima">🔍 <code>Interfaces may not
+        include properties</code>; konstanta esa
+        mumkin.</span></li>
+      <li><b>⚠️ Ikki traitda bir xil metod</b>
+        <span class="nima">🔍 <code>collision</code>
+        xatosi va <code>insteadof</code>
+        yechimi.</span></li>
+      <li><b>🔍 Kim kimdan ustun</b>
+        <span class="nima">klass metodi &gt; trait &gt;
+        ota klass.</span></li>
+      <li><b>Traitda xossa va
+        <code>abstract</code></b>
+        <span class="nima">Trait o'zini ishlatgan
+        klassdan <b>talab qila oladi</b>.</span></li>
+      <li><b>⭐ Interfeys — bu TIP</b>
+        <span class="nima">🔍 Bitta funksiya
+        <code>Email</code> va <code>Sms</code> bilan
+        ishladi, begona klass —
+        <code>TypeError</code>.</span></li>
+      <li><b>Qachon qaysi biri</b>
+        <span class="nima">Shartnoma kerakmi yoki
+        tayyor kodmi?</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima">Ko'p interfeys · trait
+        to'qnashuvi · ustunlik tartibi ·
+        interfeys tip sifatida.</span></li>
     </ol>
   </div>
 
@@ -437,6 +472,181 @@ git commit -m "10-dars: interface va trait"</div>
   </div>
 
   <!-- ═══════════════ 5) TAXMIN + QUIZ ═══════════════ -->
+
+  <!-- ═══════════════ HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir bir
+  marta o'qing, keyin kerak bo'lganda qaytib qarang.</p>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 1</span>
+    <h4>🔍 Interfeys bajarilmasa — tanish xato</h4>
+    <div class="natija">interface Yuboruvchi { public function yubor(string $m): bool; }
+
+class Email implements Yuboruvchi {}
+   Fatal error: Class Email contains 1 abstract method and
+   must therefore be declared abstract or implement the
+   remaining methods
+
+class Email implements Yuboruvchi {
+    public function yubor(string $m): string { return "x"; }
+}
+   Fatal error: Declaration of Email::yubor(string $m): string
+   must be compatible with Yuboruvchi::yubor(string $m): bool</div>
+    <p>🔑 Birinchi xabar <b>tanishmi?</b> Ha —
+    9-darsda <code>abstract</code> bilan
+    <b>aynan shu</b> xabarni ko'rgansiz.</p>
+    <p>Sabab: interfeys metodlari ham
+    <b>abstract</b> — ular faqat <b>e'lon</b>,
+    <b>tanasi</b> yo'q.</p>
+    <p>✅ Ikkinchi xato ham 9-darsdan tanish:
+    shartnomani buzsangiz, PHP <b>ruxsat
+    bermaydi</b>.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 2</span>
+    <h4>Bitta ota, lekin ko'p interfeys</h4>
+    <div class="natija">class C implements A, B {}        ✅
+   $c instanceof A  →  true
+   $c instanceof B  →  true
+
+class Z extends X, Y {}
+   Parse error: syntax error, unexpected token ","   ⚠️</div>
+    <p>🔑 PHP'da <b>ko'p meros yo'q</b>: bitta
+    klass faqat <b>bitta</b> otadan meros
+    oladi.</p>
+    <p>✅ Interfeys esa <b>cheklanmagan</b>: bir
+    klass o'nlab shartnomani bajarishi
+    mumkin.</p>
+    <p>🔍 Bu farq muhim: meros «<b>bu nima</b>»
+    ni aytadi, interfeys «<b>bu nima qila
+    oladi</b>» ni. Bittasi cheklangan, ikkinchisi
+    — yo'q.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 3</span>
+    <h4>Interfeysda nima bo'ladi, nima yo'q</h4>
+    <div class="natija">interface A { public string $nom; }
+   Fatal error: Interfaces may not include properties   ⚠️
+
+interface A { const TUR = "email"; }
+class B implements A {}
+echo B::TUR;   →  email        ✅ konstanta MUMKIN</div>
+    <p>🔑 Interfeys — <b>xatti-harakat</b>
+    shartnomasi, <b>ma'lumot</b> shartnomasi
+    emas. Shuning uchun xossa yo'q.</p>
+    <p>✅ Konstanta esa mumkin — u
+    <b>o'zgarmas qiymat</b>, holat
+    emas.</p>
+    <p>🔍 Agar «bu interfeysga xossa kerak» deb
+    o'ylasangiz — sizga <code>abstract</code>
+    klass kerak bo'lishi mumkin (9-dars).</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 4</span>
+    <h4>⚠️ Ikki traitda bir xil metod</h4>
+    <div class="natija">trait A { public function ayt() { return "A"; } }
+trait B { public function ayt() { return "B"; } }
+
+class C { use A, B; }
+   Fatal error: Trait method B::ayt has not been applied as
+   C::ayt, because of collision with A::ayt</div>
+    <p>✅ Yechim — qaysi birini olishni
+    <b>ochiq aytish</b>:</p>
+    <div class="natija">class C {
+    use A, B {
+        A::ayt insteadof B;      // A niki ishlatilsin
+        B::ayt as aytB;          // B nikiga boshqa nom
+    }
+}
+$c-&gt;ayt()   →  A
+$c-&gt;aytB()  →  B</div>
+    <p>🔑 PHP <b>o'zi tanlamaydi</b> — bu
+    yaxshi: «qaysi biri ishladi?» degan
+    jimgina noaniqlik bo'lmaydi.</p>
+    <p>⚠️ Lekin bu <b>signal</b> ham: ikkita trait
+    bir xil nomli metod bergan bo'lsa,
+    ehtimol ular <b>bir xil ishni</b>
+    qilyapti.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 5</span>
+    <h4>🔍 Kim kimdan ustun</h4>
+    <div class="natija">trait A { public function ayt() { return "traitdan"; } }
+
+class C { use A; public function ayt() { return "klassdan"; } }
+$c-&gt;ayt()   →  klassdan       ← KLASS ustun
+
+class Ota { public function ayt() { return "otadan"; } }
+class C extends Ota { use A; }
+$c-&gt;ayt()   →  traitdan       ← TRAIT otadan ustun</div>
+    <p>🔑 Tartib aniq:</p>
+    <div class="natija">klassning o'z metodi   >   trait   >   ota klass</div>
+    <p>⚠️ Ikkinchisi ko'pincha kutilmagan
+    bo'ladi: siz otadagi metod ishlaydi deb
+    o'ylaysiz, trait esa uni
+    <b>jimgina</b> almashtirib qo'yadi.</p>
+    <p>✅ Shuning uchun trait metodlariga
+    <b>aniq</b> nom bering — otanikiga
+    tasodifan to'g'ri kelmasin.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 6</span>
+    <h4>Traitda xossa va <code>abstract</code></h4>
+    <div class="natija">trait A {
+    public int $soni = 0;
+    abstract public function nom(): string;    ← trait TALAB qiladi
+    public function ayt(): string { return $this-&gt;nom() . ":" . $this-&gt;soni; }
+}
+
+class C { use A; public function nom(): string { return "C"; } }
+(new C)-&gt;ayt()   →  C:0</div>
+    <p>🔑 Interfeysdan farqli o'laroq, traitda
+    <b>xossa ham</b>, <b>tayyor kod ham</b>
+    bo'ladi.</p>
+    <p>✅ Va <code>abstract</code> metod orqali trait
+    o'zini ishlatgan klassdan
+    <b>nimadir talab qila oladi</b>: «meni
+    ishlatsang, <code>nom()</code> ni
+    yozib ber».</p>
+    <p>🔍 Bu naqsh Laravel'da juda ko'p uchraydi —
+    kursning davomida ko'rasiz.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>Asosiy foyda: interfeys — bu TIP</h4>
+    <div class="natija">function xabarQil(Yuboruvchi $y, string $m): void {
+    $y-&gt;yubor($m);
+}
+
+xabarQil(new Email, "salom");   →  [email] salom
+xabarQil(new Sms,   "salom");   →  [sms] salom
+
+xabarQil(new X, "salom");
+   Fatal error: Uncaught TypeError: f(): Argument #1 ($y)
+   must be of type Y, X given</div>
+    <p>🔑 <b>Mana shu</b> — interfeysning butun
+    ma'nosi. <code>xabarQil()</code>
+    <code>Email</code> ni ham,
+    <code>Sms</code> ni ham
+    <b>bilmaydi</b>. U faqat
+    <b>shartnomani</b> biladi.</p>
+    <p>✅ Ertaga <code>Telegram</code> qo'shsangiz,
+    <code>xabarQil()</code> ni <b>bir harf ham</b>
+    o'zgartirmaysiz.</p>
+    <p>🔍 Bu g'oya kursning eng muhim
+    tushunchalaridan biriga aylanadi — va uni
+    Laravel'ning ichida qayta-qayta
+    ko'rasiz.</p>
+  </div>
+
   <h2>Sinab ko'ramiz</h2>
 
   <div class="predict">
@@ -661,7 +871,38 @@ O'ZI</div>
       <li id="fn3">Barcha natijalar PHP <b>8.3.32</b> da jonli sinab ko'rilgan — shu
       jumladan ustunlik tartibi (<code>TRAIT</code> / <code>O'ZI</code>) va
       <code>contains 1 abstract method</code> xatosi.</li>
-    </ol>
+          <li id="fn4">Holatlar bo'limidagi barchasi jonli
+      o'lchangan (PHP <b>8.3.32</b>):
+      bo'sh <code>implements</code> →
+      <code>Class Email contains 1 abstract method and must
+      therefore be declared abstract or implement the
+      remaining methods</code>; tip mos kelmasa →
+      <code>Declaration of Email::yubor(string $m): string
+      must be compatible with Yuboruvchi::yubor(string $m):
+      bool</code> ·
+      <code>implements A, B</code> — <b>ishladi</b>
+      (ikkala <code>instanceof</code> <b>true</b>);
+      <code>extends X, Y</code> →
+      <code>Parse error: syntax error, unexpected token
+      ","</code> ·
+      <code>interface A { public string $nom; }</code> →
+      <code>Interfaces may not include properties</code>;
+      konstanta esa <b>ishladi</b>
+      (<code>B::TUR</code> → <code>email</code>) ·
+      ikki traitda bir xil metod →
+      <code>Trait method B::ayt has not been applied as
+      C::ayt, because of collision with A::ayt</code>;
+      <code>insteadof</code> + <code>as</code> bilan
+      <code>ayt()</code> → <b>A</b>,
+      <code>aytB()</code> → <b>B</b> ·
+      ustunlik: klass metodi → <b>klassdan</b>, trait vs ota
+      → <b>traitdan</b> ·
+      traitda xossa + <code>abstract</code> →
+      <code>C:0</code> ·
+      interfeys tip sifatida: <code>Email</code> va
+      <code>Sms</code> <b>ishladi</b>, begona klass →
+      <code>TypeError: must be of type Y, X given</code>.</li>
+</ol>
   </section>
 
 </main>

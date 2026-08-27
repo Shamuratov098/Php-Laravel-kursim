@@ -28,18 +28,56 @@
   <div class="qamrov">
     <span class="label">Bu darsda nimalar bor</span>
     <ol>
-      <li><b><code>extends</code> — meros</b>
-        <span class="nima">Umumiy kodni bir joyda tutish.</span></li>
+      <li><b>Meros — umumiy kodni bir joyga</b>
+        <span class="nima"><code>extends</code> bilan
+        otaning hamma narsasi bolaga
+        o'tadi.</span></li>
+      <li><b>🔍 <code>protected</code> ning ma'nosi</b>
+        <span class="nima">O'lchandi:
+        <code>private</code> bolaga
+        <b>ko'rinmaydi</b>,
+        <code>protected</code> —
+        ko'rinadi.</span></li>
       <li><b><code>parent::</code></b>
-        <span class="nima">Otaning versiyasini chaqirish va uni <b>to'ldirish</b>.</span></li>
-      <li><b><code>abstract</code></b>
-        <span class="nima">«Buni avlod o'zi bajarsin» — bajarilmagan metod.</span></li>
-      <li><b>Polimorfizm</b>
-        <span class="nima">Bitta sikl, har xil obyektlar — kodning eng foydali natijasi.</span></li>
+        <span class="nima">Otaning metodini
+        chaqirish.</span></li>
+      <li><b>⚠️ <code>parent::__construct()</code> ni
+        unutish</b>
+        <span class="nima">🔍 <code>Typed property must
+        not be accessed before
+        initialization</code>.</span></li>
+      <li><b><code>abstract</code> klass</b>
+        <span class="nima">«Umumiy shakl, lekin
+        o'zi ishlamaydi».</span></li>
+      <li><b>🔍 <code>abstract</code> ning ikki
+        qoidasi</b>
+        <span class="nima"><code>Cannot instantiate</code>
+        va <code>must therefore be declared
+        abstract</code>.</span></li>
+      <li><b>Metodni qayta yozish (override)</b>
+        <span class="nima">🔍 Shartnomani buzsangiz —
+        <code>must be compatible
+        with</code>.</span></li>
+      <li><b><code>final</code></b>
+        <span class="nima">🔍 <code>Cannot override
+        final method</code> · <code>cannot extend
+        final class</code>.</span></li>
       <li><b><code>instanceof</code></b>
-        <span class="nima">«Bu obyekt qaysi turdan?»</span></li>
-      <li><b>Tuzoq: <code>parent::__construct()</code></b>
-        <span class="nima">Uni unutsangiz ota klass xossalari <b>bo'sh</b> qoladi.</span></li>
+        <span class="nima">🔍 Bola <b>ham</b>
+        otadir — merosning asosiy
+        foydasi.</span></li>
+      <li><b><code>new static()</code></b>
+        <span class="nima">🔍 <code>Bola::yasa()</code>
+        → <b>Bola</b>, <code>self</code>
+        bo'lsa — <b>Ota</b>.</span></li>
+      <li><b>Meros qachon ortiqcha</b>
+        <span class="nima">Ko'p
+        <code>instanceof</code> — signal.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima"><code>protected</code> ·
+        <code>parent</code> · <code>abstract</code> ·
+        <code>final</code> · kech statik
+        bog'lanish.</span></li>
     </ol>
   </div>
 
@@ -426,6 +464,183 @@ git commit -m "09-dars: meros va abstract"</div>
   </div>
 
   <!-- ═══════════════ 5) TAXMIN + QUIZ ═══════════════ -->
+
+  <!-- ═══════════════ HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir bir
+  marta o'qing, keyin kerak bo'lganda qaytib qarang.</p>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 1</span>
+    <h4>🔍 <code>protected</code> ning ma'nosi ochildi</h4>
+    <div class="natija">class Ota  { private $a = 1; protected $b = 2; public $c = 3; }
+class Bola extends Ota { /* $this->a, $this->b, $this->c */ }
+
+natija:   b=2   c=3   a=KO'RINMAYDI</div>
+    <p>8-darsda uch daraja bilan tanishgandik, lekin
+    <code>protected</code> ning <b>ma'nosi</b>
+    o'sha yerda to'liq ochilmagan edi. Mana
+    javob:</p>
+    <div class="natija">private    →  faqat O'SHA klass
+protected  →  o'sha klass VA undan meros olganlar     ← farq shu
+public     →  hamma joydan</div>
+    <p>🔑 Ya'ni <code>protected</code> — «bolalarimga
+    ishonaman, begonaga yo'q».</p>
+    <p>✅ Amaliy qoida o'zgarmaydi:
+    <code>private</code> dan boshlang. Meros
+    kerak bo'lganda <code>protected</code> ga
+    ko'taring.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 2</span>
+    <h4>⚠️ <code>parent::__construct()</code> ni unutish</h4>
+    <div class="natija">class Ota  { public function __construct(public string $nom) {} }
+
+// ✅ TO'G'RI
+class Bola extends Ota {
+    public function __construct(string $nom, public int $yosh) {
+        parent::__construct($nom);
+    }
+}
+new Bola("Ali", 30)  →  Ali 30
+
+// ⚠️ NOTO'G'RI — parent chaqirilmadi
+class Bola extends Ota {
+    public function __construct(public int $yosh) {}
+}
+$b-&gt;nom  →  Fatal error: Uncaught Error: Typed property
+            Ota::$nom must not be accessed before initialization</div>
+    <p>🔑 Bola konstruktori otanikini
+    <b>almashtiradi</b>, <b>to'ldirmaydi</b>.
+    Otaning ishi bajarilishi kerak bo'lsa —
+    <b>o'zingiz</b> chaqirasiz.</p>
+    <p>🔍 Va e'tibor bering: xato 7-darsdagi
+    <b>o'sha</b> xabar — «tiplangan xossa hali
+    to'ldirilmagan».</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 3</span>
+    <h4><code>abstract</code> — ikkita qoida</h4>
+    <div class="natija">abstract class Shakl { abstract public function yuza(): float; }
+
+new Shakl();
+   Fatal error: Uncaught Error: Cannot instantiate
+   abstract class Shakl                          ← 1-qoida
+
+class Kvadrat extends Shakl {}
+   Fatal error: Class Kvadrat contains 1 abstract method
+   and must therefore be declared abstract or implement
+   the remaining methods                          ← 2-qoida</div>
+    <p>🔑 Ikki qoida bir jumlada: <b>abstract
+    klassdan obyekt yasab bo'lmaydi</b>, va
+    <b>abstract metodni bola bajarishi
+    shart</b>.</p>
+    <p>✅ Foydasi: «har shaklning <b>albatta</b>
+    yuzasi bo'ladi, lekin uni <b>qanday</b>
+    hisoblash — har shaklning
+    o'z ishi».</p>
+    <p>🔍 Ikkinchi xato matnini eslab qoling —
+    keyingi darsda <code>interface</code> bilan
+    <b>xuddi shu</b> xabarni ko'rasiz.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 4</span>
+    <h4>Metodni qayta yozish (override)</h4>
+    <div class="natija">class Ota  { public function ayt(): string { return "ota"; } }
+class Bola extends Ota {
+    public function ayt(): string { return "bola (" . parent::ayt() . ")"; }
+}
+(new Bola)-&gt;ayt()   →  bola (ota)        ✅
+
+// ⚠️ tipni o'zgartirsangiz:
+class Bola extends Ota { public function ayt(): int { return 1; } }
+   Fatal error: Declaration of Bola::ayt(): int must be
+   compatible with Ota::ayt(): string</div>
+    <p>🔑 Bola metodni <b>almashtira oladi</b>, lekin
+    <b>shartnomani buza olmaydi</b>: parametrlar
+    va qaytish tipi <b>mos</b> bo'lishi
+    kerak.</p>
+    <p>✅ <code>parent::ayt()</code> — «avval otaniki
+    bajarilsin, keyin men qo'shaman». Bu juda
+    ko'p uchraydigan naqsh.</p>
+    <p>🔍 «Shartnoma» so'zi bejiz emas — keyingi
+    darsda u <b>asosiy mavzu</b> bo'ladi.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 5</span>
+    <h4><code>final</code> — «bu yerda to'xtang»</h4>
+    <div class="natija">class Ota { final public function ayt() { return "ota"; } }
+class Bola extends Ota { public function ayt() { return "bola"; } }
+   Fatal error: Cannot override final method Ota::ayt()
+
+final class Ota {}
+class Bola extends Ota {}
+   Fatal error: Class Bola cannot extend final class Ota</div>
+    <p>🔑 <code>final</code> — «bu metodni
+    (yoki klassni) <b>o'zgartirmang</b>».</p>
+    <p>✅ Qachon kerak? Klass ichida <b>muhim
+    qoida</b> bo'lsa va uni bola buzib
+    qo'yishi mumkin bo'lsa. Masalan parolni
+    tekshirish metodi.</p>
+    <p>🔍 Ko'p tajribali dasturchilar
+    <b>standart holda</b> <code>final</code>
+    yozishni tavsiya qiladi — meros
+    <b>kerak bo'lganda</b> ochiladi.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 6</span>
+    <h4><code>instanceof</code> — «bu kim?»</h4>
+    <div class="natija">class Ota {}  class Bola extends Ota {}
+$b = new Bola;
+
+$b instanceof Bola   →  true
+$b instanceof Ota    →  true      ← bola HAM otadir
+get_class($b)        →  "Bola"
+$b::class            →  "Bola"    ← PHP 8 dagi qisqa shakl</div>
+    <p>🔑 <code>instanceof</code> merosni
+    <b>hisobga oladi</b>: <code>Bola</code>
+    ayni paytda <code>Ota</code> hamdir.</p>
+    <p>✅ Bu merosdan foydalanishning asosiy
+    sababi: <code>Ota</code> kutayotgan
+    joyga <code>Bola</code> ni berish
+    mumkin.</p>
+    <p>⚠️ Lekin kodda <code>instanceof</code>
+    ko'p bo'lsa — bu <b>signal</b>: ehtimol
+    <code>if</code> o'rniga metodni
+    <b>qayta yozish</b> kerak.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 7</span>
+    <h4><code>new static()</code> — bola o'zini yasaydi</h4>
+    <div class="natija">class Ota {
+    public static function yasa(): static { return new static(); }
+}
+class Bola extends Ota {}
+
+Ota::yasa()    →  Ota
+Bola::yasa()   →  Bola        ✅ o'z klassini yasadi</div>
+    <p>🔑 <code>new self()</code> bo'lganda ikkalasi
+    ham <code>Ota</code> qaytarardi.
+    <code>static</code> esa <b>chaqirilgan</b>
+    klassni oladi.</p>
+    <p>✅ Bu «kech statik bog'lanish» (late static
+    binding) deb ataladi va zamonaviy PHP
+    kutubxonalarida juda ko'p
+    ishlatiladi.</p>
+    <p>🔍 Kursning davomida
+    <code>Model::find()</code> kabi
+    chaqiruvlarni ko'rasiz — ular
+    <b>ichida</b> aynan shu mexanizm
+    turadi.</p>
+  </div>
+
   <h2>Sinab ko'ramiz</h2>
 
   <div class="predict">
@@ -645,7 +860,35 @@ PHP Fatal error:  Uncaught Error: Typed property Xabar::$qabulQiluvchi must not 
       jumladan <code>Cannot instantiate abstract class</code>,
       <code>contains 1 abstract method</code> va taxmin mashqidagi
       <code>Typed property ... must not be accessed before initialization</code> xatolari.</li>
-    </ol>
+          <li id="fn4">Holatlar bo'limidagi barchasi jonli
+      o'lchangan (PHP <b>8.3.32</b>):
+      bola klassdan <code>b=2 c=3 a=KO'RINMAYDI</code> ·
+      <code>parent::__construct()</code> chaqirilmasa
+      <code>Fatal error: Uncaught Error: Typed property
+      Ota::$nom must not be accessed before
+      initialization</code> ·
+      <code>new Shakl()</code> →
+      <code>Cannot instantiate abstract class Shakl</code>;
+      bo'sh bola →
+      <code>Class Kvadrat contains 1 abstract method and
+      must therefore be declared abstract or implement the
+      remaining methods</code> ·
+      override: <code>bola (ota)</code>; tip
+      o'zgartirilganda
+      <code>Declaration of Bola::ayt(): int must be
+      compatible with Ota::ayt(): string</code> ·
+      <code>final</code>:
+      <code>Cannot override final method Ota::ayt()</code>
+      va <code>Class Bola cannot extend final class
+      Ota</code> ·
+      <code>$b instanceof Bola</code> va
+      <code>instanceof Ota</code> — <b>ikkalasi
+      true</b>; <code>get_class($b)</code> va
+      <code>$b::class</code> → <code>"Bola"</code> ·
+      <code>new static()</code>:
+      <code>Ota::yasa()</code> → <b>Ota</b>,
+      <code>Bola::yasa()</code> → <b>Bola</b>.</li>
+</ol>
   </section>
 
 </main>
