@@ -28,17 +28,51 @@
     <span class="label">Bu darsda nimalar bor</span>
     <ol>
       <li><b>Ikkita solishtirish belgisi</b>
-        <span class="nima"><code>==</code> tipni moslashtiradi, <code>===</code> yo'q. Qachon qaysi biri.</span></li>
+        <span class="nima"><code>==</code> tipni
+        moslashtiradi, <code>===</code>
+        yo'q.</span></li>
       <li><b>PHP 8 dagi muhim o'zgarish</b>
-        <span class="nima"><code>0 == "salom"</code> endi <code>false</code> — eski maqolalarni o'qiyotganda bilish kerak.</span></li>
+        <span class="nima">🔍 <code>0 == "salom"</code>
+        endi <b>false</b> — eski maqolalarni
+        o'qiyotganda bilish kerak.</span></li>
       <li><b>Truthy va falsy</b>
-        <span class="nima"><code>if</code> ichida nima «rost» hisoblanadi. <code>"0"</code> va <code>"false"</code> tuzog'i.</span></li>
-      <li><b><code>if</code> / <code>elseif</code> / <code>else</code></b>
-        <span class="nima">Qaror qabul qilishning asosiy shakli.</span></li>
+        <span class="nima"><code>if</code> ichida nima
+        «rost» hisoblanadi. <code>"0"</code>
+        tuzog'i.</span></li>
+      <li><b><code>if</code> / <code>elseif</code> /
+        <code>else</code></b>
+        <span class="nima">Qaror qabul qilishning asosiy
+        shakli.</span></li>
       <li><b><code>match</code></b>
-        <span class="nima">Qiymat <b>qaytaradigan</b> tanlov — PHP 8 ning qulay imkoniyati.</span></li>
-      <li><b><code>for</code> va <code>while</code></b>
-        <span class="nima">Takrorlashning ikki shakli va cheksiz siklga tushmaslik.</span></li>
+        <span class="nima">Qat'iy solishtiradi va
+        <code>break</code> talab qilmaydi.</span></li>
+      <li><b>🔍 To'liq solishtirish jadvali</b>
+        <span class="nima">Sakkiz juftlik o'lchandi —
+        <code>===</code> ustunida <b>hammasi
+        false</b>.</span></li>
+      <li><b>⚠️ <code>'1e2' == '100'</code></b>
+        <span class="nima">🔍 Ikkala tomon
+        <b>matn</b>, natija esa
+        <b>true</b>.</span></li>
+      <li><b>⚠️ <code>switch</code> ham bo'sh
+        solishtiradi</b>
+        <span class="nima">🔍 <code>"1"</code>
+        <code>case 1</code> ga <b>tushdi</b>;
+        <code>match</code> — yo'q.</span></li>
+      <li><b>⚠️ <code>in_array()</code> tuzog'i</b>
+        <span class="nima">🔍 Uchinchi argument
+        (<code>true</code>) <b>shart</b>.</span></li>
+      <li><b><code>?:</code> va <code>??</code> farqi</b>
+        <span class="nima">🔍 <code>0 ?: "yo'q"</code> →
+        <b>yo'q</b>, <code>0 ?? "yo'q"</code> →
+        <b>0</b>.</span></li>
+      <li><b><code>&lt;=&gt;</code> — saralash uchun</b>
+        <span class="nima">Bitta amalda uchta javob:
+        −1, 0, 1.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima">Matn solishtiruvi ·
+        <code>strcmp</code> · amaliy tanlov
+        qoidasi.</span></li>
     </ol>
   </div>
 
@@ -352,6 +386,167 @@ git commit -m "03-dars: shart va solishtirish"</div>
   </div>
 
   <!-- ═══════════════ 5) TAXMIN + QUIZ ═══════════════ -->
+
+  <!-- ═══════════════ HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir bir
+  marta o'qing, keyin kerak bo'lganda qaytib qarang.</p>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 1</span>
+    <h4>🔍 <code>==</code> va <code>===</code> — to'liq jadval</h4>
+    <div class="natija">chap        o'ng      ==       ===
+──────────────────────────────────────
+'0'         ''        false    false
+'0'         0         TRUE     false
+'1'         1         TRUE     false
+null        false     TRUE     false
+[]          false     TRUE     false
+0           false     TRUE     false
+'abc'       0         false    false     ← PHP 8 da o'zgardi
+'1e2'       '100'     TRUE     false     ⚠️</div>
+    <p>⚠️ Oxirgi qatorga qarang: <b>ikkita matn</b>
+    solishtirildi, lekin natija <code>true</code>.
+    Sabab — ikkalasi ham <b>songa o'xshaydi</b>, va
+    <code>==</code> ularni <b>son sifatida</b>
+    solishtirdi (<code>1e2</code> = 100).</p>
+    <p>🔑 <code>===</code> ustunida <b>hammasi
+    <code>false</code></b>. U avval <b>tipni</b>
+    tekshiradi — tip boshqa bo'lsa, qiymatga
+    <b>umuman qaramaydi</b>.</p>
+    <p>✅ Shuning uchun standart tanlov —
+    <code>===</code>.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 2</span>
+    <h4>⚠️ <code>switch</code> ham <code>==</code> ishlatadi</h4>
+    <div class="natija">$x = "1";
+
+switch ($x) {
+    case 1:  echo "mos keldi";   ← ⚠️ BAJARILADI
+}
+
+match (true) {
+    $x === 1 =&gt; "mos keldi",
+    default  =&gt; "mos EMAS",      ← ✅ mos emas
+}</div>
+    <p>🔑 <code>switch</code> — <b>bo'sh</b>
+    solishtirish (<code>==</code>),
+    <code>match</code> — <b>qat'iy</b>
+    (<code>===</code>).</p>
+    <p>⚠️ Ya'ni formadan kelgan <code>"1"</code>
+    <code>switch</code> da <code>case 1</code> ga
+    <b>tushib ketadi</b>. Ba'zan bu qulay, ba'zan
+    — <b>jimgina bug</b>.</p>
+    <p>✅ Yangi kodda <code>match</code> ni tanlang: u
+    qat'iy, qisqaroq va <code>break</code>
+    talab qilmaydi.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 3</span>
+    <h4>⚠️ <code>in_array()</code> ham bo'sh solishtiradi</h4>
+    <div class="natija">in_array("1", [1, 2, 3])         →  true    ⚠️ tip boshqa, lekin topdi
+in_array("1", [1, 2, 3], true)   →  false   ✅ uchinchi argument!
+
+in_array(0, ["a", "b"])          →  false   ← PHP 8 da o'zgardi
+in_array(0, ["a", "b"], true)    →  false</div>
+    <p>🔑 Uchinchi argument — <code>$strict</code>.
+    U <code>===</code> ni yoqadi.</p>
+    <p>⚠️ PHP 7 da <code>in_array(0, ["a","b"])</code>
+    <b><code>true</code></b> edi — ya'ni
+    «massivda 0 bormi?» degan savol
+    <b>«ha»</b> derdi. PHP 8 buni tuzatdi.</p>
+    <p>✅ Odat qiling: <code>in_array</code>,
+    <code>array_search</code> va
+    <code>array_keys</code> ni <b>doim</b>
+    <code>true</code> bilan chaqiring.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 4</span>
+    <h4><code>?:</code> va <code>??</code> — o'xshash, lekin boshqa</h4>
+    <div class="natija">$a = 0;
+
+$a ?: "yo'q"     →  yo'q     ← 0 «bo'sh» hisoblandi
+$a ?? "yo'q"     →  0        ← 0 mavjud, demak 0
+
+$yoq ?: "std"    →  std   (lekin Undefined variable ogohlantirishi bilan)
+$yoq ?? "std"    →  std   ✅ ogohlantirishsiz</div>
+    <p>🔑 Farq bitta savolda:
+    <code>?:</code> — «<b>bo'shmi?</b>»,
+    <code>??</code> — «<b>yo'qmi yoki
+    <code>null</code>mi?</b>»</p>
+    <p>⚠️ Shuning uchun <code>0</code>,
+    <code>"0"</code> yoki <code>""</code>
+    <b>haqiqiy qiymat</b> bo'lishi mumkin
+    bo'lgan joyda <code>?:</code>
+    <b>ishlatmang</b>.</p>
+    <p>✅ Standart qiymat kerak bo'lsa —
+    <code>??</code>.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 5</span>
+    <h4><code>&lt;=&gt;</code> — «kosmik kema»</h4>
+    <div class="natija">1 &lt;=&gt; 2      →  -1     (chap kichik)
+2 &lt;=&gt; 2      →   0     (teng)
+3 &lt;=&gt; 2      →   1     (chap katta)
+"a" &lt;=&gt; "b"  →  -1</div>
+    <p>Bitta amalda uchta javob. Uning asosiy
+    ishlatilishi — <b>saralash</b>:</p>
+    <div class="natija">usort($vakansiyalar, fn ($a, $b) => $a['maosh'] &lt;=&gt; $b['maosh']);</div>
+    <p>🔑 Saralash funksiyalari aynan shu uch qiymatni
+    kutadi: manfiy, nol, musbat.</p>
+    <p>🔍 Kursning davomida Laravel Collection'lari
+    bilan ishlaganda buni yana ko'rasiz — u yerda
+    saralash osonroq yoziladi, lekin <b>ichida</b>
+    shu turadi.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 6</span>
+    <h4>⚠️ Matnlarni solishtirish</h4>
+    <div class="natija">"10" &lt; "9"      →  false    ⚠️ SON sifatida solishtirildi (10 &gt; 9)
+"abc" &lt; "abd"   →  true     ✅ alifbo tartibida
+"Z" &lt; "a"       →  true     ⚠️ katta harflar OLDIN keladi</div>
+    <p>⚠️ Birinchisi tuzoq: ikkala tomon ham matn,
+    lekin ikkalasi ham <b>songa o'xshagani
+    uchun</b> PHP ularni son deb
+    solishtirdi.</p>
+    <p>⚠️ Uchinchisi ham: kompyuter uchun
+    <code>Z</code> (90) <code>a</code> (97) dan
+    <b>kichik</b>.</p>
+    <p>✅ Matnni ishonchli solishtirish uchun
+    <code>strcmp()</code>, registrsiz uchun
+    <code>strcasecmp()</code>.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>Amaliy qoida — qaysi birini tanlash</h4>
+    <div class="natija">===        →  DEFAULT. Shubha bo'lsa shuni yozing.
+==         →  faqat ATAYLAB tipni moslash kerak bo'lsa
+             (va nega ekanini kommentariyada yozing)
+
+??         →  standart qiymat («yo'q bo'lsa, mana bu»)
+?:         →  faqat 0 va "" HAQIQIY qiymat BO'LMAGANDA
+
+match      →  yangi kodda
+switch     →  eski kodni o'qiyotganda tanish bo'lsin
+
+in_array(..., true)   →  har doim uchinchi argument bilan</div>
+    <p>🔑 Bitta jumla bilan: <b>PHP sizga
+    «qulaylik» taklif qiladi, siz esa
+    «aniqlik» ni tanlaysiz</b>.</p>
+    <p>🔍 Kursning davomida bu qoida qayta-qayta
+    o'zini oqlaydi — ayniqsa formadan kelgan
+    ma'lumot bilan ishlaganda, chunki u
+    <b>doim matn</b> bo'lib keladi.</p>
+  </div>
+
   <h2>Sinab ko'ramiz</h2>
 
   <div class="predict">
@@ -532,7 +727,31 @@ uchinchi</div>
       <code>0 == "salom"</code> ning natijasi PHP 8.0 da o'zgargan — eski qo'llanmalarda
       boshqacha yozilgan bo'lishi mumkin, ishonmang, o'zingiz <code>var_dump</code> qilib
       ko'ring.</li>
-    </ol>
+          <li id="fn4">Holatlar bo'limidagi barchasi jonli
+      o'lchangan (PHP <b>8.3.32</b>):
+      <code>==</code>/<code>===</code> jadvali sakkiz juftlik
+      uchun — <code>'0'==0</code>, <code>'1'==1</code>,
+      <code>null==false</code>, <code>[]==false</code>,
+      <code>0==false</code> va ⚠️ <code>'1e2'=='100'</code>
+      <b>true</b>; <code>'abc'==0</code> esa PHP 8 da
+      <b>false</b>; <code>===</code> ustunida
+      <b>hammasi false</b> ·
+      <code>switch ("1")</code> <code>case 1</code> ga
+      <b>tushdi</b>, <code>match(true)</code> bilan
+      <code>$x === 1</code> — <b>tushmadi</b> ·
+      <code>in_array("1", [1,2,3])</code> →
+      <b>true</b>, <code>..., true)</code> →
+      <b>false</b>; <code>in_array(0, ["a","b"])</code> →
+      <b>false</b> ·
+      <code>0 ?: "yo'q"</code> → <code>yo'q</code>,
+      <code>0 ?? "yo'q"</code> → <code>0</code> ·
+      <code>1&lt;=&gt;2</code> = <b>-1</b>,
+      <code>2&lt;=&gt;2</code> = <b>0</b>,
+      <code>3&lt;=&gt;2</code> = <b>1</b> ·
+      <code>"10" &lt; "9"</code> → <b>false</b>,
+      <code>"abc" &lt; "abd"</code> → <b>true</b>,
+      <code>"Z" &lt; "a"</code> → <b>true</b>.</li>
+</ol>
   </section>
 
 </main>

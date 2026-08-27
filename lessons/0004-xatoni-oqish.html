@@ -28,17 +28,50 @@
     <span class="label">Bu darsda nimalar bor</span>
     <ol>
       <li><b>Uch xil xabar, uch xil xatti-harakat</b>
-        <span class="nima"><b>Parse error</b> (kod ishlamaydi) · <b>Warning</b> (davom etadi) · <b>Fatal error</b> (to'xtaydi).</span></li>
+        <span class="nima"><b>Parse error</b> (kod
+        ishlamaydi) · <b>Warning</b> (davom etadi) ·
+        <b>Fatal error</b> (to'xtaydi).</span></li>
       <li><b>Xato xabarining to'rt bo'lagi</b>
-        <span class="nima">Turi · matni · <b>fayl</b> · <b>qator</b>. Qaysi bo'lakdan boshlab o'qish kerak.</span></li>
-      <li><b>Ko'rsatilgan qator har doim to'g'ri emas</b>
-        <span class="nima">Xato 3-qatorda, xabar esa 4-qatorni ko'rsatadi — nega.</span></li>
+        <span class="nima">Turi · matni · fayl ·
+        qator. Qaysi bo'lakdan boshlab o'qish
+        kerak.</span></li>
+      <li><b>⚠️ Ko'rsatilgan qator har doim
+        to'g'ri emas</b>
+        <span class="nima">🔍 O'lchandi: xato
+        <b>2-qatorda</b>, xabar <b>3-qatorni</b>
+        ko'rsatdi.</span></li>
       <li><b>Stack trace</b>
-        <span class="nima">«Bu funksiyaga qayerdan kelgan» degan xarita.</span></li>
-      <li><b>Oq sahifa — vahimaning sababi</b>
-        <span class="nima"><code>display_errors</code> o'chirilganda xato <b>yo'qolmaydi</b>, logga yoziladi.</span></li>
-      <li><b>Xatoni ataylab yasash</b>
-        <span class="nima">Uch xil xatoni o'z qo'lingiz bilan chiqarib, xabarini o'qish.</span></li>
+        <span class="nima">🔍 To'liq o'lchandi:
+        <code>#0 … #1 … #2 … {main}</code> —
+        pastdan yuqoriga o'qiladi.</span></li>
+      <li><b>☠️ Oq sahifa</b>
+        <span class="nima">🔍 Chiqish <b>bo'sh</b>,
+        lekin chiqish kodi <b>255</b>.</span></li>
+      <li><b>🔍 Eng ko'p uchraydigan oltita xato</b>
+        <span class="nima">Aniq matni bilan —
+        keyinchalik tanib olasiz.</span></li>
+      <li><b><code>require</code> va
+        <code>include</code></b>
+        <span class="nima">🔍 Biri <b>to'xtatadi</b>,
+        ikkinchisi <b>davom etadi</b>.</span></li>
+      <li><b><code>php -l</code> — oldindan
+        tekshirish</b>
+        <span class="nima">Faylni ishga tushirmasdan
+        sintaksisni tekshiradi.</span></li>
+      <li><b><code>error_reporting=E_ALL</code></b>
+        <span class="nima">Ogohlantirishlar —
+        <b>kelajakdagi xatolar</b>.</span></li>
+      <li><b><code>TypeError</code> nima demoqchi</b>
+        <span class="nima"><code>must be of type int,
+        string given</code> — 6-darsdan keyin tez-tez
+        uchraydi.</span></li>
+      <li><b>Xatoni o'qish tartibi</b>
+        <span class="nima">Turi → matni → fayl → qator
+        → trace.</span></li>
+      <li><b>Har xil holatlar (7 ta)</b>
+        <span class="nima">Xato turlari ·
+        <code>require</code>/<code>include</code> ·
+        oq sahifa · trace · tartib.</span></li>
     </ol>
   </div>
 
@@ -366,6 +399,190 @@ git commit -m "04-dars: xatoni o'qish"</div>
   </div>
 
   <!-- ═══════════════ 5) TAXMIN + QUIZ ═══════════════ -->
+
+  <!-- ═══════════════ HOLATLAR ═══════════════ -->
+  <h2>Har xil holatlar</h2>
+
+  <p>Yetti holat. Bu bo'lim <b>ma'lumotnoma</b> — hozir bir
+  marta o'qing, keyin xato ko'rganingizda qaytib
+  qarang.</p>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 1</span>
+    <h4>🔍 Eng ko'p uchraydigan oltita xato</h4>
+    <div class="natija">1) echo "A"          ← nuqtali vergul yo'q
+   PHP Parse error: syntax error, unexpected token "echo",
+   expecting "," or ";"
+
+2) yoqFunksiya();
+   PHP Fatal error: Uncaught Error: Call to undefined
+   function yoqFunksiya()
+
+3) echo 1/0;
+   PHP Fatal error: Uncaught DivisionByZeroError: Division by zero
+
+4) echo $a["yoq"];
+   PHP Warning: Undefined variable $a
+   PHP Warning: Trying to access array offset on null
+
+5) require "yoq-fayl.php";
+   PHP Warning: require(yoq-fayl.php): Failed to open stream:
+   No such file or directory
+
+6) function f(int $x) {} f("abc");
+   PHP Fatal error: Uncaught TypeError: f(): Argument #1 ($x)
+   must be of type int, string given</div>
+    <p>🔑 Har birida <b>uch bo'lak</b> bor:
+    <b>turi</b> (Parse / Warning / Fatal) ·
+    <b>nima bo'ldi</b> · <b>qayerda</b>.</p>
+    <p>✅ Xabarni <b>oxiridan</b> emas, <b>boshidan</b>
+    o'qing — tur eng muhim ma'lumot.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 2</span>
+    <h4><code>require</code> va <code>include</code></h4>
+    <div class="natija">require "yoq.php";
+echo "DAVOM ETDI";
+   →  Fatal error, "DAVOM ETDI" CHIQMADI       ← to'xtadi
+
+include "yoq.php";
+echo "DAVOM ETDI";
+   →  Warning, so'ng "DAVOM ETDI" CHIQDI       ← davom etdi</div>
+    <p>🔑 Farq bitta: <code>require</code> — «busiz
+    <b>ishlay olmayman</b>», <code>include</code> —
+    «bo'lsa yaxshi».</p>
+    <p>✅ Amalda deyarli har doim
+    <code>require</code> ishlatiladi. Kodning bir
+    qismi <b>yo'qolgan</b> holda davom etish —
+    kutilmagan natijalarga olib keladi.</p>
+    <p>🔍 <code>_once</code> qo'shimchasi ham bor:
+    <code>require_once</code> faylni <b>ikkinchi
+    marta</b> qo'shmaydi. 12-darsda buning
+    nima uchun muhimligini ko'rasiz.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 3</span>
+    <h4>☠️ Oq sahifa — eng yomon holat</h4>
+    <div class="natija">php -d display_errors=0 x2.php
+
+  (chiqish BO'SH)
+  chiqish kodi: 255</div>
+    <p>Xato <b>bor</b> — chiqish kodi buni aytadi.
+    Lekin ekranda <b>hech narsa yo'q</b>.</p>
+    <p>⚠️ Bu ishlab chiqarish serverining
+    <b>normal</b> sozlamasi: foydalanuvchi
+    xato matnini ko'rmasligi kerak (kursning
+    oxirida nega ekanini raqam bilan
+    ko'rasiz).</p>
+    <p>✅ Lekin xato <b>yo'qolmaydi</b> — u
+    <b>logga</b> yoziladi. Oq sahifa ko'rsangiz,
+    birinchi qadam: <b>log faylini
+    oching</b>.</p>
+    <p>🔑 O'rganish paytida esa
+    <code>display_errors</code> <b>yoqiq</b>
+    bo'lsin — aks holda o'zingizni
+    ko'r qilib qo'yasiz.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 4</span>
+    <h4>Stack trace — «bu yerga qayerdan kelgan»</h4>
+    <div class="natija">function uch() { throw new RuntimeException("chuqurdagi xato"); }
+function ikki() { uch(); }
+function bir()  { ikki(); }
+bir();</div>
+    <div class="natija">PHP Fatal error: Uncaught RuntimeException: chuqurdagi xato in st.php:2
+Stack trace:
+#0 st.php(3): uch()
+#1 st.php(4): ikki()
+#2 st.php(5): bir()
+#3 {main}
+  thrown in st.php on line 2</div>
+    <p>🔑 Uni <b>pastdan yuqoriga</b> o'qing:
+    dastur <code>{main}</code> dan boshlandi →
+    <code>bir()</code> → <code>ikki()</code> →
+    <code>uch()</code> — va o'sha yerda
+    yiqildi.</p>
+    <p>✅ Birinchi qator (<code>st.php:2</code>) —
+    <b>xato joyi</b>. <code>#0</code> —
+    <b>uni kim chaqirgani</b>.</p>
+    <p>🔍 Katta loyihada trace o'nlab qatorli
+    bo'ladi. Sizga kerak bo'lgani —
+    <b>o'z faylingiz</b> nomi ko'ringan
+    birinchi qator.</p>
+  </div>
+
+  <div class="holat">
+    <span class="holat-n">HOLAT 5</span>
+    <h4>Xatoni oldindan tutish</h4>
+    <div class="natija">php -l fayl.php        ← faqat sintaksisni tekshiradi, ishga tushirmaydi
+                          "No syntax errors detected"  yoki  Parse error
+
+php -d error_reporting=E_ALL fayl.php
+                       ← HAMMA ogohlantirishni ko'rsatadi</div>
+    <p>✅ <code>-l</code> ni saqlashdan keyin bir
+    soniyada bajarish mumkin — u
+    <b>Parse error</b> larni topadi.</p>
+    <p>⚠️ Lekin u <b>faqat sintaksisni</b>
+    tekshiradi: <code>yoqFunksiya()</code> yoki
+    <code>1/0</code> ni <b>ko'rmaydi</b>, chunki
+    bular ishga tushgandagina bilinadi.</p>
+    <p>🔑 Ikkinchisi muhimroq:
+    <code>error_reporting=E_ALL</code> bilan PHP
+    sizga <b>hamma</b> ogohlantirishni aytadi.
+    Ular kelajakdagi xatolar.</p>
+  </div>
+
+  <div class="holat yomon">
+    <span class="holat-n">HOLAT 6</span>
+    <h4>⚠️ Ko'rsatilgan qator har doim to'g'ri emas</h4>
+    <div class="natija">1  &lt;?php
+2  echo "A"          ← HAQIQIY xato shu yerda (; yo'q)
+3  echo "B";
+
+PHP Parse error: ... in x1.php on line 3      ⚠️ 3-qator deydi</div>
+    <p>Sabab: PHP 2-qatorni o'qidi, nuqtali
+    vergul topmadi va <b>davomini kutdi</b>.
+    3-qatordagi <code>echo</code> ni
+    ko'rgach — «bu yerda bo'lmasligi kerak»
+    dedi.</p>
+    <p>🔑 Qoida: <b>Parse error</b> ko'rsangiz,
+    ko'rsatilgan qatordan <b>yuqoriga</b> ham
+    qarang — ayniqsa oldingi qator oxiriga.</p>
+    <p>✅ Eng ko'p sabablar: tushib qolgan
+    <code>;</code> · yopilmagan
+    <code>"</code> · yopilmagan
+    <code>{</code> yoki <code>(</code>.</p>
+  </div>
+
+  <div class="holat yaxshi">
+    <span class="holat-n">HOLAT 7</span>
+    <h4>Xatoni o'qish tartibi</h4>
+    <div class="natija">1) TURI       →  Parse? Warning? Fatal?
+                    Parse  = kod umuman ishlamadi
+                    Warning = ishladi, lekin nimadir noto'g'ri
+                    Fatal   = o'rtada to'xtadi
+
+2) MATNI      →  "undefined function" · "must be of type"
+                 Tanish bo'lmasa — AYNAN shu jumlani qidiring
+
+3) FAYL       →  sizniki mi yoki kutubxonaniki?
+                 Kutubxonanikida bo'lsa — sabab baribir SIZDA
+
+4) QATOR      →  ± bir-ikki qator (HOLAT 6)
+
+5) TRACE      →  pastdan yuqoriga (HOLAT 4)</div>
+    <p>🔑 Va eng muhim odat: <b>xatoni
+    o'qing</b>. Ko'pchilik uni ko'rmasdan
+    kodga qaytadi va taxmin qila boshlaydi —
+    bu eng ko'p vaqt yo'qotadigan
+    yo'l.</p>
+    <p>✅ Xato — jazo emas, <b>manzil</b>. Bu
+    darsning nomi ham shundan.</p>
+  </div>
+
   <h2>Sinab ko'ramiz</h2>
 
   <div class="predict">
@@ -541,7 +758,34 @@ echo "uchinchi", PHP_EOL;</code>
       shundayligicha ko'chirilgan. Xabar matni PHP versiyalari orasida ozgina farq
       qilishi mumkin — masalan aniqlanmagan o'zgaruvchi PHP 8 dan boshlab
       <code>Warning</code>, undan oldin <code>Notice</code> edi.</li>
-    </ol>
+          <li id="fn4">Holatlar bo'limidagi barcha xato
+      xabarlari jonli olingan (PHP <b>8.3.32</b>):
+      <code>Parse error: syntax error, unexpected token
+      "echo", expecting "," or ";"</code> ·
+      <code>Fatal error: Uncaught Error: Call to undefined
+      function yoqFunksiya()</code> ·
+      <code>Fatal error: Uncaught DivisionByZeroError:
+      Division by zero</code> ·
+      <code>Warning: Undefined variable $a</code> va
+      <code>Warning: Trying to access array offset on
+      null</code> ·
+      <code>Warning: require(yoq-fayl.php): Failed to open
+      stream: No such file or directory</code> ·
+      <code>Fatal error: Uncaught TypeError: f(): Argument
+      #1 ($x) must be of type int, string given</code> ·
+      <code>require</code> dan keyin
+      <code>"DAVOM ETDI"</code> <b>chiqmadi</b>,
+      <code>include</code> dan keyin <b>chiqdi</b> ·
+      <code>display_errors=0</code> bilan chiqish
+      <b>bo'sh</b>, lekin chiqish kodi <b>255</b> ·
+      stack trace to'liq o'lchandi:
+      <code>#0 st.php(3): uch()</code>,
+      <code>#1 st.php(4): ikki()</code>,
+      <code>#2 st.php(5): bir()</code>,
+      <code>#3 {main}</code> ·
+      ⚠️ nuqtali vergul 2-qatorda tushib qolganda xabar
+      <b>3-qatorni</b> ko'rsatdi.</li>
+</ol>
   </section>
 
 </main>
